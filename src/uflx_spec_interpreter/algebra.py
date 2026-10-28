@@ -9,7 +9,6 @@ from .nodes import (
     Gradient,
     Index,
     Indexed,
-    Inv,
     ISum,
     Num,
     Prod,
@@ -82,11 +81,6 @@ def gram(J):
 def tangent_gram(J, P):
     # JᵀJ + I - Π is invertible on a parameter domain of lower dimension, where JᵀJ is not.
     return add(gram(J), identity(ambient_dim(P)), negate(Gradient(Coordinate(P), P)))
-
-
-def tangent_inverse(J, P):
-    # (JᵀJ + I - Π)⁻¹ Jᵀ is the pseudo-inverse of J on the tangent space of P.
-    return matmul(Inv(tangent_gram(J, P)), transpose(J))
 
 
 def determinant(M, n):

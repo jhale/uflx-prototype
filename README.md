@@ -19,6 +19,7 @@ The language itself is split by concern:
 - `domains.py`: domains, domain maps and their cells
 - `substitution.py`: traversal, freshening and simultaneous substitution
 - `commuting.py`: the commuting node classes, into which an evaluated node moves
+- `geometry.py`: the Jacobian matrix, its inverse on the tangent space, and the density
 - `static.py`: static types
 - `algebra.py`: the matrix compositions the passes share
 

@@ -1,4 +1,4 @@
-from ..algebra import dot, matvec, minus, scale, tangent_inverse, transpose, unit
+from ..algebra import dot, matvec, minus, scale, transpose, unit
 from ..domains import (
     CellMap,
     CoordDomain,
@@ -6,9 +6,9 @@ from ..domains import (
     DomainMap,
     Gathered,
     SideMap,
-    ambient_dim,
     topdim,
 )
+from ..geometry import inverse_jacobian
 from ..nodes import (
     CT,
     Abs,
@@ -18,7 +18,6 @@ from ..nodes import (
     Gradient,
     Index,
     Indexed,
-    Inv,
     ISum,
     Normal,
     Num,
@@ -51,11 +50,8 @@ def pb(f, m):
             return PullBack(f, m)
         case Gradient(_, Q) if topdim(m.P) < topdim(Q):
             return PullBack(f, m)
-        case Gradient(g, _) if topdim(m.P) == ambient_dim(m.P):
-            return contract_gradient(Gradient(pb(g, m), m.P), Inv(jacobian(m)), f, m)
         case Gradient(g, _):
-            K = tangent_inverse(jacobian(m), m.P)
-            return contract_gradient(Gradient(pb(g, m), m.P), K, f, m)
+            return contract_gradient(Gradient(pb(g, m), m.P), inverse_jacobian(m), f, m)
         case Normal() if isinstance(m, CellMap) and m.D == f.E:
             return normal(f, m)
         case Fn() | Normal() | Coordinate():
@@ -73,10 +69,6 @@ def broadcast(f, m):
 def pointwise(f, m):
     fresh = freshen(f, [m.psi]) if f.scope else f
     return map_fields(fresh, lambda x: x if isinstance(x, NOT_EXPRESSIONS) else pb(x, m))
-
-
-def jacobian(m):
-    return Gradient(m.psi, m.P)
 
 
 def fresh(f, m, n):
@@ -109,7 +101,7 @@ def normal(f, m):
     m0 = Tensor((t[1], Prod(Num(-1), t[0])))
     away = dot(m0, Tensor(tuple(minus(a, Num(1 / 3)) for a in p0)))
     mhat = scale(Div(away, Abs(away)), m0)
-    K = Inv(PullBack(jacobian(B), A))
+    K = pb(inverse_jacobian(B), A)
     return unit(matvec(transpose(K), mhat))
 
 

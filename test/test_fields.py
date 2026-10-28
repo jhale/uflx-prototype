@@ -7,6 +7,7 @@ from test_integrals import K
 from testutil import assert_clean
 
 from uflx_spec_interpreter.domains import cell_domain
+from uflx_spec_interpreter.geometry import density
 from uflx_spec_interpreter.nodes import (
     Action,
     Conj,
@@ -61,7 +62,7 @@ def integral_of(rnd, body):
     if rnd.random() < 0.7:
         return Integral(body, MESH)
     cells = cell_domain(MESH, 0)
-    return ISum(Integral(Prod(PullBack(body, cells), integrals.density(cells)), K), (c,))
+    return ISum(Integral(Prod(PullBack(body, cells), density(cells)), K), (c,))
 
 
 def form(rnd, n, depth):
