@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, final
 
 from .base import AbstractExpression, Base
 from .indices import Index
+from .topology import AbstractCellType
 
 if TYPE_CHECKING:
     from .indices import AbstractIndexValue, GatheredIndex
 
 
 class AbstractDomain(Base):
-    # A domain states its dimension, its ambient domain and its ambient coordinate domain.
     @property
     @abstractmethod
     def dimension(self) -> int: ...
@@ -22,18 +22,12 @@ class AbstractDomain(Base):
     def ambient_domain(self) -> AbstractDomain: ...
 
     @property
-    @abstractmethod
-    def ambient_coordinate_domain(self) -> CoordinateDomain: ...
+    def ambient_coordinate_domain(self) -> AbstractCoordinateDomain:
+        # The first coordinate domain among the ambient domains.
+        return self.ambient_domain.ambient_coordinate_domain
 
 
-@final
-class CoordinateDomain(AbstractDomain):
-    identifier = "toy.CoordinateDomain"
-    # A coordinate domain, which stands for both RD and a reference cell.
-    name: str
-    dimension: int
-    opaque = ("name", "dimension")
-
+class AbstractCoordinateDomain(AbstractDomain):
     @property
     def ambient_domain(self):
         return self
@@ -41,6 +35,20 @@ class CoordinateDomain(AbstractDomain):
     @property
     def ambient_coordinate_domain(self):
         return self
+
+
+@final
+class RD(AbstractCoordinateDomain):
+    identifier = "uflx.RD"
+    dimension: int
+    opaque = ("dimension",)
+
+
+class AbstractReferenceCell(AbstractCoordinateDomain, AbstractCellType):
+    # A cell type whose vertices have coordinates, row v of value shape (m, n) for vertex v.
+    @property
+    @abstractmethod
+    def vertices(self) -> AbstractExpression: ...
 
 
 @final
@@ -63,10 +71,6 @@ class DecomposedDomain(AbstractDomain):
     @property
     def ambient_domain(self):
         return self.pieces[0].ambient_domain
-
-    @property
-    def ambient_coordinate_domain(self):
-        return self.ambient_domain.ambient_coordinate_domain
 
     @property
     def dimension(self):

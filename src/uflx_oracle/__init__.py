@@ -4,13 +4,13 @@ import numpy as np
 
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
+    AbstractCoordinateDomain,
     AbstractExtent,
     Action,
     CellMap,
     ComponentTensor,
     Conjugate,
     Coordinate,
-    CoordinateDomain,
     DecomposedDomain,
     DirectionalDerivative,
     Division,
@@ -145,7 +145,8 @@ def locate(P, x):
 
 def integrate(P, fn):
     # The integral of fn over P, with fn reading the point of P from POINTS.
-    if isinstance(P, CoordinateDomain):
+    if isinstance(P, AbstractCoordinateDomain):
+        # The rules are on the unit simplex, so a coordinate domain of dimension 1 or more is one.
         if P.dimension == 0:
             rule = [(np.zeros(0), 1.0)]
         elif P.dimension == 1:
@@ -163,7 +164,7 @@ def integrate(P, fn):
 
             def mapped(inner, piece=piece, psi=psi, members=members):
                 y = np.real(np.asarray(psi(())))
-                if isinstance(piece.parameter_domain, CoordinateDomain):
+                if isinstance(piece.parameter_domain, AbstractCoordinateDomain):
                     ref = POINTS[piece.parameter_domain]
                     chart_in = lambda X: X
                 else:
@@ -441,7 +442,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return gradient
         case Integral(b, P):
-            if isinstance(P, CoordinateDomain):
+            if isinstance(P, AbstractCoordinateDomain):
                 fb = ev(b)
                 return lambda vals: integrate(P, lambda members: fb(vals))
             fs = {}

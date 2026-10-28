@@ -15,7 +15,6 @@ from ._src.arithmetic import (
 from ._src.calculus import coordinate, directional_derivative, gradient, integral
 from ._src.domains import (
     cell_domain,
-    coordinate_domain,
     decomposed_domain,
     gathered_cell_domain,
     normal,
@@ -26,6 +25,7 @@ from ._src.geometry import density, inverse_jacobian, jacobian
 from ._src.indices import ellipsis_index, gathered_index, index
 from ._src.literals import num
 from ._src.maps import domain_map, pull_back
+from ._src.nodes import RD
 from ._src.passes.actions import apply_actions
 from ._src.passes.derivatives import apply_derivatives
 from ._src.passes.gateaux import apply_gateaux_derivatives
@@ -45,9 +45,9 @@ from ._src.tensors import (
     transpose,
 )
 
-# The free functions of the specification, the stand-in coordinate_domain until
-# the core has the classes of the specification, and the short name num.
+# The free functions of the specification, the class RD, and the short name num.
 __all__ = [
+    "RD",
     "absolute",
     "action",
     "add",
@@ -61,7 +61,6 @@ __all__ = [
     "conjugate",
     "conjugate_space",
     "coordinate",
-    "coordinate_domain",
     "decomposed_domain",
     "density",
     "determinant",

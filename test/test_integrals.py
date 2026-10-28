@@ -7,10 +7,10 @@ from testutil import assert_clean, check_types, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    RD,
     add,
     component_tensor,
     coordinate,
-    coordinate_domain,
     decomposed_domain,
     domain_map,
     function,
@@ -24,10 +24,11 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter._src.static import free, shape
+from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 
-R2 = coordinate_domain("R2", 2)
-K = coordinate_domain("K", 2)
+R2 = RD(2)
+K = reference_simplex(2)
 X = coordinate(K)
 k = index("k")
 c = index("c")
@@ -68,7 +69,7 @@ D = decomposed_domain((domain_map(K, psi_c, R2),))
 Dp = decomposed_domain(
     (
         domain_map(
-            coordinate_domain("pt", 0),
+            RD(0),
             component_tensor(
                 indexed(
                     tensor(

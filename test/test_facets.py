@@ -10,7 +10,6 @@ from uflx_spec_interpreter import (
     add,
     component_tensor,
     coordinate,
-    coordinate_domain,
     decomposed_domain,
     domain_map,
     function,
@@ -35,10 +34,11 @@ from uflx_spec_interpreter._src.nodes import (
     SideMap,
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
+from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
 
-I = coordinate_domain("I", 1)
+I = reference_simplex(1)
 k, e = index("k"), index("e")
 
 

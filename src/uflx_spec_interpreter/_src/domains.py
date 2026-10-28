@@ -1,4 +1,4 @@
-from .nodes import CellMap, CoordinateDomain, DecomposedDomain, DomainMap, Normal, SideMap
+from .nodes import CellMap, DecomposedDomain, DomainMap, Normal, SideMap
 
 
 def cell_domain(D, j):
@@ -8,10 +8,6 @@ def cell_domain(D, j):
     if family:
         return CellMap(D, j, family[0])
     return DomainMap(piece.parameter_domain, piece.parameterisation, D)
-
-
-def coordinate_domain(name, dimension):
-    return CoordinateDomain(name, dimension)
 
 
 def decomposed_domain(pieces):

@@ -21,6 +21,7 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_spec_interpreter._src.passes import pullbacks
 from uflx_spec_interpreter._src.static import free
 from uflx_spec_interpreter._src.substitution import rebuild
+from uflx_toy.cells import reference_simplex
 from uflx_toy.nodes import IndexTable
 from uflx_toy.spaces import space
 
@@ -37,7 +38,7 @@ OTHERS = {
         "ConjugateSpace",
         "DualSpace",
         "GatheredIndex",
-        "CoordinateDomain",
+        "RD",
         "DecomposedDomain",
         "DomainMap",
         "CellMap",
@@ -120,8 +121,11 @@ def test_every_concrete_class_is_final():
 def test_a_domain_is_a_contract():
     with pytest.raises(TypeError):
         nodes.AbstractDomain()
-    K = nodes.CoordinateDomain("K", 2)
-    assert K.dimension == 2 and K.ambient_domain is K and isinstance(K, nodes.AbstractDomain)
+    with pytest.raises(TypeError):
+        nodes.AbstractCoordinateDomain()
+    R = nodes.RD(2)
+    assert R.dimension == 2 and R.ambient_domain is R and R.ambient_coordinate_domain is R
+    assert isinstance(R, nodes.AbstractCoordinateDomain) and R != nodes.RD(3)
 
 
 def test_nodes_are_immutable_and_take_their_arguments():
@@ -154,3 +158,11 @@ def test_a_gathered_index_reads_an_index_value_and_gathers_nest():
     # With i = 0 and j = 0, the inner table gives 1, the outer table gives table[0][1] = 1.
     assert evaluate(a, {}, {i: 0, j: 0})(()) == 20.0
     assert evaluate(a, {}, {i: 1, j: 0})(()) == 10.0
+
+
+def test_a_reference_cell_is_a_coordinate_domain_and_a_cell_type():
+    K = reference_simplex(2)
+    assert isinstance(K, nodes.AbstractCoordinateDomain) and isinstance(K, nodes.AbstractCellType)
+    assert K.dimension == 2 and K.num_vertices == 3 and K.vertices.value_shape == (3, 2)
+    assert reference_simplex(0).vertices.value_shape == (1, 0)
+    assert K != nodes.RD(2) and reference_simplex(0) != nodes.RD(0)

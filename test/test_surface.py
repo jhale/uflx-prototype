@@ -8,10 +8,10 @@ from testutil import assert_clean, check_types, contains, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    RD,
     add,
     component_tensor,
     coordinate,
-    coordinate_domain,
     decomposed_domain,
     domain_map,
     function,
@@ -37,11 +37,12 @@ from uflx_spec_interpreter._src.nodes import (
     SideMap,
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
+from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
 
-R3 = coordinate_domain("R3", 3)
-I = coordinate_domain("I", 1)
+R3 = RD(3)
+I = reference_simplex(1)
 k, c, e, i = index("k"), index("c"), index("e"), index("i")
 
 # A surface folded along its diagonal: two triangles that are not coplanar.

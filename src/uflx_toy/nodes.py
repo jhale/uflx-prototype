@@ -9,6 +9,10 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractExtent,
     AbstractFunctionSpace,
     AbstractIndexValue,
+    AbstractReferenceCell,
+    Integer,
+    Tensor,
+    Zero,
 )
 
 
@@ -59,3 +63,27 @@ class Space(AbstractFunctionSpace):
     scalar_type: str
     opaque = ("name", "value_shape", "domain", "scalar_type")
     argument_spaces = ()
+
+
+@final
+class ReferenceSimplex(AbstractReferenceCell):
+    identifier = "toy.ReferenceSimplex"
+    # The unit simplex, with vertex 0 at the origin and vertex v the unit vector e_(v-1).
+    dimension: int
+    opaque = ("dimension",)
+
+    @property
+    def num_vertices(self):
+        return self.dimension + 1
+
+    @property
+    def vertices(self):
+        n = self.dimension
+        if n == 0:
+            return Zero((1, 0), (), ())
+        return Tensor(
+            tuple(
+                Tensor(tuple(Integer(1 if k == v - 1 else 0) for k in range(n)))
+                for v in range(n + 1)
+            )
+        )

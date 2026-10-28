@@ -19,9 +19,11 @@ def spec_signatures():
 def test_the_public_free_functions_take_the_parameters_of_the_specification():
     spec = spec_signatures()
     # side_map takes the side tables until the core has topologies.
-    stand_ins = {"coordinate_domain", "num", "side_map"}
+    stand_ins = {"num", "side_map"}
     for name in uflx_spec_interpreter.__all__:
         if name in stand_ins:
+            continue
+        if inspect.isclass(getattr(uflx_spec_interpreter, name)):
             continue
         params = list(inspect.signature(getattr(uflx_spec_interpreter, name)).parameters)
         assert params == spec[name], name

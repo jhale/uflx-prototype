@@ -12,7 +12,16 @@ from .arithmetic import (
 )
 from .base import AbstractExpression, Base
 from .calculus import Coordinate, DirectionalDerivative, Gradient, Integral, Normal, PullBack
-from .domains import AbstractDomain, CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap
+from .domains import (
+    RD,
+    AbstractCoordinateDomain,
+    AbstractDomain,
+    AbstractReferenceCell,
+    CellMap,
+    DecomposedDomain,
+    DomainMap,
+    SideMap,
+)
 from .forms import Action, Form, Function, GateauxDerivative
 from .indices import (
     AbstractExtent,
@@ -24,14 +33,19 @@ from .indices import (
 from .literals import Float, ImaginaryUnit, Integer, Zero
 from .spaces import AbstractFunctionSpace, ConjugateSpace, DualSpace
 from .tensors import ComponentTensor, Indexed, IndexSum, Inverse, Tensor
+from .topology import AbstractCellType
 
 __all__ = [
+    "RD",
     "Absolute",
+    "AbstractCellType",
+    "AbstractCoordinateDomain",
     "AbstractDomain",
     "AbstractExpression",
     "AbstractExtent",
     "AbstractFunctionSpace",
     "AbstractIndexValue",
+    "AbstractReferenceCell",
     "Action",
     "Base",
     "CellMap",
@@ -39,7 +53,6 @@ __all__ = [
     "Conjugate",
     "ConjugateSpace",
     "Coordinate",
-    "CoordinateDomain",
     "DecomposedDomain",
     "DirectionalDerivative",
     "Division",

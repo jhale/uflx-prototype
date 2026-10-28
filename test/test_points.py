@@ -9,10 +9,10 @@ from testutil import assert_clean, check_types, contains, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    RD,
     add,
     component_tensor,
     coordinate,
-    coordinate_domain,
     decomposed_domain,
     domain_map,
     function,
@@ -31,7 +31,7 @@ from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
 
 i, k = index("i"), index("k")
-POINT = coordinate_domain("pt", 0)
+POINT = RD(0)
 
 
 def points(coordinates, Q):

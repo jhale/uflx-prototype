@@ -3,8 +3,8 @@ from testutil import contains
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    RD,
     coordinate,
-    coordinate_domain,
     domain_map,
     index,
     index_sum,
@@ -21,11 +21,12 @@ from uflx_spec_interpreter._src.passes import (
     integrals,
     pullbacks,
 )
+from uflx_toy.cells import reference_simplex
 from uflx_toy.runtime import runtime_array, runtime_extent
 
 i = index("i")
 q, r = runtime_extent("q"), runtime_extent("r")
-T, POINT = coordinate_domain("T", 2), coordinate_domain("pt", 0)
+T, POINT = reference_simplex(2), RD(0)
 points, weights = runtime_array("points", (q, 2)), runtime_array("weights", (q,))
 X = coordinate(T)
 f = X[0] * X[0] * X[1] + num(3) * X[0]
