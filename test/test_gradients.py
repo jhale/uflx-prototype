@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 from test_integrals import K
-from testutil import assert_clean, contains, static_type
+from testutil import assert_clean, check_types, contains, static_type
 
 import uflx_oracle as oracle
 from uflx_oracle import evaluate
@@ -115,6 +115,7 @@ def run(trials):
         if contains(e, needs_pass):
             bad["lazy"] += 1
             bad["rejected"] += not gradients.in_n6(e)
+        check_types(bad, e, out)
         if static_type(e) != static_type(out):
             bad["static"] += 1
         bad["grammar"] += not gradients.in_n6(out)

@@ -2,7 +2,7 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, contains, pairing
+from testutil import assert_clean, check_types, contains, pairing
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -57,7 +57,9 @@ def scalar(rnd, depth):
     return directional_derivative(multiply(u, a), u, h, u)
 
 
-def random_form(rnd, n, depth):
+def random_form(rnd, kinds, depth):
+    # One kind for each argument, True for an entry conjugate(v), which is antilinear.
+    n = len(kinds)
     if depth == 0 or rnd.random() < 0.25:
         if n == 0:
             return scalar(rnd, 2)
@@ -65,28 +67,31 @@ def random_form(rnd, n, depth):
         body = scalar(rnd, 2)
         for b in names:
             body = multiply(conjugate(b) if rnd.random() < 0.3 else b, body)
-        entries = tuple(conjugate(b) if rnd.random() < 0.3 else b for b in names)
+        entries = tuple(conjugate(b) if k else b for b, k in zip(names, kinds, strict=True))
         return form(body, entries)
     op = rnd.randrange(8)
     if op == 0:
-        return add(random_form(rnd, n, depth - 1), random_form(rnd, n, depth - 1))
+        return add(random_form(rnd, kinds, depth - 1), random_form(rnd, kinds, depth - 1))
     if op == 1:
         k = rnd.randrange(n + 1)
-        return multiply(random_form(rnd, k, depth - 1), random_form(rnd, n - k, depth - 1))
+        first, second = kinds[:k], kinds[k:]
+        return multiply(random_form(rnd, first, depth - 1), random_form(rnd, second, depth - 1))
     if op == 2:
-        return divide(random_form(rnd, n, depth - 1), num(3))
+        return divide(random_form(rnd, kinds, depth - 1), num(3))
     if op == 3:
-        return conjugate(random_form(rnd, n, depth - 1))
+        return conjugate(random_form(rnd, tuple(not k for k in kinds), depth - 1))
     if op == 4:
-        return directional_derivative(random_form(rnd, n, depth - 1), u, h, u)
+        return directional_derivative(random_form(rnd, kinds, depth - 1), u, h, u)
     if op == 5:
         return indexed(
-            tensor((random_form(rnd, n, depth - 1), random_form(rnd, n, depth - 1))),
+            tensor((random_form(rnd, kinds, depth - 1), random_form(rnd, kinds, depth - 1))),
             (rnd.randrange(2),),
         )
     if op == 6:
-        return index_sum(multiply(indexed(c, (i,)), random_form(rnd, n, depth - 1)), (i,))
-    return action(random_form(rnd, n + 1, depth - 1), rnd.randrange(n + 1), scalar(rnd, 2))
+        return index_sum(multiply(indexed(c, (i,)), random_form(rnd, kinds, depth - 1)), (i,))
+    p = rnd.randrange(n + 1)
+    inner = (*kinds[:p], rnd.random() < 0.3, *kinds[p:])
+    return action(random_form(rnd, inner, depth - 1), p, scalar(rnd, 2))
 
 
 def main(trials):
@@ -94,12 +99,14 @@ def main(trials):
     env = {f: complex(*rng.normal(size=2)) for f in POOL + BOUND}
     env[U] = rng.normal(size=2) + 1j * rng.normal(size=2)
     failures, not_n1, n_actions, lazy, rejected = 0, 0, 0, 0, 0
+    typed = {}
     for seed in range(trials):
         rnd = random.Random(seed)
-        n = rnd.randrange(3)
-        e = random_form(rnd, n, 4)
+        kinds = tuple(rnd.random() < 0.3 for _ in range(rnd.randrange(3)))
+        e = random_form(rnd, kinds, 4)
         n_actions += str(e).count("Action(")
         out = actions.apply_actions(e)
+        check_types(typed, e, out)
         vals = tuple(complex(*rng.normal(size=2)) for _ in range(arity(e)))
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-4):
@@ -119,7 +126,7 @@ def main(trials):
         f"{not_n1} not in N2; "
         f"N2 rejected {rejected} of {lazy} inputs with an action to apply"
     )
-    return dict(value=failures, grammar=not_n1, lazy=lazy, rejected=rejected)
+    return dict(value=failures, grammar=not_n1, lazy=lazy, rejected=rejected) | typed
 
 
 if __name__ == "__main__":

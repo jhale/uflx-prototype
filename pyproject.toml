@@ -19,6 +19,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["test"]
 pythonpath = ["test"]
+addopts = "-n 6"
 
 [tool.coverage.run]
 branch = true

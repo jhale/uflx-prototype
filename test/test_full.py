@@ -3,7 +3,7 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, contains, pairing, static_type
+from testutil import assert_clean, check_types, contains, pairing, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -12,6 +12,7 @@ from uflx_spec_interpreter import (
     add,
     component_tensor,
     conjugate,
+    conjugate_space,
     directional_derivative,
     divide,
     dual_space,
@@ -153,16 +154,28 @@ def derivative(rnd, body, nd):
     return directional_derivative(f, x, direction, point)
 
 
+# A spec names the space of an argument, "V" or "W", with a star for an entry conjugate(v).
+def base(spec):
+    return spec.rstrip("*")
+
+
+def flip(spec):
+    # The spec of the conjugate of a form, whose linear arguments become antilinear.
+    if isinstance(spec, tuple):
+        return tuple(map(flip, spec))
+    return base(spec) if spec.endswith("*") else spec + "*"
+
+
 def argument(rnd, spec):
     if isinstance(spec, tuple):
         return tuple(argument(rnd, s) for s in spec)
-    return scalar(rnd, 2) if spec == "V" else vector(rnd, 1)
+    return scalar(rnd, 2) if base(spec) == "V" else vector(rnd, 1)
 
 
 def entry_value(rng, spec):
     if isinstance(spec, tuple):
         return tuple(entry_value(rng, s) for s in spec)
-    if spec == "V":
+    if base(spec) == "V":
         return 0.3 * complex(*rng.normal(size=2))
     return 0.3 * (rng.normal(size=2) + 1j * rng.normal(size=2))
 
@@ -172,16 +185,20 @@ def leaf_form(rnd, specs):
     for spec in specs:
         members = []
         for s in spec if isinstance(spec, tuple) else (spec,):
-            fn = rnd.choice([b for b in BOUND[s] if b not in used])
+            fn = rnd.choice([b for b in BOUND[base(s)] if b not in used])
             used.add(fn)
-            body = multiply(fn if s == "V" else dot(fn, U), body)
-            members.append(conjugate(fn) if rnd.random() < 0.3 else fn)
+            entry = conjugate(fn) if s.endswith("*") else fn
+            body = multiply(entry if base(s) == "V" else dot(entry, U), body)
+            members.append(entry)
         entries.append(tuple(members) if isinstance(spec, tuple) else members[0])
     return form(body, tuple(entries))
 
 
 def spaces(spec):
-    return tuple(map(spaces, spec)) if isinstance(spec, tuple) else {"V": V, "W": W}[spec]
+    if isinstance(spec, tuple):
+        return tuple(map(spaces, spec))
+    space = {"V": V, "W": W}[base(spec)]
+    return conjugate_space(space) if spec.endswith("*") else space
 
 
 def random_form(rnd, specs, depth):
@@ -198,7 +215,7 @@ def random_form(rnd, specs, depth):
             random_form(rnd, specs[:k], depth - 1), random_form(rnd, specs[k:], depth - 1)
         )
     if op == 2:
-        return conjugate(random_form(rnd, specs, depth - 1))
+        return conjugate(random_form(rnd, [flip(spec) for spec in specs], depth - 1))
     if op == 3:
         return divide(random_form(rnd, specs, depth - 1), num(3))
     if op == 4:
@@ -210,7 +227,7 @@ def random_form(rnd, specs, depth):
             tensor((random_form(rnd, specs, depth - 1), random_form(rnd, specs, depth - 1))),
             (rnd.randrange(2),),
         )
-    spec = rnd.choice(["V", "W", ("V", "W"), ("V", "V")])
+    spec = rnd.choice(["V", "W", "V*", ("V", "W"), ("V", "V"), ("V*", "W")])
     p = rnd.randrange(len(specs) + 1)
     inner = [*specs[:p], spec, *specs[p:]]
     return action(random_form(rnd, inner, depth - 1), p, argument(rnd, spec))
@@ -229,9 +246,10 @@ def main(trials):
     lazy, rejected = 0, 0
     for seed in range(trials):
         rnd = random.Random(seed)
-        specs = rnd.choice([[], ["V"], ["W"], [("V", "W")], ["V", "W"]])
+        specs = rnd.choice([[], ["V"], ["W"], ["V*"], [("V", "W")], ["V", "W"], ["V*", "W*"]])
         e = random_form(rnd, specs, 3)
         out = derivatives.apply_derivatives(actions.apply_actions(e))
+        check_types(bad, e, out)
         if static_type(e) != static_type(out):
             bad["static"] += 1
             if bad["static"] <= 2:

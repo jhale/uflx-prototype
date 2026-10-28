@@ -1,9 +1,10 @@
 # Negative controls: each breaks the passes on purpose, and the tests must notice.
+import test_pipeline
 import test_random
 
 from uflx_spec_interpreter import action, form, function, multiply, num
-from uflx_spec_interpreter._src import substitution
-from uflx_spec_interpreter._src.passes import actions
+from uflx_spec_interpreter._src import static, substitution
+from uflx_spec_interpreter._src.passes import actions, derivatives
 from uflx_toy.spaces import space
 
 
@@ -29,3 +30,13 @@ def test_sequential_substitution_captures(monkeypatch):
 
     monkeypatch.setattr(actions, "substitute", sequential)
     assert actions.apply_actions(e) == multiply(num(2), num(2))
+
+
+def test_a_zero_without_argument_spaces_is_ill_typed(monkeypatch):
+    # The values do not change, so only the check of the argument spaces notices.
+    def without_spaces(f, spaces, *others):
+        return static.zero_like(f, (), *others)
+
+    monkeypatch.setattr(derivatives, "zero_like", without_spaces)
+    counts = test_pipeline.main(1000)
+    assert counts["typed"] > 0 and counts["value"] == 0

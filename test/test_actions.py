@@ -1,4 +1,5 @@
 import numpy as np
+from testutil import ill_typed
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -39,6 +40,7 @@ def check(name, e, ienv=None):
     after = evaluate(out, env, ienv)(args[:n])
     assert np.allclose(before, after, atol=1e-6), name
     assert actions.in_n2(out), name
+    assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))
     return out
 
 

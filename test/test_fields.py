@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from test_integrals import D as MESH
 from test_integrals import K
-from testutil import assert_clean
+from testutil import assert_clean, check_types
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -91,6 +91,7 @@ def main(trials):
         n = rnd.randrange(2)
         e = random_form(rnd, n, 2)
         out = integrals.expand_integrals(derivatives.apply_derivatives(actions.apply_actions(e)))
+        check_types(bad, e, out)
         vals = tuple(args[: arity(e)])
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-6):

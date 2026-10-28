@@ -88,13 +88,15 @@ evaluates the classes of `uflx_toy` too, and reads the values of an
 
 The tests in `test/` check on random expressions that a pass keeps the value
 and the static type, that its output is in its grammar, and that the grammar
-rejects its inputs. `test_controls.py` breaks the passes on purpose and checks
+rejects its inputs. The construction rules of the argument spaces are checked in the
+tests, by `ill_typed` in `test/testutil.py`, on the input and the output of
+every pass, since the constructors do not validate. `test_controls.py` breaks the passes on purpose and checks
 that the tests notice. Each random test also runs as a script, with the number
 of trials as its argument, and prints its counts.
 
 ```
 pip install -e ".[test,lint]"
-pytest -n auto
+pytest                # on 6 workers, set in pyproject.toml
 ruff check . && ruff format --check .
 coverage run -m pytest && coverage report
 python test/test_full.py 100

@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from test_facets import table
 from test_integrals import K
-from testutil import assert_clean, contains, static_type
+from testutil import assert_clean, check_types, contains, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -187,6 +187,7 @@ def check(name, e, env, bad, rows):
     ):
         bad["lazy"] += 1
         bad["rejected"] += not pullbacks.in_n5(out3)
+    check_types(bad, e, out)
     if static_type(e) != static_type(out):
         bad["static"] += 1
     bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))

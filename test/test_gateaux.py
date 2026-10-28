@@ -2,7 +2,7 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean
+from testutil import assert_clean, check_types, ill_typed
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -50,6 +50,7 @@ def body(rnd, u, names, holomorphic, depth):
 def main(trials):
     bad, rejected = 0, 0
     rows = {"real": 0, "holomorphic": 0, "general": 0}
+    typed = {}
     for seed in range(trials):
         rnd = random.Random(seed)
         space = rnd.choice([C, R])
@@ -72,6 +73,7 @@ def main(trials):
         rejected += not gateaux.in_n1(e)
         bad += not gateaux.in_n1(out0)
         out = derivatives.apply_derivatives(actions.apply_actions(out0))
+        check_types(typed, e, out0, out)
         rng = np.random.default_rng(seed)
         scalar = (
             (lambda: complex(*rng.normal(size=2))) if space is C else (lambda: float(rng.normal()))
@@ -90,7 +92,7 @@ def main(trials):
         f"N1 rejected {rejected} of {trials} inputs; "
         f"cases {rows}"
     )
-    return dict(value=bad, lazy=trials, rejected=rejected)
+    return dict(value=bad, lazy=trials, rejected=rejected) | typed
 
 
 if __name__ == "__main__":
@@ -113,5 +115,6 @@ def test_pairing_with_the_conjugate():
         out = derivatives.apply_derivatives(
             actions.apply_actions(gateaux.apply_gateaux_derivatives(e))
         )
+        assert not (ill_typed(e) or ill_typed(out))
         before, after = evaluate(e, env)((0.4 + 0.9j,)), evaluate(out, env)((0.4 + 0.9j,))
         assert np.isclose(before, after) and abs(after) > 0.1
