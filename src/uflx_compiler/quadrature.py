@@ -6,9 +6,6 @@ from uflx_spec_interpreter._src.passes.pullbacks import expand_pull_backs
 from uflx_spec_interpreter._src.substitution import map_fields
 from uflx_toy.basix_nodes import BasixCell
 
-# The points of each rule, by its table of points, which the tabulation reads.
-RULES = {}
-
 
 def apply_quadrature(f, degree):
     # An integral over a reference cell becomes the weighted sum over the points of a rule.
@@ -29,6 +26,5 @@ def rule(g, K, degree):
     X, w = basix.make_quadrature(K.cell_type, degree)
     points = tensor(tuple(tensor(tuple(Float(float(x)) for x in p)) for p in X))
     weights = tensor(tuple(Float(float(x)) for x in w))
-    RULES[points] = X
     q = index(("compiler.quadrature", g, K, degree))
     return index_sum(weights[q] * pull_back(g, domain_map(RD(0), points[q], K)), (q,))

@@ -8,11 +8,16 @@ import pytest
 from test_basix import CELLS, mixed, quadrilaterals, square
 from testutil import contains
 
-from uflx_compiler import compile_form, evaluate, fold
+from uflx_compiler import compile_form, evaluate, fold, runtime_tables
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
+    RD,
+    cell_domain,
+    domain_map,
     function,
     gradient,
+    index,
+    index_sum,
     integral,
     normal,
     num,
@@ -22,6 +27,7 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.nodes import Coordinate, Gradient, Integral, PullBack
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
+from uflx_toy.runtime import runtime_array, runtime_extent
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P
@@ -130,3 +136,42 @@ def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
         assert np.isclose(
             evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8, atol=1e-12
         ), e
+
+
+def test_a_function_at_points_known_only_at_assembly():
+    # The cut cell example on a mesh: each cell has its own points, which the solver gives.
+    D = square(basix_cell(CELLS[2]))[0]
+    V = basix_space("V", D, P, 2)
+    u = function(V, "u")
+    K = D.pieces[0].parameter_domain
+    ((c, cells),) = D.pieces[0].parameterisation.free_indices
+    q, i = runtime_extent("q"), index("i")
+    points = runtime_array("points", (cells, q, 2))
+    weights = runtime_array("weights", (cells, q))
+    xs = domain_map(RD(0), points[c, i], K)
+    cell = cell_domain(D, 0)
+    rng = np.random.default_rng(11)
+    U = rng.normal(size=V.num_dofs)
+    for f in (u, gradient(u, D)[0]):
+        e = index_sum(
+            index_sum(weights[c, i] * integral(pull_back(pull_back(f, cell), xs), RD(0)), (i,)),
+            (c,),
+        )
+        compiled = compile_form(e, 2)
+        for n in (1, 3, 6):
+            # Points in the reference triangle, as a cut of each cell would give.
+            X = rng.dirichlet(np.ones(3), size=(cells, n))[..., 1:]
+            W = rng.random((cells, n))
+            env = runtime_tables(
+                compiled, {q: n, "points": X, "weights": W, ("coefficients", u): U}
+            )
+            expected = oracle(e, {u: U, q: n, points: X, weights: W})(())
+            assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8)
+            # JAX takes the arrays in a fixed order, and the extent stays a Python int.
+            keys = [k for k in env if k != q]
+
+            def run(arrays, keys=keys, n=n, compiled=compiled):
+                return evaluate(compiled, dict(zip(keys, arrays, strict=True)) | {q: n}, jnp)
+
+            arrays = tuple(jnp.asarray(env[k]) for k in keys)
+            assert np.isclose(jax.jit(run)(arrays), expected)
