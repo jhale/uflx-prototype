@@ -4,11 +4,12 @@ import sys
 
 import numpy as np
 
-import integrals
-import pullbacks
-from core import CT, Coordinate, CoordDomain, Decomposed, DomainMap, Fn, Gradient, Index, Indexed, Integral, Num, Prod, Space, Sum, Tensor
-from oracle import evaluate
-from static import arity, free, shape
+from uflx_spec_interpreter import integrals
+from uflx_spec_interpreter import pullbacks
+from uflx_spec_interpreter.core import CT, Coordinate, CoordDomain, Decomposed, DomainMap, Fn, Gradient, Index, Indexed, Integral, Num, Prod, Space, Sum, Tensor
+from uflx_spec_interpreter.oracle import evaluate
+from uflx_spec_interpreter.static import arity, free, shape
+from testutil import assert_clean
 
 
 R2 = CoordDomain("R2", 2)
@@ -101,7 +102,12 @@ def main(trials):
                     print("value changed, seed", seed, kind, ienv, before, after)
                 break
     print(f"{trials} integrals: {bad['value']} values changed, {bad['static']} static types changed, {bad['grammar']} outside N4 or N5; N4 rejected {rejected} of {trials} inputs")
+    return bad | dict(lazy=trials, rejected=rejected)
 
 
 if __name__ == "__main__":
     main(int(sys.argv[1]) if len(sys.argv) > 1 else 200)
+
+
+def test_integrals():
+    assert_clean(main(200))

@@ -3,13 +3,14 @@ import sys
 
 import numpy as np
 
-import integrals
-import pullbacks
-from core import CT, Coordinate, CoordDomain, Decomposed, DomainMap, Fn, Gradient, Index, Indexed, Integral, ISum, Normal, Num, Prod, PullBack, SideMap, Space, Sum, Tensor
-from core import CellMap
-from oracle import evaluate
+from uflx_spec_interpreter import integrals
+from uflx_spec_interpreter import pullbacks
+from uflx_spec_interpreter.core import CT, Coordinate, CoordDomain, Decomposed, DomainMap, Fn, Gradient, Index, Indexed, Integral, ISum, Normal, Num, Prod, PullBack, SideMap, Space, Sum, Tensor
+from uflx_spec_interpreter.core import CellMap
+from uflx_spec_interpreter.oracle import evaluate
 from testutil import contains
-from static import free, shape
+from uflx_spec_interpreter.static import free, shape
+from testutil import assert_clean
 from test_facets import table
 from test_integrals import K
 
@@ -106,7 +107,12 @@ def main(trials):
             e_int = Integral(edge_integrand(rnd, E, sides), E)
         check(f"{kind} {seed}", e_int, ENV, bad, None)
     print(f"{trials} integrals on a surface in R^3: {bad['value']} values changed, {bad['static']} static types changed, {bad['grammar']} outside N5; N5 rejected {bad['rejected']} of {bad['lazy']} inputs with a pull-back to expand")
+    return bad
 
 
 if __name__ == "__main__":
     main(int(sys.argv[1]) if len(sys.argv) > 1 else 30)
+
+
+def test_surface():
+    assert_clean(main(60))

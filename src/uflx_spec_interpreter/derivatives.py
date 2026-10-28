@@ -1,6 +1,6 @@
-from algebra import matmul, minus, negate, transpose
-from core import COMMUTING, D, Abs, Action, Conj, Div, Fn, Inv, Log, Num, Power, Prod, Sqrt, Sum, commute, map_fields, occurs, operands, substitute
-from static import arity, zero_like
+from .algebra import matmul, minus, negate, transpose
+from .core import COMMUTING, D, Abs, Action, Conj, Div, Fn, Inv, Log, Num, Power, Prod, Sqrt, Sum, commute, map_fields, occurs, operands, substitute
+from .static import arity, zero_like
 
 
 def deriv(f, x, a, h):

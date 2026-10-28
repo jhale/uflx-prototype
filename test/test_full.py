@@ -4,12 +4,13 @@ import sys
 
 import numpy as np
 
-import derivatives
-import passes
-from core import Zero, CT, D, Abs, Action, Conj, Div, Fn, Form, Im, Index, Indexed, Inv, ISum, Log, Num, Power, Prod, Re, Space, Sqrt, Sum, Tensor
-from oracle import evaluate
+from uflx_spec_interpreter import derivatives
+from uflx_spec_interpreter import actions
+from uflx_spec_interpreter.core import Zero, CT, D, Abs, Action, Conj, Div, Fn, Form, Im, Index, Indexed, Inv, ISum, Log, Num, Power, Prod, Re, Space, Sqrt, Sum, Tensor
+from uflx_spec_interpreter.oracle import evaluate
 from testutil import contains
-from static import arity, free, shape
+from uflx_spec_interpreter.static import arity, free, shape
+from testutil import assert_clean
 
 
 V, Vd = Space("V"), Space("V", dual=True)
@@ -170,15 +171,15 @@ def main(trials):
         rnd = random.Random(seed)
         specs = rnd.choice([[], ["V"], ["W"], [("V", "W")], ["V", "W"]])
         e = form(rnd, specs, 3)
-        out = derivatives.apply_derivatives(passes.apply_actions(e))
+        out = derivatives.apply_derivatives(actions.apply_actions(e))
         if (shape(e), free(e), arity(e)) != (shape(out), free(out), arity(out)):
             bad["static"] += 1
             if bad["static"] <= 2:
                 print("static type changed, seed", seed, (shape(e), free(e)), (shape(out), free(out)))
         if contains(e, lambda n: isinstance(n, D) or (lambda n: isinstance(n, Action) and not (isinstance(n.f, Fn) and n.f.space.dual))(n)):
             lazy += 1
-            rejected += not (passes.in_n2(e) and derivatives.in_n3(e))
-        if not (passes.in_n2(out) and derivatives.in_n3(out)):
+            rejected += not (actions.in_n2(e) and derivatives.in_n3(e))
+        if not (actions.in_n2(out) and derivatives.in_n3(out)):
             bad["grammar"] += 1
         vals = tuple(entry_value(rng, s) for s in specs)
         fr = free(e)
@@ -191,7 +192,12 @@ def main(trials):
                     print("value changed, seed", seed, ienv, before, after)
                 break
     print(f"{trials} expressions: {bad['value']} values changed, {bad['static']} static types changed, {bad['grammar']} outside N3; N3 rejected {rejected} of {lazy} inputs with an action or a derivative")
+    return bad | dict(lazy=lazy, rejected=rejected)
 
 
 if __name__ == "__main__":
     main(int(sys.argv[1]) if len(sys.argv) > 1 else 500)
+
+
+def test_full():
+    assert_clean(main(500))

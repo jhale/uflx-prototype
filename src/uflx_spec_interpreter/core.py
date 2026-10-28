@@ -374,12 +374,12 @@ class Normal(Node):
 
 
 def operands_free(psi):
-    from static import free
+    from .static import free
     return list(free(psi))
 
 
 def cell_domain(D, j):
-    from static import free
+    from .static import free
     family = list(free(D.pieces[j].psi))
     return CellMap(D, j, family[0]) if family else DomainMap(D.pieces[j].P, D.pieces[j].psi, D)
 

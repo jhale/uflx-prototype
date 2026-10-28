@@ -1,7 +1,7 @@
 from dataclasses import replace
 
-from core import COMMUTING, Action, Fn, Form, Prod, Zero, commute, entry_fns, freshen, map_fields, members, operands, substitute
-from static import arity, free_indices
+from .core import COMMUTING, Action, Fn, Form, Prod, Zero, commute, entry_fns, freshen, map_fields, members, operands, substitute
+from .static import arity, free_indices
 
 
 def act(f, p, g):

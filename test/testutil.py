@@ -1,4 +1,4 @@
-from core import operands
+from uflx_spec_interpreter.core import operands
 
 
 def contains(e, predicate):
@@ -11,3 +11,10 @@ def contains(e, predicate):
         return seen[id(n)]
 
     return walk(e)
+
+
+def assert_clean(counts):
+    for key in ("value", "static", "grammar"):
+        assert counts.get(key, 0) == 0, counts
+    if "lazy" in counts:
+        assert counts["rejected"] == counts["lazy"] > 0, counts

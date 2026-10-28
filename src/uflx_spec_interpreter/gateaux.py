@@ -1,5 +1,5 @@
-from core import D, Abs, Conj, Form, Gateaux, Im, Num, Prod, Re, Sum, map_fields, occurs, operands
-from static import arity, zero_like
+from .core import D, Abs, Conj, Form, Gateaux, Im, Num, Prod, Re, Sum, map_fields, occurs, operands
+from .static import arity, zero_like
 
 NONHOLOMORPHIC = (Conj, Abs, Re, Im)
 

@@ -3,11 +3,12 @@ import sys
 
 import numpy as np
 
-import passes
-from core import CT, D, Action, Conj, Div, Fn, Form, Index, Indexed, ISum, Num, Prod, Space, Sum, Tensor
-from static import arity
-from oracle import evaluate
+from uflx_spec_interpreter import actions
+from uflx_spec_interpreter.core import CT, D, Action, Conj, Div, Fn, Form, Index, Indexed, ISum, Num, Prod, Space, Sum, Tensor
+from uflx_spec_interpreter.static import arity
+from uflx_spec_interpreter.oracle import evaluate
 from testutil import contains
+from testutil import assert_clean
 
 V = Space("V")
 u, v, w, z, h, q = (Fn(V, n) for n in "uvwzhq")
@@ -74,13 +75,13 @@ def main(trials):
     rng = np.random.default_rng(0)
     env = {f: complex(*rng.normal(size=2)) for f in POOL + BOUND}
     env[U] = rng.normal(size=2) + 1j * rng.normal(size=2)
-    failures, not_n1, actions, lazy, rejected = 0, 0, 0, 0, 0
+    failures, not_n1, n_actions, lazy, rejected = 0, 0, 0, 0, 0
     for seed in range(trials):
         rnd = random.Random(seed)
         n = rnd.randrange(3)
         e = form(rnd, n, 4)
-        actions += str(e).count("Action(")
-        out = passes.apply_actions(e)
+        n_actions += str(e).count("Action(")
+        out = actions.apply_actions(e)
         vals = tuple(complex(*rng.normal(size=2)) for _ in range(arity(e)))
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-4):
@@ -89,11 +90,16 @@ def main(trials):
                 print("first failure, seed", seed, before, after)
         if contains(e, lambda n: isinstance(n, Action) and not (isinstance(n.f, Fn) and n.f.space.dual)):
             lazy += 1
-            rejected += not passes.in_n2(e)
-        if not passes.in_n2(out):
+            rejected += not actions.in_n2(e)
+        if not actions.in_n2(out):
             not_n1 += 1
-    print(f"{trials} expressions with {actions} actions: {failures} values changed, {not_n1} not in N2; N2 rejected {rejected} of {lazy} inputs with an action to apply")
+    print(f"{trials} expressions with {n_actions} actions: {failures} values changed, {not_n1} not in N2; N2 rejected {rejected} of {lazy} inputs with an action to apply")
+    return dict(value=failures, grammar=not_n1, lazy=lazy, rejected=rejected)
 
 
 if __name__ == "__main__":
     main(int(sys.argv[1]) if len(sys.argv) > 1 else 2000)
+
+
+def test_random():
+    assert_clean(main(2000))

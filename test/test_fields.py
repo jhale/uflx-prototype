@@ -3,12 +3,13 @@ import sys
 
 import numpy as np
 
-import derivatives
-import integrals
-import passes
-from core import CT, D, Action, Conj, Coordinate, Div, Fn, Form, Gradient, Index, Indexed, Integral, ISum, Num, Prod, PullBack, Space, Sum, cell_domain
-from oracle import evaluate
-from static import arity
+from uflx_spec_interpreter import derivatives
+from uflx_spec_interpreter import integrals
+from uflx_spec_interpreter import actions
+from uflx_spec_interpreter.core import CT, D, Action, Conj, Coordinate, Div, Fn, Form, Gradient, Index, Indexed, Integral, ISum, Num, Prod, PullBack, Space, Sum, cell_domain
+from uflx_spec_interpreter.oracle import evaluate
+from uflx_spec_interpreter.static import arity
+from testutil import assert_clean
 
 from test_integrals import D as MESH
 from test_integrals import K
@@ -67,16 +68,21 @@ def main(trials):
         rnd = random.Random(seed)
         n = rnd.randrange(2)
         e = form(rnd, n, 2)
-        out = integrals.expand_integrals(derivatives.apply_derivatives(passes.apply_actions(e)))
+        out = integrals.expand_integrals(derivatives.apply_derivatives(actions.apply_actions(e)))
         vals = tuple(args[:arity(e)])
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
             bad["value"] += 1
             if bad["value"] <= 3:
                 print("value changed, seed", seed, before, after)
-        bad["grammar"] += not (passes.in_n2(out) and derivatives.in_n3(out) and integrals.in_n4(out))
+        bad["grammar"] += not (actions.in_n2(out) and derivatives.in_n3(out) and integrals.in_n4(out))
     print(f"{trials} forms on a mesh: {bad['value']} values changed, {bad['grammar']} outside N4")
+    return bad
 
 
 if __name__ == "__main__":
     main(int(sys.argv[1]) if len(sys.argv) > 1 else 60)
+
+
+def test_fields():
+    assert_clean(main(60))

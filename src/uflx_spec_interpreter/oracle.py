@@ -2,9 +2,9 @@ import itertools
 
 import numpy as np
 
-from core import CellMap, Gathered, Normal, SideMap, Gateaux, Inv, CT, D, Abs, Action, Conj, Div, Im, Log, Power, Re, Sqrt, Fn, Form, Index, Indexed, ISum, Num, Prod, Sum, Tensor, Zero, entry_fns, members
-from static import arity, free, support
-from core import CoordDomain, Coordinate, Decomposed, Gradient, Integral, PullBack, ambient
+from .core import CellMap, Gathered, Normal, SideMap, Gateaux, Inv, CT, D, Abs, Action, Conj, Div, Im, Log, Power, Re, Sqrt, Fn, Form, Index, Indexed, ISum, Num, Prod, Sum, Tensor, Zero, entry_fns, members
+from .static import arity, free, support
+from .core import CoordDomain, Coordinate, Decomposed, Gradient, Integral, PullBack, ambient
 
 EPS = 1e-4
 H = 1e-5

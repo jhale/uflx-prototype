@@ -1,9 +1,9 @@
-from core import (
+from .core import (
     CT, Abs, Conj, Coordinate, CoordDomain, CellMap, Decomposed, Div, DomainMap, Fn, Gathered, Gradient,
     Index, Indexed, Integral, Inv, ISum, Log, Normal, Num, Power, Prod, PullBack, Re, Im, SideMap, Sqrt,
     Sum, Tensor, Zero, ambient_dim, topdim, freshen, map_fields, operands, Space,
 )
-from static import arity, free, shape, support
+from .static import arity, free, shape, support
 
 def fresh(f, m, n):
     return Index(("uflx.expand_pull_backs", f, m, n))
@@ -73,7 +73,7 @@ def pb(f, m):
             return contract_gradient(Gradient(pb(g, m), m.P), K, f, m)
         case Gradient(g, Q):
             # A parameter domain of lower dimension than its ambient: K = (J^T J + I - Pi)^-1 J^T.
-            from algebra import tangent_gram
+            from .algebra import tangent_gram
             J = Gradient(m.psi, m.P)
             a, b, c, l = (fresh(f, m, ("K", n)) for n in range(4))
             G = tangent_gram(J, m.P)

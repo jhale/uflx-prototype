@@ -1,4 +1,4 @@
-from core import Space, CellMap, Gathered, Normal, SideMap, Gateaux, Coordinate, Gradient, Integral, PullBack, ambient_dim, Inv, CT, D, Abs, Action, Conj, Div, Fn, Form, Im, Indexed, ISum, Log, Num, Power, Prod, Re, Sqrt, Sum, Tensor, Zero, operands
+from .core import Space, CellMap, Gathered, Normal, SideMap, Gateaux, Coordinate, Gradient, Integral, PullBack, ambient_dim, Inv, CT, D, Abs, Action, Conj, Div, Fn, Form, Im, Indexed, ISum, Log, Num, Power, Prod, Re, Sqrt, Sum, Tensor, Zero, operands
 
 
 def shape(e):

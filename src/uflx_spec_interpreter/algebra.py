@@ -1,7 +1,7 @@
 from functools import reduce
 from itertools import combinations, permutations
 
-from core import CT, Coordinate, Gradient, Index, Indexed, ISum, Num, Prod, Sum, Tensor, ambient_dim
+from .core import CT, Coordinate, Gradient, Index, Indexed, ISum, Num, Prod, Sum, Tensor, ambient_dim
 
 
 def total(es):
