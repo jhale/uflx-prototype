@@ -77,3 +77,9 @@ def test_a_mixed_derivative_that_is_not_holomorphic():
 def test_a_constant_point_and_direction():
     e = directional_derivative(multiply(u, p), (u, p), (num(2), num(3)), (num(1), num(0)))
     assert np.isclose(evaluate(passes(e), ENV)(()), 3)
+
+
+def test_a_tuple_of_real_and_complex_functions_is_ill_typed():
+    # The product of a real and a complex space has no linear and antilinear parts.
+    lam, v, mu = function(R, "lam"), function(C, "v"), function(R, "mu")
+    assert ill_typed(gateaux_derivative(multiply(u, lam), (u, lam), (u, lam), (v, mu)))

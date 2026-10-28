@@ -21,6 +21,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
 )
 from uflx_spec_interpreter._src.substitution import nodes_in, operands, traversed
+from uflx_spec_interpreter._src.tuples import members
 
 
 def contains(e, predicate):
@@ -102,6 +103,8 @@ def node_error(n):
             return f"Sum of {a.argument_spaces} and {b.argument_spaces}"
         case Tensor(entries) if len({x.argument_spaces for x in entries}) > 1:
             return f"Tensor of {[x.argument_spaces for x in entries]}"
+        case GateauxDerivative(_, x, _, _) if len({m.space.scalar_type for m in members(x)}) > 1:
+            return "GateauxDerivative of a tuple of real and complex functions"
         case Action(f, p, g):
             if p >= len(f.argument_spaces):
                 return f"Action at {p} of {f.argument_spaces}"
