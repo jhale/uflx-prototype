@@ -1,12 +1,18 @@
 import ast
 from pathlib import Path
 
+import uflx_compiler
 import uflx_oracle
 import uflx_spec_interpreter
 import uflx_toy
 
-# Imports go from the oracle to the toy extension to the core, never back.
-FORBIDDEN = {uflx_spec_interpreter: {"uflx_toy", "uflx_oracle"}, uflx_toy: {"uflx_oracle"}}
+# Imports go from the oracle and the compiler to the toy extension to the core, never back,
+# and the compiler never reads the oracle.
+FORBIDDEN = {
+    uflx_spec_interpreter: {"uflx_toy", "uflx_oracle", "uflx_compiler"},
+    uflx_toy: {"uflx_oracle", "uflx_compiler"},
+    uflx_compiler: {"uflx_oracle"},
+}
 
 
 def imported(path):

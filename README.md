@@ -3,8 +3,9 @@
 A toy implementation of the evaluation passes in the UFLx language specification
 (`design/LANGUAGE.md` in the uflx repository), tested against an independent oracle.
 
-The repository has three packages in `src/`, and imports go only from the
-oracle to the extension to the core, which `test/test_boundaries.py` checks:
+The repository has four packages in `src/`, and imports go only from the oracle
+and the compiler to the extension to the core, which `test/test_boundaries.py`
+checks:
 
 - `uflx_spec_interpreter`: the core, with only what the specification defines
 - `uflx_toy`: a language extension, with the classes that the specification
@@ -17,6 +18,11 @@ oracle to the extension to the core, which `test/test_boundaries.py` checks:
   mesh, whose dof map shares the dofs of shared entities so that the space is
   continuous
 - `uflx_oracle`: the oracle that the tests compare the passes against
+- `uflx_compiler`: a form compiler after the core normal form, with a quadrature
+  pass that rewrites an integral over a Basix cell as a weighted sum over the
+  points of a rule of Basix, a tabulation pass that rewrites a function of a
+  `BasixSpace` at the points as its coefficients times the tabulated basis, and
+  an evaluator of the arithmetic that remains on NumPy or JAX arrays
 
 The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
 

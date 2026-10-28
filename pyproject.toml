@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-xdist", "coverage", "fenics-basix"]
+test = ["pytest", "pytest-xdist", "coverage", "fenics-basix", "jax"]
 lint = ["ruff"]
 
 [tool.setuptools.packages.find]
@@ -23,7 +23,7 @@ addopts = "-n 6"
 
 [tool.coverage.run]
 branch = true
-source = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle"]
+source = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle", "uflx_compiler"]
 
 [tool.coverage.report]
 show_missing = true
@@ -38,4 +38,4 @@ select = ["E", "W", "F", "I", "RUF", "UP", "ICN", "NPY", "FLY", "LOG", "ISC"]
 ignore = ["E731", "E741"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle"]
+known-first-party = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle", "uflx_compiler"]
