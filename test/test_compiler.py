@@ -8,12 +8,17 @@ import pytest
 from test_basix import CELLS, mixed, quadrilaterals, square
 from testutil import contains
 
-from uflx_compiler import compile_form, evaluate, fold, runtime_tables
+from uflx_compiler import assemble, compile_form, evaluate, fold, runtime_tables
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
     cell_domain,
+    cell_index,
+    component_tensor,
+    coordinate,
+    decomposed_domain,
     domain_map,
+    form,
     function,
     gradient,
     index,
@@ -28,6 +33,7 @@ from uflx_spec_interpreter._src.nodes import Coordinate, Gradient, Integral, Pul
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.runtime import runtime_array, runtime_extent
+from uflx_toy.topology import static_topology
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P
@@ -175,3 +181,32 @@ def test_a_function_at_points_known_only_at_assembly():
 
             arrays = tuple(jnp.asarray(env[k]) for k in keys)
             assert np.isclose(jax.jit(run)(arrays), expected)
+
+
+def test_geometry_from_coordinates_given_at_assembly():
+    # A solver gives the vertex coordinates of each cell to the kernel, as for any mesh.
+    K = basix_cell(CELLS[2])
+    T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
+    c, k = cell_index(T, 0), index("k")
+    x = runtime_array("x", (2, 3, 2))
+    X = coordinate(K)
+    vertex = lambda n: x[c, n, k]
+    psi = component_tensor(
+        vertex(0) + (vertex(1) - vertex(0)) * X[0] + (vertex(2) - vertex(0)) * X[1], (k,)
+    )
+    D = decomposed_domain((domain_map(K, psi, RD(2)),))
+    V = basix_space("V", D, P, 2)
+    u, v = function(V, "u"), function(V, "v")
+    rng = np.random.default_rng(12)
+    # The square with its vertices moved, so the cells are not right triangles.
+    corners = np.array([(0, 0), (1, 0), (1.2, 1.1), (-0.1, 0.9)]) + rng.normal(size=(4, 2)) * 0.05
+    coordinates = corners[[[0, 1, 2], [0, 2, 3]]]
+    U, W = rng.normal(size=V.num_dofs), rng.normal(size=V.num_dofs)
+    g = gradient(u, D)
+    energy = integral(g[0] * g[0] + g[1] * g[1], D)
+    compiled = compile_form(energy, 4)
+    env = {"x": coordinates, ("coefficients", u): U}
+    expected = oracle(energy, {x: coordinates, u: U})(())
+    assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8)
+    M = assemble(form(integral(u * v, D), (v, u)), 4)({"x": coordinates})
+    assert np.isclose(W @ M @ U, oracle(integral(u * v, D), {x: coordinates, u: U, v: W})(()))

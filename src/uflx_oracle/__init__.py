@@ -123,25 +123,25 @@ def on_cell(D, piece, cell, fn):
     return at(("piece", D), piece, lambda: at(("cell", D), cell, fn))
 
 
-def basix_function(space, coefficients):
+def basix_function(space, coefficients, env):
     # The value at the point of the current cell, from the reference point of the point.
     D = space.domain
     j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
     piece = D.pieces[j]
-    chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell})
+    chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell}, env)
     X = reference_point(chart, POINTS[D], D.dimension)
     phi = space.element(j).tabulate(0, np.array([X], dtype=float))[0, 0, :, 0]
     return np.asarray(coefficients)[list(space.dofmap[j][cell])] @ phi
 
 
-def piece_map(piece, members):
+def piece_map(piece, members, env):
     # The map of one member of a piece, from reference coordinates to ambient coordinates.
     return lambda X: np.real(
         np.asarray(
             at(
                 piece.parameter_domain,
                 np.asarray(X, dtype=float),
-                lambda: evaluate(piece.parameterisation, {}, members)(()),
+                lambda: evaluate(piece.parameterisation, env, members)(()),
             )
         )
     )
@@ -158,25 +158,25 @@ def reference_point(chart, x, dim):
     return X
 
 
-def tangent_projector(P):
+def tangent_projector(P, env):
     # The orthogonal projection onto the tangent space of P at the current point.
     if ("chart", P) in POINTS:
         T = jacobian_of(POINTS[("chart", P)], POINTS[("ref", P)])
     else:
         piece = P.pieces[0]
         index = next(iter(free(piece.parameterisation)))
-        cell = POINTS[("cell", P)] if ("cell", P) in POINTS else locate(P, POINTS[P])
-        chart = piece_map(piece, {index: cell})
+        cell = POINTS[("cell", P)] if ("cell", P) in POINTS else locate(P, POINTS[P], env)
+        chart = piece_map(piece, {index: cell}, env)
         T = jacobian_of(chart, reference_point(chart, POINTS[P], P.dimension))
     return T @ np.linalg.pinv(T)
 
 
-def locate(P, x):
+def locate(P, x, env):
     # The cell of P that contains x, as a mesh library finds it for a point.
     piece = P.pieces[0]
     index = next(iter(free(piece.parameterisation)))
     for cell in range(free(piece.parameterisation)[index]):
-        chart = piece_map(piece, {index: cell})
+        chart = piece_map(piece, {index: cell}, env)
         X = reference_point(chart, x, P.dimension)
         if inside(piece.parameter_domain, X) and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
             return cell
@@ -213,7 +213,7 @@ def reference_centroid(K):
     return np.full(K.dimension, 1 / (K.dimension + 1))
 
 
-def integrate(P, fn):
+def integrate(P, fn, env):
     # The integral of fn over P, with fn reading the point of P from POINTS.
     if isinstance(P, AbstractCoordinateDomain):
         return sum(w * at(P, p, lambda: fn({})) for p, w in rule_on(P))
@@ -222,7 +222,7 @@ def integrate(P, fn):
         fr = free(piece.parameterisation)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             members = dict(zip(fr, combo))
-            psi = evaluate(piece.parameterisation, {}, members)
+            psi = evaluate(piece.parameterisation, env, members)
 
             def mapped(inner, piece=piece, psi=psi, members=members, number=number):
                 y = np.real(np.asarray(psi(())))
@@ -258,7 +258,7 @@ def integrate(P, fn):
                     * scale
                 )
 
-            total += integrate(piece.parameter_domain, mapped)
+            total += integrate(piece.parameter_domain, mapped, env)
     return total
 
 
@@ -318,7 +318,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def basix_value(vals):
                 # The coefficients of the dofs of the cell times the basis, as the library of V.
-                return basix_function(space, env[e])
+                return basix_function(space, env[e], env)
 
             return basix_value
         case Function(space, _) if space.domain is not None:
@@ -500,11 +500,11 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
                 j, cell = side_cell(Ed, side)
                 facet = Ed.pieces[POINTS.get(("piece", Ed), 0)]
-                edge = piece_map(facet, {next(iter(free(facet.parameterisation))): e})
+                edge = piece_map(facet, {next(iter(free(facet.parameterisation))): e}, env)
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)
                 piece = Dd.pieces[j]
-                chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell})
+                chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell}, env)
                 X = reference_point(chart, x, Dd.dimension)
                 d = jacobian_of(chart, X) @ (X - reference_centroid(piece.parameter_domain))
                 n = d - (d @ t) * t
@@ -527,14 +527,14 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 g = np.stack(cols, axis=-1)
                 if isinstance(P, DecomposedDomain) and P.dimension < len(p):
                     # The tangential gradient on a domain of lower dimension.
-                    g = g @ tangent_projector(P)
+                    g = g @ tangent_projector(P, env)
                 return g
 
             return gradient
         case Integral(b, P):
             if isinstance(P, AbstractCoordinateDomain):
                 fb = ev(b)
-                return lambda vals: integrate(P, lambda members: fb(vals))
+                return lambda vals: integrate(P, lambda members: fb(vals), env)
             fs = {}
 
             def piece_value(members, vals):
@@ -543,7 +543,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                     fs[key] = evaluate(b, env, ienv | members, over)
                 return fs[key](vals)
 
-            return lambda vals: integrate(P, lambda members: piece_value(members, vals))
+            return lambda vals: integrate(P, lambda members: piece_value(members, vals), env)
         case RuntimeArray():
             return lambda vals: env[e]
     raise TypeError(e)
