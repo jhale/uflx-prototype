@@ -1,8 +1,6 @@
 from ..algebra import dot, matvec, minus, scale, total, transpose, unit
 from ..domains import (
     CellMap,
-    CoordDomain,
-    Decomposed,
     DomainMap,
     Gathered,
     SideMap,
@@ -12,6 +10,7 @@ from ..geometry import inverse_jacobian
 from ..nodes import (
     CT,
     Abs,
+    AbstractExpression,
     Coordinate,
     Div,
     Fn,
@@ -23,15 +22,11 @@ from ..nodes import (
     Num,
     Prod,
     PullBack,
-    Space,
     Sum,
     Tensor,
 )
 from ..static import arity, free, shape, support, zero_like
-from ..substitution import freshen, map_fields, operands
-
-# Nodes in the fields of an expression that are not expressions, so a pull-back leaves them.
-NOT_EXPRESSIONS = (Index, Gathered, Space, CoordDomain, Decomposed, DomainMap, CellMap, SideMap)
+from ..substitution import expressions, freshen, map_fields
 
 
 def pb(f, m):
@@ -68,7 +63,7 @@ def broadcast(f, m):
 
 def pointwise(f, m):
     fresh = freshen(f, [m.psi]) if f.scope else f
-    return map_fields(fresh, lambda x: x if isinstance(x, NOT_EXPRESSIONS) else pb(x, m))
+    return map_fields(fresh, lambda x: pb(x, m) if isinstance(x, AbstractExpression) else x)
 
 
 def fresh(f, m, n):
@@ -124,4 +119,4 @@ def in_n5(e):
             pass
         case PullBack():
             return False
-    return all(in_n5(c) for c in operands(e))
+    return all(in_n5(c) for c in expressions(e))

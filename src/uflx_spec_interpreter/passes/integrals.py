@@ -3,7 +3,7 @@ from ..domains import Decomposed, ambient, cell_domain
 from ..geometry import density
 from ..nodes import CT, Index, Indexed, Integral, ISum, Prod, PullBack
 from ..static import free, shape, support
-from ..substitution import map_fields, operands
+from ..substitution import expressions, map_fields
 
 
 def rule(e):
@@ -35,4 +35,4 @@ def in_n4(e):
     match e:
         case Integral(_, Decomposed()):
             return False
-    return all(in_n4(c) for c in operands(e))
+    return all(in_n4(c) for c in expressions(e))

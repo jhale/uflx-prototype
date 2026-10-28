@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 
-from .nodes import Node
+from .nodes import Base
 from .substitution import substitute
 
 
 @dataclass(frozen=True, eq=False)
-class CoordDomain(Node):
+class CoordDomain(Base):
     identifier = "toy.CoordDomain"
     name: str
     dim: int
@@ -13,15 +13,15 @@ class CoordDomain(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class DomainMap(Node):
+class DomainMap(Base):
     identifier = "uflx.DomainMap"
-    P: Node
-    psi: Node
-    Q: Node
+    P: Base
+    psi: Base
+    Q: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Decomposed(Node):
+class Decomposed(Base):
     identifier = "uflx.DecomposedDomain"
     pieces: tuple
 
@@ -41,20 +41,20 @@ def ambient(P):
 
 
 @dataclass(frozen=True, eq=False)
-class Gathered(Node):
+class Gathered(Base):
     identifier = "uflx.GatheredIndex"
     # An index read from a table at the given entries.
-    table: Node
+    table: Base
     indices: tuple
 
 
 @dataclass(frozen=True, eq=False)
-class CellMap(Node):
+class CellMap(Base):
     identifier = "toy.CellMap"
     # Piece j of D seen as a domain in D, for the cell selected by entry (an Index or a Gathered).
-    D: Node
+    D: Base
     j: int
-    entry: Node
+    entry: Base
     opaque = ("j",)
 
     @property
@@ -68,10 +68,7 @@ class CellMap(Node):
     @property
     def psi(self):
         piece = self.D.pieces[self.j]
-        # static imports this module, so the import is local.
-        from .static import free
-
-        family = list(free(piece.psi))
+        family = [i for i, _ in piece.psi.free_indices]
         return (
             substitute(piece.psi, {family[0]: self.entry})
             if family and family[0] != self.entry
@@ -80,17 +77,15 @@ class CellMap(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class SideMap(Node):
+class SideMap(Base):
     identifier = "uflx.SideMap"
     # The map from the cells of E into D, from one side, through the side tables.
-    D: Node
-    E: Node
-    cells: Node
-    positions: Node
+    D: Base
+    E: Base
+    cells: Base
+    positions: Base
 
 
 def cell_domain(D, j):
-    from .static import free
-
-    family = list(free(D.pieces[j].psi))
+    family = [i for i, _ in D.pieces[j].psi.free_indices]
     return CellMap(D, j, family[0]) if family else DomainMap(D.pieces[j].P, D.pieces[j].psi, D)

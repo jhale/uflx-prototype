@@ -12,7 +12,7 @@ from testutil import contains
 from uflx_spec_interpreter import nodes
 from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.geometry import density, inverse_jacobian, metric
-from uflx_spec_interpreter.nodes import Fn, Index, Indexed, Node, Num, Space, Sum, Tensor
+from uflx_spec_interpreter.nodes import Base, Fn, Index, Indexed, Num, Space, Sum, Tensor
 from uflx_spec_interpreter.substitution import map_fields
 
 V = Space("V")
@@ -71,7 +71,7 @@ def test_hash_does_not_depend_on_where_the_class_is():
 
 def test_a_class_with_no_identifier_raises():
     @dataclass(frozen=True, eq=False)
-    class Anonymous(Node):
+    class Anonymous(Base):
         value: int
 
     with pytest.raises(TypeError):

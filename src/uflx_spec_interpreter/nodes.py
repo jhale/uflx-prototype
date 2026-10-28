@@ -2,6 +2,7 @@ import hashlib
 import numbers
 import weakref
 from dataclasses import dataclass, fields
+from functools import cached_property
 
 # Every node by its digest, so that equal nodes are the same object.
 TABLE = weakref.WeakValueDictionary()
@@ -10,7 +11,7 @@ TABLE = weakref.WeakValueDictionary()
 def encode(value):
     # A canonical encoding, tagged by type, so 1, 1.0 and True differ, and so do 0.0 and -0.0.
     match value:
-        case Node():
+        case Base():
             return b"N" + value.digest.to_bytes(16, "big")
         case None:
             return b"n"
@@ -50,7 +51,7 @@ class Interned(type):
         return node
 
 
-class Node(metaclass=Interned):
+class Base(metaclass=Interned):
     # Fields that are data, not operands, so traversal skips them.
     opaque: tuple = ()
     # Fields whose nodes identify the node, which a substitution rebuilds.
@@ -65,8 +66,36 @@ class Node(metaclass=Interned):
         return self.digest % (2**61 - 1)
 
 
+class AbstractExpression(Base):
+    # The static type, derived from the construction arguments once for each interned node.
+    # The rules import this module, so they are imported where they are used.
+    @cached_property
+    def value_shape(self):
+        from .static import rule_shape
+
+        return rule_shape(self)
+
+    @cached_property
+    def free_indices(self):
+        from .static import rule_free
+
+        return tuple(rule_free(self).items())
+
+    @cached_property
+    def arity(self):
+        from .static import rule_arity
+
+        return rule_arity(self)
+
+    @cached_property
+    def support(self):
+        from .static import rule_support
+
+        return rule_support(self)
+
+
 @dataclass(frozen=True, eq=False)
-class Space(Node):
+class Space(Base):
     identifier = "toy.Space"
     name: str
     dual: bool = False
@@ -77,7 +106,7 @@ class Space(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class Index(Node):
+class Index(Base):
     identifier = "uflx.Index"
     label: object
     opaque = ("label",)
@@ -85,7 +114,7 @@ class Index(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class Fn(Node):
+class Fn(AbstractExpression):
     identifier = "uflx.Function"
     space: Space
     label: object
@@ -94,14 +123,14 @@ class Fn(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class Num(Node):
+class Num(AbstractExpression):
     identifier = "toy.Num"
     value: complex
     opaque = ("value",)
 
 
 @dataclass(frozen=True, eq=False)
-class Zero(Node):
+class Zero(AbstractExpression):
     identifier = "uflx.Zero"
     shape: tuple
     free: tuple
@@ -110,92 +139,92 @@ class Zero(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class Sum(Node):
+class Sum(AbstractExpression):
     identifier = "uflx.Sum"
-    a: Node
-    b: Node
+    a: Base
+    b: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Prod(Node):
+class Prod(AbstractExpression):
     identifier = "uflx.Product"
-    a: Node
-    b: Node
+    a: Base
+    b: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Div(Node):
+class Div(AbstractExpression):
     identifier = "uflx.Division"
-    a: Node
-    c: Node
+    a: Base
+    c: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Conj(Node):
+class Conj(AbstractExpression):
     identifier = "uflx.Conjugate"
-    a: Node
+    a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Re(Node):
+class Re(AbstractExpression):
     identifier = "uflx.RealPart"
-    a: Node
+    a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Im(Node):
+class Im(AbstractExpression):
     identifier = "uflx.ImaginaryPart"
-    a: Node
+    a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Abs(Node):
+class Abs(AbstractExpression):
     identifier = "uflx.Absolute"
-    a: Node
+    a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Sqrt(Node):
+class Sqrt(AbstractExpression):
     identifier = "uflx.SquareRoot"
-    a: Node
+    a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Log(Node):
+class Log(AbstractExpression):
     identifier = "uflx.Logarithm"
-    a: Node
+    a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Inv(Node):
+class Inv(AbstractExpression):
     identifier = "uflx.Inverse"
-    a: Node
+    a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Power(Node):
+class Power(AbstractExpression):
     identifier = "uflx.Power"
-    a: Node
-    c: Node
+    a: Base
+    c: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Tensor(Node):
+class Tensor(AbstractExpression):
     identifier = "uflx.Tensor"
     entries: tuple
 
 
 @dataclass(frozen=True, eq=False)
-class Indexed(Node):
+class Indexed(AbstractExpression):
     identifier = "uflx.Indexed"
-    e: Node
+    e: Base
     idx: tuple
 
 
 @dataclass(frozen=True, eq=False)
-class CT(Node):
+class CT(AbstractExpression):
     identifier = "uflx.ComponentTensor"
-    e: Node
+    e: Base
     idx: tuple
     scope = ("e", "idx")
 
@@ -204,9 +233,9 @@ class CT(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class ISum(Node):
+class ISum(AbstractExpression):
     identifier = "uflx.IndexSum"
-    e: Node
+    e: Base
     idx: tuple
     scope = ("e", "idx")
 
@@ -215,9 +244,9 @@ class ISum(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class Form(Node):
+class Form(AbstractExpression):
     identifier = "uflx.Form"
-    e: Node
+    e: Base
     args: tuple
     scope = ("e", "args")
 
@@ -226,21 +255,21 @@ class Form(Node):
 
 
 @dataclass(frozen=True, eq=False)
-class Action(Node):
+class Action(AbstractExpression):
     identifier = "uflx.Action"
-    f: Node
+    f: Base
     p: int
     g: object
     opaque = ("p",)
 
 
 @dataclass(frozen=True, eq=False)
-class D(Node):
+class D(AbstractExpression):
     identifier = "uflx.DirectionalDerivative"
-    f: Node
-    x: Node
-    a: Node
-    h: Node
+    f: Base
+    x: Base
+    a: Base
+    h: Base
     scope = ("f", "x")
 
     def bound(self):
@@ -256,50 +285,50 @@ def entry_fns(entry):
 
 
 @dataclass(frozen=True, eq=False)
-class Coordinate(Node):
+class Coordinate(AbstractExpression):
     identifier = "uflx.Coordinate"
-    P: Node
+    P: Base
     opaque = ("P",)
 
 
 @dataclass(frozen=True, eq=False)
-class Gradient(Node):
+class Gradient(AbstractExpression):
     identifier = "uflx.Gradient"
-    b: Node
-    P: Node
+    b: Base
+    P: Base
     opaque = ("P",)
 
 
 @dataclass(frozen=True, eq=False)
-class PullBack(Node):
+class PullBack(AbstractExpression):
     identifier = "uflx.PullBack"
-    b: Node
-    m: Node
+    b: Base
+    m: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Integral(Node):
+class Integral(AbstractExpression):
     identifier = "uflx.Integral"
-    b: Node
-    P: Node
+    b: Base
+    P: Base
     opaque = ("P",)
 
 
 @dataclass(frozen=True, eq=False)
-class Normal(Node):
+class Normal(AbstractExpression):
     identifier = "uflx.Normal"
-    D: Node
-    E: Node
-    side: Node
+    D: Base
+    E: Base
+    side: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Gateaux(Node):
+class Gateaux(AbstractExpression):
     identifier = "uflx.GateauxDerivative"
-    F: Node
-    x: Node
-    a: Node
-    entry: Node
+    F: Base
+    x: Base
+    a: Base
+    entry: Base
     scope = ("F", "x", "entry")
 
     def bound(self):

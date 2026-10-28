@@ -1,6 +1,6 @@
 from ..nodes import Abs, Conj, D, Form, Gateaux, Im, Num, Prod, Re, Sum
 from ..static import arity, zero_like
-from ..substitution import map_fields, occurs, operands
+from ..substitution import expressions, map_fields, occurs, operands
 
 NONHOLOMORPHIC = (Conj, Abs, Re, Im)
 
@@ -45,4 +45,4 @@ def apply_gateaux(e):
 
 
 def in_n1(e):
-    return not isinstance(e, Gateaux) and all(in_n1(c) for c in operands(e))
+    return not isinstance(e, Gateaux) and all(in_n1(c) for c in expressions(e))

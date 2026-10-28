@@ -1,7 +1,7 @@
 from ..calculus import derivative_of_node
 from ..nodes import D
 from ..static import arity, zero_like
-from ..substitution import map_fields, occurs, operands, substitute
+from ..substitution import expressions, map_fields, occurs, substitute
 
 
 def deriv(f, x, a, h):
@@ -30,4 +30,4 @@ def apply_derivatives(e):
 
 
 def in_n3(e):
-    return not isinstance(e, D) and all(in_n3(c) for c in operands(e))
+    return not isinstance(e, D) and all(in_n3(c) for c in expressions(e))

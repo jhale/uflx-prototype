@@ -3,7 +3,7 @@ from dataclasses import replace
 from ..commuting import COMMUTING, commute
 from ..nodes import Action, Conj, Fn, Form, Prod, Zero, members
 from ..static import arity, free_indices
-from ..substitution import freshen, map_fields, operands, substitute
+from ..substitution import expressions, freshen, map_fields, substitute
 
 
 def act(f, p, g):
@@ -58,4 +58,4 @@ def in_n2(e):
             pass
         case Action():
             return False
-    return all(in_n2(c) for c in operands(e))
+    return all(in_n2(c) for c in expressions(e))

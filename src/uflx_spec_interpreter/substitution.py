@@ -1,7 +1,7 @@
 from dataclasses import fields, replace
 from functools import cache
 
-from .nodes import Fn, Index, Node
+from .nodes import AbstractExpression, Base, Fn, Index
 
 
 def operands(e, names=None):
@@ -9,7 +9,7 @@ def operands(e, names=None):
     out = []
 
     def walk(x):
-        if isinstance(x, Node):
+        if isinstance(x, Base):
             out.append(x)
         elif isinstance(x, tuple):
             for y in x:
@@ -21,10 +21,15 @@ def operands(e, names=None):
     return out
 
 
+def expressions(e):
+    # The operands of e that are expressions, which a grammar restricts.
+    return [x for x in operands(e) if isinstance(x, AbstractExpression)]
+
+
 def map_fields(e, fn, names=None):
     # Rebuild e with fn applied to every node in the named fields.
     def walk(x):
-        if isinstance(x, Node):
+        if isinstance(x, Base):
             return fn(x)
         if isinstance(x, tuple):
             return tuple(walk(y) for y in x)

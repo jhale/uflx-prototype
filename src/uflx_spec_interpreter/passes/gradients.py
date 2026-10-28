@@ -3,7 +3,7 @@ from ..calculus import derivative_of_node
 from ..domains import ambient_dim, topdim
 from ..nodes import CT, Coordinate, Fn, Gradient, Index, Indexed, Normal, PullBack, Space, Zero
 from ..static import arity, free_indices, shape, support
-from ..substitution import map_fields, operands
+from ..substitution import expressions, map_fields
 from .pullbacks import expand_pull_backs
 
 # Expressions whose gradient a library provides, so the gradient remains.
@@ -61,4 +61,4 @@ def in_n6(e):
     match e:
         case Gradient(f, P) if evaluated(f, P):
             return False
-    return all(in_n6(c) for c in operands(e))
+    return all(in_n6(c) for c in expressions(e))

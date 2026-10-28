@@ -29,10 +29,10 @@ from .nodes import (
     Tensor,
     Zero,
 )
-from .substitution import operands
+from .substitution import expressions
 
 
-def shape(e):
+def rule_shape(e):
     match e:
         case Gateaux(F, _, _, _):
             return shape(F)
@@ -73,12 +73,12 @@ def shape(e):
     raise TypeError(e)
 
 
-def free(e):
+def rule_free(e):
     # The free indices with their extents, in order of first occurrence.
     match e:
         case Gateaux(F, _, a, _):
             return free(F) | free(a)
-        case Coordinate() | Normal():
+        case Coordinate() | Normal() | Fn():
             return {}
         case Gradient(b, _):
             return free(b)
@@ -106,13 +106,12 @@ def free(e):
         case D(f, _, a, h):
             return free(f) | free(a) | free(h)
     out = {}
-    for x in operands(e):
-        if not isinstance(x, Fn):
-            out |= free(x)
+    for x in expressions(e):
+        out |= free(x)
     return out
 
 
-def arity(e):
+def rule_arity(e):
     match e:
         case Gateaux(F, _, _, _):
             return arity(F) + 1
@@ -139,7 +138,7 @@ def arity(e):
     raise TypeError(e)
 
 
-def support(e):
+def rule_support(e):
     # The single support of an expression, or None.
     match e:
         case Coordinate(P):
@@ -155,27 +154,28 @@ def support(e):
         case Gradient(_, P):
             return P
     found = None
-    for x in operands(e):
+    for x in expressions(e):
         s = support(x)
         if s is not None:
             found = s
     return found
 
 
-def memoised(fn):
-    # Pass outputs share subexpressions, so a walk without memoisation is exponential in depth.
-    seen = {}
-
-    def wrapped(e):
-        if e not in seen:
-            seen[e] = fn(e)
-        value = seen[e]
-        return dict(value) if isinstance(value, dict) else value
-
-    return wrapped
+# The free functions read the static type of an expression.
+def shape(e):
+    return e.value_shape
 
 
-shape, free, arity = memoised(shape), memoised(free), memoised(arity)
+def free(e):
+    return dict(e.free_indices)
+
+
+def arity(e):
+    return e.arity
+
+
+def support(e):
+    return e.support
 
 
 def free_indices(*es):
