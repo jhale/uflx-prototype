@@ -113,16 +113,20 @@ class StaticTopology(AbstractTopology):
         named = next(s for s in self.sides[i] if s[0] == side)
         (_, T, j) = named
         rank = [s for s in self.sides[i] if s[1:] == (T, j)].index(named)
-        chosen, positions = [], []
+        K = T.cell_types[j]
+        chosen, local = [], []
         for vertices in self.cells[i]:
             around = [c for c, cell in enumerate(T.cells[j]) if set(vertices) <= set(cell)]
             c = around[min(rank, len(around) - 1)]
             chosen.append(c)
-            positions.append(
-                vertex_rows(T.cell_types[j], [T.cells[j][c].index(v) for v in vertices])
-            )
+            local.append([T.cells[j][c].index(v) for v in vertices])
         cells = IndexTable(tuple(chosen), T.num_cells[j])
-        return side_tables(self, i, side, cells, Tensor(tuple(positions)))
+        positions = Tensor(tuple(vertex_rows(K, vs) for vs in local))
+        # A cell that tabulates its facet normals reads them by the local facet of each cell.
+        facets = None
+        if hasattr(K, "facet_normals") and self.cell_types[i].dimension == K.dimension - 1:
+            facets = IndexTable(tuple(K.local_facet(vs) for vs in local), K.num_facets)
+        return side_tables(self, i, side, cells, positions, facets)
 
 
 @final

@@ -9,6 +9,7 @@ from uflx_spec_interpreter import (
     determinant,
     divide,
     domain_map,
+    gathered_index,
     index,
     indexed,
     inverse,
@@ -30,16 +31,20 @@ def affine_map(F, points):
     return component_tensor(reduce(add, terms, points[0, l]), (l,))
 
 
-def side_tables(S, i, side, cells, positions):
+def side_tables(S, i, side, cells, positions, facets=None):
     # The inclusion through the positions of the vertices of each cell e, and its normal.
+    # A cell that tabulates its facet normals reads the normal of the local facet of e.
     (_, T, j) = next(s for s in S.sides[i] if s[0] == side)
     F, K = S.cell_types[i], T.cell_types[j]
     e = cell_index(S, i)
     v, k = (index(("toy.inclusion", S, i, side, n)) for n in range(2))
     points = component_tensor(indexed(positions, (e, v, k)), (v, k))
     A = domain_map(F, affine_map(F, points), K)
-    facet = F.dimension == K.dimension - 1
-    return cells, A, reference_normal(A, points, K) if facet else None
+    if F.dimension != K.dimension - 1:
+        return cells, A, None
+    if facets is not None:
+        return cells, A, K.facet_normals[gathered_index(facets, (e,))]
+    return cells, A, reference_normal(A, points, K)
 
 
 def reference_normal(A, points, K):
