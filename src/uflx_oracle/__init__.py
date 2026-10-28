@@ -46,7 +46,7 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_spec_interpreter._src.static import arity, free, support
 from uflx_spec_interpreter._src.tuples import members
-from uflx_toy.basix_nodes import BasixCell
+from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.nodes import RuntimeArray
 
 EPS = 1e-4
@@ -121,6 +121,17 @@ def side_cell(E, side):
 
 def on_cell(D, piece, cell, fn):
     return at(("piece", D), piece, lambda: at(("cell", D), cell, fn))
+
+
+def basix_function(space, coefficients):
+    # The value at the point of the current cell, from the reference point of the point.
+    D = space.domain
+    j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
+    piece = D.pieces[j]
+    chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell})
+    X = reference_point(chart, POINTS[D], D.dimension)
+    phi = space.element(j).tabulate(0, np.array([X], dtype=float))[0, 0, :, 0]
+    return np.asarray(coefficients)[list(space.dofmap[j][cell])] @ phi
 
 
 def piece_map(piece, members):
@@ -303,6 +314,13 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: v
         case ImaginaryUnit():
             return lambda vals: 1j
+        case Function(BasixSpace() as space, _):
+
+            def basix_value(vals):
+                # The coefficients of the dofs of the cell times the basis, as the library of V.
+                return basix_function(space, env[e])
+
+            return basix_value
         case Function(space, _) if space.domain is not None:
 
             def function_value(vals):

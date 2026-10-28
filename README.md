@@ -13,7 +13,9 @@ oracle to the extension to the core, which `test/test_boundaries.py` checks:
   topologies `StaticTopology` and `TabulatedTopology`, whose side tables
   `inclusions.py` builds from vertex positions with `affine_map`, and `BasixCell`,
   a reference cell of Basix, whose facet normals the side tables read from the
-  tables of Basix
+  tables of Basix, and `BasixSpace`, a space of Basix elements on a
+  mesh, whose dof map shares the dofs of shared entities so that the space is
+  continuous
 - `uflx_oracle`: the oracle that the tests compare the passes against
 
 The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
