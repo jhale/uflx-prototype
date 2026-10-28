@@ -76,27 +76,34 @@ def topdim(P):
     return P.dim if isinstance(P, CoordDomain) else topdim(P.pieces[0].P)
 
 
+def piece_map(piece, members):
+    # The map of one member of a piece, from reference coordinates to ambient coordinates.
+    return lambda X: np.real(
+        np.asarray(
+            at(piece.P, np.asarray(X, dtype=float), lambda: evaluate(piece.psi, {}, members)(()))
+        )
+    )
+
+
+def reference_point(chart, x, dim):
+    # Gauss-Newton for the reference point that the chart maps to x.
+    X = np.full(dim, 1 / (dim + 1))
+    for _ in range(30):
+        step = np.linalg.lstsq(jacobian_of(chart, X), chart(X) - np.real(x), rcond=None)[0]
+        X = X - step
+        if np.linalg.norm(step) < 1e-12:
+            break
+    return X
+
+
 def tangent_projector(P):
     # The orthogonal projection onto the tangent space of P at the current point.
     if ("chart", P) in POINTS:
         T = jacobian_of(POINTS[("chart", P)], POINTS[("ref", P)])
     else:
         piece = P.pieces[0]
-        cell = POINTS[("cell", P)]
-        index = next(iter(free(piece.psi)))
-        verts = [
-            np.real(
-                np.asarray(
-                    at(
-                        piece.P,
-                        np.array(v, dtype=float),
-                        lambda: evaluate(piece.psi, {}, {index: cell})(()),
-                    )
-                )
-            )
-            for v in ((0, 0), (1, 0), (0, 1))
-        ]
-        T = np.array([verts[1] - verts[0], verts[2] - verts[0]]).T
+        chart = piece_map(piece, {next(iter(free(piece.psi))): POINTS[("cell", P)]})
+        T = jacobian_of(chart, reference_point(chart, POINTS[P], topdim(P)))
     return T @ np.linalg.pinv(T)
 
 
@@ -341,41 +348,16 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             cells = sidemap.cells
 
             def normal(vals):
-                # The outward normal of the cell on the side, from the geometry alone.
+                # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
                 cell = int(np.real(np.asarray(evaluate(cells, env)(()))[e]))
-                piece = Ed.pieces[0]
-                index = next(iter(free(piece.psi)))
-                ends = [
-                    np.real(
-                        np.asarray(
-                            at(
-                                piece.P,
-                                np.array([s]),
-                                lambda: evaluate(piece.psi, env, {index: e})(()),
-                            )
-                        )
-                    )
-                    for s in (0.0, 1.0)
-                ]
-                tangent = (ends[1] - ends[0]) / np.linalg.norm(ends[1] - ends[0])
-                cpiece = Dd.pieces[0]
-                cidx = next(iter(free(cpiece.psi)))
-                verts = [
-                    np.real(
-                        np.asarray(
-                            at(
-                                cpiece.P,
-                                np.array(v, dtype=float),
-                                lambda: evaluate(cpiece.psi, env, {cidx: cell})(()),
-                            )
-                        )
-                    )
-                    for v in ((0, 0), (1, 0), (0, 1))
-                ]
-                # In the plane of the cell, orthogonal to the edge, away from its centroid.
-                d = np.real(x) - sum(verts) / 3
-                n = d - (d @ tangent) * tangent
+                edge = piece_map(Ed.pieces[0], {next(iter(free(Ed.pieces[0].psi))): e})
+                t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
+                t = t / np.linalg.norm(t)
+                chart = piece_map(Dd.pieces[0], {next(iter(free(Dd.pieces[0].psi))): cell})
+                X = reference_point(chart, x, topdim(Dd))
+                d = jacobian_of(chart, X) @ (X - 1 / (len(X) + 1))
+                n = d - (d @ t) * t
                 return n / np.linalg.norm(n)
 
             return normal

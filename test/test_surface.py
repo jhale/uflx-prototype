@@ -48,20 +48,29 @@ psi = CT(
 )
 M = Decomposed((DomainMap(K, psi, R3),))
 
-# The surface deformed by a smooth map of R^3, on the parameter domain M of dimension 2.
-Y = Coordinate(M)
 bump = Tensor((Num(1), Num(-1), Num(2)))
-phi = CT(
-    Sum(
-        Indexed(Y, (k,)),
-        Prod(Prod(Num(0.2), Prod(Indexed(Y, (0,)), Indexed(Y, (1,)))), Indexed(bump, (k,))),
-    ),
-    (k,),
-)
-Ms = Decomposed((DomainMap(M, phi, R3),))
+kk = Index("kk")
 
 
-def edges(vertices):
+def deform(z):
+    # A smooth map of R^3 applied to the point z.
+    return CT(
+        Sum(
+            Indexed(z, (kk,)),
+            Prod(Prod(Num(0.2), Prod(Indexed(z, (0,)), Indexed(z, (1,)))), Indexed(bump, (kk,))),
+        ),
+        (kk,),
+    )
+
+
+# The deformed surface on the parameter domain M, which has no topology and so no sides.
+Ms = Decomposed((DomainMap(M, deform(Coordinate(M)), R3),))
+
+# The same curved surface written as a mesh, with the cells of M deformed, so it has sides.
+C = Decomposed((DomainMap(K, deform(psi), R3),))
+
+
+def edges(vertices, curved=False):
     fv = table(vertices)
     psi_e = CT(
         Sum(
@@ -73,30 +82,37 @@ def edges(vertices):
         ),
         (k,),
     )
-    return Decomposed((DomainMap(I, psi_e, R3),))
+    return Decomposed((DomainMap(I, deform(psi_e) if curved else psi_e, R3),))
 
 
-E_int = edges([[(0, 0, 0), (1, 1, 0.5)]])
-sides_int = {
-    "+": SideMap(M, E_int, table([0]), table([[(0, 0), (0, 1)]])),
-    "-": SideMap(M, E_int, table([1]), table([[(0, 0), (1, 0)]])),
-}
-E_bnd = edges(
-    [
-        [(0, 0, 0), (1, 0, 0)],
-        [(1, 0, 0), (1, 1, 0.5)],
-        [(1, 1, 0.5), (0, 1, 1)],
-        [(0, 1, 1), (0, 0, 0)],
-    ]
-)
-sides_bnd = {
-    "inside": SideMap(
-        M,
-        E_bnd,
-        table([0, 0, 1, 1]),
-        table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]),
-    )
-}
+INTERIOR = [[(0, 0, 0), (1, 1, 0.5)]]
+BOUNDARY = [
+    [(0, 0, 0), (1, 0, 0)],
+    [(1, 0, 0), (1, 1, 0.5)],
+    [(1, 1, 0.5), (0, 1, 1)],
+    [(0, 1, 1), (0, 0, 0)],
+]
+
+
+def sides(D, curved):
+    # The fold and the boundary of the surface D, with their side tables.
+    E_int, E_bnd = edges(INTERIOR, curved), edges(BOUNDARY, curved)
+    interior = {
+        "+": SideMap(D, E_int, table([0]), table([[(0, 0), (0, 1)]])),
+        "-": SideMap(D, E_int, table([1]), table([[(0, 0), (1, 0)]])),
+    }
+    boundary = {
+        "inside": SideMap(
+            D,
+            E_bnd,
+            table([0, 0, 1, 1]),
+            table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]),
+        )
+    }
+    return [(E_int, interior), (E_bnd, boundary)]
+
+
+EDGES = {M: sides(M, False), C: sides(C, True)}
 
 u = Fn(Space("V", domain=M), "u")
 ENV = {u: {0: lambda x: 1 + x[0] + 2 * x[1] - x[2], 1: lambda x: 3 - x[0] * x[2] + x[1]}}
@@ -118,24 +134,23 @@ def field(rnd, dom):
     )
 
 
-def edge_integrand(rnd, E, sides):
+def edge_integrand(rnd, D, E, sides):
     sm = sides[rnd.choice(list(sides))]
+    Z = Coordinate(D)
+    g = Sum(Prod(Indexed(Z, (0,)), Indexed(Z, (1,))), Indexed(Z, (2,)))
     f = rnd.choice(
-        [
-            u,
-            Indexed(Gradient(u, M), (rnd.randrange(3),)),
-            Indexed(Coordinate(M), (rnd.randrange(3),)),
-        ]
+        ([u, Indexed(Gradient(u, M), (rnd.randrange(3),))] if D == M else [])
+        + [Indexed(Z, (rnd.randrange(3),)), Indexed(Gradient(g, D), (rnd.randrange(3),))]
     )
-    n = Normal(M, E, sm)
+    n = Normal(D, E, sm)
     return rnd.choice(
         [
             PullBack(f, sm),
             Prod(PullBack(f, sm), Indexed(n, (rnd.randrange(3),))),
             n,
             Sum(
-                PullBack(u, sides[next(iter(sides))]),
-                Prod(Num(-1), PullBack(u, sides[list(sides)[-1]])),
+                PullBack(f, sides[next(iter(sides))]),
+                Prod(Num(-1), PullBack(f, sides[list(sides)[-1]])),
             ),
         ]
     )
@@ -168,14 +183,19 @@ def main(trials):
     bad = dict(value=0, static=0, grammar=0, lazy=0, rejected=0)
     for seed in range(trials):
         rnd = random.Random(seed)
-        kind = rnd.choice(["surface", "deformed surface", "edges"])
+        kind = rnd.choice(
+            ["surface", "deformed surface", "curved surface", "edges", "curved edges"]
+        )
         if kind == "surface":
             e_int = Integral(field(rnd, M), M)
         elif kind == "deformed surface":
             e_int = Integral(field(rnd, Ms), Ms)
+        elif kind == "curved surface":
+            e_int = Integral(field(rnd, C), C)
         else:
-            E, sides = rnd.choice([(E_int, sides_int), (E_bnd, sides_bnd)])
-            e_int = Integral(edge_integrand(rnd, E, sides), E)
+            D = C if kind == "curved edges" else M
+            E, side_maps = rnd.choice(EDGES[D])
+            e_int = Integral(edge_integrand(rnd, D, E, side_maps), E)
         check(f"{kind} {seed}", e_int, ENV, bad, None)
     print(
         f"{trials} integrals on a surface in R^3: {bad['value']} values changed, "
