@@ -13,6 +13,7 @@ from testutil import contains
 from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.forms import space
 from uflx_spec_interpreter.geometry import density, inverse_jacobian, metric
+from uflx_spec_interpreter.interning import digest_of
 from uflx_spec_interpreter.nodes import (
     Base,
     Function,
@@ -22,7 +23,7 @@ from uflx_spec_interpreter.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter.substitution import map_fields
+from uflx_spec_interpreter.substitution import map_fields, rebuild
 
 V = space("V")
 
@@ -42,7 +43,7 @@ def test_constants_differ_by_type_and_sign():
 
 def test_rebuilding_returns_the_same_object():
     e = Sum(Num(1), Function(V, "u"))
-    assert e.rebuild() is e
+    assert rebuild(e) is e
     assert map_fields(e, lambda x: x) is e
 
 
@@ -70,11 +71,11 @@ def test_hash_is_the_same_in_every_process():
 
 def test_hash_does_not_depend_on_where_the_class_is():
     e = Sum(Num(1), Function(V, "u"))
-    digest = Base.digest_of(Sum.identifier, e.construction_arguments)
+    digest = digest_of(Sum.identifier, e.construction_arguments)
     module, qualname = Sum.__module__, Sum.__qualname__
     try:
         Sum.__module__, Sum.__qualname__ = "elsewhere", "Elsewhere"
-        assert Base.digest_of(Sum.identifier, e.construction_arguments) == digest
+        assert digest_of(Sum.identifier, e.construction_arguments) == digest
     finally:
         Sum.__module__, Sum.__qualname__ = module, qualname
     assert e.digest == digest

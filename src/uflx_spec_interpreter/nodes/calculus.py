@@ -28,7 +28,11 @@ class DirectionalDerivative(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        return tuple(
+            dict(
+                self.expression.free_indices + self.point.free_indices + self.direction.free_indices
+            ).items()
+        )
 
     @cached_property
     def arity(self):
@@ -36,7 +40,7 @@ class DirectionalDerivative(AbstractExpression):
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return self.direction.support or self.point.support or self.expression.support
 
 
 @final

@@ -69,11 +69,11 @@ class Form(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        return self.expression.free_indices
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return self.expression.support
 
 
 @final
@@ -94,11 +94,12 @@ class Action(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        members = self.argument if isinstance(self.argument, tuple) else (self.argument,)
+        return tuple(dict(p for x in (self.form, *members) for p in x.free_indices).items())
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return self.form.support
 
 
 @final
@@ -126,8 +127,8 @@ class GateauxDerivative(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        return tuple(dict(self.expression.free_indices + self.point.free_indices).items())
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return self.expression.support

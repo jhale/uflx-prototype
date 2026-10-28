@@ -5,7 +5,34 @@ from .nodes import AbstractExpression, Base, Function, Index
 
 def operands(e, names=None):
     # The nodes on the edges of e, in order, through tuples, or those of the named arguments.
-    return list(e.operands if names is None else e.operands_of(names))
+    return list(edges(e) if names is None else nodes_in(e, names))
+
+
+@cache
+def edges(e):
+    # The edges of rule 5, without the opaque arguments, computed once for each node.
+    return nodes_in(e, traversed(e))
+
+
+def nodes_in(e, names):
+    out = []
+
+    def walk(x):
+        if isinstance(x, Base):
+            out.append(x)
+        elif isinstance(x, tuple):
+            for y in x:
+                walk(y)
+
+    for name in names:
+        walk(getattr(e, name))
+    return tuple(out)
+
+
+def rebuild(e, **changes):
+    # An unknown name adds an argument, which the class rejects.
+    values = dict(zip(e.argument_names, e.construction_arguments)) | changes
+    return type(e)(*values.values())
 
 
 def traversed(e):
@@ -28,7 +55,7 @@ def map_fields(e, fn, names=None):
         return x
 
     names = traversed(e) if names is None else names
-    return e.rebuild(**{n: walk(getattr(e, n)) for n in names})
+    return rebuild(e, **{n: walk(getattr(e, n)) for n in names})
 
 
 def occurs(r, e):

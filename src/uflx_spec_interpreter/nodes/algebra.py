@@ -62,7 +62,7 @@ class Sum(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @cached_property
     def arity(self):
@@ -70,7 +70,7 @@ class Sum(AbstractExpression):
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return self.second.support or self.first.support
 
 
 @final
@@ -89,11 +89,11 @@ class Product(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return self.second.support or self.first.support
 
 
 @final
@@ -108,7 +108,7 @@ class Division(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @cached_property
     def arity(self):
@@ -116,7 +116,7 @@ class Division(AbstractExpression):
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return self.second.support or self.first.support
 
 
 @final
@@ -285,7 +285,7 @@ class Power(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @cached_property
     def arity(self):
@@ -293,7 +293,7 @@ class Power(AbstractExpression):
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return self.second.support or self.first.support
 
 
 @final
@@ -307,7 +307,7 @@ class Tensor(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return self.free_indices_of_operands()
+        return tuple(dict(p for x in self.entries for p in x.free_indices).items())
 
     @cached_property
     def arity(self):
@@ -315,7 +315,7 @@ class Tensor(AbstractExpression):
 
     @cached_property
     def support(self):
-        return self.support_of_operands()
+        return next((x.support for x in reversed(self.entries) if x.support), None)
 
 
 @final

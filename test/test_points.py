@@ -38,7 +38,7 @@ def on_surface(cell, X):
     # A point of the folded surface M, from a reference point of one of its two triangles.
     verts = [[(0, 0, 0), (1, 0, 0), (1, 1, 0.5)], [(0, 0, 0), (1, 1, 0.5), (0, 1, 1)]][cell]
     v0, v1, v2 = (np.array(v, dtype=float) for v in verts)
-    return tuple(v0 + (v1 - v0) * X[0] + (v2 - v0) * X[1])
+    return tuple(float(c) for c in v0 + (v1 - v0) * X[0] + (v2 - v0) * X[1])
 
 
 SQUARE = [(0.2, 0.3), (0.7, 0.4), (0.35, 0.8), (0.9, 0.95)]
@@ -53,7 +53,7 @@ def in_square(x):
         T = np.array([np.subtract(v1, v0), np.subtract(v2, v0)]).T
         X = np.linalg.solve(T, np.subtract(x, v0))
         if np.all(X > -1e-12) and X.sum() < 1 + 1e-12:
-            return cell, tuple(X)
+            return cell, tuple(float(c) for c in X)
     raise ValueError(x)
 
 

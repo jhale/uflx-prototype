@@ -19,6 +19,7 @@ from uflx_spec_interpreter.nodes import (
 )
 from uflx_spec_interpreter.passes import pullbacks
 from uflx_spec_interpreter.static import free
+from uflx_spec_interpreter.substitution import rebuild
 
 EXPRESSIONS = (
     "Num Zero Sum Product Division Power Absolute Conjugate RealPart ImaginaryPart SquareRoot "
@@ -116,7 +117,7 @@ def test_nodes_are_immutable_and_take_their_arguments():
     with pytest.raises(TypeError):
         nodes.Num(1, 2)
     with pytest.raises(TypeError):
-        e.rebuild(other=3)
-    assert e.rebuild(value=2) is nodes.Num(2)
+        rebuild(e, other=3)
+    assert rebuild(e, value=2) is nodes.Num(2)
     assert nodes.Sum.argument_names == ("first", "second")
     assert nodes.Form.argument_names == ("expression", "arguments")

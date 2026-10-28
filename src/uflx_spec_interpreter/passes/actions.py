@@ -1,7 +1,7 @@
 from ..forms import members
 from ..nodes import Action, Conjugate, Form, Function, Product, Zero
 from ..static import arity, free_indices
-from ..substitution import expressions, freshen, map_fields, substitute
+from ..substitution import expressions, freshen, map_fields, rebuild, substitute
 from .commuting import COMMUTING, commute
 
 
@@ -24,10 +24,10 @@ def act(f, p, g):
 
 
 def bind(form, q, g):
-    rest = freshen(form.rebuild(arguments=without(form.arguments, q)), members(g))
+    rest = freshen(rebuild(form, arguments=without(form.arguments, q)), members(g))
     pairs = zip(members(form.arguments[q]), members(g), strict=True)
     body = substitute(rest.expression, dict(binding(entry, value) for entry, value in pairs))
-    return rest.rebuild(expression=body) if rest.arguments else body
+    return rebuild(rest, expression=body) if rest.arguments else body
 
 
 def binding(entry, value):
