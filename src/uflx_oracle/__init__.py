@@ -98,19 +98,29 @@ def index_value(i, ienv):
 
 
 def cell_value(m, ienv):
-    # The cell that a cell domain or a gathered cell domain reads, as the library of a function.
-    if cell_of(m) is not None:
+    # The piece and the cell that a cell domain or a gathered cell domain reads, as a library.
+    i = cell_of(m)
+    if i is not None:
         ((c, _),) = m.parameterisation.free_indices
-        return ienv[c]
+        return i, ienv[c]
     match m.parameterisation:
-        case ComponentTensor(Indexed(ComponentTensor(_, (_, _)), (GatheredIndex() as g, _)), _):
-            return index_value(g, ienv)
+        case ComponentTensor(
+            Indexed(ComponentTensor(Indexed(psi, _), (_, _)), (GatheredIndex() as g, _)), _
+        ):
+            pieces = [piece.parameterisation for piece in m.ambient_domain.pieces]
+            return pieces.index(psi), index_value(g, ienv)
     return None
 
 
-def side_cells(E, side):
-    # The cells on the side of the cells of the piece of E that the integral visits.
-    return E.topology.side_tables(POINTS.get(("piece", E), 0), side)[0]
+def side_cell(E, side):
+    # The piece and the cell on the side of the current cell of E, through the side tables.
+    i = POINTS.get(("piece", E), 0)
+    (_, _, j) = next(s for s in E.topology.sides[i] if s[0] == side)
+    return j, E.topology.side_tables(i, side)[0].values[POINTS[("cell", E)]]
+
+
+def on_cell(D, piece, cell, fn):
+    return at(("piece", D), piece, lambda: at(("cell", D), cell, fn))
 
 
 def piece_map(piece, members):
@@ -299,7 +309,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 v = env[e]
                 if isinstance(v, dict):
                     # A function that differs between cells, read on the current cell.
-                    return v[POINTS[("cell", space.domain)]](POINTS[space.domain])
+                    D = space.domain
+                    cell = POINTS[("cell", D)]
+                    key = (POINTS.get(("piece", D), 0), cell) if len(D.pieces) > 1 else cell
+                    return v[key](POINTS[D])
                 return v(POINTS[space.domain]) if callable(v) else v
 
             return function_value
@@ -446,8 +459,8 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def restricted(vals):
                 # The point of E, read from the cell on the side through the table of cells.
-                cell = side_cells(Ed, side).values[POINTS[("cell", Ed)]]
-                return at(("cell", Dd), cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
+                j, cell = side_cell(Ed, side)
+                return on_cell(Dd, j, cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
 
             return restricted
         case PullBack(b, m):
@@ -455,13 +468,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def pulled(vals):
                 y = np.real(np.asarray(psi(())))
-                cell = cell_value(m, ienv)
-                if cell is not None:
-                    return at(
-                        ("cell", m.ambient_domain),
-                        cell,
-                        lambda: at(m.ambient_domain, y, lambda: fb(vals)),
-                    )
+                found = cell_value(m, ienv)
+                if found is not None:
+                    D = m.ambient_domain
+                    return on_cell(D, *found, lambda: at(D, y, lambda: fb(vals)))
                 return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
@@ -470,15 +480,15 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def normal(vals):
                 # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
-                cell = side_cells(Ed, side).values[e]
-                edge = piece_map(Ed.pieces[0], {next(iter(free(Ed.pieces[0].parameterisation))): e})
+                j, cell = side_cell(Ed, side)
+                facet = Ed.pieces[POINTS.get(("piece", Ed), 0)]
+                edge = piece_map(facet, {next(iter(free(facet.parameterisation))): e})
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)
-                chart = piece_map(
-                    Dd.pieces[0], {next(iter(free(Dd.pieces[0].parameterisation))): cell}
-                )
+                piece = Dd.pieces[j]
+                chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell})
                 X = reference_point(chart, x, Dd.dimension)
-                d = jacobian_of(chart, X) @ (X - reference_centroid(Dd.pieces[0].parameter_domain))
+                d = jacobian_of(chart, X) @ (X - reference_centroid(piece.parameter_domain))
                 n = d - (d @ t) * t
                 return n / np.linalg.norm(n)
 

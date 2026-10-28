@@ -146,3 +146,72 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
         assert np.isclose(before, after, rtol=1e-6), (before, after)
         if expected is not None:
             assert np.isclose(after, expected, rtol=1e-6), (after, expected)
+
+
+def mixed():
+    # The unit square as two triangles left of x = 1/2 and one quadrilateral right of it.
+    Tri, Q, I = (basix_cell(t) for t in (CELLS[2], basix.CellType.quadrilateral, CELLS[1]))
+    T = static_topology((Tri, Q), (((0, 1, 4), (0, 4, 3)), ((1, 2, 4, 5),)), ())
+    k = index("k")
+    tri = table([[(0, 0), (0.5, 0), (0.5, 1)], [(0, 0), (0.5, 1), (0, 1)]])
+    quad = table([[(0.5, 0), (1, 0), (0.5, 1), (1, 1)]])
+    c0, c1 = cell_index(T, 0), cell_index(T, 1)
+    X, Y = coordinate(Tri), coordinate(Q)
+    v = lambda n: indexed(tri, (c0, n, k))
+    psi_tri = v(0) + (v(1) - v(0)) * X[0] + (v(2) - v(0)) * X[1]
+    one, x, y = num(1), Y[0], Y[1]
+    shapes = [(one - x) * (one - y), x * (one - y), (one - x) * y, x * y]
+    psi_quad = shapes[0] * indexed(quad, (c1, 0, k))
+    for n in range(1, 4):
+        psi_quad = psi_quad + shapes[n] * indexed(quad, (c1, n, k))
+    D = decomposed_domain(
+        (
+            domain_map(Tri, component_tensor(psi_tri, (k,)), RD(2)),
+            domain_map(Q, component_tensor(psi_quad, (k,)), RD(2)),
+        )
+    )
+    # A group of facets between two triangles, and one between a triangle and a quadrilateral.
+    interior = static_topology(
+        (I, I),
+        (((0, 4),), ((1, 4),)),
+        ((("+", T, 0), ("-", T, 0)), (("+", T, 0), ("-", T, 1))),
+    )
+    boundary = static_topology(
+        (I, I),
+        (((0, 1), (4, 3), (3, 0)), ((1, 2), (2, 5), (5, 4))),
+        ((("inside", T, 0),), (("inside", T, 1),)),
+    )
+    return D, side_domain(D, interior), side_domain(D, boundary)
+
+
+def test_a_mesh_of_triangles_and_a_quadrilateral():
+    D, E, B = mixed()
+    assert D.topology is not None and len(D.pieces) == 2 and len(E.pieces) == 2
+    u = function(space("V", domain=D), "u")
+    plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
+    # A function that differs between the cells, keyed by the cell type and the cell.
+    env = {
+        u: {
+            (0, 0): lambda x: 1 + x[0] + 2 * x[1],
+            (0, 1): lambda x: 2 - x[0],
+            (1, 0): lambda x: 3 - x[0] * x[1],
+        }
+    }
+    Z = coordinate(D)
+    exact = [
+        (integral(num(1), D), 1),
+        (integral(normal(plus)[0], E), 0),
+        (integral(normal(plus)[1], E), 0.5),
+        (integral(normal(inside)[0] * pull_back(Z[0], inside), B), 1),
+        (integral(normal(inside)[1] * pull_back(Z[1], inside), B), 1),
+        (integral(u * u, D), None),
+        (integral(pull_back(u, plus) - pull_back(u, minus), E), None),
+        (integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B), None),
+    ]
+    for e, expected in exact:
+        out = gradients.apply_gradients(pullbacks.expand_pull_backs(integrals.expand_integrals(e)))
+        assert gradients.in_n6(out)
+        before, after = evaluate(e, env)(()), evaluate(out, env)(())
+        assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
+        if expected is not None:
+            assert np.isclose(after, expected, rtol=1e-6, atol=1e-9), (after, expected)
