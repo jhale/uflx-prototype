@@ -69,17 +69,6 @@ def aligned(n, data, order, xp):
     return xp.reshape(data, [lengths.get(i, 1) for i in order] + list(data.shape[len(present) :]))
 
 
-BINARY = {Sum: "add", Product: "multiply", Division: "divide", Power: "power"}
-UNARY = {
-    Absolute: "abs",
-    SquareRoot: "sqrt",
-    Logarithm: "log",
-    Conjugate: "conj",
-    RealPart: "real",
-    ImaginaryPart: "imag",
-}
-
-
 def node(n, value, env, xp):
     order = free(n)
 
@@ -96,10 +85,26 @@ def node(n, value, env, xp):
             return xp.zeros(full_shape(n, order, env))
         case RuntimeArray(label, _):
             return xp.asarray(env[label])
-        case _ if type(n) in BINARY:
-            return getattr(xp, BINARY[type(n)])(operand(n.first), operand(n.second))
-        case _ if type(n) in UNARY:
-            return getattr(xp, UNARY[type(n)])(value(n.operand))
+        case Sum(a, b):
+            return operand(a) + operand(b)
+        case Product(a, b):
+            return operand(a) * operand(b)
+        case Division(a, b):
+            return operand(a) / operand(b)
+        case Power(a, b):
+            return operand(a) ** operand(b)
+        case Absolute(a):
+            return xp.abs(value(a))
+        case SquareRoot(a):
+            return xp.sqrt(value(a))
+        case Logarithm(a):
+            return xp.log(value(a))
+        case Conjugate(a):
+            return xp.conj(value(a))
+        case RealPart(a):
+            return xp.real(value(a))
+        case ImaginaryPart(a):
+            return xp.imag(value(a))
         case Coordinate(P) if P.dimension == 0:
             return xp.zeros((0,))
         case Inverse(a):
