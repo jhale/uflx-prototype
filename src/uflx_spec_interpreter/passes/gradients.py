@@ -4,7 +4,7 @@ from ..domains import ambient_dim, topdim
 from ..nodes import CT, Coordinate, Fn, Gradient, Index, Indexed, Normal, PullBack, Space, Zero
 from ..static import arity, free_indices, shape, support
 from ..substitution import map_fields, operands
-from .pullbacks import in_n5, pb
+from .pullbacks import expand_pull_backs
 
 # Expressions whose gradient a library provides, so the gradient remains.
 LEAVES = (Fn, Normal, PullBack, Gradient, Coordinate)
@@ -44,13 +44,15 @@ def evaluated(f, P):
 
 
 def apply_gradients(e):
+    # A pull-back over an evaluated gradient is pointwise again, so expand_pull_backs finishes.
+    return expand_pull_backs(rewrite(e))
+
+
+def rewrite(e):
     # Inner gradients first, then the rule for the expression of each gradient.
-    match map_fields(e, apply_gradients):
+    match map_fields(e, rewrite):
         case Gradient(f, P) if evaluated(f, P):
             return gradient(f, P)
-        case PullBack() as f if not in_n5(f):
-            # An evaluated cell gradient under a pull-back to a facet makes the pull-back pointwise.
-            return pb(f.b, f.m)
         case e:
             return e
 
