@@ -11,6 +11,7 @@ from uflx_spec_interpreter._src.nodes import (
     Gradient,
     Indexed,
     PullBack,
+    Tensor,
 )
 from uflx_spec_interpreter._src.passes.pullbacks import expand_pull_backs
 from uflx_spec_interpreter._src.substitution import bottom_up
@@ -77,6 +78,8 @@ def cell(C):
 def values(u, found_cell, derivative, points):
     # The gathered coefficients of the cell times the table, summed over the dofs of the cell.
     V, (j, entry) = u.space, found_cell
+    if V.factors(j) and separable(points):
+        return factored(u, found_cell, derivative, points)
     axes = [i for i, _ in points.free_indices]
     i, d = (index(("compiler.tabulation", u, entry, points, n)) for n in "id")
     ds = (d,) if derivative else ()
@@ -85,6 +88,42 @@ def values(u, found_cell, derivative, points):
     phi = basis_table(V, j, derivative, points)
     value = index_sum(coefficient * phi[(*axes, i, *ds)], (i,))
     return component_tensor(value, ds) if ds else value
+
+
+def separable(points):
+    # Coordinate k of the points reads indices that no other coordinate reads.
+    match points:
+        case Tensor(entries) if not runtime_arrays(points):
+            seen = [set(dict(x.free_indices)) for x in entries]
+            return sum(map(len, seen)) == len(set().union(*seen))
+    return False
+
+
+def factored(u, found_cell, derivative, points):
+    # The basis is the product of a table for each coordinate, with a dof index for each factor.
+    V, (j, entry) = u.space, found_cell
+    factors, coordinates = V.factors(j), points.entries
+    i = tuple(index(("compiler.tabulation", u, entry, points, "i", k)) for k in range(len(factors)))
+    rows = np.asarray(V.dofmap[j]).reshape(-1, *(F.dim for F in factors))
+    coefficient = coefficients(u)[GatheredIndex(IndexTable(nested(rows), V.num_dofs), (entry, *i))]
+
+    def term(direction):
+        out = coefficient
+        for k, (F, X) in enumerate(zip(factors, coordinates, strict=True)):
+            axes = [n for n, _ in X.free_indices]
+            at = np.real(np.asarray(evaluate(X, {}, np)))[..., None]
+            phi = basis(F, int(k == direction), at)
+            phi = table(phi[..., 0] if k == direction else phi)
+            out = out * phi[(*axes, i[k])]
+        return index_sum(out, i)
+
+    if derivative == 0:
+        return term(None)
+    return tensor(tuple(term(k) for k in range(len(factors))))
+
+
+def nested(values):
+    return tuple(map(nested, values)) if isinstance(values, np.ndarray) else int(values)
 
 
 def basis_table(V, j, derivative, points):

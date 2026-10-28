@@ -5,6 +5,7 @@ from typing import final
 
 import basix
 import numpy as np
+from basix.finite_element import tp_dof_ordering
 
 from uflx_spec_interpreter import tensor
 from uflx_spec_interpreter._src.nodes import (
@@ -67,11 +68,25 @@ class BasixSpace(AbstractFunctionSpace):
     argument_spaces = ()
 
     def element(self, j):
-        cell = self.domain.pieces[j].parameter_domain
-        variant = basix.LagrangeVariant.equispaced
-        return basix.create_element(
-            self.family, cell.cell_type, self.degree, variant, discontinuous=self.discontinuous
-        )
+        return self.elements[j][0]
+
+    def factors(self, j):
+        # The interval elements whose product is the element of piece j, or None.
+        return self.elements[j][1]
+
+    @cached_property
+    def elements(self):
+        # The dofs of an element that factors are in the order of its factors, the last fastest.
+        out = []
+        for piece in self.domain.pieces:
+            args = (self.family, piece.parameter_domain.cell_type, self.degree, EQUISPACED)
+            try:
+                order = tp_dof_ordering(*args, discontinuous=self.discontinuous)
+            except RuntimeError:
+                order = None
+            E = basix.create_element(*args, discontinuous=self.discontinuous, dof_ordering=order)
+            out.append((E, E.get_tensor_product_representation()[0] if order else None))
+        return tuple(out)
 
     @property
     def value_shape(self):
@@ -109,6 +124,9 @@ class BasixSpace(AbstractFunctionSpace):
     @property
     def num_dofs(self):
         return 1 + max(d for rows in self.dofmap for row in rows for d in row)
+
+
+EQUISPACED = basix.LagrangeVariant.equispaced
 
 
 def table(values):

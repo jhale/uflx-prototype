@@ -1,3 +1,5 @@
+import string
+
 import numpy as np
 
 from uflx_spec_interpreter._src.nodes import (
@@ -118,10 +120,30 @@ def node(n, value, env, xp):
             return indexed(n, x, indices, value, env, xp)
         case ComponentTensor(x, indices):
             return operand(x, order + list(indices))
+        case IndexSum(Product() as x, indices):
+            return contracted(n, x, value, xp)
         case IndexSum(x, indices):
             summed = tuple(range(len(order), len(order) + len(indices)))
             return xp.sum(operand(x, order + list(indices)), axis=summed)
     raise TypeError(f"the compiler cannot evaluate {type(n).__name__}")
+
+
+def contracted(n, x, value, xp):
+    # One einsum, whose path orders the sums, such as sum factorisation for factored tables.
+    terms, letters = factors(x), {}
+
+    def subscripts(m):
+        return "".join(letters.setdefault(i, LETTERS[len(letters)]) for i in free(m))
+
+    spec = ",".join(map(subscripts, terms)) + "->" + subscripts(n)
+    return xp.einsum(spec, *map(value, terms), optimize=True)
+
+
+def factors(x):
+    return factors(x.first) + factors(x.second) if isinstance(x, Product) else [x]
+
+
+LETTERS = string.ascii_letters
 
 
 def full_shape(n, order, env):

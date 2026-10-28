@@ -22,8 +22,29 @@ def apply_quadrature(f, degree):
 
 
 def rule(g, K, degree):
+    if K.cell_type in PRODUCTS:
+        return product_rule(g, K, degree)
     X, w = basix.make_quadrature(K.cell_type, degree)
     points = tensor(tuple(tensor(tuple(Float(float(x)) for x in p)) for p in X))
-    weights = tensor(tuple(Float(float(x)) for x in w))
+    weights = constants(w)
     q = index(("compiler.quadrature", g, K, degree))
     return index_sum(weights[q] * pull_back(g, domain_map(RD(0), points[q], K)), (q,))
+
+
+def product_rule(g, K, degree):
+    # Coordinate k of the points reads only its own index, which tabulation reads as separable.
+    X, w = basix.make_quadrature(basix.CellType.interval, degree)
+    X, w = constants(X[:, 0]), constants(w)
+    q = tuple(index(("compiler.quadrature", g, K, degree, k)) for k in range(K.dimension))
+    points = tensor(tuple(X[i] for i in q))
+    weight = w[q[0]]
+    for i in q[1:]:
+        weight = weight * w[i]
+    return index_sum(weight * pull_back(g, domain_map(RD(0), points, K)), q)
+
+
+PRODUCTS = (basix.CellType.quadrilateral, basix.CellType.hexahedron)
+
+
+def constants(values):
+    return tensor(tuple(Float(float(x)) for x in values))
