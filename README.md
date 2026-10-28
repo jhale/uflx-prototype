@@ -67,8 +67,8 @@ The private modules of `_src`:
   concrete class states, with no defaults (see `ABSTRACT_EXPRESSION_PLAN.md`).
   Every concrete class is `@final`, and the abstract classes are contracts.
 - `nodes/literals.py`, `nodes/arithmetic.py`, `nodes/indices.py`,
-  `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py` and
-  `nodes/spaces.py`, `nodes/forms.py`: the node classes, by section of the specification, each
+  `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py`,
+  `nodes/spaces.py` and `nodes/forms.py`: the node classes, by section of the specification, each
   with a module of the same name for its free functions
 - `interning.py`: the table of nodes, their canonical text and the seed-free
   digest
