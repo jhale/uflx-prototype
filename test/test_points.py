@@ -2,10 +2,10 @@ import random
 import sys
 
 import numpy as np
-from test_facets import table
-from test_integrals import R2, D, u
-from test_surface import R3, M
-from testutil import assert_clean, check_types, contains, keeps_static_type
+from test_integrals import SQUARE as CELLS
+from test_integrals import D, u
+from test_surface import M
+from testutil import assert_clean, check_types, contains, keeps_static_type, table
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -23,6 +23,7 @@ from uflx_spec_interpreter import (
     multiply,
     num,
     pull_back,
+    side_domain,
     side_map,
 )
 from uflx_spec_interpreter._src.nodes import Coordinate, DomainMap, Function, Gradient, PullBack
@@ -30,6 +31,7 @@ from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
 from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
+from uflx_toy.topology import tabulated_topology
 
 i, k = index("i"), index("k")
 POINT = RD(0)
@@ -65,17 +67,24 @@ def in_square(x):
     raise ValueError(x)
 
 
-def topology_of_points(Q, coordinates, located):
-    # The points as a topology with the side "inside", and the restriction to them.
+def topology_of_points(Q, label, located):
+    # The points as a topology with the side "inside", with the side tables of a mesh library.
     # The cells of the topology of the points are of a reference cell type of dimension 0.
-    E = points(coordinates, R2 if Q == D else R3, reference_simplex(0))
     cells = index_table(tuple(cell for cell, _ in located), 2)
     positions = table([[X] for _, X in located])
-    return E, side_map(Q, E, cells, positions)
+    S = tabulated_topology(
+        label,
+        (reference_simplex(0),),
+        (len(located),),
+        ((("inside", CELLS, 0),),),
+        (((cells, positions),),),
+    )
+    E = side_domain(Q, S)
+    return E, side_map(Q, E, "inside")
 
 
-SQUARE_SIDE = topology_of_points(D, SQUARE, [in_square(x) for x in SQUARE])
-SURFACE_SIDE = topology_of_points(M, [on_surface(c, X) for c, X in SURFACE], SURFACE)
+SQUARE_SIDE = topology_of_points(D, "square points", [in_square(x) for x in SQUARE])
+SURFACE_SIDE = topology_of_points(M, "surface points", SURFACE)
 w = function(space("W", domain=M), "w")
 ENV = {u: lambda x: 1 + x[0] + 2 * x[0] * x[1], w: lambda x: 1 + x[0] * x[1] + x[2] * x[2]}
 

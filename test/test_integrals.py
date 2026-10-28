@@ -9,6 +9,7 @@ from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     RD,
     add,
+    cell_index,
     component_tensor,
     coordinate,
     decomposed_domain,
@@ -26,12 +27,19 @@ from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter._src.static import free, shape
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
+from uflx_toy.topology import static_topology
 
 R2 = RD(2)
 K = reference_simplex(2)
 X = coordinate(K)
 k = index("k")
-c = index("c")
+# The cells of the square, which the folded surface of test_surface shares.
+SQUARE = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
+I = reference_simplex(1)
+# The diagonal, seen from both triangles, and the boundary, seen from inside.
+DIAGONAL = static_topology((I,), (((0, 2),),), ((("+", SQUARE, 0), ("-", SQUARE, 0)),))
+BOUNDARY = static_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", SQUARE, 0),),))
+c = cell_index(SQUARE, 0)
 
 
 def affine(vertices, at):
@@ -50,7 +58,7 @@ def affine(vertices, at):
 
 T0, T1 = [(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]
 
-# The square as one family of two triangles, with the free index c.
+# The square as one family of two triangles, with the cell index c of SQUARE.
 p = tensor(tuple(tensor(tuple(tensor((num(a), num(b))) for a, b in tri)) for tri in (T0, T1)))
 fam = lambda i: indexed(p, (c, i, k))
 psi_c = component_tensor(
@@ -78,7 +86,7 @@ Dp = decomposed_domain(
                             for a, b in [(0.2, 0.3), (0.5, 0.5), (0.9, 0.1)]
                         )
                     ),
-                    (c, k),
+                    (index("q"), k),
                 ),
                 (k,),
             ),

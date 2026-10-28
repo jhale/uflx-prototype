@@ -164,7 +164,8 @@ class Normal(AbstractExpression):
     identifier = "uflx.Normal"
     ambient_domain: DecomposedDomain
     parameter_domain: DecomposedDomain
-    side: SideMap
+    side: str
+    opaque = ("side",)
 
     @cached_property
     def value_shape(self):

@@ -2,16 +2,13 @@ import random
 import sys
 
 import numpy as np
-from test_integrals import R2, D
+from test_integrals import BOUNDARY, DIAGONAL, D
 from testutil import assert_clean, check_types, contains, keeps_static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     add,
-    component_tensor,
     coordinate,
-    decomposed_domain,
-    domain_map,
     function,
     gradient,
     index,
@@ -21,65 +18,30 @@ from uflx_spec_interpreter import (
     normal,
     num,
     pull_back,
+    side_domain,
     side_map,
-    tensor,
 )
 from uflx_spec_interpreter._src.nodes import (
+    Coordinate,
     DomainMap,
     Function,
     Gradient,
     Normal,
     PullBack,
-    SideMap,
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
 from uflx_toy.cells import reference_simplex
-from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
 
 I = reference_simplex(1)
 k, e = index("k"), index("e")
 
 
-def table(rows):
-    def build(x):
-        return tensor(tuple(build(y) for y in x)) if isinstance(x, (list, tuple)) else num(x)
-
-    return build(rows)
-
-
-def facets(vertices):
-    # A family of straight facets with the free index e.
-    fv = table(vertices)
-    psi = component_tensor(
-        add(
-            indexed(fv, (e, 0, k)),
-            multiply(
-                add(indexed(fv, (e, 1, k)), multiply(num(-1), indexed(fv, (e, 0, k)))),
-                indexed(coordinate(I), (0,)),
-            ),
-        ),
-        (k,),
-    )
-    return decomposed_domain((domain_map(I, psi, R2),))
-
-
-# The diagonal of the square, with the cell 0 on the side "+" and the cell 1 on the side "-".
-E_int = facets([[(0, 0), (1, 1)]])
-sides_int = {
-    "+": side_map(D, E_int, index_table((0,), 2), table([[(0, 0), (0, 1)]])),
-    "-": side_map(D, E_int, index_table((1,), 2), table([[(0, 0), (1, 0)]])),
-}
-# The four boundary edges, each with its one cell on the side "inside".
-E_bnd = facets([[(0, 0), (1, 0)], [(1, 0), (1, 1)], [(1, 1), (0, 1)], [(0, 1), (0, 0)]])
-sides_bnd = {
-    "inside": side_map(
-        D,
-        E_bnd,
-        index_table((0, 0, 1, 1), 2),
-        table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]),
-    )
-}
+# The diagonal and the boundary of the square, as decomposed domains of their topologies.
+E_int = side_domain(D, DIAGONAL)
+sides_int = {s: side_map(D, E_int, s) for s in ("+", "-")}
+E_bnd = side_domain(D, BOUNDARY)
+sides_bnd = {"inside": side_map(D, E_bnd, "inside")}
 
 V = space("V", domain=D)
 u, w = function(V, "u"), function(V, "w")
@@ -110,7 +72,7 @@ def integrand(rnd, E, sides):
             terms.append(
                 multiply(
                     restricted(rnd, sm),
-                    indexed(normal(D, E, sm), (rnd.randrange(2),)),
+                    indexed(normal(D, E, sm.side), (rnd.randrange(2),)),
                 )
             )
         elif pick == 2:
@@ -122,7 +84,7 @@ def integrand(rnd, E, sides):
     for t in terms[1:]:
         f = add(f, t)
     if rnd.random() < 0.2:
-        f = normal(D, E, sides[next(iter(sides))])
+        f = normal(D, E, next(iter(sides)))
     return f
 
 
@@ -144,7 +106,7 @@ def main(trials):
             lambda n: (
                 isinstance(n, PullBack)
                 and isinstance(n.domain, DomainMap)
-                and not isinstance(n.expression, (Function, Normal, PullBack, Gradient, SideMap))
+                and not isinstance(n.expression, (Function, Normal, Coordinate, PullBack, Gradient))
             ),
         ):
             lazy += 1

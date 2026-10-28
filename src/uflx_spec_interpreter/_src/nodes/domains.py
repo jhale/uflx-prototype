@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import cached_property
-from typing import TYPE_CHECKING, final
+from typing import final
 
 from .base import AbstractExpression, Base
+from .indices import Index
 from .topology import AbstractCellType
-
-if TYPE_CHECKING:
-    from .indices import AbstractIndexValue
 
 
 class AbstractDomain(Base):
@@ -75,13 +73,25 @@ class DecomposedDomain(AbstractDomain):
     def dimension(self):
         return self.pieces[0].parameter_domain.dimension
 
+    @cached_property
+    def topology(self):
+        # T if the free indices of piece j are (cell_index(T, j),) for every j, and otherwise None.
+        found = set()
+        for j, piece in enumerate(self.pieces):
+            match piece.parameterisation.free_indices:
+                case ((Index(("uflx.cell_index", T, jj, 0)), _),) if jj == j:
+                    found.add(T)
+                case _:
+                    return None
+        return found.pop() if len(found) == 1 else None
+
 
 @final
 class SideMap(Base):
     identifier = "uflx.SideMap"
-    # The cells of the parameter domain in the ambient domain from one side, by the side tables.
+    # The lazy map of the cells of the parameter domain into the ambient domain through a side.
     ambient_domain: DecomposedDomain
     parameter_domain: DecomposedDomain
-    cells: AbstractIndexValue
-    positions: AbstractExpression
+    side: str
+    opaque = ("side",)
     free_indices = ()

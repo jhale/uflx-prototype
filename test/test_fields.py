@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 from test_integrals import D as MESH
-from test_integrals import K
+from test_integrals import K, c
 from testutil import assert_clean, check_types
 
 from uflx_oracle import evaluate
@@ -35,7 +35,7 @@ from uflx_toy.spaces import space
 VD = space("VD", domain=MESH)
 u, w, h = (function(VD, n) for n in "uwh")
 BOUND = [function(VD, n) for n in ("v", "y0", "y1", "y2")]
-i, c = index("i"), index("c")
+i = index("i")
 X = coordinate(MESH)
 
 

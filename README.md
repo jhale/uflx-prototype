@@ -9,7 +9,8 @@ oracle to the extension to the core, which `test/test_boundaries.py` checks:
 - `uflx_spec_interpreter`: the core, with only what the specification defines
 - `uflx_toy`: a language extension, with the classes that the specification
   leaves to a library or to an extension, `IndexTable`, `RuntimeExtent`,
-  `RuntimeArray`, the space `Space` and the reference cell `ReferenceSimplex`
+  `RuntimeArray`, the space `Space`, the reference cell `ReferenceSimplex`, and the
+  topologies `StaticTopology` and `TabulatedTopology`
 - `uflx_oracle`: the oracle that the tests compare the passes against
 
 The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
@@ -54,7 +55,8 @@ modules of `_src`:
 - `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
 - `cells.py`: `affine_map`, and the edges, the Jacobian and the centroid that the
   pull-back of a normal composes
-- `domains.py`: `decomposed_domain`, `cell_domain`,
+- `topology.py`: `cell_index`
+- `domains.py`: `decomposed_domain`, `cell_domain`, `side_domain`, `restriction`,
   `gathered_cell_domain`, `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`
 - `forms.py`: `function`, `form`, `action` and `gateaux_derivative`
@@ -111,6 +113,4 @@ The classes, their fields, the passes and the helpers use the names of the
 specification. The core still simplifies the specification in these places,
 which the toy replaces with the classes of the specification one at a time:
 
-- A `SideMap` holds its side tables, where the specification reads them from
-  the topology by the name of the side.
 - The constructors do not validate their arguments (rule 8).

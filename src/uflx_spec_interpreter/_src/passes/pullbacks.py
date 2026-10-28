@@ -1,15 +1,13 @@
 from ..arithmetic import divide, subtract
-from ..cells import affine_jacobian, affine_map, centroid
-from ..domains import cell_of, gathered_cell_domain
+from ..cells import affine_jacobian, centroid
+from ..domains import cell_of, inclusion, inclusion_points
 from ..geometry import inverse_jacobian
 from ..nodes import (
     Absolute,
     AbstractExpression,
     ComponentTensor,
     Coordinate,
-    DomainMap,
     Function,
-    GatheredIndex,
     Gradient,
     Index,
     Indexed,
@@ -83,31 +81,17 @@ def contract_gradient(gradP, K, f, m):
     )
 
 
-def cell_index_of(m):
-    # The one free index of the cells of m, a cell domain.
-    ((e, _),) = m.parameterisation.free_indices
-    return e
-
-
 def side_maps(sm, m):
-    # The cell on the side and the inclusion of the cell of E into it, for the cells of m.
-    e = cell_index_of(m)
-    B = gathered_cell_domain(sm.ambient_domain, 0, GatheredIndex(sm.cells, (e,)))
-    F = m.parameter_domain
-    return B, DomainMap(F, affine_map(F, side_points(sm, e)), B.parameter_domain)
-
-
-def side_points(sm, e):
-    # The position in the cell on the side of each vertex v of the cell e.
-    v, k = (Index(("uflx.inclusion", sm, e, n)) for n in range(2))
-    return ComponentTensor(Indexed(sm.positions, (e, v, k)), (v, k))
+    # B and A of the group of the cells m, a cell domain of the parameter domain of sm.
+    E = sm.parameter_domain
+    return inclusion(sm.ambient_domain, E.topology, cell_of(m), sm.side)
 
 
 def normal(f, m):
     # K^T m / |K^T m|, with m orthogonal to the cell of E in K_j and away from its centroid.
-    B, A = side_maps(f.side, m)
+    B, A = side_maps(f, m)
     K_j, F = B.parameter_domain, m.parameter_domain
-    points = side_points(f.side, cell_index_of(m))
+    points = inclusion_points(f.parameter_domain.topology, cell_of(m), f.side)
     m0 = cofactor_normal(affine_jacobian(F, points), K_j.dimension)
     away = m0 @ subtract(component(points, (0,)), centroid(K_j))
     mhat = divide(away, Absolute(away)) * m0

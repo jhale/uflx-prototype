@@ -104,6 +104,11 @@ def cell_value(m, ienv):
     return None
 
 
+def side_cells(E, side):
+    # The cells on the side of the cells of the piece of E that the integral visits.
+    return E.topology.side_tables(POINTS.get(("piece", E), 0), side)[0]
+
+
 def piece_map(piece, members):
     # The map of one member of a piece, from reference coordinates to ambient coordinates.
     return lambda X: np.real(
@@ -167,13 +172,13 @@ def integrate(P, fn):
             rule = QUAD
         return sum(w * at(P, p, lambda: fn({})) for p, w in rule)
     total = 0
-    for piece in P.pieces:
+    for number, piece in enumerate(P.pieces):
         fr = free(piece.parameterisation)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             members = dict(zip(fr, combo))
             psi = evaluate(piece.parameterisation, {}, members)
 
-            def mapped(inner, piece=piece, psi=psi, members=members):
+            def mapped(inner, piece=piece, psi=psi, members=members, number=number):
                 y = np.real(np.asarray(psi(())))
                 if isinstance(piece.parameter_domain, AbstractCoordinateDomain):
                     ref = POINTS[piece.parameter_domain]
@@ -193,7 +198,11 @@ def integrate(P, fn):
                     Je = jacobian_of(chart, ref)
                     scale = np.sqrt(abs(np.linalg.det(Je.T @ Je)) / abs(np.linalg.det(T.T @ T)))
                 cell = next(iter(members.values()), None)
-                inside = lambda: at(P, y, lambda: at(P.ambient_domain, y, lambda: fn(members)))
+                inside = lambda: at(
+                    ("piece", P),
+                    number,
+                    lambda: at(P, y, lambda: at(P.ambient_domain, y, lambda: fn(members))),
+                )
                 return (
                     at(
                         ("ref", P),
@@ -390,12 +399,12 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: (fp(vals) - fm(vals)) / (2 * EPS)
         case Coordinate(P):
             return lambda vals: np.asarray(POINTS[P], dtype=complex)
-        case PullBack(b, SideMap(Dd, Ed, cells, _)):
+        case PullBack(b, SideMap(Dd, Ed, side)):
             fb = ev(b)
 
             def restricted(vals):
                 # The point of E, read from the cell on the side through the table of cells.
-                cell = cells.values[POINTS[("cell", Ed)]]
+                cell = side_cells(Ed, side).values[POINTS[("cell", Ed)]]
                 return at(("cell", Dd), cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
 
             return restricted
@@ -414,13 +423,12 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
-        case Normal(Dd, Ed, sidemap):
-            cells = sidemap.cells
+        case Normal(Dd, Ed, side):
 
             def normal(vals):
                 # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
-                cell = cells.values[e]
+                cell = side_cells(Ed, side).values[e]
                 edge = piece_map(Ed.pieces[0], {next(iter(free(Ed.pieces[0].parameterisation))): e})
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)

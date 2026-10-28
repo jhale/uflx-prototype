@@ -10,6 +10,8 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractFunctionSpace,
     AbstractIndexValue,
     AbstractReferenceCell,
+    AbstractTopology,
+    Indexed,
     Integer,
     Tensor,
     Zero,
@@ -88,3 +90,53 @@ class ReferenceSimplex(AbstractReferenceCell):
                 for v in range(n + 1)
             )
         )
+
+
+@final
+class StaticTopology(AbstractTopology):
+    identifier = "toy.StaticTopology"
+    # Cells as vertex numbers, with the side tables computed from the vertex numbers.
+    cell_types: tuple
+    cells: tuple
+    sides: tuple
+    opaque = ("cell_types", "cells", "sides")
+
+    @property
+    def num_cells(self):
+        return tuple(len(c) for c in self.cells)
+
+    def side_tables(self, i, side):
+        # The cells of the side that contain the vertices, and the vertices of K_j there.
+        # Of the cells around a cell, the r-th side of the same group gets the r-th lowest.
+        named = next(s for s in self.sides[i] if s[0] == side)
+        (_, T, j) = named
+        rank = [s for s in self.sides[i] if s[1:] == (T, j)].index(named)
+        K = T.cell_types[j]
+        chosen, positions = [], []
+        for vertices in self.cells[i]:
+            around = [c for c, cell in enumerate(T.cells[j]) if set(vertices) <= set(cell)]
+            c = around[min(rank, len(around) - 1)]
+            local = [T.cells[j][c].index(v) for v in vertices]
+            chosen.append(c)
+            positions.append(Tensor(tuple(row(K, n) for n in local)))
+        return IndexTable(tuple(chosen), T.num_cells[j]), Tensor(tuple(positions))
+
+
+def row(K, n):
+    return Tensor(tuple(Indexed(K.vertices, (n, k)) for k in range(K.dimension)))
+
+
+@final
+class TabulatedTopology(AbstractTopology):
+    identifier = "toy.TabulatedTopology"
+    # The side tables as a mesh library computes them, such as for located points.
+    label: str
+    cell_types: tuple
+    num_cells: tuple
+    sides: tuple
+    tables: tuple
+    opaque = ("label", "cell_types", "num_cells", "sides", "tables")
+
+    def side_tables(self, i, side):
+        names = [s[0] for s in self.sides[i]]
+        return self.tables[i][names.index(side)]

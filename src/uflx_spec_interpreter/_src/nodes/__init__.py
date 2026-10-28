@@ -32,7 +32,7 @@ from .indices import (
 from .literals import Float, ImaginaryUnit, Integer, Zero
 from .spaces import AbstractFunctionSpace, ConjugateSpace, DualSpace
 from .tensors import ComponentTensor, Indexed, IndexSum, Inverse, Tensor
-from .topology import AbstractCellType
+from .topology import AbstractCellType, AbstractTopology
 
 __all__ = [
     "RD",
@@ -45,6 +45,7 @@ __all__ = [
     "AbstractFunctionSpace",
     "AbstractIndexValue",
     "AbstractReferenceCell",
+    "AbstractTopology",
     "Action",
     "Base",
     "ComponentTensor",

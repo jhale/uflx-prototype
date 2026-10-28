@@ -2,9 +2,8 @@ import random
 import sys
 
 import numpy as np
-from test_facets import table
-from test_integrals import K
-from testutil import assert_clean, check_types, contains, keeps_static_type
+from test_integrals import BOUNDARY, DIAGONAL, K, c
+from testutil import assert_clean, check_types, contains, keeps_static_type, table
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -24,25 +23,25 @@ from uflx_spec_interpreter import (
     normal,
     num,
     pull_back,
+    side_domain,
     side_map,
     tensor,
 )
 from uflx_spec_interpreter._src.nodes import (
+    Coordinate,
     DomainMap,
     Function,
     Gradient,
     Normal,
     PullBack,
-    SideMap,
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
 from uflx_toy.cells import reference_simplex
-from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
 
 R3 = RD(3)
 I = reference_simplex(1)
-k, c, e, i = index("k"), index("c"), index("e"), index("i")
+k, i = index("k"), index("i")
 
 # A surface folded along its diagonal: two triangles that are not coplanar.
 p = table([[(0, 0, 0), (1, 0, 0), (1, 1, 0.5)], [(0, 0, 0), (1, 1, 0.5), (0, 1, 1)]])
@@ -85,49 +84,14 @@ Ms = decomposed_domain((domain_map(M, deform(coordinate(M)), R3),))
 C = decomposed_domain((domain_map(K, deform(psi), R3),))
 
 
-def edges(vertices, curved=False):
-    fv = table(vertices)
-    psi_e = component_tensor(
-        add(
-            indexed(fv, (e, 0, k)),
-            multiply(
-                add(indexed(fv, (e, 1, k)), multiply(num(-1), indexed(fv, (e, 0, k)))),
-                indexed(coordinate(I), (0,)),
-            ),
-        ),
-        (k,),
-    )
-    return decomposed_domain((domain_map(I, deform(psi_e) if curved else psi_e, R3),))
+def sides(D):
+    # The fold and the boundary of the surface D, from the topologies of the square.
+    E_int, E_bnd = side_domain(D, DIAGONAL), side_domain(D, BOUNDARY)
+    interior = {s: side_map(D, E_int, s) for s in ("+", "-")}
+    return [(E_int, interior), (E_bnd, {"inside": side_map(D, E_bnd, "inside")})]
 
 
-INTERIOR = [[(0, 0, 0), (1, 1, 0.5)]]
-BOUNDARY = [
-    [(0, 0, 0), (1, 0, 0)],
-    [(1, 0, 0), (1, 1, 0.5)],
-    [(1, 1, 0.5), (0, 1, 1)],
-    [(0, 1, 1), (0, 0, 0)],
-]
-
-
-def sides(D, curved):
-    # The fold and the boundary of the surface D, with their side tables.
-    E_int, E_bnd = edges(INTERIOR, curved), edges(BOUNDARY, curved)
-    interior = {
-        "+": side_map(D, E_int, index_table((0,), 2), table([[(0, 0), (0, 1)]])),
-        "-": side_map(D, E_int, index_table((1,), 2), table([[(0, 0), (1, 0)]])),
-    }
-    boundary = {
-        "inside": side_map(
-            D,
-            E_bnd,
-            index_table((0, 0, 1, 1), 2),
-            table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]),
-        )
-    }
-    return [(E_int, interior), (E_bnd, boundary)]
-
-
-EDGES = {M: sides(M, False), C: sides(C, True)}
+EDGES = {M: sides(M), C: sides(C)}
 
 u = function(space("V", domain=M), "u")
 ENV = {u: {0: lambda x: 1 + x[0] + 2 * x[1] - x[2], 1: lambda x: 3 - x[0] * x[2] + x[1]}}
@@ -160,7 +124,7 @@ def edge_integrand(rnd, D, E, sides):
             indexed(gradient(g, D), (rnd.randrange(3),)),
         ]
     )
-    n = normal(D, E, sm)
+    n = normal(D, E, sm.side)
     return rnd.choice(
         [
             pull_back(f, sm),
@@ -182,7 +146,7 @@ def check(name, e, env, bad, rows):
         lambda n: (
             isinstance(n, PullBack)
             and isinstance(n.domain, DomainMap)
-            and not isinstance(n.expression, (Function, Normal, PullBack, Gradient, SideMap))
+            and not isinstance(n.expression, (Function, Normal, Coordinate, PullBack, Gradient))
         ),
     ):
         bad["lazy"] += 1

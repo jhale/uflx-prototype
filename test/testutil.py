@@ -1,3 +1,4 @@
+from uflx_spec_interpreter import num, tensor
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Action,
@@ -137,3 +138,11 @@ def check_types(bad, *es):
             if bad["typed"] <= 2:
                 print("ill typed:", error)
             return
+
+
+def table(rows):
+    # A constant tensor of literals with the values of nested lists.
+    def build(x):
+        return tensor(tuple(build(y) for y in x)) if isinstance(x, (list, tuple)) else num(x)
+
+    return build(rows)

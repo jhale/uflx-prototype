@@ -19,6 +19,8 @@ from ._src.domains import (
     decomposed_domain,
     gathered_cell_domain,
     normal,
+    restriction,
+    side_domain,
     side_map,
 )
 from ._src.forms import action, form, function, gateaux_derivative
@@ -45,6 +47,7 @@ from ._src.tensors import (
     tensor,
     transpose,
 )
+from ._src.topology import cell_index
 
 # The free functions of the specification, the class RD, and the short name num.
 __all__ = [
@@ -58,6 +61,7 @@ __all__ = [
     "apply_gateaux_derivatives",
     "apply_gradients",
     "cell_domain",
+    "cell_index",
     "component",
     "component_tensor",
     "conjugate",
@@ -96,6 +100,8 @@ __all__ = [
     "power",
     "pull_back",
     "real_part",
+    "restriction",
+    "side_domain",
     "side_map",
     "square_root",
     "subtract",
