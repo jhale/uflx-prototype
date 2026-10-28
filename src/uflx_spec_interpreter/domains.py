@@ -38,7 +38,7 @@ class DomainMap(Base):
 
 
 @dataclass(frozen=True, eq=False)
-class Decomposed(Base):
+class DecomposedDomain(Base):
     identifier = "uflx.DecomposedDomain"
     pieces: tuple
 
@@ -60,11 +60,11 @@ def topdim(P):
 
 
 def ambient(P):
-    return P.pieces[0].Q if isinstance(P, Decomposed) else P
+    return P.pieces[0].Q if isinstance(P, DecomposedDomain) else P
 
 
 @dataclass(frozen=True, eq=False)
-class Gathered(Base):
+class GatheredIndex(Base):
     identifier = "uflx.GatheredIndex"
     # An index read from a table at the given entries.
     table: Base

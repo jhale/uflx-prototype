@@ -5,7 +5,7 @@ from .base import AbstractExpression, Base
 
 
 @dataclass(frozen=True, eq=False)
-class D(AbstractExpression):
+class DirectionalDerivative(AbstractExpression):
     identifier = "uflx.DirectionalDerivative"
     f: Base
     x: Base

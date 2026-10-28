@@ -1,7 +1,7 @@
 from dataclasses import fields, replace
 from functools import cache
 
-from .nodes import AbstractExpression, Base, Fn, Index
+from .nodes import AbstractExpression, Base, Function, Index
 
 
 def operands(e, names=None):
@@ -55,8 +55,8 @@ def rename(node, name, avoid):
     label = ("uflx.rename", name, body, tuple(avoid))
     if isinstance(name, Index):
         return Index(label)
-    if isinstance(name, Fn):
-        return Fn(name.space, label)
+    if isinstance(name, Function):
+        return Function(name.space, label)
     raise TypeError("a compound variable has no new name")
 
 

@@ -10,19 +10,19 @@ from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.geometry import density
 from uflx_spec_interpreter.nodes import (
     Action,
-    Conj,
+    Conjugate,
     Coordinate,
-    D,
-    Div,
-    Fn,
+    DirectionalDerivative,
+    Division,
     Form,
+    Function,
     Gradient,
     Index,
     Indexed,
+    IndexSum,
     Integral,
-    ISum,
     Num,
-    Prod,
+    Product,
     PullBack,
     Space,
     Sum,
@@ -32,8 +32,8 @@ from uflx_spec_interpreter.passes import actions, derivatives, integrals
 from uflx_spec_interpreter.static import arity
 
 VD = Space("VD", domain=MESH)
-u, w, h = (Fn(VD, n) for n in "uwh")
-BOUND = [Fn(VD, n) for n in ("v", "y0", "y1", "y2")]
+u, w, h = (Function(VD, n) for n in "uwh")
+BOUND = [Function(VD, n) for n in ("v", "y0", "y1", "y2")]
 i, c = Index("i"), Index("c")
 X = Coordinate(MESH)
 
@@ -42,17 +42,19 @@ def field(rnd, names, depth):
     # A scalar field on the mesh, built from the names, u, w and the coordinates.
     if depth == 0 or rnd.random() < 0.35:
         base = rnd.choice([*names, u, w, Indexed(X, (rnd.randrange(2),)), Num(2)])
-        if rnd.random() < 0.3 and isinstance(base, Fn):
+        if rnd.random() < 0.3 and isinstance(base, Function):
             return Indexed(Gradient(base, MESH), (rnd.randrange(2),))
         return base
     a, b = field(rnd, names, depth - 1), field(rnd, names, depth - 1)
     return rnd.choice(
         [
             Sum(a, b),
-            Prod(a, b),
-            Conj(a),
-            Div(a, Sum(Num(3), Prod(Num(0.2), b))),
-            ISum(Prod(Indexed(Gradient(a, MESH), (i,)), Indexed(Gradient(b, MESH), (i,))), (i,)),
+            Product(a, b),
+            Conjugate(a),
+            Division(a, Sum(Num(3), Product(Num(0.2), b))),
+            IndexSum(
+                Product(Indexed(Gradient(a, MESH), (i,)), Indexed(Gradient(b, MESH), (i,))), (i,)
+            ),
         ]
     )
 
@@ -62,17 +64,17 @@ def integral_of(rnd, body):
     if rnd.random() < 0.7:
         return Integral(body, MESH)
     cells = cell_domain(MESH, 0)
-    return ISum(Integral(Prod(PullBack(body, cells), density(cells)), K), (c,))
+    return IndexSum(Integral(Product(PullBack(body, cells), density(cells)), K), (c,))
 
 
 def form(rnd, n, depth):
     names = rnd.sample(BOUND, n)
     body = field(rnd, [], 2)
     for b in names:
-        body = Prod(b, body)
+        body = Product(b, body)
     e = Form(integral_of(rnd, body), tuple(names)) if names else integral_of(rnd, body)
     if depth > 0 and rnd.random() < 0.5:
-        e = D(e, u, u, rnd.choice([h, w]))
+        e = DirectionalDerivative(e, u, u, rnd.choice([h, w]))
     if depth > 0 and rnd.random() < 0.6:
         bigger = form(rnd, n + 1, depth - 1)
         e = Sum(e, Action(bigger, rnd.randrange(n + 1), field(rnd, [], 1)))

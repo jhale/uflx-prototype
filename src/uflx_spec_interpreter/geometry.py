@@ -1,6 +1,6 @@
-from .algebra import determinant, gram, matmul, tangent_gram, transpose
+from .algebra import determinant, gram, matrix_product, tangent_gram, transpose
 from .domains import ambient_dim, topdim
-from .nodes import Abs, Gradient, Inv, Num, Sqrt
+from .nodes import Absolute, Gradient, Inverse, Num, SquareRoot
 
 
 def jacobian(m):
@@ -19,12 +19,12 @@ def density(m):
     if k == 0:
         return Num(1)
     if k == ambient_dim(m.P) == n:
-        return Abs(determinant(jacobian(m), k))
-    return Sqrt(determinant(metric(m), ambient_dim(m.P)))
+        return Absolute(determinant(jacobian(m), k))
+    return SquareRoot(determinant(metric(m), ambient_dim(m.P)))
 
 
 def inverse_jacobian(m):
     # G⁻¹Jᵀ, with the closed form inverse(J) when the parameter domain has the ambient dimension.
     if topdim(m.P) == ambient_dim(m.P):
-        return Inv(jacobian(m))
-    return matmul(Inv(metric(m)), transpose(jacobian(m)))
+        return Inverse(jacobian(m))
+    return matrix_product(Inverse(metric(m)), transpose(jacobian(m)))

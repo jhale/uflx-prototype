@@ -7,17 +7,17 @@ from test_integrals import R2, D, u
 from test_surface import R3, M
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter.domains import CoordDomain, Decomposed, DomainMap, SideMap
+from uflx_spec_interpreter.domains import CoordDomain, DecomposedDomain, DomainMap, SideMap
 from uflx_spec_interpreter.nodes import (
-    CT,
+    ComponentTensor,
     Coordinate,
-    Fn,
+    Function,
     Gradient,
     Index,
     Indexed,
     Integral,
     Num,
-    Prod,
+    Product,
     PullBack,
     Space,
     Sum,
@@ -32,7 +32,9 @@ POINT = CoordDomain("pt", 0)
 
 def points(coordinates, Q):
     # A family of points in Q, with the free index i.
-    return Decomposed((DomainMap(POINT, CT(Indexed(table(coordinates), (i, k)), (k,)), Q),))
+    return DecomposedDomain(
+        (DomainMap(POINT, ComponentTensor(Indexed(table(coordinates), (i, k)), (k,)), Q),)
+    )
 
 
 def on_surface(cell, X):
@@ -68,7 +70,7 @@ def topology_of_points(Q, coordinates, located):
 
 SQUARE_SIDE = topology_of_points(D, SQUARE, [in_square(x) for x in SQUARE])
 SURFACE_SIDE = topology_of_points(M, [on_surface(c, X) for c, X in SURFACE], SURFACE)
-w = Fn(Space("W", domain=M), "w")
+w = Function(Space("W", domain=M), "w")
 ENV = {u: lambda x: 1 + x[0] + 2 * x[0] * x[1], w: lambda x: 1 + x[0] * x[1] + x[2] * x[2]}
 
 
@@ -81,24 +83,26 @@ def integrand(rnd, Q, f):
         f,
         Indexed(X, (r,)),
         Indexed(grad(f), (r,)),
-        Indexed(grad(Prod(f, f)), (r,)),
-        Indexed(grad(Prod(f, Indexed(X, (0,)))), (r,)),
+        Indexed(grad(Product(f, f)), (r,)),
+        Indexed(grad(Product(f, Indexed(X, (0,)))), (r,)),
         Indexed(grad(X), (r, s)),
     ]
     if Q == D:
         # Hessians of a terminal and of a product, both evaluated on the mesh.
-        choices += [Indexed(grad(grad(f)), (r, s)), Indexed(grad(grad(Prod(f, f))), (r, s))]
+        choices += [Indexed(grad(grad(f)), (r, s)), Indexed(grad(grad(Product(f, f))), (r, s))]
     a, b = rnd.choice(choices), rnd.choice(choices)
-    return rnd.choice([a, Sum(a, b), Prod(a, b), Prod(Num(2), a)])
+    return rnd.choice([a, Sum(a, b), Product(a, b), Product(Num(2), a)])
 
 
 def stays_for_the_mesh_library(n):
     # A pull-back by the points of a function or of its gradient remains for the mesh library.
-    return isinstance(n, PullBack) and isinstance(n.b, (Fn, Gradient))
+    return isinstance(n, PullBack) and isinstance(n.b, (Function, Gradient))
 
 
 def needs_pass(n):
-    return isinstance(n, Gradient) and not isinstance(n.b, (Fn, Coordinate, Gradient, PullBack))
+    return isinstance(n, Gradient) and not isinstance(
+        n.b, (Function, Coordinate, Gradient, PullBack)
+    )
 
 
 def by_the_points(n):
@@ -111,7 +115,10 @@ def main(trials):
     for seed in range(trials):
         rnd = random.Random(seed)
         Q, family, side, f = rnd.choice(
-            [(D, SQUARE_POINTS, SQUARE_SIDE, u), (M, SURFACE_POINTS, SURFACE_SIDE, w)]
+            [
+                (D, SQUARE_POINTS, SQUARE_SIDE, u),
+                (M, SURFACE_POINTS, SURFACE_SIDE, w),
+            ]
         )
         restricted = rnd.random() < 0.5
         if restricted:
@@ -132,7 +139,7 @@ def main(trials):
             bad["restricted"] += 1
             bad["unlowered"] += contains(out, by_the_points)
         else:
-            has_function = contains(e, lambda n: isinstance(n, Fn))
+            has_function = contains(e, lambda n: isinstance(n, Function))
             bad["unlocated"] += has_function and not contains(out, stays_for_the_mesh_library)
         before, after = evaluate(e, ENV)(()), evaluate(out, ENV)(())
         if not np.allclose(before, after, rtol=1e-4, atol=1e-5):

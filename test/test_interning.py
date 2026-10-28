@@ -12,15 +12,15 @@ from testutil import contains
 from uflx_spec_interpreter import nodes
 from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.geometry import density, inverse_jacobian, metric
-from uflx_spec_interpreter.nodes import Base, Fn, Index, Indexed, Num, Space, Sum, Tensor
+from uflx_spec_interpreter.nodes import Base, Function, Index, Indexed, Num, Space, Sum, Tensor
 from uflx_spec_interpreter.substitution import map_fields
 
 V = Space("V")
 
 
 def test_equal_constructions_are_one_object():
-    u = Fn(V, "u")
-    assert Sum(Num(1), u) is Sum(Num(1), Fn(Space("V"), "u"))
+    u = Function(V, "u")
+    assert Sum(Num(1), u) is Sum(Num(1), Function(Space("V"), "u"))
     X = Tensor((Num(1), Num(2)))
     assert Index(("matmul", X, u, 0)) is Index(("matmul", Tensor((Num(1), Num(2))), u, 0))
     assert Space("V") is Space("V", dual=False)
@@ -32,13 +32,13 @@ def test_constants_differ_by_type_and_sign():
 
 
 def test_rebuilding_returns_the_same_object():
-    e = Sum(Num(1), Fn(V, "u"))
+    e = Sum(Num(1), Function(V, "u"))
     assert replace(e) is e
     assert map_fields(e, lambda x: x) is e
 
 
 def test_unused_nodes_are_freed():
-    ref = weakref.ref(Fn(V, ("unused", 12345)))
+    ref = weakref.ref(Function(V, ("unused", 12345)))
     gc.collect()
     assert ref() is None
 
@@ -58,7 +58,7 @@ def test_hash_is_the_same_in_every_process():
 
 
 def test_hash_does_not_depend_on_where_the_class_is():
-    e = Sum(Num(1), Fn(V, "u"))
+    e = Sum(Num(1), Function(V, "u"))
     digest = nodes.digest_of(Sum.identifier, [getattr(e, f.name) for f in fields(e)])
     module, qualname = Sum.__module__, Sum.__qualname__
     try:

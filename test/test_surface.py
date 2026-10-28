@@ -6,19 +6,19 @@ from test_facets import table
 from test_integrals import K
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter.domains import CellMap, CoordDomain, Decomposed, DomainMap, SideMap
+from uflx_spec_interpreter.domains import CellMap, CoordDomain, DecomposedDomain, DomainMap, SideMap
 from uflx_spec_interpreter.nodes import (
-    CT,
+    ComponentTensor,
     Coordinate,
-    Fn,
+    Function,
     Gradient,
     Index,
     Indexed,
+    IndexSum,
     Integral,
-    ISum,
     Normal,
     Num,
-    Prod,
+    Product,
     PullBack,
     Space,
     Sum,
@@ -36,17 +36,17 @@ k, c, e, i = Index("k"), Index("c"), Index("e"), Index("i")
 p = table([[(0, 0, 0), (1, 0, 0), (1, 1, 0.5)], [(0, 0, 0), (1, 1, 0.5), (0, 1, 1)]])
 fam = lambda v: Indexed(p, (c, v, k))
 X = Coordinate(K)
-psi = CT(
+psi = ComponentTensor(
     Sum(
         fam(0),
         Sum(
-            Prod(Sum(fam(1), Prod(Num(-1), fam(0))), Indexed(X, (0,))),
-            Prod(Sum(fam(2), Prod(Num(-1), fam(0))), Indexed(X, (1,))),
+            Product(Sum(fam(1), Product(Num(-1), fam(0))), Indexed(X, (0,))),
+            Product(Sum(fam(2), Product(Num(-1), fam(0))), Indexed(X, (1,))),
         ),
     ),
     (k,),
 )
-M = Decomposed((DomainMap(K, psi, R3),))
+M = DecomposedDomain((DomainMap(K, psi, R3),))
 
 bump = Tensor((Num(1), Num(-1), Num(2)))
 kk = Index("kk")
@@ -54,35 +54,37 @@ kk = Index("kk")
 
 def deform(z):
     # A smooth map of R^3 applied to the point z.
-    return CT(
+    return ComponentTensor(
         Sum(
             Indexed(z, (kk,)),
-            Prod(Prod(Num(0.2), Prod(Indexed(z, (0,)), Indexed(z, (1,)))), Indexed(bump, (kk,))),
+            Product(
+                Product(Num(0.2), Product(Indexed(z, (0,)), Indexed(z, (1,)))), Indexed(bump, (kk,))
+            ),
         ),
         (kk,),
     )
 
 
 # The deformed surface on the parameter domain M, which has no topology and so no sides.
-Ms = Decomposed((DomainMap(M, deform(Coordinate(M)), R3),))
+Ms = DecomposedDomain((DomainMap(M, deform(Coordinate(M)), R3),))
 
 # The same curved surface written as a mesh, with the cells of M deformed, so it has sides.
-C = Decomposed((DomainMap(K, deform(psi), R3),))
+C = DecomposedDomain((DomainMap(K, deform(psi), R3),))
 
 
 def edges(vertices, curved=False):
     fv = table(vertices)
-    psi_e = CT(
+    psi_e = ComponentTensor(
         Sum(
             Indexed(fv, (e, 0, k)),
-            Prod(
-                Sum(Indexed(fv, (e, 1, k)), Prod(Num(-1), Indexed(fv, (e, 0, k)))),
+            Product(
+                Sum(Indexed(fv, (e, 1, k)), Product(Num(-1), Indexed(fv, (e, 0, k)))),
                 Indexed(Coordinate(I), (0,)),
             ),
         ),
         (k,),
     )
-    return Decomposed((DomainMap(I, deform(psi_e) if curved else psi_e, R3),))
+    return DecomposedDomain((DomainMap(I, deform(psi_e) if curved else psi_e, R3),))
 
 
 INTERIOR = [[(0, 0, 0), (1, 1, 0.5)]]
@@ -114,21 +116,21 @@ def sides(D, curved):
 
 EDGES = {M: sides(M, False), C: sides(C, True)}
 
-u = Fn(Space("V", domain=M), "u")
+u = Function(Space("V", domain=M), "u")
 ENV = {u: {0: lambda x: 1 + x[0] + 2 * x[1] - x[2], 1: lambda x: 3 - x[0] * x[2] + x[1]}}
 
 
 def field(rnd, dom):
     Z = Coordinate(dom)
-    g = Sum(Prod(Indexed(Z, (0,)), Indexed(Z, (1,))), Indexed(Z, (2,)))
-    h = Prod(Indexed(Z, (2,)), Indexed(Z, (2,)))
+    g = Sum(Product(Indexed(Z, (0,)), Indexed(Z, (1,))), Indexed(Z, (2,)))
+    h = Product(Indexed(Z, (2,)), Indexed(Z, (2,)))
     grad = lambda q: Gradient(q, dom)
     return rnd.choice(
         [
             g,
             Indexed(grad(g), (rnd.randrange(3),)),
-            ISum(Prod(Indexed(grad(g), (i,)), Indexed(grad(h), (i,))), (i,)),
-            Prod(h, Indexed(grad(h), (rnd.randrange(3),))),
+            IndexSum(Product(Indexed(grad(g), (i,)), Indexed(grad(h), (i,))), (i,)),
+            Product(h, Indexed(grad(h), (rnd.randrange(3),))),
             Num(2),
         ]
     )
@@ -137,20 +139,23 @@ def field(rnd, dom):
 def edge_integrand(rnd, D, E, sides):
     sm = sides[rnd.choice(list(sides))]
     Z = Coordinate(D)
-    g = Sum(Prod(Indexed(Z, (0,)), Indexed(Z, (1,))), Indexed(Z, (2,)))
+    g = Sum(Product(Indexed(Z, (0,)), Indexed(Z, (1,))), Indexed(Z, (2,)))
     f = rnd.choice(
         ([u, Indexed(Gradient(u, M), (rnd.randrange(3),))] if D == M else [])
-        + [Indexed(Z, (rnd.randrange(3),)), Indexed(Gradient(g, D), (rnd.randrange(3),))]
+        + [
+            Indexed(Z, (rnd.randrange(3),)),
+            Indexed(Gradient(g, D), (rnd.randrange(3),)),
+        ]
     )
     n = Normal(D, E, sm)
     return rnd.choice(
         [
             PullBack(f, sm),
-            Prod(PullBack(f, sm), Indexed(n, (rnd.randrange(3),))),
+            Product(PullBack(f, sm), Indexed(n, (rnd.randrange(3),))),
             n,
             Sum(
                 PullBack(f, sides[next(iter(sides))]),
-                Prod(Num(-1), PullBack(f, sides[list(sides)[-1]])),
+                Product(Num(-1), PullBack(f, sides[list(sides)[-1]])),
             ),
         ]
     )
@@ -164,7 +169,7 @@ def check(name, e, env, bad, rows):
         lambda n: (
             isinstance(n, PullBack)
             and isinstance(n.m, (CellMap, DomainMap))
-            and not isinstance(n.b, (Fn, Normal, PullBack, Gradient, SideMap))
+            and not isinstance(n.b, (Function, Normal, PullBack, Gradient, SideMap))
         ),
     ):
         bad["lazy"] += 1

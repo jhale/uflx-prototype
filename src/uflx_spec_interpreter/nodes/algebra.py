@@ -44,7 +44,7 @@ class Sum(AbstractExpression):
 
 
 @dataclass(frozen=True, eq=False)
-class Prod(AbstractExpression):
+class Product(AbstractExpression):
     identifier = "uflx.Product"
     a: Base
     b: Base
@@ -55,14 +55,14 @@ class Prod(AbstractExpression):
 
 
 @dataclass(frozen=True, eq=False)
-class Div(AbstractExpression):
+class Division(AbstractExpression):
     identifier = "uflx.Division"
     a: Base
     c: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Conj(AbstractExpression):
+class Conjugate(AbstractExpression):
     identifier = "uflx.Conjugate"
     a: Base
 
@@ -72,37 +72,37 @@ class Conj(AbstractExpression):
 
 
 @dataclass(frozen=True, eq=False)
-class Re(AbstractExpression):
+class RealPart(AbstractExpression):
     identifier = "uflx.RealPart"
     a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Im(AbstractExpression):
+class ImaginaryPart(AbstractExpression):
     identifier = "uflx.ImaginaryPart"
     a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Abs(AbstractExpression):
+class Absolute(AbstractExpression):
     identifier = "uflx.Absolute"
     a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Sqrt(AbstractExpression):
+class SquareRoot(AbstractExpression):
     identifier = "uflx.SquareRoot"
     a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Log(AbstractExpression):
+class Logarithm(AbstractExpression):
     identifier = "uflx.Logarithm"
     a: Base
 
 
 @dataclass(frozen=True, eq=False)
-class Inv(AbstractExpression):
+class Inverse(AbstractExpression):
     identifier = "uflx.Inverse"
     a: Base
 
@@ -147,7 +147,7 @@ class Indexed(AbstractExpression):
 
 
 @dataclass(frozen=True, eq=False)
-class CT(AbstractExpression):
+class ComponentTensor(AbstractExpression):
     identifier = "uflx.ComponentTensor"
     e: Base
     idx: tuple
@@ -167,7 +167,7 @@ class CT(AbstractExpression):
 
 
 @dataclass(frozen=True, eq=False)
-class ISum(AbstractExpression):
+class IndexSum(AbstractExpression):
     identifier = "uflx.IndexSum"
     e: Base
     idx: tuple

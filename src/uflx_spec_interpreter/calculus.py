@@ -1,28 +1,41 @@
-from .algebra import matmul, minus, negate, transpose
+from .algebra import matrix_product, negate, subtract, transpose
 from .commuting import COMMUTING, commute
-from .nodes import Abs, Action, Conj, Div, Fn, Inv, Log, Num, Power, Prod, Sqrt, Sum
+from .nodes import (
+    Absolute,
+    Action,
+    Conjugate,
+    Division,
+    Function,
+    Inverse,
+    Logarithm,
+    Num,
+    Power,
+    Product,
+    SquareRoot,
+    Sum,
+)
 
 
 def derivative_of_node(f, d, constant, avoid):
     # The derivatives of the node classes, shared by every pass that differentiates.
     match f:
-        case Prod(b, c):
-            return Sum(Prod(d(b), c), Prod(b, d(c)))
-        case Div(b, c):
-            return minus(Div(d(b), c), Div(Prod(b, d(c)), Prod(c, c)))
+        case Product(b, c):
+            return Sum(Product(d(b), c), Product(b, d(c)))
+        case Division(b, c):
+            return subtract(Division(d(b), c), Division(Product(b, d(c)), Product(c, c)))
         case Power(b, c) if constant(c):
-            return Prod(Prod(c, Power(b, Sum(c, Num(-1)))), d(b))
+            return Product(Product(c, Power(b, Sum(c, Num(-1)))), d(b))
         case Power(b, c):
-            return Prod(f, Sum(Prod(Log(b), d(c)), Div(Prod(c, d(b)), b)))
-        case Abs(b):
+            return Product(f, Sum(Product(Logarithm(b), d(c)), Division(Product(c, d(b)), b)))
+        case Absolute(b):
             return abs_derivative(b, d(b))
-        case Sqrt(b):
-            return Div(d(b), Prod(Num(2), f))
-        case Log(b):
-            return Div(d(b), b)
-        case Inv(A):
+        case SquareRoot(b):
+            return Division(d(b), Product(Num(2), f))
+        case Logarithm(b):
+            return Division(d(b), b)
+        case Inverse(A):
             return inverse_derivative(A, d(A))
-        case Action(Fn(space, _) as l, 0, w) if space.dual:
+        case Action(Function(space, _) as l, 0, w) if space.dual:
             return Action(l, 0, d(w))
         case _ if type(f) in COMMUTING:
             return commute(f, d, avoid)
@@ -30,12 +43,15 @@ def derivative_of_node(f, d, constant, avoid):
 
 
 def abs_derivative(b, db):
-    return Div(Sum(Prod(Conj(b), db), Prod(b, Conj(db))), Prod(Num(2), Abs(b)))
+    return Division(
+        Sum(Product(Conjugate(b), db), Product(b, Conjugate(db))), Product(Num(2), Absolute(b))
+    )
 
 
 def inverse_derivative(A, dA):
     # The identity-free form -A⁺ dA A⁺ + A⁺ (A⁺)ᵀ (dAᵀ - dAᵀ A A⁺).
-    Ai, dAt = Inv(A), transpose(dA)
+    Ai, dAt = Inverse(A), transpose(dA)
     return Sum(
-        negate(matmul(Ai, dA, Ai)), matmul(Ai, transpose(Ai), Sum(dAt, negate(matmul(dAt, A, Ai))))
+        negate(matrix_product(Ai, dA, Ai)),
+        matrix_product(Ai, transpose(Ai), Sum(dAt, negate(matrix_product(dAt, A, Ai)))),
     )

@@ -7,27 +7,27 @@ from testutil import assert_clean, contains
 
 from uflx_spec_interpreter import oracle
 from uflx_spec_interpreter.nodes import (
-    CT,
-    Abs,
-    Conj,
+    Absolute,
+    ComponentTensor,
+    Conjugate,
     Coordinate,
-    Div,
-    Fn,
+    Division,
+    Function,
     Gradient,
     Index,
     Indexed,
+    IndexSum,
     Integral,
-    Inv,
-    ISum,
-    Log,
+    Inverse,
+    Logarithm,
     Normal,
     Num,
     Power,
-    Prod,
+    Product,
     PullBack,
-    Re,
+    RealPart,
     Space,
-    Sqrt,
+    SquareRoot,
     Sum,
     Tensor,
 )
@@ -36,13 +36,13 @@ from uflx_spec_interpreter.passes import gradients
 from uflx_spec_interpreter.static import free, shape
 
 X = Coordinate(K)
-u = Fn(Space("V", domain=K), "u")
+u = Function(Space("V", domain=K), "u")
 ENV = {u: lambda x: 1 + x[0] * x[0] + 0.5j * x[1]}
 i, j = Index("i"), Index("j")
 
 
 def near(a):
-    return Sum(Num(3), Prod(Num(0.2), a))
+    return Sum(Num(3), Product(Num(0.2), a))
 
 
 def scalar(rnd, depth):
@@ -52,18 +52,22 @@ def scalar(rnd, depth):
     return rnd.choice(
         [
             lambda: Sum(a, b),
-            lambda: Prod(a, b),
-            lambda: Div(a, near(b)),
-            lambda: Conj(a),
-            lambda: Re(a),
-            lambda: Abs(near(a)),
-            lambda: Sqrt(near(a)),
-            lambda: Log(near(a)),
-            lambda: Power(near(a), rnd.choice([Num(2), Prod(Num(0.3), b)])),
+            lambda: Product(a, b),
+            lambda: Division(a, near(b)),
+            lambda: Conjugate(a),
+            lambda: RealPart(a),
+            lambda: Absolute(near(a)),
+            lambda: SquareRoot(near(a)),
+            lambda: Logarithm(near(a)),
+            lambda: Power(near(a), rnd.choice([Num(2), Product(Num(0.3), b)])),
             lambda: Indexed(Gradient(a, K), (rnd.randrange(2),)),
-            lambda: ISum(Prod(Indexed(Gradient(a, K), (i,)), Indexed(Gradient(b, K), (i,))), (i,)),
+            lambda: IndexSum(
+                Product(Indexed(Gradient(a, K), (i,)), Indexed(Gradient(b, K), (i,))), (i,)
+            ),
             lambda: Indexed(
-                Inv(Tensor((Tensor((near(a), Prod(Num(0.1), b))), Tensor((Num(0.1), near(b)))))),
+                Inverse(
+                    Tensor((Tensor((near(a), Product(Num(0.1), b))), Tensor((Num(0.1), near(b)))))
+                ),
                 (rnd.randrange(2), rnd.randrange(2)),
             ),
         ]
@@ -77,15 +81,18 @@ def target(rnd):
         [
             lambda: Indexed(Gradient(a, K), (rnd.randrange(2),)),
             lambda: Indexed(Gradient(Gradient(a, K), K), (rnd.randrange(2), rnd.randrange(2))),
-            lambda: Indexed(Gradient(Tensor((a, Prod(a, a))), K), (rnd.randrange(2), 0)),
-            lambda: ISum(Indexed(Gradient(CT(Prod(a, Indexed(X, (j,))), (j,)), K), (i, i)), (i,)),
-            lambda: Prod(a, Indexed(Gradient(X, K), (rnd.randrange(2), rnd.randrange(2)))),
+            lambda: Indexed(Gradient(Tensor((a, Product(a, a))), K), (rnd.randrange(2), 0)),
+            lambda: IndexSum(
+                Indexed(Gradient(ComponentTensor(Product(a, Indexed(X, (j,))), (j,)), K), (i, i)),
+                (i,),
+            ),
+            lambda: Product(a, Indexed(Gradient(X, K), (rnd.randrange(2), rnd.randrange(2)))),
         ]
     )()
 
 
 def needs_pass(n):
-    return isinstance(n, Gradient) and not isinstance(n.b, (Fn, Normal, PullBack, Gradient))
+    return isinstance(n, Gradient) and not isinstance(n.b, (Function, Normal, PullBack, Gradient))
 
 
 def main(trials):

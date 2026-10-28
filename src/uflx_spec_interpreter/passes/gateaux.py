@@ -1,29 +1,40 @@
-from ..nodes import Abs, Conj, D, Form, Gateaux, Im, Num, Prod, Re, Sum
+from ..nodes import (
+    Absolute,
+    Conjugate,
+    DirectionalDerivative,
+    Form,
+    GateauxDerivative,
+    ImaginaryPart,
+    Num,
+    Product,
+    RealPart,
+    Sum,
+)
 from ..static import arity, zero_like
 from ..substitution import expressions, map_fields, occurs, operands
 
-NONHOLOMORPHIC = (Conj, Abs, Re, Im)
+NONHOLOMORPHIC = (Conjugate, Absolute, RealPart, ImaginaryPart)
 
 
 def rule(g):
     # The rule table of apply_gateaux_derivatives, keyed on the space of x and the entry.
     match g:
-        case Gateaux(F, x, a, entry) if not x.space.complex:
-            return Form(D(F, x, a, direction(entry)), (entry,))
-        case Gateaux(F, x, _, Conj()) if holomorphic(F, x):
+        case GateauxDerivative(F, x, a, entry) if not x.space.complex:
+            return Form(DirectionalDerivative(F, x, a, direction(entry)), (entry,))
+        case GateauxDerivative(F, x, _, Conjugate()) if holomorphic(F, x):
             return zero_like(F, arity(F) + 1)
-        case Gateaux(F, x, a, w) if holomorphic(F, x):
-            return Form(D(F, x, a, w), (w,))
-        case Gateaux(F, x, a, Conj(w) as entry):
+        case GateauxDerivative(F, x, a, w) if holomorphic(F, x):
+            return Form(DirectionalDerivative(F, x, a, w), (w,))
+        case GateauxDerivative(F, x, a, Conjugate(w) as entry):
             return Form(half_sum(F, x, a, w, Num(1j)), (entry,))
-        case Gateaux(F, x, a, w):
+        case GateauxDerivative(F, x, a, w):
             return Form(half_sum(F, x, a, w, Num(-1j)), (w,))
     return g
 
 
 def direction(entry):
     match entry:
-        case Conj(w):
+        case Conjugate(w):
             return w
     return entry
 
@@ -36,13 +47,19 @@ def holomorphic(F, x, inside=False):
 
 
 def half_sum(F, x, a, w, sign):
-    return Prod(Num(0.5), Sum(D(F, x, a, w), Prod(sign, D(F, x, a, Prod(Num(1j), w)))))
+    return Product(
+        Num(0.5),
+        Sum(
+            DirectionalDerivative(F, x, a, w),
+            Product(sign, DirectionalDerivative(F, x, a, Product(Num(1j), w))),
+        ),
+    )
 
 
-def apply_gateaux(e):
+def apply_gateaux_derivatives(e):
     # Inner derivatives first, then the rule for each Gateaux derivative.
-    return rule(map_fields(e, apply_gateaux))
+    return rule(map_fields(e, apply_gateaux_derivatives))
 
 
 def in_n1(e):
-    return not isinstance(e, Gateaux) and all(in_n1(c) for c in expressions(e))
+    return not isinstance(e, GateauxDerivative) and all(in_n1(c) for c in expressions(e))

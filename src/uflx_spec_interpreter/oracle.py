@@ -2,33 +2,33 @@ import itertools
 
 import numpy as np
 
-from .domains import CellMap, CoordDomain, Decomposed, Gathered, SideMap, ambient
+from .domains import CellMap, CoordDomain, DecomposedDomain, GatheredIndex, SideMap, ambient
 from .nodes import (
-    CT,
-    Abs,
+    Absolute,
     Action,
-    Conj,
+    ComponentTensor,
+    Conjugate,
     Coordinate,
-    D,
-    Div,
-    Fn,
+    DirectionalDerivative,
+    Division,
     Form,
-    Gateaux,
+    Function,
+    GateauxDerivative,
     Gradient,
-    Im,
+    ImaginaryPart,
     Index,
     Indexed,
+    IndexSum,
     Integral,
-    Inv,
-    ISum,
-    Log,
+    Inverse,
+    Logarithm,
     Normal,
     Num,
     Power,
-    Prod,
+    Product,
     PullBack,
-    Re,
-    Sqrt,
+    RealPart,
+    SquareRoot,
     Sum,
     Tensor,
     Zero,
@@ -201,7 +201,7 @@ def evaluate(e, env, ienv=None, over=None):
 
 def entry_value(member, value):
     # A value given to an entry conjugate(v) is the value of conjugate(v).
-    if not isinstance(member, Conj):
+    if not isinstance(member, Conjugate):
         return member, value
     if callable(value):
         return member.a, lambda *point: np.conj(value(*point))
@@ -218,7 +218,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
     match e:
         case Num(v):
             return lambda vals: v
-        case Fn(space, _) if space.domain is not None:
+        case Function(space, _) if space.domain is not None:
 
             def function_value(vals):
                 v = env[e]
@@ -228,9 +228,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return v(POINTS[space.domain]) if callable(v) else v
 
             return function_value
-        case Fn(space, _) if not space.dual:
+        case Function(space, _) if not space.dual:
             return lambda vals: env[e]() if callable(env[e]) else env[e]
-        case Fn(space, _):
+        case Function(space, _):
             if space.dual:
                 return lambda vals: env[e](vals[0])
             return lambda vals: env[e]
@@ -239,20 +239,26 @@ def evaluate_uncached(e, env, ienv=None, over=None):
         case Sum(a, b):
             fa, fb = ev(a), ev(b)
             return lambda vals: fa(vals) + fb(vals)
-        case Prod(a, b):
+        case Product(a, b):
             fa, fb, n = ev(a), ev(b), arity(a)
             return lambda vals: fa(vals[:n]) * fb(vals[n:])
-        case Div(a, c):
+        case Division(a, c):
             fa, fc = ev(a), ev(c)
             return lambda vals: fa(vals) / fc(())
-        case Conj(a):
+        case Conjugate(a):
             fa = ev(a)
             return lambda vals: np.conj(fa(vals))
-        case Re(a) | Im(a) | Abs(a) | Sqrt(a) | Log(a):
+        case RealPart(a) | ImaginaryPart(a) | Absolute(a) | SquareRoot(a) | Logarithm(a):
             fa = ev(a)
-            op = {Re: np.real, Im: np.imag, Abs: np.abs, Sqrt: np.sqrt, Log: np.log}[type(e)]
+            op = {
+                RealPart: np.real,
+                ImaginaryPart: np.imag,
+                Absolute: np.abs,
+                SquareRoot: np.sqrt,
+                Logarithm: np.log,
+            }[type(e)]
             return lambda vals: op(np.asarray(fa(vals), dtype=complex))
-        case Inv(a):
+        case Inverse(a):
             fa = ev(a)
             return lambda vals: np.linalg.pinv(np.asarray(fa(vals), dtype=complex))
         case Power(a, c):
@@ -267,14 +273,14 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def entry(i):
                 if isinstance(i, Index):
                     return ienv[i]
-                if isinstance(i, Gathered):
+                if isinstance(i, GatheredIndex):
                     table = np.asarray(evaluate(i.table, env, ienv, over)(()))
                     return int(np.real(table[tuple(entry(j) for j in i.indices)]))
                 return i
 
             key = tuple(entry(i) for i in idx)
             return lambda vals: np.asarray(fx(vals))[key]
-        case CT(x, idx) | ISum(x, idx):
+        case ComponentTensor(x, idx) | IndexSum(x, idx):
             extents = [free(x)[i] for i in idx]
             fs = {
                 combo: ev(x, ienv | dict(zip(idx, combo)))
@@ -283,7 +289,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def value(vals):
                 out = {combo: f(vals) for combo, f in fs.items()}
-                if isinstance(e, ISum):
+                if isinstance(e, IndexSum):
                     return sum(out.values())
                 arr = np.empty(extents, dtype=complex)
                 for k, v in out.items():
@@ -315,7 +321,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             gv = tuple(value_of(x) for x in g) if isinstance(g, tuple) else value_of(g)
             return lambda vals: ff((*tuple(vals[:p]), gv, *tuple(vals[p:])))
-        case Gateaux(F, x, a, entry):
+        case GateauxDerivative(F, x, a, entry):
             # The definition: the real derivative, split into its linear and antilinear parts.
             fa = ev(a)
 
@@ -327,14 +333,14 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def value(vals):
                 rest, wv = tuple(vals[:-1]), vals[-1]
                 # The value is that of the entry, so the direction of conjugate(w) is its conjugate.
-                wv = np.conj(wv) if isinstance(entry, Conj) else wv
+                wv = np.conj(wv) if isinstance(entry, Conjugate) else wv
                 if not x.space.complex:
                     return delta(wv, rest)
-                sign = 1j if isinstance(entry, Conj) else -1j
+                sign = 1j if isinstance(entry, Conjugate) else -1j
                 return 0.5 * (delta(wv, rest) + sign * delta(1j * wv, rest))
 
             return value
-        case D(f, x, a, h):
+        case DirectionalDerivative(f, x, a, h):
             fa, fh = ev(a), ev(h)
             fp = evaluate(f, env, ienv, over | {x: lambda: fa(()) + EPS * fh(())})
             fm = evaluate(f, env, ienv, over | {x: lambda: fa(()) - EPS * fh(())})
@@ -399,7 +405,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                     for k in np.eye(len(p))
                 ]
                 g = np.stack(cols, axis=-1)
-                if isinstance(P, Decomposed) and topdim(P) < len(p):
+                if isinstance(P, DecomposedDomain) and topdim(P) < len(p):
                     # The tangential gradient on a domain of lower dimension.
                     g = g @ tangent_projector(P)
                 return g

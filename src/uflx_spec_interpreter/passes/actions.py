@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 from ..commuting import COMMUTING, commute
-from ..nodes import Action, Conj, Fn, Form, Prod, Zero, members
+from ..nodes import Action, Conjugate, Form, Function, Product, Zero, members
 from ..static import arity, free_indices
 from ..substitution import expressions, freshen, map_fields, substitute
 
@@ -11,15 +11,15 @@ def act(f, p, g):
     match f:
         case Form(e, _) if p >= arity(e):
             return bind(f, p - arity(e), g)
-        case Prod(a, b) if p < arity(a):
-            return Prod(act(a, p, g), b)
-        case Prod(a, b):
-            return Prod(a, act(b, p - arity(a), g))
+        case Product(a, b) if p < arity(a):
+            return Product(act(a, p, g), b)
+        case Product(a, b):
+            return Product(a, act(b, p - arity(a), g))
         case _ if type(f) in COMMUTING:
             return commute(f, lambda b: act(b, p, g), members(g))
         case Zero(s, _, args):
             return Zero(s, free_indices(f, *members(g)), without(args, p))
-        case Fn(space, _) if space.dual:
+        case Function(space, _) if space.dual:
             return Action(f, p, g)
     raise TypeError(f"cannot occur: {f}")
 
@@ -34,8 +34,8 @@ def bind(form, q, g):
 def binding(entry, value):
     # The value is that of the entry, so v in an entry conjugate(v) takes the conjugate.
     match entry:
-        case Conj(v):
-            return v, Conj(value)
+        case Conjugate(v):
+            return v, Conjugate(value)
     return entry, value
 
 
@@ -54,7 +54,7 @@ def apply_actions(e):
 
 def in_n2(e):
     match e:
-        case Action(Fn(space, _), _, _) if space.dual:
+        case Action(Function(space, _), _, _) if space.dual:
             pass
         case Action():
             return False

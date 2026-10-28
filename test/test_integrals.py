@@ -5,17 +5,17 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
-from uflx_spec_interpreter.domains import CoordDomain, Decomposed, DomainMap
+from uflx_spec_interpreter.domains import CoordDomain, DecomposedDomain, DomainMap
 from uflx_spec_interpreter.nodes import (
-    CT,
+    ComponentTensor,
     Coordinate,
-    Fn,
+    Function,
     Gradient,
     Index,
     Indexed,
     Integral,
     Num,
-    Prod,
+    Product,
     Space,
     Sum,
     Tensor,
@@ -39,11 +39,11 @@ def affine(vertices, at):
     body = Sum(
         term(v0),
         Sum(
-            Prod(Sum(term(v1), Prod(num(-1), term(v0))), Indexed(at, (0,))),
-            Prod(Sum(term(v2), Prod(num(-1), term(v0))), Indexed(at, (1,))),
+            Product(Sum(term(v1), Product(num(-1), term(v0))), Indexed(at, (0,))),
+            Product(Sum(term(v2), Product(num(-1), term(v0))), Indexed(at, (1,))),
         ),
     )
-    return CT(body, (k,))
+    return ComponentTensor(body, (k,))
 
 
 T0, T1 = [(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]
@@ -51,24 +51,24 @@ T0, T1 = [(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]
 # The square as one family of two triangles, with the free index c.
 p = Tensor(tuple(Tensor(tuple(Tensor((num(a), num(b))) for a, b in tri)) for tri in (T0, T1)))
 fam = lambda i: Indexed(p, (c, i, k))
-psi_c = CT(
+psi_c = ComponentTensor(
     Sum(
         fam(0),
         Sum(
-            Prod(Sum(fam(1), Prod(num(-1), fam(0))), Indexed(X, (0,))),
-            Prod(Sum(fam(2), Prod(num(-1), fam(0))), Indexed(X, (1,))),
+            Product(Sum(fam(1), Product(num(-1), fam(0))), Indexed(X, (0,))),
+            Product(Sum(fam(2), Product(num(-1), fam(0))), Indexed(X, (1,))),
         ),
     ),
     (k,),
 )
-D = Decomposed((DomainMap(K, psi_c, R2),))
+D = DecomposedDomain((DomainMap(K, psi_c, R2),))
 
 # A family of three points in the square.
-Dp = Decomposed(
+Dp = DecomposedDomain(
     (
         DomainMap(
             CoordDomain("pt", 0),
-            CT(
+            ComponentTensor(
                 Indexed(
                     Tensor(
                         tuple(
@@ -86,20 +86,20 @@ Dp = Decomposed(
 )
 
 # The square as two pieces with no free index.
-D2 = Decomposed((DomainMap(K, affine(T0, X), R2), DomainMap(K, affine(T1, X), R2)))
+D2 = DecomposedDomain((DomainMap(K, affine(T0, X), R2), DomainMap(K, affine(T1, X), R2)))
 
 # A macro triangle: T0 as the image of the unit triangle split into two sub-triangles.
-Kdec = Decomposed(
+Kdec = DecomposedDomain(
     (
         DomainMap(K, affine([(0, 0), (1, 0), (0.5, 0.5)], X), K),
         DomainMap(K, affine([(0, 0), (0.5, 0.5), (0, 1)], X), K),
     )
 )
-Dm = Decomposed((DomainMap(Kdec, affine(T0, Coordinate(Kdec)), R2),))
+Dm = DecomposedDomain((DomainMap(Kdec, affine(T0, Coordinate(Kdec)), R2),))
 
 V = Space("V", domain=D)
-u = Fn(V, "u")
-r = Fn(Space("R"), "r")
+u = Function(V, "u")
+r = Function(Space("R"), "r")
 d = Tensor((num(3), num(5)))
 
 
@@ -114,7 +114,7 @@ def scalar(rnd, dom, kind, depth):
         }[kind]
         return rnd.choice([*leaves, num(2)])
     a, b = scalar(rnd, dom, kind, depth - 1), scalar(rnd, dom, kind, depth - 1)
-    return rnd.choice([Sum(a, b), Prod(a, b)])
+    return rnd.choice([Sum(a, b), Product(a, b)])
 
 
 def integrand(rnd, dom, kind):

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 
-from .algebra import Conj
+from .algebra import Conjugate
 from .base import AbstractExpression, Base
 
 
@@ -17,7 +17,7 @@ class Space(Base):
 
 
 @dataclass(frozen=True, eq=False)
-class Fn(AbstractExpression):
+class Function(AbstractExpression):
     identifier = "uflx.Function"
     space: Space
     label: object
@@ -79,11 +79,11 @@ def members(entry):
 
 
 def entry_fns(entry):
-    return [m.a if isinstance(m, Conj) else m for m in members(entry)]
+    return [m.a if isinstance(m, Conjugate) else m for m in members(entry)]
 
 
 @dataclass(frozen=True, eq=False)
-class Gateaux(AbstractExpression):
+class GateauxDerivative(AbstractExpression):
     identifier = "uflx.GateauxDerivative"
     F: Base
     x: Base
@@ -92,7 +92,7 @@ class Gateaux(AbstractExpression):
     scope = ("F", "x", "entry")
 
     def bound(self):
-        return [self.x, self.entry.a if isinstance(self.entry, Conj) else self.entry]
+        return [self.x, self.entry.a if isinstance(self.entry, Conjugate) else self.entry]
 
     @cached_property
     def value_shape(self):

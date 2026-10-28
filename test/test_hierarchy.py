@@ -2,29 +2,37 @@ from test_facets import table
 from test_integrals import D, c
 
 from uflx_spec_interpreter import domains, nodes
-from uflx_spec_interpreter.domains import Gathered, cell_domain
+from uflx_spec_interpreter.domains import GatheredIndex, cell_domain
 from uflx_spec_interpreter.nodes import (
     AbstractExpression,
     Base,
     Coordinate,
-    Fn,
     Form,
+    Function,
     Indexed,
-    Prod,
+    Product,
     PullBack,
-    Re,
+    RealPart,
     Space,
 )
 from uflx_spec_interpreter.passes import pullbacks
 from uflx_spec_interpreter.static import free
 
 EXPRESSIONS = (
-    "Num Zero Sum Prod Div Power Abs Conj Re Im Sqrt Log Tensor Indexed CT ISum Inv "
-    "Coordinate Gradient D Integral PullBack Normal Fn Form Action Gateaux"
+    "Num Zero Sum Product Division Power Absolute Conjugate RealPart ImaginaryPart SquareRoot "
+    "Logarithm Tensor Indexed ComponentTensor IndexSum Inverse Coordinate Gradient "
+    "DirectionalDerivative Integral PullBack Normal Function Form Action GateauxDerivative"
 ).split()
 OTHERS = {
     nodes: ["Index", "Space"],
-    domains: ["Gathered", "CoordDomain", "Decomposed", "DomainMap", "CellMap", "SideMap"],
+    domains: [
+        "GatheredIndex",
+        "CoordDomain",
+        "DecomposedDomain",
+        "DomainMap",
+        "CellMap",
+        "SideMap",
+    ],
 }
 
 
@@ -45,23 +53,31 @@ def test_the_static_type_is_computed_once():
 
 
 def test_a_pull_back_leaves_a_gathered_entry_unchanged():
-    g = Gathered(table([1, 0]), (c,))
+    g = GatheredIndex(table([1, 0]), (c,))
     out = pullbacks.pb(Indexed(Coordinate(D), (g,)), cell_domain(D, 0))
     assert isinstance(out, Indexed) and out.idx == (g,) and out.idx[0] is g
-    assert not isinstance(out.e, PullBack) and not isinstance(out.e, Fn)
+    assert not isinstance(out.e, PullBack) and not isinstance(out.e, Function)
 
 
 def test_a_curried_form_counts_the_arguments_of_its_expression():
     V = Space("V")
-    u, v, w = (Fn(V, n) for n in "uvw")
-    inner = Form(Prod(u, v), (v,))
+    u, v, w = (Function(V, n) for n in "uvw")
+    inner = Form(Product(u, v), (v,))
     assert inner.arity == 1
-    assert Form(Prod(inner, w), (w,)).arity == 2
-    assert Re(inner).arity == 1
+    assert Form(Product(inner, w), (w,)).arity == 2
+    assert RealPart(inner).arity == 1
 
 
 def test_most_classes_use_the_defaults():
     # A class states only the parts of its static type that differ from the defaults.
-    for name in ("Sqrt", "Log", "Abs", "Re", "Im", "Div", "Power"):
+    for name in (
+        "SquareRoot",
+        "Logarithm",
+        "Absolute",
+        "RealPart",
+        "ImaginaryPart",
+        "Division",
+        "Power",
+    ):
         own = vars(getattr(nodes, name))
         assert not {"value_shape", "free_indices", "arity", "support"} & set(own), name

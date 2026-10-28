@@ -3,16 +3,16 @@ from itertools import combinations, permutations
 
 from .domains import ambient_dim
 from .nodes import (
-    CT,
+    ComponentTensor,
     Coordinate,
-    Div,
+    Division,
     Gradient,
     Index,
     Indexed,
-    ISum,
+    IndexSum,
     Num,
-    Prod,
-    Sqrt,
+    Product,
+    SquareRoot,
     Sum,
     Tensor,
 )
@@ -22,8 +22,8 @@ def total(es):
     return reduce(Sum, es)
 
 
-def minus(b, c):
-    return Sum(b, Prod(Num(-1), c))
+def subtract(b, c):
+    return Sum(b, Product(Num(-1), c))
 
 
 def identity(n):
@@ -32,50 +32,50 @@ def identity(n):
 
 def add(*Xs):
     r, s = (Index(("add", Xs, n)) for n in range(2))
-    return CT(total(Indexed(X, (r, s)) for X in Xs), (r, s))
+    return ComponentTensor(total(Indexed(X, (r, s)) for X in Xs), (r, s))
 
 
 def negate(X):
     r, s = (Index(("negate", X, n)) for n in range(2))
-    return CT(Prod(Num(-1), Indexed(X, (r, s))), (r, s))
+    return ComponentTensor(Product(Num(-1), Indexed(X, (r, s))), (r, s))
 
 
 def transpose(X):
     r, s = (Index(("transpose", X, n)) for n in range(2))
-    return CT(Indexed(X, (s, r)), (r, s))
+    return ComponentTensor(Indexed(X, (s, r)), (r, s))
 
 
-def matmul(X, Y, *rest):
+def matrix_product(X, Y, *rest):
     r, s, t = (Index(("matmul", X, Y, n)) for n in range(3))
-    XY = CT(ISum(Prod(Indexed(X, (r, t)), Indexed(Y, (t, s))), (t,)), (r, s))
-    return matmul(XY, *rest) if rest else XY
+    XY = ComponentTensor(IndexSum(Product(Indexed(X, (r, t)), Indexed(Y, (t, s))), (t,)), (r, s))
+    return matrix_product(XY, *rest) if rest else XY
 
 
 def matvec(X, u):
     r, t = (Index(("matvec", X, u, n)) for n in range(2))
-    return CT(ISum(Prod(Indexed(X, (r, t)), Indexed(u, (t,))), (t,)), (r,))
+    return ComponentTensor(IndexSum(Product(Indexed(X, (r, t)), Indexed(u, (t,))), (t,)), (r,))
 
 
 def dot(u, v):
     r = Index(("dot", u, v))
-    return ISum(Prod(Indexed(u, (r,)), Indexed(v, (r,))), (r,))
+    return IndexSum(Product(Indexed(u, (r,)), Indexed(v, (r,))), (r,))
 
 
 def scale(c, u):
     r = Index(("scale", c, u))
-    return CT(Prod(c, Indexed(u, (r,))), (r,))
+    return ComponentTensor(Product(c, Indexed(u, (r,))), (r,))
 
 
 def norm(u):
-    return Sqrt(dot(u, u))
+    return SquareRoot(dot(u, u))
 
 
 def unit(u):
-    return scale(Div(Num(1), norm(u)), u)
+    return scale(Division(Num(1), norm(u)), u)
 
 
 def gram(J):
-    return matmul(transpose(J), J)
+    return matrix_product(transpose(J), J)
 
 
 def tangent_gram(J, P):
@@ -86,7 +86,7 @@ def tangent_gram(J, P):
 def determinant(M, n):
     # The Leibniz formula.
     return total(
-        reduce(Prod, (Indexed(M, (r, p[r])) for r in range(n)), Num(sign(p)))
+        reduce(Product, (Indexed(M, (r, p[r])) for r in range(n)), Num(sign(p)))
         for p in permutations(range(n))
     )
 

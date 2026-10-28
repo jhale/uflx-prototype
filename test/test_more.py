@@ -1,17 +1,17 @@
 import numpy as np
 
 from uflx_spec_interpreter.nodes import (
-    CT,
     Action,
-    Conj,
-    Div,
-    Fn,
+    ComponentTensor,
+    Conjugate,
+    Division,
     Form,
+    Function,
     Index,
     Indexed,
-    ISum,
+    IndexSum,
     Num,
-    Prod,
+    Product,
     Space,
     Sum,
     Tensor,
@@ -24,15 +24,15 @@ from uflx_spec_interpreter.static import arity
 rng = np.random.default_rng(2)
 V, Vd, Q = Space("V"), Space("V", dual=True), Space("Q")
 W, Wd = Space("W", shape=(2,)), Space("W", dual=True, shape=(2,))
-u, v, w, z, h = (Fn(V, n) for n in "uvwzh")
-q, r = Fn(Q, "q"), Fn(Q, "r")
-U, Y, T, U2 = (Fn(W, n) for n in ("U", "Y", "T", "U2"))
-lW = Fn(Wd, "lW")
+u, v, w, z, h = (Function(V, n) for n in "uvwzh")
+q, r = Function(Q, "q"), Function(Q, "r")
+U, Y, T, U2 = (Function(W, n) for n in ("U", "Y", "T", "U2"))
+lW = Function(Wd, "lW")
 i, j, k = Index("i"), Index("j"), Index("k")
 cplx = lambda *s: (
     rng.normal(size=s) + 1j * rng.normal(size=s) if s else complex(*rng.normal(size=2))
 )
-q2 = Fn(V, "q2")
+q2 = Function(V, "q2")
 env = {f: cplx() for f in (u, v, w, z, h, q, r, q2)}
 env |= {f: cplx(2) for f in (U, Y, T, U2)}
 cl = cplx(2)
@@ -51,46 +51,48 @@ def check(name, e, ienv=None, vals=None):
 
 
 def test_cases():
-    F = Form(Prod(u, Conj(v)), (Conj(v), u))
-    L1, L2 = Form(Prod(v, w), (v,)), Form(Prod(Num(2), Prod(v, z)), (v,))
+    F = Form(Product(u, Conjugate(v)), (Conjugate(v), u))
+    L1, L2 = Form(Product(v, w), (v,)), Form(Product(Num(2), Product(v, z)), (v,))
 
     print("-- rows not tested before")
     for kk in range(2):
         check(
             f"zero form, argument with family index i = {kk}",
-            Action(Zero((), (), (V, V)), 1, Prod(Indexed(c, (i,)), w)),
+            Action(Zero((), (), (V, V)), 1, Product(Indexed(c, (i,)), w)),
             {i: kk},
         )
-    check("form divided by a scalar", Action(Div(F, Num(3)), 0, z))
+    check("form divided by a scalar", Action(Division(F, Num(3)), 0, z))
     check("entry of a tensor of forms", Action(Indexed(Tensor((L1, L2)), (1,)), 0, z))
-    check("index sum of forms", Action(ISum(Prod(Indexed(c, (i,)), L1), (i,)), 0, z))
-    S = Form(Sum(Prod(v, u), Prod(q, w)), ((v, q),))
+    check("index sum of forms", Action(IndexSum(Product(Indexed(c, (i,)), L1), (i,)), 0, z))
+    S = Form(Sum(Product(v, u), Product(q, w)), ((v, q),))
     check("tuple argument (v, q) := (w, r)", Action(S, 0, (w, r)))
     check(
         "tuple argument swapped (v, q2) := (q2, v)",
-        Action(Form(Sum(Prod(v, u), Prod(q2, w)), ((v, q2),)), 0, (q2, v)),
+        Action(Form(Sum(Product(v, u), Product(q2, w)), ((v, q2),)), 0, (q2, v)),
     )
-    B = Form(ISum(Prod(Indexed(c, (i,)), v), (i,)), (v,))
+    B = Form(IndexSum(Product(Indexed(c, (i,)), v), (i,)), (v,))
     for kk in range(2):
         check(
             f"capture inside the form body, i = {kk}",
-            Action(B, 0, Prod(Indexed(c2, (i,)), w)),
+            Action(B, 0, Product(Indexed(c2, (i,)), w)),
             {i: kk},
         )
 
     print("-- vector-valued spaces")
-    M = Form(ISum(Prod(Indexed(U, (i,)), Conj(Indexed(T, (i,)))), (i,)), (Conj(T), U))
+    M = Form(
+        IndexSum(Product(Indexed(U, (i,)), Conjugate(Indexed(T, (i,)))), (i,)), (Conjugate(T), U)
+    )
     check("vector mass form, actions at 1 and 0", Action(Action(M, 1, Tensor((w, z))), 0, U2))
     check(
         "vector form, argument a component tensor",
-        Action(M, 1, CT(Prod(Indexed(c, (k,)), w), (k,))),
+        Action(M, 1, ComponentTensor(Product(Indexed(c, (k,)), w), (k,))),
         vals=(cplx(2),),
     )
-    check("vector pairing remains", Action(Form(Prod(Action(lW, 0, Y), u), (Y,)), 0, U2))
-    G = Form(ISum(Prod(Indexed(Y, (j,)), Indexed(U, (j,))), (j,)), (Y,))
+    check("vector pairing remains", Action(Form(Product(Action(lW, 0, Y), u), (Y,)), 0, U2))
+    G = Form(IndexSum(Product(Indexed(Y, (j,)), Indexed(U, (j,))), (j,)), (Y,))
     for kk in range(2):
         check(
             f"vector argument with family index j, body binds j, j = {kk}",
-            Action(G, 0, CT(Prod(Indexed(c, (j,)), Indexed(U2, (k,))), (k,))),
+            Action(G, 0, ComponentTensor(Product(Indexed(c, (j,)), Indexed(U2, (k,))), (k,))),
             {j: kk},
         )

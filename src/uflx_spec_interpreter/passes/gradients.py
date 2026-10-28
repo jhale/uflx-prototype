@@ -1,13 +1,24 @@
 from ..algebra import identity
 from ..calculus import derivative_of_node
 from ..domains import ambient_dim, topdim
-from ..nodes import CT, Coordinate, Fn, Gradient, Index, Indexed, Normal, PullBack, Space, Zero
+from ..nodes import (
+    ComponentTensor,
+    Coordinate,
+    Function,
+    Gradient,
+    Index,
+    Indexed,
+    Normal,
+    PullBack,
+    Space,
+    Zero,
+)
 from ..static import arity, free_indices, shape, support
 from ..substitution import expressions, map_fields
 from .pullbacks import expand_pull_backs
 
 # Expressions whose gradient a library provides, so the gradient remains.
-LEAVES = (Fn, Normal, PullBack, Gradient, Coordinate)
+LEAVES = (Function, Normal, PullBack, Gradient, Coordinate)
 
 
 def partial(f, P, j):
@@ -17,11 +28,11 @@ def partial(f, P, j):
             return Zero(shape(f), (*free_indices(f), (j, ambient_dim(P))), zero_args(f))
         case Coordinate(Q) if Q == P and topdim(P) == ambient_dim(P):
             i = Index(("uflx.apply_gradients", f, P))
-            return CT(Indexed(identity(ambient_dim(P)), (i, j)), (i,))
+            return ComponentTensor(Indexed(identity(ambient_dim(P)), (i, j)), (i,))
         case _ if isinstance(f, LEAVES):
             axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
             entry = Indexed(Gradient(f, P), (*axes, j))
-            return CT(entry, axes) if axes else entry
+            return ComponentTensor(entry, axes) if axes else entry
     return derivative_of_node(f, lambda b: partial(b, P, j), lambda c: support(c) is None, [])
 
 
@@ -33,7 +44,7 @@ def gradient(f, P):
     j = Index(("uflx.apply_gradients", f, P, "j"))
     axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
     df = partial(f, P, j)
-    return CT(Indexed(df, axes) if axes else df, (*axes, j))
+    return ComponentTensor(Indexed(df, axes) if axes else df, (*axes, j))
 
 
 def evaluated(f, P):

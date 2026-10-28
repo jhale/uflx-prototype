@@ -5,18 +5,18 @@ import numpy as np
 from test_integrals import R2, D
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter.domains import CellMap, CoordDomain, Decomposed, DomainMap, SideMap
+from uflx_spec_interpreter.domains import CellMap, CoordDomain, DecomposedDomain, DomainMap, SideMap
 from uflx_spec_interpreter.nodes import (
-    CT,
+    ComponentTensor,
     Coordinate,
-    Fn,
+    Function,
     Gradient,
     Index,
     Indexed,
     Integral,
     Normal,
     Num,
-    Prod,
+    Product,
     PullBack,
     Space,
     Sum,
@@ -41,17 +41,17 @@ def table(rows):
 def facets(vertices):
     # A family of straight facets with the free index e.
     fv = table(vertices)
-    psi = CT(
+    psi = ComponentTensor(
         Sum(
             Indexed(fv, (e, 0, k)),
-            Prod(
-                Sum(Indexed(fv, (e, 1, k)), Prod(num(-1), Indexed(fv, (e, 0, k)))),
+            Product(
+                Sum(Indexed(fv, (e, 1, k)), Product(num(-1), Indexed(fv, (e, 0, k)))),
                 Indexed(Coordinate(I), (0,)),
             ),
         ),
         (k,),
     )
-    return Decomposed((DomainMap(I, psi, R2),))
+    return DecomposedDomain((DomainMap(I, psi, R2),))
 
 
 # The diagonal of the square, with the cell 0 on the side "+" and the cell 1 on the side "-".
@@ -72,7 +72,7 @@ sides_bnd = {
 }
 
 V = Space("V", domain=D)
-u, w = Fn(V, "u"), Fn(V, "w")
+u, w = Function(V, "u"), Function(V, "w")
 
 
 def restricted(rnd, sm):
@@ -82,8 +82,8 @@ def restricted(rnd, sm):
             w,
             Indexed(Gradient(u, D), (rnd.randrange(2),)),
             Indexed(Coordinate(D), (rnd.randrange(2),)),
-            Prod(u, w),
-            Indexed(Gradient(Prod(u, w), D), (rnd.randrange(2),)),
+            Product(u, w),
+            Indexed(Gradient(Product(u, w), D), (rnd.randrange(2),)),
         ]
     )
     return PullBack(f, sm)
@@ -97,10 +97,15 @@ def integrand(rnd, E, sides):
         if pick == 0:
             terms.append(restricted(rnd, sm))
         elif pick == 1:
-            terms.append(Prod(restricted(rnd, sm), Indexed(Normal(D, E, sm), (rnd.randrange(2),))))
+            terms.append(
+                Product(
+                    restricted(rnd, sm),
+                    Indexed(Normal(D, E, sm), (rnd.randrange(2),)),
+                )
+            )
         elif pick == 2:
             a, b = sides[next(iter(sides))], sides[list(sides)[-1]]
-            terms.append(Sum(restricted(rnd, a), Prod(num(-1), restricted(rnd, b))))
+            terms.append(Sum(restricted(rnd, a), Product(num(-1), restricted(rnd, b))))
         else:
             terms.append(num(rnd.choice([1, 2])))
     f = terms[0]
@@ -129,7 +134,7 @@ def main(trials):
             lambda n: (
                 isinstance(n, PullBack)
                 and isinstance(n.m, (CellMap, DomainMap))
-                and not isinstance(n.b, (Fn, Normal, PullBack, Gradient, SideMap))
+                and not isinstance(n.b, (Function, Normal, PullBack, Gradient, SideMap))
             ),
         ):
             lazy += 1

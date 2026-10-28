@@ -6,26 +6,26 @@ import numpy as np
 from testutil import assert_clean, contains
 
 from uflx_spec_interpreter.nodes import (
-    CT,
-    Abs,
+    Absolute,
     Action,
-    Conj,
-    D,
-    Div,
-    Fn,
+    ComponentTensor,
+    Conjugate,
+    DirectionalDerivative,
+    Division,
     Form,
-    Im,
+    Function,
+    ImaginaryPart,
     Index,
     Indexed,
-    Inv,
-    ISum,
-    Log,
+    IndexSum,
+    Inverse,
+    Logarithm,
     Num,
     Power,
-    Prod,
-    Re,
+    Product,
+    RealPart,
     Space,
-    Sqrt,
+    SquareRoot,
     Sum,
     Tensor,
     Zero,
@@ -36,19 +36,19 @@ from uflx_spec_interpreter.static import arity, free, shape
 
 V, Vd = Space("V"), Space("V", dual=True)
 W, Wd = Space("W", shape=(2,)), Space("W", dual=True, shape=(2,))
-u, v, w, z, h, q = (Fn(V, n) for n in "uvwzhq")
-U, U2, U3 = (Fn(W, n) for n in ("U", "U2", "U3"))
-lV, lW = Fn(Vd, "lV"), Fn(Wd, "lW")
+u, v, w, z, h, q = (Function(V, n) for n in "uvwzhq")
+U, U2, U3 = (Function(W, n) for n in ("U", "U2", "U3"))
+lV, lW = Function(Vd, "lV"), Function(Wd, "lW")
 BOUND = {
-    "V": [u, v, q] + [Fn(V, f"y{k}") for k in range(4)],
-    "W": [U2] + [Fn(W, f"Y{k}") for k in range(3)],
+    "V": [u, v, q] + [Function(V, f"y{k}") for k in range(4)],
+    "W": [U2] + [Function(W, f"Y{k}") for k in range(3)],
 }
 kf, m = Index("kf"), Index("m")
 c = Tensor((Num(1), Num(2)))
 
 
 def dot(X, Y):
-    return ISum(Prod(Indexed(X, (m,)), Indexed(Y, (m,))), (m,))
+    return IndexSum(Product(Indexed(X, (m,)), Indexed(Y, (m,))), (m,))
 
 
 def scalar(rnd, depth, nd=0):
@@ -64,23 +64,28 @@ def scalar(rnd, depth, nd=0):
             return Action(lW, 0, rnd.choice([U, U2]))
         return rnd.choice([u, v, w, z, h, q])
     a, b = scalar(rnd, depth - 1, nd), scalar(rnd, depth - 1, nd)
-    near = lambda x: Sum(Num(3), Prod(Num(0.2), x))
+    near = lambda x: Sum(Num(3), Product(Num(0.2), x))
     ops = [
         lambda: Sum(a, b),
-        lambda: Prod(a, b),
-        lambda: Conj(a),
-        lambda: Div(a, near(b)),
-        lambda: Re(a),
-        lambda: Im(a),
-        lambda: Abs(near(a)),
-        lambda: Sqrt(near(a)),
-        lambda: Log(near(a)),
-        lambda: Power(near(a), rnd.choice([Num(2), Num(0.5), Prod(Num(0.3), b)])),
+        lambda: Product(a, b),
+        lambda: Conjugate(a),
+        lambda: Division(a, near(b)),
+        lambda: RealPart(a),
+        lambda: ImaginaryPart(a),
+        lambda: Absolute(near(a)),
+        lambda: SquareRoot(near(a)),
+        lambda: Logarithm(near(a)),
+        lambda: Power(near(a), rnd.choice([Num(2), Num(0.5), Product(Num(0.3), b)])),
         # A binder of kf, the index that the families of arguments and directions use.
-        lambda: ISum(Prod(Indexed(c, (kf,)), a), (kf,)),
+        lambda: IndexSum(Product(Indexed(c, (kf,)), a), (kf,)),
         lambda: Indexed(
-            Inv(
-                Tensor((Tensor((near(a), Prod(Num(0.1), b))), Tensor((Prod(Num(0.1), a), near(b)))))
+            Inverse(
+                Tensor(
+                    (
+                        Tensor((near(a), Product(Num(0.1), b))),
+                        Tensor((Product(Num(0.1), a), near(b))),
+                    )
+                )
             ),
             (rnd.randrange(2), rnd.randrange(2)),
         ),
@@ -97,30 +102,30 @@ def vector(rnd, depth):
     if pick == 1:
         return rnd.choice([U, U2, U3])
     if pick == 2:
-        return CT(Prod(Indexed(c, (kf,)), Indexed(U3, (m,))), (m,))
-    return CT(Prod(scalar(rnd, depth), Indexed(U, (m,))), (m,))
+        return ComponentTensor(Product(Indexed(c, (kf,)), Indexed(U3, (m,))), (m,))
+    return ComponentTensor(Product(scalar(rnd, depth), Indexed(U, (m,))), (m,))
 
 
 def wrap(rnd, xs, body):
     # Put the variable inside each kind of node, so every row of the derivative pass is reached.
-    near = lambda y: Sum(Num(3), Prod(Num(0.2), y))
-    xb = Prod(xs, body)
+    near = lambda y: Sum(Num(3), Product(Num(0.2), y))
+    xb = Product(xs, body)
     return rnd.choice(
         [
             xb,
-            Sqrt(near(xb)),
-            Log(near(xb)),
-            Abs(near(xb)),
-            Power(near(xs), Prod(Num(0.3), Sum(xs, body))),
+            SquareRoot(near(xb)),
+            Logarithm(near(xb)),
+            Absolute(near(xb)),
+            Power(near(xs), Product(Num(0.3), Sum(xs, body))),
             Power(near(xb), Num(2)),
-            Div(body, near(xs)),
-            Re(xb),
+            Division(body, near(xs)),
+            RealPart(xb),
             Indexed(
-                Inv(
+                Inverse(
                     Tensor(
                         (
-                            Tensor((near(xs), Prod(Num(0.1), body))),
-                            Tensor((Prod(Num(0.1), xs), near(body))),
+                            Tensor((near(xs), Product(Num(0.1), body))),
+                            Tensor((Product(Num(0.1), xs), near(body))),
                         )
                     )
                 ),
@@ -133,17 +138,17 @@ def wrap(rnd, xs, body):
 def derivative(rnd, body, nd):
     if rnd.random() < 0.7:
         x = rnd.choice([u, v, w])
-        f = wrap(rnd, x, body) if arity(body) == 0 else Prod(x, body)
+        f = wrap(rnd, x, body) if arity(body) == 0 else Product(x, body)
         point = rnd.choice([x, x, z, Sum(x, Num(0.1))])
-        direction = rnd.choice([h, z, Num(1), Prod(Indexed(c, (kf,)), h)])
+        direction = rnd.choice([h, z, Num(1), Product(Indexed(c, (kf,)), h)])
     else:
         x = U2
-        f = wrap(rnd, dot(U2, U), body) if arity(body) == 0 else Prod(dot(U2, U), body)
+        f = wrap(rnd, dot(U2, U), body) if arity(body) == 0 else Product(dot(U2, U), body)
         point = rnd.choice([U2, U2, U3, Tensor((z, h))])
         direction = rnd.choice(
-            [Tensor((h, z)), CT(Prod(Indexed(c, (kf,)), Indexed(U3, (m,))), (m,))]
+            [Tensor((h, z)), ComponentTensor(Product(Indexed(c, (kf,)), Indexed(U3, (m,))), (m,))]
         )
-    return D(f, x, point, direction)
+    return DirectionalDerivative(f, x, point, direction)
 
 
 def argument(rnd, spec):
@@ -167,8 +172,8 @@ def leaf_form(rnd, specs):
         for s in spec if isinstance(spec, tuple) else (spec,):
             fn = rnd.choice([b for b in BOUND[s] if b not in used])
             used.add(fn)
-            body = Prod(fn if s == "V" else dot(fn, U), body)
-            members.append(Conj(fn) if rnd.random() < 0.3 else fn)
+            body = Product(fn if s == "V" else dot(fn, U), body)
+            members.append(Conjugate(fn) if rnd.random() < 0.3 else fn)
         entries.append(tuple(members) if isinstance(spec, tuple) else members[0])
     return Form(body, tuple(entries))
 
@@ -183,15 +188,15 @@ def form(rnd, specs, depth):
         return Sum(form(rnd, specs, depth - 1), form(rnd, specs, depth - 1))
     if op == 1:
         k = rnd.randrange(len(specs) + 1)
-        return Prod(form(rnd, specs[:k], depth - 1), form(rnd, specs[k:], depth - 1))
+        return Product(form(rnd, specs[:k], depth - 1), form(rnd, specs[k:], depth - 1))
     if op == 2:
-        return Conj(form(rnd, specs, depth - 1))
+        return Conjugate(form(rnd, specs, depth - 1))
     if op == 3:
-        return Div(form(rnd, specs, depth - 1), Num(3))
+        return Division(form(rnd, specs, depth - 1), Num(3))
     if op == 4:
         return derivative(rnd, form(rnd, specs, depth - 1), 1)
     if op == 5:
-        return ISum(Prod(Indexed(c, (kf,)), form(rnd, specs, depth - 1)), (kf,))
+        return IndexSum(Product(Indexed(c, (kf,)), form(rnd, specs, depth - 1)), (kf,))
     if op == 6:
         return Indexed(
             Tensor((form(rnd, specs, depth - 1), form(rnd, specs, depth - 1))), (rnd.randrange(2),)
@@ -227,9 +232,11 @@ def main(trials):
         if contains(
             e,
             lambda n: (
-                isinstance(n, D)
+                isinstance(n, DirectionalDerivative)
                 or (
-                    lambda n: isinstance(n, Action) and not (isinstance(n.f, Fn) and n.f.space.dual)
+                    lambda n: (
+                        isinstance(n, Action) and not (isinstance(n.f, Function) and n.f.space.dual)
+                    )
                 )(n)
             ),
         ):

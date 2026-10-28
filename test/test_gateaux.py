@@ -5,15 +5,15 @@ import numpy as np
 from testutil import assert_clean
 
 from uflx_spec_interpreter.nodes import (
-    Abs,
+    Absolute,
     Action,
-    Conj,
-    Fn,
+    Conjugate,
     Form,
-    Gateaux,
+    Function,
+    GateauxDerivative,
     Num,
-    Prod,
-    Re,
+    Product,
+    RealPart,
     Space,
     Sum,
 )
@@ -23,7 +23,10 @@ from uflx_spec_interpreter.static import arity
 
 C, R = Space("C"), Space("R", complex=False)
 # A load in each dual space, linear in its argument like every action.
-LOADS = {C: Fn(Space("C", dual=True), "l"), R: Fn(Space("R", dual=True, complex=False), "l")}
+LOADS = {
+    C: Function(Space("C", dual=True), "l"),
+    R: Function(Space("R", dual=True, complex=False), "l"),
+}
 LOAD_VALUE = 0.7 - 0.4j
 
 
@@ -32,13 +35,13 @@ def body(rnd, u, names, holomorphic, depth):
         return rnd.choice([u, Num(2), *names])
     a, b = body(rnd, u, names, holomorphic, depth - 1), body(rnd, u, names, holomorphic, depth - 1)
     l = LOADS[u.space]
-    ops = [lambda: Sum(a, b), lambda: Prod(a, b), lambda: Action(l, 0, a)]
+    ops = [lambda: Sum(a, b), lambda: Product(a, b), lambda: Action(l, 0, a)]
     if not holomorphic:
         ops += [
-            lambda: Conj(a),
-            lambda: Abs(Sum(Num(2), a)),
-            lambda: Re(a),
-            lambda: Action(l, 0, Conj(a)),
+            lambda: Conjugate(a),
+            lambda: Absolute(Sum(Num(2), a)),
+            lambda: RealPart(a),
+            lambda: Action(l, 0, Conjugate(a)),
         ]
     return rnd.choice(ops)()
 
@@ -49,19 +52,20 @@ def main(trials):
     for seed in range(trials):
         rnd = random.Random(seed)
         space = rnd.choice([C, R])
-        u, v, w, z = (Fn(space, n) for n in "uvwz")
+        u, v, w, z = (Function(space, n) for n in "uvwz")
         holomorphic = rnd.random() < 0.5
-        test = Conj(v) if (space is C and rnd.random() < 0.5) else v
+        test = Conjugate(v) if (space is C and rnd.random() < 0.5) else v
         F = Form(
-            Prod(Prod(v if test == v else Conj(v), u), body(rnd, u, [], holomorphic, 3)), (test,)
+            Product(Product(v if test == v else Conjugate(v), u), body(rnd, u, [], holomorphic, 3)),
+            (test,),
         )
-        entry = Conj(w) if rnd.random() < 0.5 else w
-        e = Gateaux(F, u, u, entry)
+        entry = Conjugate(w) if rnd.random() < 0.5 else w
+        e = GateauxDerivative(F, u, u, entry)
         if rnd.random() < 0.4:
             # An action on the new argument, the derivative in a fixed direction.
             e = Action(e, 1, rnd.choice([z, Sum(u, z)]))
         rows["real" if space is R else ("holomorphic" if holomorphic else "general")] += 1
-        out0 = gateaux.apply_gateaux(e)
+        out0 = gateaux.apply_gateaux_derivatives(e)
         rejected += not gateaux.in_n1(e)
         bad += not gateaux.in_n1(out0)
         out = derivatives.apply_derivatives(actions.apply_actions(out0))
@@ -96,13 +100,15 @@ def test_gateaux():
 
 def test_pairing_with_the_conjugate():
     # <l, u> u is written with conjugate(u), so it is not holomorphic in u, and J- is not zero.
-    u, w = Fn(C, "u"), Fn(C, "w")
+    u, w = Function(C, "u"), Function(C, "w")
     l = LOADS[C]
-    F = Prod(Action(l, 0, Conj(u)), u)
+    F = Product(Action(l, 0, Conjugate(u)), u)
     env = {u: 0.3 + 0.2j, w: 0.1 - 0.5j, l: lambda x: LOAD_VALUE * x}
     assert not gateaux.holomorphic(F, u)
-    for entry in (w, Conj(w)):
-        e = Gateaux(F, u, u, entry)
-        out = derivatives.apply_derivatives(actions.apply_actions(gateaux.apply_gateaux(e)))
+    for entry in (w, Conjugate(w)):
+        e = GateauxDerivative(F, u, u, entry)
+        out = derivatives.apply_derivatives(
+            actions.apply_actions(gateaux.apply_gateaux_derivatives(e))
+        )
         before, after = evaluate(e, env)((0.4 + 0.9j,)), evaluate(out, env)((0.4 + 0.9j,))
         assert np.isclose(before, after) and abs(after) > 0.1

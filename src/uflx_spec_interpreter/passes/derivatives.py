@@ -1,5 +1,5 @@
 from ..calculus import derivative_of_node
-from ..nodes import D
+from ..nodes import DirectionalDerivative
 from ..static import arity, zero_like
 from ..substitution import expressions, map_fields, occurs, substitute
 
@@ -23,11 +23,11 @@ def rules(f, x, a, h):
 def apply_derivatives(e):
     # Inner derivatives first, then the rule for the expression of each derivative.
     match map_fields(e, apply_derivatives):
-        case D(f, x, a, h):
+        case DirectionalDerivative(f, x, a, h):
             return deriv(f, x, a, h)
         case e:
             return e
 
 
 def in_n3(e):
-    return not isinstance(e, D) and all(in_n3(c) for c in expressions(e))
+    return not isinstance(e, DirectionalDerivative) and all(in_n3(c) for c in expressions(e))
