@@ -36,7 +36,7 @@ the specification, which call these free functions and reject Python numbers:
   the elementary functions and `total`, where `add`, `multiply`, `divide`,
   `real_part` and `imaginary_part` read the ranks and build the compositions of
   tensor arithmetic as the specification says
-- `indices.py`: `index`, `ellipsis_index`, `index_table` and `gathered_index`
+- `indices.py`: `index`, `ellipsis_index` and `gathered_index`
 - `tensors.py`: `tensor`, `indexed`, `component`, `component_tensor`,
   `index_sum`, `inverse`, and the matrix compositions such as `transpose`,
   `matrix_product` and `determinant`
