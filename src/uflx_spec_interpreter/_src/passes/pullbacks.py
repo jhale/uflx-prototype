@@ -1,9 +1,8 @@
-from ..arithmetic import divide, subtract
-from ..cells import affine_jacobian, centroid
+from ..arithmetic import absolute, divide, square_root, subtract
+from ..cells import centroid
 from ..domains import cell_of, inclusion, inclusion_points
-from ..geometry import inverse_jacobian
+from ..geometry import inverse_jacobian, jacobian
 from ..nodes import (
-    Absolute,
     AbstractExpression,
     ComponentTensor,
     Coordinate,
@@ -22,7 +21,7 @@ from ..nodes import (
 )
 from ..static import free, shape, support, zero_like
 from ..substitution import expressions, freshen, map_fields
-from ..tensors import component, determinant, transpose, unit
+from ..tensors import component, determinant, transpose
 
 
 def pb(f, m):
@@ -37,7 +36,7 @@ def pb(f, m):
         case PullBack(g, SideMap() as sm) if (
             cell_of(m) is not None and m.ambient_domain == sm.parameter_domain
         ):
-            B, A = side_maps(sm, m)
+            B, A, _ = side_maps(f, m, sm)
             return pb(pb(g, B), A)
         case PullBack():
             return PullBack(f, m)
@@ -81,22 +80,23 @@ def contract_gradient(gradP, K, f, m):
     )
 
 
-def side_maps(sm, m):
-    # B and A of the group of the cells m, a cell domain of the parameter domain of sm.
-    E = sm.parameter_domain
-    return inclusion(sm.ambient_domain, E.topology, cell_of(m), sm.side)
+def side_maps(f, m, sm):
+    # B and A of the group of the cells m, for the rewrite of the pull-back of f by m.
+    owner = ("uflx.expand_pull_backs", f, m)
+    S, i = sm.parameter_domain.topology, cell_of(m)
+    B, A = inclusion(sm.ambient_domain, S, i, sm.side, owner)
+    return B, A, inclusion_points(S, i, sm.side, owner)
 
 
 def normal(f, m):
-    # K^T m / |K^T m|, with m orthogonal to the cell of E in K_j and away from its centroid.
-    B, A = side_maps(f, m)
-    K_j, F = B.parameter_domain, m.parameter_domain
-    points = inclusion_points(f.parameter_domain.topology, cell_of(m), f.side)
-    m0 = cofactor_normal(affine_jacobian(F, points), K_j.dimension)
+    # The composition of the pull-back of Normal, with the normal m_hat of the cell of E in K_j.
+    B, A, points = side_maps(f, m, f)
+    K_j = B.parameter_domain
+    m0 = cofactor_normal(jacobian(A), K_j.dimension)
     away = m0 @ subtract(component(points, (0,)), centroid(K_j))
-    mhat = divide(away, Absolute(away)) * m0
-    K = pb(inverse_jacobian(B), A)
-    return unit(transpose(K) @ mhat)
+    m_hat = divide(away, absolute(away)) * m0
+    w = transpose(pb(inverse_jacobian(B), A)) @ m_hat
+    return divide(w, square_root(w @ w))
 
 
 def cofactor_normal(J, n):

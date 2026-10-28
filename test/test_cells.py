@@ -5,12 +5,13 @@ from uflx_spec_interpreter import (
     affine_map,
     component_tensor,
     coordinate,
+    gradient,
     index,
     inverse,
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.cells import affine_jacobian, centroid
+from uflx_spec_interpreter._src.cells import centroid
 from uflx_spec_interpreter._src.passes.pullbacks import cofactor_normal
 from uflx_toy.cells import reference_simplex
 
@@ -40,9 +41,14 @@ def test_the_cofactor_normal_of_a_face_of_the_tetrahedron():
     # The face with the vertices (1, 2, 3), which the old triangle-only normal could not build.
     F = reference_simplex(2)
     points = table([(1, 0, 0), (0, 1, 0), (0, 0, 1)])
-    J = affine_jacobian(F, points)
-    m = value(cofactor_normal(J, 3))
-    assert np.allclose(value(J).T @ m, 0) and np.allclose(np.abs(m), np.abs(m[0])) and m[0] != 0
+    # The Jacobian of the inclusion, a Gradient that the oracle evaluates at a point of F.
+    J = gradient(affine_map(F, points), F)
+    m = value(cofactor_normal(J, 3), F, [0.2, 0.3])
+    assert (
+        np.allclose(value(J, F, [0.2, 0.3]).T @ m, 0)
+        and np.allclose(np.abs(m), np.abs(m[0]))
+        and m[0] != 0
+    )
 
 
 def test_the_centroid_of_the_tetrahedron():

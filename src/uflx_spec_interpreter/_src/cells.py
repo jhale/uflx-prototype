@@ -1,4 +1,6 @@
-from .arithmetic import divide, subtract, total
+from functools import reduce
+
+from .arithmetic import add, divide, subtract, total
 from .nodes import ComponentTensor, Coordinate, Index, Indexed, Integer, Tensor
 from .tensors import component, inverse, matrix_product
 
@@ -27,24 +29,7 @@ def edges(F):
     )
 
 
-def affine_jacobian(F, points):
-    # The Jacobian matrix of affine_map(F, points), the columns p_(d+1) - p0 times E^-1.
-    k, n = F.dimension, points.value_shape[1]
-    columns = Tensor(
-        tuple(
-            Tensor(
-                tuple(
-                    subtract(Indexed(points, (d + 1, r)), Indexed(points, (0, r))) for d in range(k)
-                )
-            )
-            for r in range(n)
-        )
-    )
-    return matrix_product(columns, inverse(edges(F)))
-
-
 def centroid(K):
     # The mean of the vertices of the reference cell K.
     V, m = K.vertices, K.num_vertices
-    rows = [component(V, (v,)) for v in range(m)]
-    return divide(total(rows), Integer(m))
+    return divide(reduce(add, (component(V, (v,)) for v in range(m))), Integer(m))

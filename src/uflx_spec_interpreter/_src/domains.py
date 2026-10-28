@@ -50,25 +50,26 @@ def side_domain(D, S):
     pieces = []
     for i, F in enumerate(S.cell_types):
         s = next(name for name, T, _ in S.sides[i] if T == D.topology)
-        B, A = inclusion(D, S, i, s)
+        B, A = inclusion(D, S, i, s, ("uflx.side_domain", D, S, i))
         pieces.append(DomainMap(F, PullBack(PullBack(Coordinate(D), B), A), D.ambient_domain))
     return DecomposedDomain(tuple(pieces))
 
 
-def inclusion(D, S, i, s):
+def inclusion(D, S, i, s, owner):
     # B, the cell on the side s of each cell e of group i, and A, the inclusion of e into it.
+    # The derived indices belong to owner, the free function or the pass that builds them.
     (_, _, j) = next(side for side in S.sides[i] if side[0] == s)
     cells, _ = S.side_tables(i, s)
     B = gathered_cell_domain(D, j, GatheredIndex(cells, (cell_index(S, i),)))
     F, K_j = S.cell_types[i], D.pieces[j].parameter_domain
-    return B, DomainMap(F, affine_map(F, inclusion_points(S, i, s)), K_j)
+    return B, DomainMap(F, affine_map(F, inclusion_points(S, i, s, owner)), K_j)
 
 
-def inclusion_points(S, i, s):
+def inclusion_points(S, i, s, owner):
     # The position in K_j of each vertex v of each cell e of group i, from the side s.
     _, positions = S.side_tables(i, s)
     e = cell_index(S, i)
-    v, k = (Index(("uflx.inclusion", S, i, s, n)) for n in range(2))
+    v, k = (Index((*owner, n)) for n in range(2))
     return ComponentTensor(Indexed(positions, (e, v, k)), (v, k))
 
 
