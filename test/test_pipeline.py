@@ -5,107 +5,107 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
-from uflx_spec_interpreter.nodes import (
-    Absolute,
-    Action,
-    Conjugate,
-    DirectionalDerivative,
-    Division,
-    Form,
-    Function,
-    ImaginaryPart,
-    Index,
-    Indexed,
-    IndexSum,
-    Logarithm,
-    Num,
-    Power,
-    Product,
-    RealPart,
-    Space,
-    SquareRoot,
-    Sum,
-    Tensor,
+from uflx_spec_interpreter.algebra import (
+    absolute,
+    add,
+    conjugate,
+    divide,
+    imaginary_part,
+    index,
+    index_sum,
+    indexed,
+    logarithm,
+    multiply,
+    num,
+    power,
+    real_part,
+    square_root,
+    tensor,
 )
+from uflx_spec_interpreter.calculus import directional_derivative
+from uflx_spec_interpreter.forms import action, form, function, space
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions, derivatives
 from uflx_spec_interpreter.static import arity
 
-V, Vd = Space("V"), Space("V", dual=True)
-u, v, w, z, h, q = (Function(V, n) for n in "uvwzhq")
-l = Function(Vd, "l")
-C = Product(u, w)
+V, Vd = space("V"), space("V", dual=True)
+u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
+l = function(Vd, "l")
+C = multiply(u, w)
 
 VARIABLES = [u, w, C] if os.environ.get("COMPOUND") else [u, w]
 POOL = [u, v, w, z, h, q, C]
-BOUND = [v, q] + [Function(V, f"y{k}") for k in range(6)]
-i = Index("i")
-c = Tensor((Num(1), Num(2)))
+BOUND = [v, q] + [function(V, f"y{k}") for k in range(6)]
+i = index("i")
+c = tensor((num(1), num(2)))
 
 
 def scalar(rnd, depth, nd):
     if depth == 0 or rnd.random() < 0.3:
         pick = rnd.random()
         if pick < 0.15:
-            return Num(rnd.choice([1, 2, -3, 0.5]))
+            return num(rnd.choice([1, 2, -3, 0.5]))
         if pick < 0.25:
-            return IndexSum(Product(Indexed(c, (i,)), rnd.choice(POOL)), (i,))
+            return index_sum(multiply(indexed(c, (i,)), rnd.choice(POOL)), (i,))
         if pick < 0.32:
-            return Action(l, 0, rnd.choice(POOL))
+            return action(l, 0, rnd.choice(POOL))
         return rnd.choice(POOL)
     a, b = scalar(rnd, depth - 1, nd), scalar(rnd, depth - 1, nd)
-    near_one = Sum(Num(3), Product(Num(0.2), a))
+    near_one = add(num(3), multiply(num(0.2), a))
     ops = [
-        lambda: Sum(a, b),
-        lambda: Product(a, b),
-        lambda: Conjugate(a),
-        lambda: Division(a, Sum(Num(4), Product(Num(0.2), b))),
-        lambda: RealPart(a),
-        lambda: ImaginaryPart(a),
-        lambda: Absolute(near_one),
-        lambda: SquareRoot(near_one),
-        lambda: Logarithm(near_one),
-        lambda: Power(near_one, rnd.choice([Num(2), Num(0.5), Product(Num(0.3), b)])),
+        lambda: add(a, b),
+        lambda: multiply(a, b),
+        lambda: conjugate(a),
+        lambda: divide(a, add(num(4), multiply(num(0.2), b))),
+        lambda: real_part(a),
+        lambda: imaginary_part(a),
+        lambda: absolute(near_one),
+        lambda: square_root(near_one),
+        lambda: logarithm(near_one),
+        lambda: power(near_one, rnd.choice([num(2), num(0.5), multiply(num(0.3), b)])),
     ]
     if nd < 2:
-        ops.append(lambda: derivative(rnd, Product(rnd.choice(VARIABLES), a), nd + 1))
+        ops.append(lambda: derivative(rnd, multiply(rnd.choice(VARIABLES), a), nd + 1))
     return rnd.choice(ops)()
 
 
 def derivative(rnd, f, nd):
     x = rnd.choice(VARIABLES)
-    f = Product(x, scalar(rnd, 2, nd))
-    point = x if rnd.random() < 0.7 else rnd.choice([z, Sum(x, Num(0.1))])
-    return DirectionalDerivative(f, x, point, rnd.choice([h, z, Num(1)]))
+    f = multiply(x, scalar(rnd, 2, nd))
+    point = x if rnd.random() < 0.7 else rnd.choice([z, add(x, num(0.1))])
+    return directional_derivative(f, x, rnd.choice([h, z, num(1)]), point)
 
 
-def form(rnd, n, depth):
+def random_form(rnd, n, depth):
     if depth == 0 or rnd.random() < 0.25:
         if n == 0:
             return scalar(rnd, 2, 0)
         names = rnd.sample(BOUND, n)
         body = scalar(rnd, 2, 0)
         for b in names:
-            body = Product(Conjugate(b) if rnd.random() < 0.3 else b, body)
-        return Form(body, tuple(Conjugate(b) if rnd.random() < 0.3 else b for b in names))
+            body = multiply(conjugate(b) if rnd.random() < 0.3 else b, body)
+        return form(body, tuple(conjugate(b) if rnd.random() < 0.3 else b for b in names))
     op = rnd.randrange(7)
     if op == 0:
-        return Sum(form(rnd, n, depth - 1), form(rnd, n, depth - 1))
+        return add(random_form(rnd, n, depth - 1), random_form(rnd, n, depth - 1))
     if op == 1:
         k = rnd.randrange(n + 1)
-        return Product(form(rnd, k, depth - 1), form(rnd, n - k, depth - 1))
+        return multiply(random_form(rnd, k, depth - 1), random_form(rnd, n - k, depth - 1))
     if op == 2:
-        return Conjugate(form(rnd, n, depth - 1))
+        return conjugate(random_form(rnd, n, depth - 1))
     if op == 3:
         x = rnd.choice(VARIABLES)
-        return DirectionalDerivative(Product(x, form(rnd, n, depth - 1)), x, x, rnd.choice([h, z]))
-    if op == 4:
-        return IndexSum(Product(Indexed(c, (i,)), form(rnd, n, depth - 1)), (i,))
-    if op == 5:
-        return Indexed(
-            Tensor((form(rnd, n, depth - 1), form(rnd, n, depth - 1))), (rnd.randrange(2),)
+        return directional_derivative(
+            multiply(x, random_form(rnd, n, depth - 1)), x, rnd.choice([h, z]), x
         )
-    return Action(form(rnd, n + 1, depth - 1), rnd.randrange(n + 1), scalar(rnd, 2, 0))
+    if op == 4:
+        return index_sum(multiply(indexed(c, (i,)), random_form(rnd, n, depth - 1)), (i,))
+    if op == 5:
+        return indexed(
+            tensor((random_form(rnd, n, depth - 1), random_form(rnd, n, depth - 1))),
+            (rnd.randrange(2),),
+        )
+    return action(random_form(rnd, n + 1, depth - 1), rnd.randrange(n + 1), scalar(rnd, 2, 0))
 
 
 def main(trials):
@@ -117,7 +117,7 @@ def main(trials):
     for seed in range(trials):
         rnd = random.Random(seed)
         n = rnd.randrange(3)
-        e = form(rnd, n, 3)
+        e = random_form(rnd, n, 3)
         counts["derivatives"] += repr(e).count("DirectionalDerivative(")
         counts["actions"] += repr(e).count("Action(")
         out1 = actions.apply_actions(e)

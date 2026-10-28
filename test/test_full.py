@@ -5,85 +5,87 @@ import sys
 import numpy as np
 from testutil import assert_clean, contains
 
+from uflx_spec_interpreter.algebra import (
+    absolute,
+    add,
+    component_tensor,
+    conjugate,
+    divide,
+    imaginary_part,
+    index,
+    index_sum,
+    indexed,
+    inverse,
+    logarithm,
+    multiply,
+    num,
+    power,
+    real_part,
+    square_root,
+    tensor,
+    zero,
+)
+from uflx_spec_interpreter.calculus import directional_derivative
+from uflx_spec_interpreter.forms import action, form, function, space
 from uflx_spec_interpreter.nodes import (
-    Absolute,
     Action,
-    ComponentTensor,
-    Conjugate,
     DirectionalDerivative,
-    Division,
-    Form,
     Function,
-    ImaginaryPart,
-    Index,
-    Indexed,
-    IndexSum,
-    Inverse,
-    Logarithm,
-    Num,
-    Power,
-    Product,
-    RealPart,
-    Space,
-    SquareRoot,
-    Sum,
-    Tensor,
-    Zero,
 )
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions, derivatives
 from uflx_spec_interpreter.static import arity, free, shape
 
-V, Vd = Space("V"), Space("V", dual=True)
-W, Wd = Space("W", value_shape=(2,)), Space("W", dual=True, value_shape=(2,))
-u, v, w, z, h, q = (Function(V, n) for n in "uvwzhq")
-U, U2, U3 = (Function(W, n) for n in ("U", "U2", "U3"))
-lV, lW = Function(Vd, "lV"), Function(Wd, "lW")
+V, Vd = space("V"), space("V", dual=True)
+W, Wd = space("W", value_shape=(2,)), space("W", dual=True, value_shape=(2,))
+u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
+U, U2, U3 = (function(W, n) for n in ("U", "U2", "U3"))
+lV, lW = function(Vd, "lV"), function(Wd, "lW")
 BOUND = {
-    "V": [u, v, q] + [Function(V, f"y{k}") for k in range(4)],
-    "W": [U2] + [Function(W, f"Y{k}") for k in range(3)],
+    "V": [u, v, q] + [function(V, f"y{k}") for k in range(4)],
+    "W": [U2] + [function(W, f"Y{k}") for k in range(3)],
 }
-kf, m = Index("kf"), Index("m")
-c = Tensor((Num(1), Num(2)))
+kf, m = index("kf"), index("m")
+c = tensor((num(1), num(2)))
 
 
 def dot(X, Y):
-    return IndexSum(Product(Indexed(X, (m,)), Indexed(Y, (m,))), (m,))
+    return index_sum(multiply(indexed(X, (m,)), indexed(Y, (m,))), (m,))
 
 
 def scalar(rnd, depth, nd=0):
     if depth == 0 or rnd.random() < 0.3:
         pick = rnd.random()
         if pick < 0.1:
-            return Num(rnd.choice([1, 2, -3, 0.5]))
+            return num(rnd.choice([1, 2, -3, 0.5]))
         if pick < 0.2:
-            return Indexed(rnd.choice([U, U2, U3]), (rnd.randrange(2),))
+            return indexed(rnd.choice([U, U2, U3]), (rnd.randrange(2),))
         if pick < 0.27:
-            return Action(lV, 0, rnd.choice([u, w, z]))
+            return action(lV, 0, rnd.choice([u, w, z]))
         if pick < 0.32:
-            return Action(lW, 0, rnd.choice([U, U2]))
+            return action(lW, 0, rnd.choice([U, U2]))
         return rnd.choice([u, v, w, z, h, q])
     a, b = scalar(rnd, depth - 1, nd), scalar(rnd, depth - 1, nd)
-    near = lambda x: Sum(Num(3), Product(Num(0.2), x))
+    near = lambda x: add(num(3), multiply(num(0.2), x))
     ops = [
-        lambda: Sum(a, b),
-        lambda: Product(a, b),
-        lambda: Conjugate(a),
-        lambda: Division(a, near(b)),
-        lambda: RealPart(a),
-        lambda: ImaginaryPart(a),
-        lambda: Absolute(near(a)),
-        lambda: SquareRoot(near(a)),
-        lambda: Logarithm(near(a)),
-        lambda: Power(near(a), rnd.choice([Num(2), Num(0.5), Product(Num(0.3), b)])),
+        lambda: add(a, b),
+        lambda: multiply(a, b),
+        lambda: conjugate(a),
+        lambda: divide(a, near(b)),
+        lambda: real_part(a),
+        lambda: imaginary_part(a),
+        lambda: absolute(near(a)),
+        lambda: square_root(near(a)),
+        lambda: logarithm(near(a)),
+        lambda: power(near(a), rnd.choice([num(2), num(0.5), multiply(num(0.3), b)])),
         # A binder of kf, the index that the families of arguments and directions use.
-        lambda: IndexSum(Product(Indexed(c, (kf,)), a), (kf,)),
-        lambda: Indexed(
-            Inverse(
-                Tensor(
+        lambda: index_sum(multiply(indexed(c, (kf,)), a), (kf,)),
+        lambda: indexed(
+            inverse(
+                tensor(
                     (
-                        Tensor((near(a), Product(Num(0.1), b))),
-                        Tensor((Product(Num(0.1), a), near(b))),
+                        tensor((near(a), multiply(num(0.1), b))),
+                        tensor((multiply(num(0.1), a), near(b))),
                     )
                 )
             ),
@@ -98,34 +100,34 @@ def scalar(rnd, depth, nd=0):
 def vector(rnd, depth):
     pick = rnd.randrange(4)
     if pick == 0:
-        return Tensor((scalar(rnd, depth), scalar(rnd, depth)))
+        return tensor((scalar(rnd, depth), scalar(rnd, depth)))
     if pick == 1:
         return rnd.choice([U, U2, U3])
     if pick == 2:
-        return ComponentTensor(Product(Indexed(c, (kf,)), Indexed(U3, (m,))), (m,))
-    return ComponentTensor(Product(scalar(rnd, depth), Indexed(U, (m,))), (m,))
+        return component_tensor(multiply(indexed(c, (kf,)), indexed(U3, (m,))), (m,))
+    return component_tensor(multiply(scalar(rnd, depth), indexed(U, (m,))), (m,))
 
 
 def wrap(rnd, xs, body):
     # Put the variable inside each kind of node, so every row of the derivative pass is reached.
-    near = lambda y: Sum(Num(3), Product(Num(0.2), y))
-    xb = Product(xs, body)
+    near = lambda y: add(num(3), multiply(num(0.2), y))
+    xb = multiply(xs, body)
     return rnd.choice(
         [
             xb,
-            SquareRoot(near(xb)),
-            Logarithm(near(xb)),
-            Absolute(near(xb)),
-            Power(near(xs), Product(Num(0.3), Sum(xs, body))),
-            Power(near(xb), Num(2)),
-            Division(body, near(xs)),
-            RealPart(xb),
-            Indexed(
-                Inverse(
-                    Tensor(
+            square_root(near(xb)),
+            logarithm(near(xb)),
+            absolute(near(xb)),
+            power(near(xs), multiply(num(0.3), add(xs, body))),
+            power(near(xb), num(2)),
+            divide(body, near(xs)),
+            real_part(xb),
+            indexed(
+                inverse(
+                    tensor(
                         (
-                            Tensor((near(xs), Product(Num(0.1), body))),
-                            Tensor((Product(Num(0.1), xs), near(body))),
+                            tensor((near(xs), multiply(num(0.1), body))),
+                            tensor((multiply(num(0.1), xs), near(body))),
                         )
                     )
                 ),
@@ -138,17 +140,17 @@ def wrap(rnd, xs, body):
 def derivative(rnd, body, nd):
     if rnd.random() < 0.7:
         x = rnd.choice([u, v, w])
-        f = wrap(rnd, x, body) if arity(body) == 0 else Product(x, body)
-        point = rnd.choice([x, x, z, Sum(x, Num(0.1))])
-        direction = rnd.choice([h, z, Num(1), Product(Indexed(c, (kf,)), h)])
+        f = wrap(rnd, x, body) if arity(body) == 0 else multiply(x, body)
+        point = rnd.choice([x, x, z, add(x, num(0.1))])
+        direction = rnd.choice([h, z, num(1), multiply(indexed(c, (kf,)), h)])
     else:
         x = U2
-        f = wrap(rnd, dot(U2, U), body) if arity(body) == 0 else Product(dot(U2, U), body)
-        point = rnd.choice([U2, U2, U3, Tensor((z, h))])
+        f = wrap(rnd, dot(U2, U), body) if arity(body) == 0 else multiply(dot(U2, U), body)
+        point = rnd.choice([U2, U2, U3, tensor((z, h))])
         direction = rnd.choice(
-            [Tensor((h, z)), ComponentTensor(Product(Indexed(c, (kf,)), Indexed(U3, (m,))), (m,))]
+            [tensor((h, z)), component_tensor(multiply(indexed(c, (kf,)), indexed(U3, (m,))), (m,))]
         )
-    return DirectionalDerivative(f, x, point, direction)
+    return directional_derivative(f, x, direction, point)
 
 
 def argument(rnd, spec):
@@ -172,39 +174,42 @@ def leaf_form(rnd, specs):
         for s in spec if isinstance(spec, tuple) else (spec,):
             fn = rnd.choice([b for b in BOUND[s] if b not in used])
             used.add(fn)
-            body = Product(fn if s == "V" else dot(fn, U), body)
-            members.append(Conjugate(fn) if rnd.random() < 0.3 else fn)
+            body = multiply(fn if s == "V" else dot(fn, U), body)
+            members.append(conjugate(fn) if rnd.random() < 0.3 else fn)
         entries.append(tuple(members) if isinstance(spec, tuple) else members[0])
-    return Form(body, tuple(entries))
+    return form(body, tuple(entries))
 
 
-def form(rnd, specs, depth):
+def random_form(rnd, specs, depth):
     if depth == 0 or rnd.random() < 0.25:
         return leaf_form(rnd, specs) if specs else scalar(rnd, 2)
     op = rnd.randrange(9)
     if op == 8:
-        return Zero((), (), tuple(Space("arg") for _ in specs))
+        return zero((), (), tuple(space("arg") for _ in specs))
     if op == 0:
-        return Sum(form(rnd, specs, depth - 1), form(rnd, specs, depth - 1))
+        return add(random_form(rnd, specs, depth - 1), random_form(rnd, specs, depth - 1))
     if op == 1:
         k = rnd.randrange(len(specs) + 1)
-        return Product(form(rnd, specs[:k], depth - 1), form(rnd, specs[k:], depth - 1))
+        return multiply(
+            random_form(rnd, specs[:k], depth - 1), random_form(rnd, specs[k:], depth - 1)
+        )
     if op == 2:
-        return Conjugate(form(rnd, specs, depth - 1))
+        return conjugate(random_form(rnd, specs, depth - 1))
     if op == 3:
-        return Division(form(rnd, specs, depth - 1), Num(3))
+        return divide(random_form(rnd, specs, depth - 1), num(3))
     if op == 4:
-        return derivative(rnd, form(rnd, specs, depth - 1), 1)
+        return derivative(rnd, random_form(rnd, specs, depth - 1), 1)
     if op == 5:
-        return IndexSum(Product(Indexed(c, (kf,)), form(rnd, specs, depth - 1)), (kf,))
+        return index_sum(multiply(indexed(c, (kf,)), random_form(rnd, specs, depth - 1)), (kf,))
     if op == 6:
-        return Indexed(
-            Tensor((form(rnd, specs, depth - 1), form(rnd, specs, depth - 1))), (rnd.randrange(2),)
+        return indexed(
+            tensor((random_form(rnd, specs, depth - 1), random_form(rnd, specs, depth - 1))),
+            (rnd.randrange(2),),
         )
     spec = rnd.choice(["V", "W", ("V", "W"), ("V", "V")])
     p = rnd.randrange(len(specs) + 1)
     inner = [*specs[:p], spec, *specs[p:]]
-    return Action(form(rnd, inner, depth - 1), p, argument(rnd, spec))
+    return action(random_form(rnd, inner, depth - 1), p, argument(rnd, spec))
 
 
 def main(trials):
@@ -221,7 +226,7 @@ def main(trials):
     for seed in range(trials):
         rnd = random.Random(seed)
         specs = rnd.choice([[], ["V"], ["W"], [("V", "W")], ["V", "W"]])
-        e = form(rnd, specs, 3)
+        e = random_form(rnd, specs, 3)
         out = derivatives.apply_derivatives(actions.apply_actions(e))
         if (shape(e), free(e), arity(e)) != (shape(out), free(out), arity(out)):
             bad["static"] += 1

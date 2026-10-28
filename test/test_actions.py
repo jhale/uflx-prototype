@@ -1,29 +1,26 @@
 import numpy as np
 
-from uflx_spec_interpreter.nodes import (
-    Action,
-    ComponentTensor,
-    Conjugate,
-    DirectionalDerivative,
-    Form,
-    Function,
-    Index,
-    Indexed,
-    Num,
-    Product,
-    Space,
-    Sum,
-    Tensor,
+from uflx_spec_interpreter.algebra import (
+    add,
+    component_tensor,
+    conjugate,
+    index,
+    indexed,
+    multiply,
+    num,
+    tensor,
 )
+from uflx_spec_interpreter.calculus import directional_derivative
+from uflx_spec_interpreter.forms import action, form, function, space
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions
 from uflx_spec_interpreter.static import arity
 
 rng = np.random.default_rng(1)
-V, Vd = Space("V"), Space("V", dual=True)
-u, v, w, z, h = (Function(V, n) for n in "uvwzh")
-l = Function(Vd, "l")
-i, j = Index("i"), Index("j")
+V, Vd = space("V"), space("V", dual=True)
+u, v, w, z, h = (function(V, n) for n in "uvwzh")
+l = function(Vd, "l")
+i, j = index("i"), index("j")
 env = {f: complex(*rng.normal(size=2)) for f in (u, v, w, z, h)}
 cl = complex(*rng.normal(size=2))
 env[l] = lambda x: cl * x
@@ -42,28 +39,30 @@ def check(name, e, ienv=None):
 
 
 def test_cases():
-    a = Product(u, Conjugate(v))
-    F = Form(a, (Conjugate(v), u))
-    check("bilinear form, action at 1 then 0", Action(Action(F, 1, w), 0, z))
-    check("action at 0 leaves a linear form", Action(F, 0, z))
-    check("sum and product of forms", Action(Sum(Product(Num(3), F), F), 1, w))
+    a = multiply(u, conjugate(v))
+    F = form(a, (conjugate(v), u))
+    check("bilinear form, action at 1 then 0", action(action(F, 1, w), 0, z))
+    check("action at 0 leaves a linear form", action(F, 0, z))
+    check("sum and product of forms", action(add(multiply(num(3), F), F), 1, w))
     check(
         "product of two linear forms",
-        Action(Product(Form(Product(v, Num(2)), (v,)), Form(Conjugate(u), (Conjugate(u),))), 1, w),
+        action(
+            multiply(form(multiply(v, num(2)), (v,)), form(conjugate(u), (conjugate(u),))), 1, w
+        ),
     )
-    check("conjugate of a form", Action(Conjugate(F), 0, z))
-    check("pairing remains", Action(Form(Product(Action(l, 0, v), u), (v, u)), 0, w))
+    check("conjugate of a form", action(conjugate(F), 0, z))
+    check("pairing remains", action(form(multiply(action(l, 0, v), u), (v, u)), 0, w))
 
     # The family index i of g must not be captured by the ComponentTensor that binds i.
-    c = Tensor((Num(1), Num(2)))
-    g = Product(Indexed(c, (i,)), w)
-    G = ComponentTensor(
-        Product(Indexed(Tensor((Num(5), Num(7))), (i,)), Form(Product(v, Num(1)), (v,))), (i,)
+    c = tensor((num(1), num(2)))
+    g = multiply(indexed(c, (i,)), w)
+    G = component_tensor(
+        multiply(indexed(tensor((num(5), num(7))), (i,)), form(multiply(v, num(1)), (v,))), (i,)
     )
     for k in range(2):
-        check(f"capture, family index i = {k}", Action(G, 0, g), {i: k})
+        check(f"capture, family index i = {k}", action(G, 0, g), {i: k})
 
     # The argument contains the variable of the derivative: expect h * u, not 2 h u.
-    J = Form(DirectionalDerivative(Product(u, v), u, u, h), (v,))
-    out = check("action on a form with a derivative of u at u", Action(J, 0, u))
+    J = form(directional_derivative(multiply(u, v), u, h, u), (v,))
+    out = check("action on a form with a derivative of u at u", action(J, 0, u))
     assert np.isclose(evaluate(out, env)(()), env[h] * env[u])

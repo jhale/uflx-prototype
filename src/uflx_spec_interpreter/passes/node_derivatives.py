@@ -1,6 +1,5 @@
-from .algebra import matrix_product, negate, subtract, transpose
-from .commuting import COMMUTING, commute
-from .nodes import (
+from ..algebra import matrix_product, negate, subtract, transpose
+from ..nodes import (
     Absolute,
     Action,
     Conjugate,
@@ -14,6 +13,7 @@ from .nodes import (
     SquareRoot,
     Sum,
 )
+from .commuting import COMMUTING, commute
 
 
 def derivative_of_node(f, d, constant, avoid):

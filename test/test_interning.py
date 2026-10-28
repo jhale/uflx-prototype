@@ -10,6 +10,7 @@ from test_surface import Ms
 from testutil import contains
 
 from uflx_spec_interpreter.domains import cell_domain
+from uflx_spec_interpreter.forms import space
 from uflx_spec_interpreter.geometry import density, inverse_jacobian, metric
 from uflx_spec_interpreter.nodes import (
     Base,
@@ -18,21 +19,20 @@ from uflx_spec_interpreter.nodes import (
     Indexed,
     Interned,
     Num,
-    Space,
     Sum,
     Tensor,
 )
 from uflx_spec_interpreter.substitution import map_fields
 
-V = Space("V")
+V = space("V")
 
 
 def test_equal_constructions_are_one_object():
     u = Function(V, "u")
-    assert Sum(Num(1), u) is Sum(Num(1), Function(Space("V"), "u"))
+    assert Sum(Num(1), u) is Sum(Num(1), Function(space("V"), "u"))
     X = Tensor((Num(1), Num(2)))
     assert Index(("matmul", X, u, 0)) is Index(("matmul", Tensor((Num(1), Num(2))), u, 0))
-    assert Space("V") is Space("V", dual=False)
+    assert space("V") is space("V", dual=False)
 
 
 def test_constants_differ_by_type_and_sign():
@@ -54,8 +54,9 @@ def test_unused_nodes_are_freed():
 
 def test_hash_is_the_same_in_every_process():
     code = (
-        "from uflx_spec_interpreter.nodes import Function, Indexed, Num, Space, Sum, Tensor\n"
-        "u = Function(Space('V'), ('label', 'with', 'strings'))\n"
+        "from uflx_spec_interpreter.forms import space\n"
+        "from uflx_spec_interpreter.nodes import Function, Indexed, Num, Sum, Tensor\n"
+        "u = Function(space('V'), ('label', 'with', 'strings'))\n"
         "print(hash(Sum(Indexed(Tensor((u, Num(2.5))), (1,)), u)))\n"
     )
     hashes = set()

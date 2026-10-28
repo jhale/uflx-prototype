@@ -6,67 +6,68 @@ from test_integrals import K
 from testutil import assert_clean, contains
 
 from uflx_spec_interpreter import oracle
+from uflx_spec_interpreter.algebra import (
+    absolute,
+    add,
+    component_tensor,
+    conjugate,
+    divide,
+    index,
+    index_sum,
+    indexed,
+    inverse,
+    logarithm,
+    multiply,
+    num,
+    power,
+    real_part,
+    square_root,
+    tensor,
+)
+from uflx_spec_interpreter.calculus import coordinate, gradient, integral
+from uflx_spec_interpreter.forms import function, space
 from uflx_spec_interpreter.nodes import (
-    Absolute,
-    ComponentTensor,
-    Conjugate,
-    Coordinate,
-    Division,
     Function,
     Gradient,
-    Index,
-    Indexed,
-    IndexSum,
-    Integral,
-    Inverse,
-    Logarithm,
     Normal,
-    Num,
-    Power,
-    Product,
     PullBack,
-    RealPart,
-    Space,
-    SquareRoot,
-    Sum,
-    Tensor,
 )
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients
 from uflx_spec_interpreter.static import free, shape
 
-X = Coordinate(K)
-u = Function(Space("V", domain=K), "u")
+X = coordinate(K)
+u = function(space("V", domain=K), "u")
 ENV = {u: lambda x: 1 + x[0] * x[0] + 0.5j * x[1]}
-i, j = Index("i"), Index("j")
+i, j = index("i"), index("j")
 
 
 def near(a):
-    return Sum(Num(3), Product(Num(0.2), a))
+    return add(num(3), multiply(num(0.2), a))
 
 
 def scalar(rnd, depth):
     if depth == 0 or rnd.random() < 0.3:
-        return rnd.choice([Indexed(X, (0,)), Indexed(X, (1,)), u, Num(2)])
+        return rnd.choice([indexed(X, (0,)), indexed(X, (1,)), u, num(2)])
     a, b = scalar(rnd, depth - 1), scalar(rnd, depth - 1)
     return rnd.choice(
         [
-            lambda: Sum(a, b),
-            lambda: Product(a, b),
-            lambda: Division(a, near(b)),
-            lambda: Conjugate(a),
-            lambda: RealPart(a),
-            lambda: Absolute(near(a)),
-            lambda: SquareRoot(near(a)),
-            lambda: Logarithm(near(a)),
-            lambda: Power(near(a), rnd.choice([Num(2), Product(Num(0.3), b)])),
-            lambda: Indexed(Gradient(a, K), (rnd.randrange(2),)),
-            lambda: IndexSum(
-                Product(Indexed(Gradient(a, K), (i,)), Indexed(Gradient(b, K), (i,))), (i,)
+            lambda: add(a, b),
+            lambda: multiply(a, b),
+            lambda: divide(a, near(b)),
+            lambda: conjugate(a),
+            lambda: real_part(a),
+            lambda: absolute(near(a)),
+            lambda: square_root(near(a)),
+            lambda: logarithm(near(a)),
+            lambda: power(near(a), rnd.choice([num(2), multiply(num(0.3), b)])),
+            lambda: indexed(gradient(a, K), (rnd.randrange(2),)),
+            lambda: index_sum(
+                multiply(indexed(gradient(a, K), (i,)), indexed(gradient(b, K), (i,))), (i,)
             ),
-            lambda: Indexed(
-                Inverse(
-                    Tensor((Tensor((near(a), Product(Num(0.1), b))), Tensor((Num(0.1), near(b)))))
+            lambda: indexed(
+                inverse(
+                    tensor((tensor((near(a), multiply(num(0.1), b))), tensor((num(0.1), near(b)))))
                 ),
                 (rnd.randrange(2), rnd.randrange(2)),
             ),
@@ -79,14 +80,14 @@ def target(rnd):
     a = scalar(rnd, 3)
     return rnd.choice(
         [
-            lambda: Indexed(Gradient(a, K), (rnd.randrange(2),)),
-            lambda: Indexed(Gradient(Gradient(a, K), K), (rnd.randrange(2), rnd.randrange(2))),
-            lambda: Indexed(Gradient(Tensor((a, Product(a, a))), K), (rnd.randrange(2), 0)),
-            lambda: IndexSum(
-                Indexed(Gradient(ComponentTensor(Product(a, Indexed(X, (j,))), (j,)), K), (i, i)),
+            lambda: indexed(gradient(a, K), (rnd.randrange(2),)),
+            lambda: indexed(gradient(gradient(a, K), K), (rnd.randrange(2), rnd.randrange(2))),
+            lambda: indexed(gradient(tensor((a, multiply(a, a))), K), (rnd.randrange(2), 0)),
+            lambda: index_sum(
+                indexed(gradient(component_tensor(multiply(a, indexed(X, (j,))), (j,)), K), (i, i)),
                 (i,),
             ),
-            lambda: Product(a, Indexed(Gradient(X, K), (rnd.randrange(2), rnd.randrange(2)))),
+            lambda: multiply(a, indexed(gradient(X, K), (rnd.randrange(2), rnd.randrange(2)))),
         ]
     )()
 
@@ -112,7 +113,7 @@ def run(trials):
     bad = dict(value=0, static=0, grammar=0, lazy=0, rejected=0)
     for seed in range(trials):
         rnd = random.Random(seed)
-        e = Integral(target(rnd), K)
+        e = integral(target(rnd), K)
         out = gradients.apply_gradients(e)
         if contains(e, needs_pass):
             bad["lazy"] += 1
@@ -145,6 +146,6 @@ def test_projection_remains():
     # On a surface the gradient of the coordinates is the projection, which needs a cell.
     from test_surface import M
 
-    pi = Gradient(Coordinate(M), M)
+    pi = gradient(coordinate(M), M)
     assert gradients.apply_gradients(pi) == pi
     assert gradients.in_n6(pi)

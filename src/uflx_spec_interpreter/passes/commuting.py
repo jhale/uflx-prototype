@@ -1,4 +1,4 @@
-from .nodes import (
+from ..nodes import (
     ComponentTensor,
     Conjugate,
     DirectionalDerivative,
@@ -14,7 +14,7 @@ from .nodes import (
     Sum,
     Tensor,
 )
-from .substitution import freshen, map_fields
+from ..substitution import freshen, map_fields
 
 # The commuting node classes and the operands into which an evaluated node moves.
 COMMUTING = {

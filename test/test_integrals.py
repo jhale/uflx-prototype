@@ -5,76 +5,71 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
-from uflx_spec_interpreter.nodes import (
-    ComponentTensor,
-    Coordinate,
-    CoordinateDomain,
-    DecomposedDomain,
-    DomainMap,
-    Function,
-    Gradient,
-    Index,
-    Indexed,
-    Integral,
-    Num,
-    Product,
-    Space,
-    Sum,
-    Tensor,
+from uflx_spec_interpreter.algebra import (
+    add,
+    component_tensor,
+    index,
+    indexed,
+    multiply,
+    num,
+    tensor,
 )
+from uflx_spec_interpreter.calculus import coordinate, gradient, integral
+from uflx_spec_interpreter.domains import coordinate_domain, decomposed_domain
+from uflx_spec_interpreter.forms import function, space
+from uflx_spec_interpreter.maps import domain_map
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
-R2 = CoordinateDomain("R2", 2)
-K = CoordinateDomain("K", 2)
-X = Coordinate(K)
-k = Index("k")
-c = Index("c")
-num = lambda v: Num(v)
+R2 = coordinate_domain("R2", 2)
+K = coordinate_domain("K", 2)
+X = coordinate(K)
+k = index("k")
+c = index("c")
 
 
 def affine(vertices, at):
     # The affine map of the unit triangle onto a triangle, as an expression of the coordinate at.
-    v0, v1, v2 = (Tensor(tuple(num(x) for x in v)) for v in vertices)
-    term = lambda v: Indexed(v, (k,))
-    body = Sum(
+    v0, v1, v2 = (tensor(tuple(num(x) for x in v)) for v in vertices)
+    term = lambda v: indexed(v, (k,))
+    body = add(
         term(v0),
-        Sum(
-            Product(Sum(term(v1), Product(num(-1), term(v0))), Indexed(at, (0,))),
-            Product(Sum(term(v2), Product(num(-1), term(v0))), Indexed(at, (1,))),
+        add(
+            multiply(add(term(v1), multiply(num(-1), term(v0))), indexed(at, (0,))),
+            multiply(add(term(v2), multiply(num(-1), term(v0))), indexed(at, (1,))),
         ),
     )
-    return ComponentTensor(body, (k,))
+    return component_tensor(body, (k,))
 
 
 T0, T1 = [(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]
 
 # The square as one family of two triangles, with the free index c.
-p = Tensor(tuple(Tensor(tuple(Tensor((num(a), num(b))) for a, b in tri)) for tri in (T0, T1)))
-fam = lambda i: Indexed(p, (c, i, k))
-psi_c = ComponentTensor(
-    Sum(
+p = tensor(tuple(tensor(tuple(tensor((num(a), num(b))) for a, b in tri)) for tri in (T0, T1)))
+fam = lambda i: indexed(p, (c, i, k))
+psi_c = component_tensor(
+    add(
         fam(0),
-        Sum(
-            Product(Sum(fam(1), Product(num(-1), fam(0))), Indexed(X, (0,))),
-            Product(Sum(fam(2), Product(num(-1), fam(0))), Indexed(X, (1,))),
+        add(
+            multiply(add(fam(1), multiply(num(-1), fam(0))), indexed(X, (0,))),
+            multiply(add(fam(2), multiply(num(-1), fam(0))), indexed(X, (1,))),
         ),
     ),
     (k,),
 )
-D = DecomposedDomain((DomainMap(K, psi_c, R2),))
+D = decomposed_domain((domain_map(K, psi_c, R2),))
 
 # A family of three points in the square.
-Dp = DecomposedDomain(
+Dp = decomposed_domain(
     (
-        DomainMap(
-            CoordinateDomain("pt", 0),
-            ComponentTensor(
-                Indexed(
-                    Tensor(
+        domain_map(
+            coordinate_domain("pt", 0),
+            component_tensor(
+                indexed(
+                    tensor(
                         tuple(
-                            Tensor((num(a), num(b)))
+                            tensor((num(a), num(b)))
                             for a, b in [(0.2, 0.3), (0.5, 0.5), (0.9, 0.1)]
                         )
                     ),
@@ -88,43 +83,43 @@ Dp = DecomposedDomain(
 )
 
 # The square as two pieces with no free index.
-D2 = DecomposedDomain((DomainMap(K, affine(T0, X), R2), DomainMap(K, affine(T1, X), R2)))
+D2 = decomposed_domain((domain_map(K, affine(T0, X), R2), domain_map(K, affine(T1, X), R2)))
 
 # A macro triangle: T0 as the image of the unit triangle split into two sub-triangles.
-Kdec = DecomposedDomain(
+Kdec = decomposed_domain(
     (
-        DomainMap(K, affine([(0, 0), (1, 0), (0.5, 0.5)], X), K),
-        DomainMap(K, affine([(0, 0), (0.5, 0.5), (0, 1)], X), K),
+        domain_map(K, affine([(0, 0), (1, 0), (0.5, 0.5)], X), K),
+        domain_map(K, affine([(0, 0), (0.5, 0.5), (0, 1)], X), K),
     )
 )
-Dm = DecomposedDomain((DomainMap(Kdec, affine(T0, Coordinate(Kdec)), R2),))
+Dm = decomposed_domain((domain_map(Kdec, affine(T0, coordinate(Kdec)), R2),))
 
-V = Space("V", domain=D)
-u = Function(V, "u")
-r = Function(Space("R"), "r")
-d = Tensor((num(3), num(5)))
+V = space("V", domain=D)
+u = function(V, "u")
+r = function(space("R"), "r")
+d = tensor((num(3), num(5)))
 
 
 def scalar(rnd, dom, kind, depth):
     if depth == 0 or rnd.random() < 0.35:
         leaves = {
-            "domain": [Indexed(Coordinate(dom), (0,)), Indexed(Coordinate(dom), (1,))]
-            + ([u, Indexed(Gradient(u, D), (rnd.randrange(2),))] if dom == D else []),
-            "ambient": [Indexed(Coordinate(R2), (0,)), Indexed(Coordinate(R2), (1,))]
-            + ([Indexed(d, (c,))] if dom == D else []),
+            "domain": [indexed(coordinate(dom), (0,)), indexed(coordinate(dom), (1,))]
+            + ([u, indexed(gradient(u, D), (rnd.randrange(2),))] if dom == D else []),
+            "ambient": [indexed(coordinate(R2), (0,)), indexed(coordinate(R2), (1,))]
+            + ([indexed(d, (c,))] if dom == D else []),
             "none": [num(rnd.choice([1, 2, -0.5])), r],
         }[kind]
         return rnd.choice([*leaves, num(2)])
     a, b = scalar(rnd, dom, kind, depth - 1), scalar(rnd, dom, kind, depth - 1)
-    return rnd.choice([Sum(a, b), Product(a, b)])
+    return rnd.choice([add(a, b), multiply(a, b)])
 
 
 def integrand(rnd, dom, kind):
     pick = rnd.randrange(4)
     if pick == 0:
-        return Tensor((scalar(rnd, dom, kind, 2), scalar(rnd, dom, kind, 2)))
+        return tensor((scalar(rnd, dom, kind, 2), scalar(rnd, dom, kind, 2)))
     if pick == 1 and kind != "none":
-        return Coordinate(dom if kind == "domain" else R2)
+        return coordinate(dom if kind == "domain" else R2)
     return scalar(rnd, dom, kind, 3)
 
 
@@ -136,7 +131,7 @@ def main(trials):
         rnd = random.Random(seed)
         dom = rnd.choice([D, D2, Dm, Dp])
         kind = rnd.choice(["domain", "ambient", "none"])
-        e = Integral(integrand(rnd, dom, kind), dom)
+        e = integral(integrand(rnd, dom, kind), dom)
         out3 = integrals.expand_integrals(e)
         out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
         rejected += not integrals.in_n4(e)

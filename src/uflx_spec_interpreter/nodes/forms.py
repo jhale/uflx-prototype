@@ -9,10 +9,10 @@ from .base import AbstractExpression, Base
 class Space(Base):
     identifier = "toy.Space"
     name: str
-    dual: bool = False
-    value_shape: tuple = ()
-    domain: object = None
-    complex: bool = True
+    dual: bool
+    value_shape: tuple
+    domain: object
+    complex: bool
     opaque = ("name", "dual", "value_shape", "domain", "complex")
 
 

@@ -1,5 +1,5 @@
 from ..algebra import identity
-from ..node_derivatives import derivative_of_node
+from ..forms import space
 from ..nodes import (
     ComponentTensor,
     Coordinate,
@@ -9,11 +9,11 @@ from ..nodes import (
     Indexed,
     Normal,
     PullBack,
-    Space,
     Zero,
 )
 from ..static import arity, free_indices, shape, support
 from ..substitution import expressions, map_fields
+from .node_derivatives import derivative_of_node
 from .pullbacks import expand_pull_backs
 
 # Expressions whose gradient a library provides, so the gradient remains.
@@ -42,7 +42,7 @@ def partial(f, P, j):
 
 
 def zero_args(f):
-    return tuple(Space("arg") for _ in range(arity(f)))
+    return tuple(space("arg") for _ in range(arity(f)))
 
 
 def gradient(f, P):

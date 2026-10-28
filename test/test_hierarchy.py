@@ -3,6 +3,7 @@ from test_integrals import D, c
 
 from uflx_spec_interpreter import nodes
 from uflx_spec_interpreter.domains import cell_domain
+from uflx_spec_interpreter.forms import space
 from uflx_spec_interpreter.nodes import (
     AbstractExpression,
     Base,
@@ -14,7 +15,6 @@ from uflx_spec_interpreter.nodes import (
     Product,
     PullBack,
     RealPart,
-    Space,
 )
 from uflx_spec_interpreter.passes import pullbacks
 from uflx_spec_interpreter.static import free
@@ -62,7 +62,7 @@ def test_a_pull_back_leaves_a_gathered_entry_unchanged():
 
 
 def test_a_curried_form_counts_the_arguments_of_its_expression():
-    V = Space("V")
+    V = space("V")
     u, v, w = (Function(V, n) for n in "uvw")
     inner = Form(Product(u, v), (v,))
     assert inner.arity == 1

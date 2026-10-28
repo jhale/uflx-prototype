@@ -5,39 +5,39 @@ import numpy as np
 from test_integrals import R2, D
 from testutil import assert_clean, contains
 
+from uflx_spec_interpreter.algebra import (
+    add,
+    component_tensor,
+    index,
+    indexed,
+    multiply,
+    num,
+    tensor,
+)
+from uflx_spec_interpreter.calculus import coordinate, gradient, integral
+from uflx_spec_interpreter.domains import coordinate_domain, decomposed_domain, normal, side_map
+from uflx_spec_interpreter.forms import function, space
+from uflx_spec_interpreter.maps import domain_map, pull_back
 from uflx_spec_interpreter.nodes import (
     CellMap,
-    ComponentTensor,
-    Coordinate,
-    CoordinateDomain,
-    DecomposedDomain,
     DomainMap,
     Function,
     Gradient,
-    Index,
-    Indexed,
-    Integral,
     Normal,
-    Num,
-    Product,
     PullBack,
     SideMap,
-    Space,
-    Sum,
-    Tensor,
 )
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
-I = CoordinateDomain("I", 1)
-k, e = Index("k"), Index("e")
-num = Num
+I = coordinate_domain("I", 1)
+k, e = index("k"), index("e")
 
 
 def table(rows):
     def build(x):
-        return Tensor(tuple(build(y) for y in x)) if isinstance(x, (list, tuple)) else num(x)
+        return tensor(tuple(build(y) for y in x)) if isinstance(x, (list, tuple)) else num(x)
 
     return build(rows)
 
@@ -45,29 +45,29 @@ def table(rows):
 def facets(vertices):
     # A family of straight facets with the free index e.
     fv = table(vertices)
-    psi = ComponentTensor(
-        Sum(
-            Indexed(fv, (e, 0, k)),
-            Product(
-                Sum(Indexed(fv, (e, 1, k)), Product(num(-1), Indexed(fv, (e, 0, k)))),
-                Indexed(Coordinate(I), (0,)),
+    psi = component_tensor(
+        add(
+            indexed(fv, (e, 0, k)),
+            multiply(
+                add(indexed(fv, (e, 1, k)), multiply(num(-1), indexed(fv, (e, 0, k)))),
+                indexed(coordinate(I), (0,)),
             ),
         ),
         (k,),
     )
-    return DecomposedDomain((DomainMap(I, psi, R2),))
+    return decomposed_domain((domain_map(I, psi, R2),))
 
 
 # The diagonal of the square, with the cell 0 on the side "+" and the cell 1 on the side "-".
 E_int = facets([[(0, 0), (1, 1)]])
 sides_int = {
-    "+": SideMap(D, E_int, table([0]), table([[(0, 0), (0, 1)]])),
-    "-": SideMap(D, E_int, table([1]), table([[(0, 0), (1, 0)]])),
+    "+": side_map(D, E_int, table([0]), table([[(0, 0), (0, 1)]])),
+    "-": side_map(D, E_int, table([1]), table([[(0, 0), (1, 0)]])),
 }
 # The four boundary edges, each with its one cell on the side "inside".
 E_bnd = facets([[(0, 0), (1, 0)], [(1, 0), (1, 1)], [(1, 1), (0, 1)], [(0, 1), (0, 0)]])
 sides_bnd = {
-    "inside": SideMap(
+    "inside": side_map(
         D,
         E_bnd,
         table([0, 0, 1, 1]),
@@ -75,8 +75,8 @@ sides_bnd = {
     )
 }
 
-V = Space("V", domain=D)
-u, w = Function(V, "u"), Function(V, "w")
+V = space("V", domain=D)
+u, w = function(V, "u"), function(V, "w")
 
 
 def restricted(rnd, sm):
@@ -84,13 +84,13 @@ def restricted(rnd, sm):
         [
             u,
             w,
-            Indexed(Gradient(u, D), (rnd.randrange(2),)),
-            Indexed(Coordinate(D), (rnd.randrange(2),)),
-            Product(u, w),
-            Indexed(Gradient(Product(u, w), D), (rnd.randrange(2),)),
+            indexed(gradient(u, D), (rnd.randrange(2),)),
+            indexed(coordinate(D), (rnd.randrange(2),)),
+            multiply(u, w),
+            indexed(gradient(multiply(u, w), D), (rnd.randrange(2),)),
         ]
     )
-    return PullBack(f, sm)
+    return pull_back(f, sm)
 
 
 def integrand(rnd, E, sides):
@@ -102,21 +102,21 @@ def integrand(rnd, E, sides):
             terms.append(restricted(rnd, sm))
         elif pick == 1:
             terms.append(
-                Product(
+                multiply(
                     restricted(rnd, sm),
-                    Indexed(Normal(D, E, sm), (rnd.randrange(2),)),
+                    indexed(normal(D, E, sm), (rnd.randrange(2),)),
                 )
             )
         elif pick == 2:
             a, b = sides[next(iter(sides))], sides[list(sides)[-1]]
-            terms.append(Sum(restricted(rnd, a), Product(num(-1), restricted(rnd, b))))
+            terms.append(add(restricted(rnd, a), multiply(num(-1), restricted(rnd, b))))
         else:
             terms.append(num(rnd.choice([1, 2])))
     f = terms[0]
     for t in terms[1:]:
-        f = Sum(f, t)
+        f = add(f, t)
     if rnd.random() < 0.2:
-        f = Normal(D, E, sides[next(iter(sides))])
+        f = normal(D, E, sides[next(iter(sides))])
     return f
 
 
@@ -130,7 +130,7 @@ def main(trials):
     for seed in range(trials):
         rnd = random.Random(seed)
         E, sides = rnd.choice([(E_int, sides_int), (E_bnd, sides_bnd)])
-        e_int = Integral(integrand(rnd, E, sides), E)
+        e_int = integral(integrand(rnd, E, sides), E)
         out3 = integrals.expand_integrals(e_int)
         out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
         if contains(

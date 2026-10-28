@@ -4,44 +4,33 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
-from uflx_spec_interpreter.nodes import (
-    Absolute,
-    Action,
-    Conjugate,
-    Form,
-    Function,
-    GateauxDerivative,
-    Num,
-    Product,
-    RealPart,
-    Space,
-    Sum,
-)
+from uflx_spec_interpreter.algebra import absolute, add, conjugate, multiply, num, real_part
+from uflx_spec_interpreter.forms import action, form, function, gateaux_derivative, space
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions, derivatives, gateaux
 from uflx_spec_interpreter.static import arity
 
-C, R = Space("C"), Space("R", complex=False)
+C, R = space("C"), space("R", complex=False)
 # A load in each dual space, linear in its argument like every action.
 LOADS = {
-    C: Function(Space("C", dual=True), "l"),
-    R: Function(Space("R", dual=True, complex=False), "l"),
+    C: function(space("C", dual=True), "l"),
+    R: function(space("R", dual=True, complex=False), "l"),
 }
 LOAD_VALUE = 0.7 - 0.4j
 
 
 def body(rnd, u, names, holomorphic, depth):
     if depth == 0 or rnd.random() < 0.3:
-        return rnd.choice([u, Num(2), *names])
+        return rnd.choice([u, num(2), *names])
     a, b = body(rnd, u, names, holomorphic, depth - 1), body(rnd, u, names, holomorphic, depth - 1)
     l = LOADS[u.space]
-    ops = [lambda: Sum(a, b), lambda: Product(a, b), lambda: Action(l, 0, a)]
+    ops = [lambda: add(a, b), lambda: multiply(a, b), lambda: action(l, 0, a)]
     if not holomorphic:
         ops += [
-            lambda: Conjugate(a),
-            lambda: Absolute(Sum(Num(2), a)),
-            lambda: RealPart(a),
-            lambda: Action(l, 0, Conjugate(a)),
+            lambda: conjugate(a),
+            lambda: absolute(add(num(2), a)),
+            lambda: real_part(a),
+            lambda: action(l, 0, conjugate(a)),
         ]
     return rnd.choice(ops)()
 
@@ -52,18 +41,20 @@ def main(trials):
     for seed in range(trials):
         rnd = random.Random(seed)
         space = rnd.choice([C, R])
-        u, v, w, z = (Function(space, n) for n in "uvwz")
+        u, v, w, z = (function(space, n) for n in "uvwz")
         holomorphic = rnd.random() < 0.5
-        test = Conjugate(v) if (space is C and rnd.random() < 0.5) else v
-        F = Form(
-            Product(Product(v if test == v else Conjugate(v), u), body(rnd, u, [], holomorphic, 3)),
+        test = conjugate(v) if (space is C and rnd.random() < 0.5) else v
+        F = form(
+            multiply(
+                multiply(v if test == v else conjugate(v), u), body(rnd, u, [], holomorphic, 3)
+            ),
             (test,),
         )
-        entry = Conjugate(w) if rnd.random() < 0.5 else w
-        e = GateauxDerivative(F, u, u, entry)
+        entry = conjugate(w) if rnd.random() < 0.5 else w
+        e = gateaux_derivative(F, u, entry, u)
         if rnd.random() < 0.4:
             # An action on the new argument, the derivative in a fixed direction.
-            e = Action(e, 1, rnd.choice([z, Sum(u, z)]))
+            e = action(e, 1, rnd.choice([z, add(u, z)]))
         rows["real" if space is R else ("holomorphic" if holomorphic else "general")] += 1
         out0 = gateaux.apply_gateaux_derivatives(e)
         rejected += not gateaux.in_n1(e)
@@ -100,13 +91,13 @@ def test_gateaux():
 
 def test_pairing_with_the_conjugate():
     # <l, u> u is written with conjugate(u), so it is not holomorphic in u, and J- is not zero.
-    u, w = Function(C, "u"), Function(C, "w")
+    u, w = function(C, "u"), function(C, "w")
     l = LOADS[C]
-    F = Product(Action(l, 0, Conjugate(u)), u)
+    F = multiply(action(l, 0, conjugate(u)), u)
     env = {u: 0.3 + 0.2j, w: 0.1 - 0.5j, l: lambda x: LOAD_VALUE * x}
     assert not gateaux.holomorphic(F, u)
-    for entry in (w, Conjugate(w)):
-        e = GateauxDerivative(F, u, u, entry)
+    for entry in (w, conjugate(w)):
+        e = gateaux_derivative(F, u, entry, u)
         out = derivatives.apply_derivatives(
             actions.apply_actions(gateaux.apply_gateaux_derivatives(e))
         )

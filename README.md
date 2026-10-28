@@ -14,27 +14,40 @@ The passes, in `src/uflx_spec_interpreter/`, in the order of the specification:
 | 4 `expand_pull_backs` | `passes/pullbacks.py` | N5 |
 | 5 `apply_gradients` | `passes/gradients.py` | N6 |
 
-The language itself is split by concern:
+The package splits a public API from a private one.
 
-- `nodes/`: the node classes, by chapter of the specification:
-  - `base.py`: `Base`, which interns every object with a seed-free hash so that
-    equal objects are the same object (see `INTERNING_PLAN.md`),
-    `AbstractExpression`, whose static type is computed once for each node (see
-    `ABSTRACT_EXPRESSION_PLAN.md`), and `Index`
-  - `algebra.py`: numbers, arithmetic, index notation, `GatheredIndex` and
-    `Inverse`
-  - `calculus.py`: coordinates, gradients, directional derivatives, integrals,
-    pull-backs and normals
-  - `forms.py`: spaces, functions, forms, actions and Gateaux derivatives
-  - `domains.py`: coordinate domains, domain maps, decomposed domains, cells,
-    side maps and `cell_domain`
+The public API is the free functions, named as in the specification, in the
+modules at the top of the package. A user, and a test that builds expressions,
+imports only these:
+
+- `algebra.py`: `num`, `zero`, `index`, `tensor`, `indexed`, `component_tensor`,
+  `index_sum`, `gathered_index`, the arithmetic (`add`, `subtract`, `negate`,
+  `multiply`, `divide`, `power`, which work on tensors componentwise where the
+  specification says so), the elementary functions, `inverse`, and the matrix
+  compositions such as `transpose`, `matrix_product` and `determinant`
+- `calculus.py`: `coordinate`, `gradient`, `directional_derivative` and
+  `integral`
+- `maps.py`: `domain_map` and `pull_back`
+- `geometry.py`: `jacobian`, `inverse_jacobian` and `density`
+- `domains.py`: `coordinate_domain`, `decomposed_domain`, `cell_domain`,
+  `gathered_cell_domain`, `side_map` and `normal`
+- `forms.py`: `space`, `function`, `form`, `action` and `gateaux_derivative`
+- `static.py`: the free functions that read the static type
+
+The private API is the classes in `nodes/`, which only the passes, the oracle
+and the white-box tests import:
+
+- `nodes/base.py`: `Base`, which interns every object with a seed-free hash so
+  that equal objects are the same object (see `INTERNING_PLAN.md`),
+  `AbstractExpression`, whose static type each class states (see
+  `ABSTRACT_EXPRESSION_PLAN.md`), and `Index`
+- `nodes/algebra.py`, `nodes/calculus.py`, `nodes/domains.py` and
+  `nodes/forms.py`: the node classes, by chapter of the specification
 - `substitution.py`: traversal, freshening and simultaneous substitution
-- `commuting.py`: the commuting node classes, into which an evaluated node moves
-- `calculus.py`: the derivatives of the node classes, shared by passes 2 and 5
-- `geometry.py`: the Jacobian matrix, its inverse on the tangent space, and the density
-- `static.py`: the free functions that read the static type, which each class
-  states
-- `algebra.py`: the matrix compositions the passes share
+- `passes/commuting.py`: the commuting node classes, into which an evaluated
+  node moves
+- `passes/node_derivatives.py`: the derivatives of the node classes, shared by
+  passes 2 and 5
 
 `oracle.py` evaluates an expression from the definitions of its nodes, with
 finite differences for derivatives, quadrature for integrals and numeric maps

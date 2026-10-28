@@ -7,36 +7,30 @@ from test_integrals import R2, D, u
 from test_surface import R3, M
 from testutil import assert_clean, contains
 
+from uflx_spec_interpreter.algebra import add, component_tensor, index, indexed, multiply, num
+from uflx_spec_interpreter.calculus import coordinate, gradient, integral
+from uflx_spec_interpreter.domains import coordinate_domain, decomposed_domain, side_map
+from uflx_spec_interpreter.forms import function, space
+from uflx_spec_interpreter.maps import domain_map, pull_back
 from uflx_spec_interpreter.nodes import (
-    ComponentTensor,
     Coordinate,
-    CoordinateDomain,
-    DecomposedDomain,
     DomainMap,
     Function,
     Gradient,
-    Index,
-    Indexed,
-    Integral,
-    Num,
-    Product,
     PullBack,
-    SideMap,
-    Space,
-    Sum,
 )
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
-i, k = Index("i"), Index("k")
-POINT = CoordinateDomain("pt", 0)
+i, k = index("i"), index("k")
+POINT = coordinate_domain("pt", 0)
 
 
 def points(coordinates, Q):
     # A family of points in Q, with the free index i.
-    return DecomposedDomain(
-        (DomainMap(POINT, ComponentTensor(Indexed(table(coordinates), (i, k)), (k,)), Q),)
+    return decomposed_domain(
+        (domain_map(POINT, component_tensor(indexed(table(coordinates), (i, k)), (k,)), Q),)
     )
 
 
@@ -68,33 +62,33 @@ def topology_of_points(Q, coordinates, located):
     E = points(coordinates, R2 if Q == D else R3)
     cells = table([cell for cell, _ in located])
     positions = table([[X] for _, X in located])
-    return E, SideMap(Q, E, cells, positions)
+    return E, side_map(Q, E, cells, positions)
 
 
 SQUARE_SIDE = topology_of_points(D, SQUARE, [in_square(x) for x in SQUARE])
 SURFACE_SIDE = topology_of_points(M, [on_surface(c, X) for c, X in SURFACE], SURFACE)
-w = Function(Space("W", domain=M), "w")
+w = function(space("W", domain=M), "w")
 ENV = {u: lambda x: 1 + x[0] + 2 * x[0] * x[1], w: lambda x: 1 + x[0] * x[1] + x[2] * x[2]}
 
 
 def integrand(rnd, Q, f):
-    X = Coordinate(Q)
+    X = coordinate(Q)
     n = 2 if Q == D else 3
     r, s = rnd.randrange(n), rnd.randrange(n)
-    grad = lambda g: Gradient(g, Q)
+    grad = lambda g: gradient(g, Q)
     choices = [
         f,
-        Indexed(X, (r,)),
-        Indexed(grad(f), (r,)),
-        Indexed(grad(Product(f, f)), (r,)),
-        Indexed(grad(Product(f, Indexed(X, (0,)))), (r,)),
-        Indexed(grad(X), (r, s)),
+        indexed(X, (r,)),
+        indexed(grad(f), (r,)),
+        indexed(grad(multiply(f, f)), (r,)),
+        indexed(grad(multiply(f, indexed(X, (0,)))), (r,)),
+        indexed(grad(X), (r, s)),
     ]
     if Q == D:
         # Hessians of a terminal and of a product, both evaluated on the mesh.
-        choices += [Indexed(grad(grad(f)), (r, s)), Indexed(grad(grad(Product(f, f))), (r, s))]
+        choices += [indexed(grad(grad(f)), (r, s)), indexed(grad(grad(multiply(f, f))), (r, s))]
     a, b = rnd.choice(choices), rnd.choice(choices)
-    return rnd.choice([a, Sum(a, b), Product(a, b), Product(Num(2), a)])
+    return rnd.choice([a, add(a, b), multiply(a, b), multiply(num(2), a)])
 
 
 def stays_for_the_mesh_library(n):
@@ -130,9 +124,9 @@ def main(trials):
         restricted = rnd.random() < 0.5
         if restricted:
             E, sm = side
-            e = Integral(PullBack(integrand(rnd, Q, f), sm), E)
+            e = integral(pull_back(integrand(rnd, Q, f), sm), E)
         else:
-            e = Integral(integrand(rnd, Q, f), family)
+            e = integral(integrand(rnd, Q, f), family)
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
         out = gradients.apply_gradients(out4)
         if contains(out4, needs_pass):

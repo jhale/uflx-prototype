@@ -6,63 +6,65 @@ from test_facets import table
 from test_integrals import K
 from testutil import assert_clean, contains
 
+from uflx_spec_interpreter.algebra import (
+    add,
+    component_tensor,
+    index,
+    index_sum,
+    indexed,
+    multiply,
+    num,
+    tensor,
+)
+from uflx_spec_interpreter.calculus import coordinate, gradient, integral
+from uflx_spec_interpreter.domains import coordinate_domain, decomposed_domain, normal, side_map
+from uflx_spec_interpreter.forms import function, space
+from uflx_spec_interpreter.maps import domain_map, pull_back
 from uflx_spec_interpreter.nodes import (
     CellMap,
-    ComponentTensor,
-    Coordinate,
-    CoordinateDomain,
-    DecomposedDomain,
     DomainMap,
     Function,
     Gradient,
-    Index,
-    Indexed,
-    IndexSum,
-    Integral,
     Normal,
-    Num,
-    Product,
     PullBack,
     SideMap,
-    Space,
-    Sum,
-    Tensor,
 )
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
-R3 = CoordinateDomain("R3", 3)
-I = CoordinateDomain("I", 1)
-k, c, e, i = Index("k"), Index("c"), Index("e"), Index("i")
+R3 = coordinate_domain("R3", 3)
+I = coordinate_domain("I", 1)
+k, c, e, i = index("k"), index("c"), index("e"), index("i")
 
 # A surface folded along its diagonal: two triangles that are not coplanar.
 p = table([[(0, 0, 0), (1, 0, 0), (1, 1, 0.5)], [(0, 0, 0), (1, 1, 0.5), (0, 1, 1)]])
-fam = lambda v: Indexed(p, (c, v, k))
-X = Coordinate(K)
-psi = ComponentTensor(
-    Sum(
+fam = lambda v: indexed(p, (c, v, k))
+X = coordinate(K)
+psi = component_tensor(
+    add(
         fam(0),
-        Sum(
-            Product(Sum(fam(1), Product(Num(-1), fam(0))), Indexed(X, (0,))),
-            Product(Sum(fam(2), Product(Num(-1), fam(0))), Indexed(X, (1,))),
+        add(
+            multiply(add(fam(1), multiply(num(-1), fam(0))), indexed(X, (0,))),
+            multiply(add(fam(2), multiply(num(-1), fam(0))), indexed(X, (1,))),
         ),
     ),
     (k,),
 )
-M = DecomposedDomain((DomainMap(K, psi, R3),))
+M = decomposed_domain((domain_map(K, psi, R3),))
 
-bump = Tensor((Num(1), Num(-1), Num(2)))
-kk = Index("kk")
+bump = tensor((num(1), num(-1), num(2)))
+kk = index("kk")
 
 
 def deform(z):
     # A smooth map of R^3 applied to the point z.
-    return ComponentTensor(
-        Sum(
-            Indexed(z, (kk,)),
-            Product(
-                Product(Num(0.2), Product(Indexed(z, (0,)), Indexed(z, (1,)))), Indexed(bump, (kk,))
+    return component_tensor(
+        add(
+            indexed(z, (kk,)),
+            multiply(
+                multiply(num(0.2), multiply(indexed(z, (0,)), indexed(z, (1,)))),
+                indexed(bump, (kk,)),
             ),
         ),
         (kk,),
@@ -70,25 +72,25 @@ def deform(z):
 
 
 # The deformed surface on the parameter domain M, which has no topology and so no sides.
-Ms = DecomposedDomain((DomainMap(M, deform(Coordinate(M)), R3),))
+Ms = decomposed_domain((domain_map(M, deform(coordinate(M)), R3),))
 
 # The same curved surface written as a mesh, with the cells of M deformed, so it has sides.
-C = DecomposedDomain((DomainMap(K, deform(psi), R3),))
+C = decomposed_domain((domain_map(K, deform(psi), R3),))
 
 
 def edges(vertices, curved=False):
     fv = table(vertices)
-    psi_e = ComponentTensor(
-        Sum(
-            Indexed(fv, (e, 0, k)),
-            Product(
-                Sum(Indexed(fv, (e, 1, k)), Product(Num(-1), Indexed(fv, (e, 0, k)))),
-                Indexed(Coordinate(I), (0,)),
+    psi_e = component_tensor(
+        add(
+            indexed(fv, (e, 0, k)),
+            multiply(
+                add(indexed(fv, (e, 1, k)), multiply(num(-1), indexed(fv, (e, 0, k)))),
+                indexed(coordinate(I), (0,)),
             ),
         ),
         (k,),
     )
-    return DecomposedDomain((DomainMap(I, deform(psi_e) if curved else psi_e, R3),))
+    return decomposed_domain((domain_map(I, deform(psi_e) if curved else psi_e, R3),))
 
 
 INTERIOR = [[(0, 0, 0), (1, 1, 0.5)]]
@@ -104,11 +106,11 @@ def sides(D, curved):
     # The fold and the boundary of the surface D, with their side tables.
     E_int, E_bnd = edges(INTERIOR, curved), edges(BOUNDARY, curved)
     interior = {
-        "+": SideMap(D, E_int, table([0]), table([[(0, 0), (0, 1)]])),
-        "-": SideMap(D, E_int, table([1]), table([[(0, 0), (1, 0)]])),
+        "+": side_map(D, E_int, table([0]), table([[(0, 0), (0, 1)]])),
+        "-": side_map(D, E_int, table([1]), table([[(0, 0), (1, 0)]])),
     }
     boundary = {
-        "inside": SideMap(
+        "inside": side_map(
             D,
             E_bnd,
             table([0, 0, 1, 1]),
@@ -120,46 +122,46 @@ def sides(D, curved):
 
 EDGES = {M: sides(M, False), C: sides(C, True)}
 
-u = Function(Space("V", domain=M), "u")
+u = function(space("V", domain=M), "u")
 ENV = {u: {0: lambda x: 1 + x[0] + 2 * x[1] - x[2], 1: lambda x: 3 - x[0] * x[2] + x[1]}}
 
 
 def field(rnd, dom):
-    Z = Coordinate(dom)
-    g = Sum(Product(Indexed(Z, (0,)), Indexed(Z, (1,))), Indexed(Z, (2,)))
-    h = Product(Indexed(Z, (2,)), Indexed(Z, (2,)))
-    grad = lambda q: Gradient(q, dom)
+    Z = coordinate(dom)
+    g = add(multiply(indexed(Z, (0,)), indexed(Z, (1,))), indexed(Z, (2,)))
+    h = multiply(indexed(Z, (2,)), indexed(Z, (2,)))
+    grad = lambda q: gradient(q, dom)
     return rnd.choice(
         [
             g,
-            Indexed(grad(g), (rnd.randrange(3),)),
-            IndexSum(Product(Indexed(grad(g), (i,)), Indexed(grad(h), (i,))), (i,)),
-            Product(h, Indexed(grad(h), (rnd.randrange(3),))),
-            Num(2),
+            indexed(grad(g), (rnd.randrange(3),)),
+            index_sum(multiply(indexed(grad(g), (i,)), indexed(grad(h), (i,))), (i,)),
+            multiply(h, indexed(grad(h), (rnd.randrange(3),))),
+            num(2),
         ]
     )
 
 
 def edge_integrand(rnd, D, E, sides):
     sm = sides[rnd.choice(list(sides))]
-    Z = Coordinate(D)
-    g = Sum(Product(Indexed(Z, (0,)), Indexed(Z, (1,))), Indexed(Z, (2,)))
+    Z = coordinate(D)
+    g = add(multiply(indexed(Z, (0,)), indexed(Z, (1,))), indexed(Z, (2,)))
     f = rnd.choice(
-        ([u, Indexed(Gradient(u, M), (rnd.randrange(3),))] if D == M else [])
+        ([u, indexed(gradient(u, M), (rnd.randrange(3),))] if D == M else [])
         + [
-            Indexed(Z, (rnd.randrange(3),)),
-            Indexed(Gradient(g, D), (rnd.randrange(3),)),
+            indexed(Z, (rnd.randrange(3),)),
+            indexed(gradient(g, D), (rnd.randrange(3),)),
         ]
     )
-    n = Normal(D, E, sm)
+    n = normal(D, E, sm)
     return rnd.choice(
         [
-            PullBack(f, sm),
-            Product(PullBack(f, sm), Indexed(n, (rnd.randrange(3),))),
+            pull_back(f, sm),
+            multiply(pull_back(f, sm), indexed(n, (rnd.randrange(3),))),
             n,
-            Sum(
-                PullBack(f, sides[next(iter(sides))]),
-                Product(Num(-1), PullBack(f, sides[list(sides)[-1]])),
+            add(
+                pull_back(f, sides[next(iter(sides))]),
+                multiply(num(-1), pull_back(f, sides[list(sides)[-1]])),
             ),
         ]
     )
@@ -196,15 +198,15 @@ def main(trials):
             ["surface", "deformed surface", "curved surface", "edges", "curved edges"]
         )
         if kind == "surface":
-            e_int = Integral(field(rnd, M), M)
+            e_int = integral(field(rnd, M), M)
         elif kind == "deformed surface":
-            e_int = Integral(field(rnd, Ms), Ms)
+            e_int = integral(field(rnd, Ms), Ms)
         elif kind == "curved surface":
-            e_int = Integral(field(rnd, C), C)
+            e_int = integral(field(rnd, C), C)
         else:
             D = C if kind == "curved edges" else M
             E, side_maps = rnd.choice(EDGES[D])
-            e_int = Integral(edge_integrand(rnd, D, E, side_maps), E)
+            e_int = integral(edge_integrand(rnd, D, E, side_maps), E)
         check(f"{kind} {seed}", e_int, ENV, bad, None)
     print(
         f"{trials} integrals on a surface in R^3: {bad['value']} values changed, "
