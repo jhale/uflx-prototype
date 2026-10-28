@@ -10,7 +10,8 @@ oracle to the extension to the core, which `test/test_boundaries.py` checks:
 - `uflx_toy`: a language extension, with the classes that the specification
   leaves to a library or to an extension, `IndexTable`, `RuntimeExtent`,
   `RuntimeArray`, the space `Space`, the reference cell `ReferenceSimplex`, and the
-  topologies `StaticTopology` and `TabulatedTopology`
+  topologies `StaticTopology` and `TabulatedTopology`, whose side tables
+  `inclusions.py` builds from vertex positions with `affine_map`
 - `uflx_oracle`: the oracle that the tests compare the passes against
 
 The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
@@ -53,8 +54,6 @@ modules of `_src`:
   `integral`
 - `maps.py`: `domain_map` and `pull_back`
 - `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
-- `cells.py`: `affine_map`, and the edges, the Jacobian and the centroid that the
-  pull-back of a normal composes
 - `topology.py`: `cell_index`
 - `domains.py`: `decomposed_domain`, `cell_domain`, `side_domain`,
   `gathered_cell_domain`, `side_map` and `normal`

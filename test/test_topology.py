@@ -2,7 +2,7 @@ import numpy as np
 from test_integrals import DIAGONAL, SQUARE, D, K, c
 from test_integrals import I as interval
 
-from uflx_oracle import evaluate
+from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import cell_index, function, pull_back, side_domain, side_map
 from uflx_spec_interpreter._src.nodes import SideMap
 from uflx_toy.spaces import space
@@ -13,11 +13,19 @@ def test_the_side_tables_of_the_diagonal_of_the_example():
     # The example of Restriction, with the square numbered ((0, 1, 2), (1, 3, 2)).
     square = static_topology((K,), (((0, 1, 2), (1, 3, 2)),), ())
     diagonal = static_topology((interval,), (((1, 2),),), ((("+", square, 0), ("-", square, 0)),))
-    expected = {"+": ((0,), [[(1, 0), (0, 1)]]), "-": ((1,), [[(0, 0), (0, 1)]])}
-    for side, (cells, positions) in expected.items():
-        table, coordinates = diagonal.side_tables(0, side)
-        assert table.values == cells and table.extent == 2
-        assert np.allclose(np.real(evaluate(coordinates, {})(())), positions)
+    e = cell_index(diagonal, 0)
+    expected = {"+": ((0,), lambda t: (1 - t, t)), "-": ((1,), lambda t: (0, t))}
+    for side, (cells, inclusion) in expected.items():
+        table, A, m = diagonal.side_tables(0, side)
+        assert table.values == cells and table.extent == 2 and A.parameter_domain == interval
+        for t in (0.0, 0.4, 1.0):
+            point = at(
+                interval, np.array([t]), lambda A=A: evaluate(A.parameterisation, {}, {e: 0})(())
+            )
+            assert np.allclose(np.real(point), inclusion(t))
+        normal = np.real(at(interval, np.array([0.5]), lambda m=m: evaluate(m, {}, {e: 0})(())))
+        # Out of K, from the centroid (1/3, 1/3) through the facet.
+        assert normal @ (inclusion(0.5) - np.array([1, 1]) / 3) > 0
 
 
 def test_a_mesh_and_its_sides_have_topologies():
