@@ -1,4 +1,4 @@
-from functools import cache
+import weakref
 
 from .nodes import AbstractExpression, Base, EllipsisIndex, Function, Index
 
@@ -8,10 +8,12 @@ def operands(e, names=None):
     return list(edges(e) if names is None else nodes_in(e, names))
 
 
-@cache
 def edges(e):
-    # The edges of rule 5, without the opaque arguments, computed once for each node.
-    return nodes_in(e, traversed(e))
+    # The edges of rule 5, without the opaque arguments, kept on the node like its static type.
+    memo = vars(e)
+    if "edges" not in memo:
+        memo["edges"] = nodes_in(e, traversed(e))
+    return memo["edges"]
 
 
 def nodes_in(e, names):
@@ -58,15 +60,20 @@ def map_fields(e, fn, names=None):
     return rebuild(e, **{n: walk(getattr(e, n)) for n in names})
 
 
-@cache
 def occurs(r, e):
-    # Whether r is free in e.
-    if e == r:
-        return True
+    # Whether r is free in e, kept on e and weakly in r so that each is freed with its node.
+    memo = vars(e).setdefault("occurrences", weakref.WeakKeyDictionary())
+    if r not in memo:
+        memo[r] = e == r or any(occurs(r, x) for x in operands(e, scoped(r, e)))
+    return memo[r]
+
+
+def scoped(r, e):
+    # The arguments of e in which r can be free, without the scope if r names a bound name.
     names = traversed(e)
     if any(occurs(n, r) for n in e.bound()):
         names = [n for n in names if n not in e.scope]
-    return any(occurs(r, x) for x in operands(e, names))
+    return names
 
 
 def rename(node, name, avoid):
@@ -91,25 +98,46 @@ def freshen(e, avoid):
 
 def substitute(e, mapping):
     # Simultaneous capture-avoiding substitution of mapping[r] for each r in e.
-    return _substitute(e, tuple(mapping.items()))
+    return memoized(substituted)(e, tuple(mapping.items()))
 
 
-@cache
-def _substitute(e, items):
+def substituted(walk, e, items):
     mapping = dict(items)
     if e in mapping:
         return mapping[e]
     if e.labels:
         # A derived name with a replaced object in its label is rebuilt, and a renamed name is not.
         renamed = isinstance(e.label, tuple) and e.label[:1] == ("uflx.rename",)
-        return e if renamed else map_fields(e, lambda x: _substitute(x, items), e.labels)
+        return e if renamed else map_fields(e, lambda x: walk(x, items), e.labels)
     if not e.scope:
-        return map_fields(e, lambda x: _substitute(x, items))
+        return map_fields(e, lambda x: walk(x, items))
     inner = {r: s for r, s in mapping.items() if not any(occurs(n, r) for n in e.bound())}
     fresh = freshen(e, list(inner.values()))
     if not fresh.scope:
-        return _substitute(fresh, items)
+        return walk(fresh, items)
     e = fresh
     outside = [n for n in traversed(e) if n not in e.scope]
-    e = map_fields(e, lambda x: _substitute(x, items), outside)
-    return map_fields(e, lambda x: _substitute(x, tuple(inner.items())), e.scope)
+    e = map_fields(e, lambda x: walk(x, items), outside)
+    return map_fields(e, lambda x: walk(x, tuple(inner.items())), e.scope)
+
+
+def memoized(rule):
+    # The recursion of rule through one memo, which lasts as long as the returned function.
+    memo = {}
+
+    def recurse(*args):
+        if args not in memo:
+            memo[args] = rule(recurse, *args)
+        return memo[args]
+
+    return recurse
+
+
+def bottom_up(f, rewrite):
+    # Rewrite each node after its operands, once for each node of the graph of f.
+    return memoized(lambda walk, e: rewrite(map_fields(e, walk)))(f)
+
+
+def everywhere(e, holds):
+    # Whether holds is true at every node of the graph of e.
+    return memoized(lambda walk, n: holds(n) and all(map(walk, expressions(n))))(e)

@@ -1,15 +1,15 @@
 import numpy as np
 
-from uflx_spec_interpreter._src.substitution import expressions
+from uflx_spec_interpreter._src.substitution import expressions, memoized
 
 from .evaluation import evaluate
-from .inputs import reads_input
+from .inputs import reads
 
 
 def fold(e):
     # The values of the largest subgraphs that read no kernel input, computed once with NumPy,
     # such as the geometry of a mesh whose coordinates are constants.
-    folded, seen = {}, set()
+    folded, seen, reads_input = {}, set(), memoized(reads)
 
     def visit(n):
         if n in seen:

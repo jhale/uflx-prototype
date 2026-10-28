@@ -1,5 +1,3 @@
-from functools import cache
-
 from ..arithmetic import divide, square_root
 from ..domains import cell_of, inclusion
 from ..geometry import inverse_jacobian
@@ -19,12 +17,11 @@ from ..nodes import (
     Sum,
 )
 from ..static import free, shape, support, zero_like
-from ..substitution import expressions, freshen, map_fields
+from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized
 from ..tensors import transpose
 
 
-@cache
-def pb(f, m):
+def rule(pb, f, m):
     # The rule table of expand_pull_backs, for PullBack(f, m).
     match f:
         case _ if isinstance(m, SideMap) and support(f) is not None:
@@ -47,11 +44,11 @@ def pb(f, m):
                 Gradient(pb(g, m), m.parameter_domain), inverse_jacobian(m), f, m
             )
         case Normal(sm) if cell_of(m) is not None and m.ambient_domain == sm.parameter_domain:
-            return normal(f, m)
+            return normal(f, m, pb)
         case Function() | Normal() | Coordinate():
             return PullBack(f, m)
         case _:
-            return pointwise(f, m)
+            return pointwise(f, m, pb)
 
 
 def broadcast(f, m):
@@ -62,7 +59,7 @@ def broadcast(f, m):
     return Sum(f, zero_like(pulled, f.argument_spaces))
 
 
-def pointwise(f, m):
+def pointwise(f, m, pb):
     fresh = freshen(f, [m.parameterisation]) if f.scope else f
     return map_fields(fresh, lambda x: pb(x, m) if isinstance(x, AbstractExpression) else x)
 
@@ -87,32 +84,35 @@ def side_maps(sm, m):
     return B, A, S.side_tables(i, sm.side)[2]
 
 
-def normal(f, m):
+def normal(f, m, pb):
     # K^T m_hat / |K^T m_hat|, with m_hat the reference normal of the side tables.
     B, A, m_hat = side_maps(f.side_map, m)
     w = transpose(pb(inverse_jacobian(B), A)) @ m_hat
     return divide(w, square_root(w @ w))
 
 
-@cache
 def expand_pull_backs(f):
     # Inner pull-backs first, then the rule for the expression of each pull-back.
-    match map_fields(f, expand_pull_backs):
-        case PullBack(g, m):
-            return pb(g, m)
-        case e:
-            return e
+    pb = memoized(rule)
+
+    def expand(e):
+        match e:
+            case PullBack(g, m):
+                return pb(g, m)
+        return e
+
+    return bottom_up(f, expand)
 
 
-@cache
 def in_n5(e):
-    match e:
-        case PullBack(_, SideMap()) | PullBack(
-            Function() | Normal() | Coordinate() | PullBack(), _
-        ):
-            pass
-        case PullBack(Gradient(_, Q), m) if m.parameter_domain.dimension < Q.dimension:
-            pass
-        case PullBack():
-            return False
-    return all(in_n5(c) for c in expressions(e))
+    def holds(n):
+        match n:
+            case PullBack(_, SideMap()) | PullBack(
+                Function() | Normal() | Coordinate() | PullBack(), _
+            ):
+                return True
+            case PullBack(Gradient(_, Q), m):
+                return m.parameter_domain.dimension < Q.dimension
+        return not isinstance(n, PullBack)
+
+    return everywhere(e, holds)

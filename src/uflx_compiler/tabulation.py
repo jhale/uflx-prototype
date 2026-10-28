@@ -1,5 +1,3 @@
-from functools import cache
-
 import numpy as np
 
 from uflx_spec_interpreter import RD, component_tensor, index, index_sum, pull_back, tensor
@@ -15,7 +13,7 @@ from uflx_spec_interpreter._src.nodes import (
     PullBack,
 )
 from uflx_spec_interpreter._src.passes.pullbacks import expand_pull_backs
-from uflx_spec_interpreter._src.substitution import map_fields
+from uflx_spec_interpreter._src.substitution import bottom_up
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.nodes import IndexTable, RuntimeArray
 from uflx_toy.runtime import runtime_array
@@ -27,13 +25,11 @@ from .inputs import Basis, nodes, reads_input
 def tabulate(f):
     # A function of a Basix space read on a cell at the points of a rule, possibly through the
     # inclusion of a facet, becomes its gathered coefficients times the tabulated basis.
-    @cache
     def rewrite(e):
-        e = map_fields(e, rewrite)
         found = leaf(e)
         return values(*found) if found else e
 
-    return rewrite(f)
+    return bottom_up(f, rewrite)
 
 
 def coefficients(u):

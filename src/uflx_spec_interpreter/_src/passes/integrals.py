@@ -1,5 +1,3 @@
-from functools import cache
-
 from ..arithmetic import total
 from ..domains import cell_domain
 from ..geometry import density
@@ -14,7 +12,7 @@ from ..nodes import (
     PullBack,
 )
 from ..static import free, shape, support
-from ..substitution import expressions, map_fields
+from ..substitution import bottom_up, everywhere
 
 
 def rule(e):
@@ -37,15 +35,16 @@ def piece_integral(f, D, j):
     return IndexSum(term, family) if family else term
 
 
-@cache
 def expand_integrals(f):
     # Inner integrals first.
-    return rule(map_fields(f, expand_integrals))
+    return bottom_up(f, rule)
 
 
-@cache
 def in_n4(e):
-    match e:
-        case Integral(_, DecomposedDomain()):
-            return False
-    return all(in_n4(c) for c in expressions(e))
+    def holds(n):
+        match n:
+            case Integral(_, DecomposedDomain()):
+                return False
+        return True
+
+    return everywhere(e, holds)

@@ -1,8 +1,7 @@
-from functools import cache
 from typing import NamedTuple
 
 from uflx_spec_interpreter._src.nodes import AbstractExtent
-from uflx_spec_interpreter._src.substitution import expressions
+from uflx_spec_interpreter._src.substitution import expressions, memoized
 from uflx_toy.nodes import RuntimeArray
 
 
@@ -28,9 +27,12 @@ def nodes(e):
     return list(seen)
 
 
-@cache
+def reads(reads, e):
+    return isinstance(e, RuntimeArray) or any(map(reads, expressions(e)))
+
+
 def reads_input(e):
-    return isinstance(e, RuntimeArray) or any(map(reads_input, expressions(e)))
+    return memoized(reads)(e)
 
 
 def kernel_inputs(e):

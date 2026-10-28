@@ -1,5 +1,3 @@
-from functools import cache
-
 from ..nodes import (
     Absolute,
     Action,
@@ -34,7 +32,7 @@ from ..nodes import (
     Zero,
 )
 from ..static import free_indices, shape, support
-from ..substitution import expressions, map_fields
+from ..substitution import bottom_up, everywhere, memoized
 from ..tensors import identity
 from .derivative_table import derivative_of_node
 from .pullbacks import expand_pull_backs
@@ -43,8 +41,7 @@ from .pullbacks import expand_pull_backs
 LEAVES = (Function, Normal, PullBack, Gradient, Coordinate)
 
 
-@cache
-def partial(f, P, j):
+def rule(partial, f, P, j):
     # Entry j of the last axis of Gradient(f, P), with the leaf rows of apply_gradients first.
     match f:
         case _ if support(f) is None:
@@ -65,7 +62,7 @@ def partial(f, P, j):
     return derivative_of_node(f, lambda b: partial(b, P, j), lambda c: support(c) is None, [])
 
 
-def gradient(f, P):
+def gradient(f, P, partial):
     j = Index(("uflx.apply_gradients", f, P, "j"))
     axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
     df = partial(f, P, j)
@@ -80,18 +77,17 @@ def evaluated(f, P):
 
 
 def apply_gradients(f):
-    # A pull-back over an evaluated gradient is pointwise again, so expand_pull_backs finishes.
-    return expand_pull_backs(rewrite(f))
+    # Inner gradients first, then the rule for the expression of each gradient. A pull-back over
+    # an evaluated gradient is pointwise again, so expand_pull_backs finishes.
+    partial = memoized(rule)
 
+    def evaluate(e):
+        match e:
+            case Gradient(g, P) if evaluated(g, P):
+                return gradient(g, P, partial)
+        return e
 
-@cache
-def rewrite(e):
-    # Inner gradients first, then the rule for the expression of each gradient.
-    match map_fields(e, rewrite):
-        case Gradient(f, P) if evaluated(f, P):
-            return gradient(f, P)
-        case e:
-            return e
+    return expand_pull_backs(bottom_up(f, evaluate))
 
 
 # The node classes that the core normal form allows always.
@@ -153,11 +149,4 @@ def allowed(e):
 
 
 def in_n6(e):
-    seen = {}
-
-    def walk(n):
-        if n not in seen:
-            seen[n] = allowed(n) and all(map(walk, expressions(n)))
-        return seen[n]
-
-    return walk(e)
+    return everywhere(e, allowed)

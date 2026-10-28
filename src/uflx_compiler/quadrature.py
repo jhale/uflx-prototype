@@ -1,28 +1,24 @@
-from functools import cache
-
 import basix
 
 from uflx_spec_interpreter import RD, domain_map, index, index_sum, pull_back, tensor
 from uflx_spec_interpreter._src.nodes import Float, Integral
 from uflx_spec_interpreter._src.passes.pullbacks import expand_pull_backs
-from uflx_spec_interpreter._src.substitution import map_fields
+from uflx_spec_interpreter._src.substitution import bottom_up
 from uflx_toy.basix_nodes import BasixCell
 
 
 def apply_quadrature(f, degree):
     # An integral over a reference cell becomes the weighted sum over the points of a rule.
-    @cache
     def rewrite(e):
-        match map_fields(e, rewrite):
+        match e:
             case Integral(g, BasixCell() as K):
                 return rule(g, K, degree)
             case Integral(g, RD(0)):
                 # A point has the one weight 1.
                 return g
-            case e:
-                return e
+        return e
 
-    return expand_pull_backs(rewrite(f))
+    return expand_pull_backs(bottom_up(f, rewrite))
 
 
 def rule(g, K, degree):
