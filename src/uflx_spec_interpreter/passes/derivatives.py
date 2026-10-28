@@ -1,4 +1,4 @@
-from ..calculus import derivative_of_node
+from ..node_derivatives import derivative_of_node
 from ..nodes import DirectionalDerivative
 from ..static import arity, zero_like
 from ..substitution import expressions, map_fields, occurs, substitute

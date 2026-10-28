@@ -2,41 +2,129 @@ from functools import reduce
 from itertools import combinations, permutations
 
 from .nodes import (
+    Absolute,
     ComponentTensor,
+    Conjugate,
     Coordinate,
     Division,
+    GatheredIndex,
     Gradient,
+    ImaginaryPart,
     Index,
     Indexed,
     IndexSum,
+    Inverse,
+    Logarithm,
     Num,
+    Power,
     Product,
+    RealPart,
     SquareRoot,
     Sum,
     Tensor,
+    Zero,
 )
+
+
+def num(value):
+    return Num(value)
+
+
+def zero(value_shape, free_indices, argument_spaces):
+    return Zero(value_shape, free_indices, argument_spaces)
+
+
+def index(label):
+    return Index(label)
+
+
+def gathered_index(table, indices):
+    return GatheredIndex(table, indices)
+
+
+def tensor(entries):
+    return Tensor(tuple(entries))
+
+
+def indexed(expression, indices):
+    return Indexed(expression, tuple(indices))
+
+
+def component_tensor(expression, indices):
+    return ComponentTensor(expression, tuple(indices))
+
+
+def index_sum(expression, indices):
+    return IndexSum(expression, tuple(indices))
+
+
+def componentwise(rule, label, *operands):
+    # The rule on the components, through derived indices, for an array-valued operand.
+    shape = operands[0].value_shape
+    if not shape:
+        return rule(*operands)
+    axes = tuple(Index((label, operands, n)) for n in range(len(shape)))
+    return ComponentTensor(rule(*(Indexed(x, axes) for x in operands)), axes)
+
+
+def add(a, b):
+    return componentwise(Sum, "add", a, b)
+
+
+def negate(a):
+    return componentwise(lambda x: Product(Num(-1), x), "negate", a)
+
+
+def subtract(a, b):
+    return add(a, negate(b))
+
+
+def multiply(a, b):
+    return Product(a, b)
+
+
+def divide(a, b):
+    return Division(a, b)
+
+
+def power(a, b):
+    return Power(a, b)
+
+
+def absolute(a):
+    return Absolute(a)
+
+
+def conjugate(a):
+    return Conjugate(a)
+
+
+def real_part(a):
+    return RealPart(a)
+
+
+def imaginary_part(a):
+    return ImaginaryPart(a)
+
+
+def square_root(a):
+    return SquareRoot(a)
+
+
+def logarithm(a):
+    return Logarithm(a)
+
+
+def inverse(a):
+    return Inverse(a)
 
 
 def total(es):
     return reduce(Sum, es)
 
 
-def subtract(b, c):
-    return Sum(b, Product(Num(-1), c))
-
-
 def identity(n):
     return Tensor(tuple(Tensor(tuple(Num(1 if r == c else 0) for c in range(n))) for r in range(n)))
-
-
-def add(*Xs):
-    r, s = (Index(("add", Xs, n)) for n in range(2))
-    return ComponentTensor(total(Indexed(X, (r, s)) for X in Xs), (r, s))
-
-
-def negate(X):
-    r, s = (Index(("negate", X, n)) for n in range(2))
-    return ComponentTensor(Product(Num(-1), Indexed(X, (r, s))), (r, s))
 
 
 def transpose(X):
@@ -79,9 +167,8 @@ def gram(J):
 
 def tangent_gram(J, P):
     # JᵀJ + I - Π is invertible on a parameter domain of lower dimension, where JᵀJ is not.
-    return add(
-        gram(J), identity(P.ambient_coordinate_domain.dimension), negate(Gradient(Coordinate(P), P))
-    )
+    identity_matrix = identity(P.ambient_coordinate_domain.dimension)
+    return subtract(add(gram(J), identity_matrix), Gradient(Coordinate(P), P))
 
 
 def determinant(M, n):

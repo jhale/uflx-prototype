@@ -1,5 +1,5 @@
 from ..algebra import identity
-from ..calculus import derivative_of_node
+from ..node_derivatives import derivative_of_node
 from ..nodes import (
     ComponentTensor,
     Coordinate,
