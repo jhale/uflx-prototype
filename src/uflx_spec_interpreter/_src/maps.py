@@ -1,9 +1,9 @@
 from .nodes import DomainMap, PullBack
 
 
-def domain_map(parameter_domain, parameterisation, ambient_domain):
-    return DomainMap(parameter_domain, parameterisation, ambient_domain)
+def domain_map(P, psi, Q):
+    return DomainMap(P, psi, Q)
 
 
-def pull_back(expression, domain):
-    return PullBack(expression, domain)
+def pull_back(f, D):
+    return PullBack(f, D)

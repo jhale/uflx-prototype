@@ -58,9 +58,9 @@ def half_sum(F, x, a, w, sign):
     )
 
 
-def apply_gateaux_derivatives(e):
+def apply_gateaux_derivatives(f):
     # Inner derivatives first, then the rule for each Gateaux derivative.
-    return rule(map_fields(e, apply_gateaux_derivatives))
+    return rule(map_fields(f, apply_gateaux_derivatives))
 
 
 def in_n1(e):

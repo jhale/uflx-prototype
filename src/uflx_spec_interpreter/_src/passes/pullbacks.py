@@ -108,11 +108,11 @@ def normal(f, m):
     return unit(transpose(K) @ mhat)
 
 
-def expand_pull_backs(e):
+def expand_pull_backs(f):
     # Inner pull-backs first, then the rule for the expression of each pull-back.
-    match map_fields(e, expand_pull_backs):
-        case PullBack(f, m):
-            return pb(f, m)
+    match map_fields(f, expand_pull_backs):
+        case PullBack(g, m):
+            return pb(g, m)
         case e:
             return e
 

@@ -76,9 +76,9 @@ def evaluated(f, P):
     return not isinstance(f, LEAVES)
 
 
-def apply_gradients(e):
+def apply_gradients(f):
     # A pull-back over an evaluated gradient is pointwise again, so expand_pull_backs finishes.
-    return expand_pull_backs(rewrite(e))
+    return expand_pull_backs(rewrite(f))
 
 
 def rewrite(e):

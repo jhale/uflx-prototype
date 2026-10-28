@@ -1,20 +1,17 @@
 from .nodes import Coordinate, DirectionalDerivative, Gradient, Integral
 
 
-def coordinate(domain):
-    return Coordinate(domain)
+def coordinate(P):
+    return Coordinate(P)
 
 
-def gradient(expression, domain):
-    return Gradient(expression, domain)
+def gradient(f, P):
+    return Gradient(f, P)
 
 
-def directional_derivative(expression, variable, direction, point=None):
-    # The point is the variable unless given, as for the free function of the specification.
-    return DirectionalDerivative(
-        expression, variable, variable if point is None else point, direction
-    )
+def directional_derivative(f, x, h, a=None):
+    return DirectionalDerivative(f, x, x if a is None else a, h)
 
 
-def integral(expression, domain):
-    return Integral(expression, domain)
+def integral(f, P):
+    return Integral(f, P)

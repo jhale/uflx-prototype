@@ -35,9 +35,9 @@ def piece_integral(f, D, j):
     return IndexSum(term, family) if family else term
 
 
-def expand_integrals(e):
+def expand_integrals(f):
     # Inner integrals first.
-    return rule(map_fields(e, expand_integrals))
+    return rule(map_fields(f, expand_integrals))
 
 
 def in_n4(e):

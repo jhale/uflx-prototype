@@ -20,11 +20,11 @@ def rules(f, x, a, h):
     return derivative_of_node(f, lambda b: rules(b, x, a, h), lambda c: not occurs(x, c), [x, a, h])
 
 
-def apply_derivatives(e):
+def apply_derivatives(f):
     # Inner derivatives first, then the rule for the expression of each derivative.
-    match map_fields(e, apply_derivatives):
-        case DirectionalDerivative(f, x, a, h):
-            return deriv(f, x, a, h)
+    match map_fields(f, apply_derivatives):
+        case DirectionalDerivative(g, x, a, h):
+            return deriv(g, x, a, h)
         case e:
             return e
 

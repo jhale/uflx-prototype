@@ -42,11 +42,11 @@ def without(xs, i):
     return xs[:i] + xs[i + 1 :]
 
 
-def apply_actions(e):
+def apply_actions(f):
     # Inner actions first, then the rule for the form of each action.
-    match map_fields(e, apply_actions):
-        case Action(f, p, g):
-            return act(f, p, g)
+    match map_fields(f, apply_actions):
+        case Action(form, p, g):
+            return act(form, p, g)
         case e:
             return e
 

@@ -18,13 +18,13 @@ def decomposed_domain(pieces):
     return DecomposedDomain(tuple(pieces))
 
 
-def gathered_cell_domain(D, j, cell_index):
-    return CellMap(D, j, cell_index)
+def gathered_cell_domain(D, j, g):
+    return CellMap(D, j, g)
 
 
 def side_map(ambient_domain, parameter_domain, cells, positions):
     return SideMap(ambient_domain, parameter_domain, cells, positions)
 
 
-def normal(ambient_domain, parameter_domain, side):
-    return Normal(ambient_domain, parameter_domain, side)
+def normal(D, E, s):
+    return Normal(D, E, s)

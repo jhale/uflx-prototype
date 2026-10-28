@@ -13,32 +13,32 @@ def tangent_gram(J, P):
     return subtract(add(gram(J), identity_matrix), Gradient(Coordinate(P), P))
 
 
-def jacobian(m):
-    return Gradient(m.parameterisation, m.parameter_domain)
+def jacobian(D):
+    return Gradient(D.parameterisation, D.parameter_domain)
 
 
-def metric(m):
+def metric(D):
     # JᵀJ + I - Π, which is JᵀJ when the parameter domain has the dimension of its ambient.
-    J = jacobian(m)
+    J = jacobian(D)
     return (
         gram(J)
-        if m.parameter_domain.dimension == m.parameter_domain.ambient_coordinate_domain.dimension
-        else tangent_gram(J, m.parameter_domain)
+        if D.parameter_domain.dimension == D.parameter_domain.ambient_coordinate_domain.dimension
+        else tangent_gram(J, D.parameter_domain)
     )
 
 
-def density(m):
+def density(D):
     # sqrt(det G), with the closed form |det J| for a cell of the ambient dimension.
-    k, n = m.parameter_domain.dimension, m.ambient_domain.ambient_coordinate_domain.dimension
+    k, n = D.parameter_domain.dimension, D.ambient_domain.ambient_coordinate_domain.dimension
     if k == 0:
         return Integer(1)
-    if k == m.parameter_domain.ambient_coordinate_domain.dimension == n:
-        return Absolute(determinant(jacobian(m)))
-    return SquareRoot(determinant(metric(m)))
+    if k == D.parameter_domain.ambient_coordinate_domain.dimension == n:
+        return Absolute(determinant(jacobian(D)))
+    return SquareRoot(determinant(metric(D)))
 
 
-def inverse_jacobian(m):
+def inverse_jacobian(D):
     # G⁻¹Jᵀ, with the closed form inverse(J) when the parameter domain has the ambient dimension.
-    if m.parameter_domain.dimension == m.parameter_domain.ambient_coordinate_domain.dimension:
-        return Inverse(jacobian(m))
-    return matrix_product(Inverse(metric(m)), transpose(jacobian(m)))
+    if D.parameter_domain.dimension == D.parameter_domain.ambient_coordinate_domain.dimension:
+        return Inverse(jacobian(D))
+    return matrix_product(Inverse(metric(D)), transpose(jacobian(D)))

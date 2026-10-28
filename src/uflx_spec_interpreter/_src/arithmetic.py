@@ -54,20 +54,20 @@ def negate(f):
     return multiply(Integer(-1), f)
 
 
-def subtract(first, second):
-    return add(first, negate(second))
+def subtract(f, g):
+    return add(f, negate(g))
 
 
-def power(a, b):
-    return Power(a, b)
+def power(first, second):
+    return Power(first, second)
 
 
-def absolute(a):
-    return Absolute(a)
+def absolute(f):
+    return Absolute(f)
 
 
-def conjugate(a):
-    return Conjugate(a)
+def conjugate(f):
+    return Conjugate(f)
 
 
 def entrywise(name, op, f):
@@ -85,12 +85,12 @@ def imaginary_part(f):
     return entrywise("uflx.imaginary_part", ImaginaryPart, f)
 
 
-def square_root(a):
-    return SquareRoot(a)
+def square_root(f):
+    return SquareRoot(f)
 
 
-def logarithm(a):
-    return Logarithm(a)
+def logarithm(f):
+    return Logarithm(f)
 
 
 def total(es):

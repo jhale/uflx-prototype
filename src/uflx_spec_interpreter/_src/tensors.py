@@ -31,8 +31,8 @@ def index_sum(expression, indices):
     return IndexSum(expression, tuple(indices))
 
 
-def inverse(a):
-    return Inverse(a)
+def inverse(A):
+    return Inverse(A)
 
 
 def identity(n):
