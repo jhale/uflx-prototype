@@ -162,20 +162,20 @@ def support(e):
     return found
 
 
-def by_identity(fn):
+def memoised(fn):
     # Pass outputs share subexpressions, so a walk without memoisation is exponential in depth.
     seen = {}
 
     def wrapped(e):
-        if id(e) not in seen:
-            seen[id(e)] = (e, fn(e))
-        value = seen[id(e)][1]
+        if e not in seen:
+            seen[e] = fn(e)
+        value = seen[e]
         return dict(value) if isinstance(value, dict) else value
 
     return wrapped
 
 
-shape, free, arity = by_identity(shape), by_identity(free), by_identity(arity)
+shape, free, arity = memoised(shape), memoised(free), memoised(arity)
 
 
 def free_indices(*es):

@@ -16,7 +16,9 @@ The passes, in `src/uflx_spec_interpreter/`, in the order of the specification:
 
 The language itself is split by concern:
 
-- `nodes.py`: the node classes, from the expressions to the form layer
+- `nodes.py`: the node classes, from the expressions to the form layer, interned
+  with a seed-free hash so that equal nodes are the same object (see
+  `INTERNING_PLAN.md`)
 - `domains.py`: domains, domain maps and their cells
 - `substitution.py`: traversal, freshening and simultaneous substitution
 - `commuting.py`: the commuting node classes, into which an evaluated node moves

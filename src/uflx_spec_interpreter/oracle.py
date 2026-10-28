@@ -176,7 +176,7 @@ VALUES = {}
 
 def evaluate(e, env, ienv=None, over=None):
     ienv = {i: n for i, n in (ienv or {}).items() if i in free(e)}
-    key = (id(e), id(env), frozenset(ienv.items()), id(over) if over else None)
+    key = (e, id(env), frozenset(ienv.items()), id(over) if over else None)
     if key not in BUILT:
         f = evaluate_uncached(e, env, ienv, over)
 
@@ -186,8 +186,7 @@ def evaluate(e, env, ienv=None, over=None):
             at_points = (
                 id(f),
                 tuple(
-                    (id(k), v.tobytes() if isinstance(v, np.ndarray) else v)
-                    for k, v in POINTS.items()
+                    (k, v.tobytes() if isinstance(v, np.ndarray) else v) for k, v in POINTS.items()
                 ),
             )
             if at_points not in VALUES:
@@ -196,7 +195,7 @@ def evaluate(e, env, ienv=None, over=None):
                 VALUES[at_points] = f(vals)
             return VALUES[at_points]
 
-        BUILT[key] = (e, env, over, shared)
+        BUILT[key] = (env, over, shared)
     return BUILT[key][-1]
 
 

@@ -4,22 +4,25 @@ from .nodes import Node
 from .substitution import substitute
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class CoordDomain(Node):
+    identifier = "toy.CoordDomain"
     name: str
     dim: int
     opaque = ("name", "dim")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class DomainMap(Node):
+    identifier = "uflx.DomainMap"
     P: Node
     psi: Node
     Q: Node
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Decomposed(Node):
+    identifier = "uflx.DecomposedDomain"
     pieces: tuple
 
 
@@ -37,15 +40,17 @@ def ambient(P):
     return P.pieces[0].Q if isinstance(P, Decomposed) else P
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Gathered(Node):
+    identifier = "uflx.GatheredIndex"
     # An index read from a table at the given entries.
     table: Node
     indices: tuple
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class CellMap(Node):
+    identifier = "toy.CellMap"
     # Piece j of D seen as a domain in D, for the cell selected by entry (an Index or a Gathered).
     D: Node
     j: int
@@ -74,8 +79,9 @@ class CellMap(Node):
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class SideMap(Node):
+    identifier = "uflx.SideMap"
     # The map from the cells of E into D, from one side, through the side tables.
     D: Node
     E: Node
