@@ -22,7 +22,8 @@ checks:
   pass that rewrites an integral over a Basix cell as a weighted sum over the
   points of a rule of Basix, a tabulation pass that rewrites a function of a
   `BasixSpace` at the points as its coefficients times the tabulated basis, and
-  an evaluator of the arithmetic that remains on NumPy or JAX arrays
+  an evaluator of the arithmetic that remains on NumPy or JAX arrays, after
+  `fold` has computed once the subgraphs that read no kernel input
 
 The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
 

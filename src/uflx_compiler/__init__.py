@@ -8,10 +8,11 @@ from uflx_spec_interpreter import (
 )
 
 from .evaluation import evaluate
+from .folding import fold
 from .quadrature import apply_quadrature
 from .tabulation import coefficients, tabulate
 
-__all__ = ["apply_quadrature", "coefficients", "compile_form", "evaluate", "tabulate"]
+__all__ = ["apply_quadrature", "coefficients", "compile_form", "evaluate", "fold", "tabulate"]
 
 
 def compile_form(f, degree):

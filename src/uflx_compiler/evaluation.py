@@ -26,10 +26,10 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_toy.nodes import RuntimeArray
 
 
-def evaluate(e, env, xp=np):
+def evaluate(e, env, xp=np, folded=None):
     # Each node is an array with an axis for each of its free indices, in the order of its
-    # static type, followed by the axes of its value shape.
-    arrays = {}
+    # static type, followed by the axes of its value shape. A folded node is a constant.
+    arrays = {n: xp.asarray(v) for n, v in (folded or {}).items()}
 
     def value(n):
         if n not in arrays:

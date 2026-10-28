@@ -1,3 +1,5 @@
+import re
+
 import basix
 import jax
 import jax.numpy as jnp
@@ -6,7 +8,7 @@ import pytest
 from test_basix import CELLS, mixed, square
 from testutil import contains
 
-from uflx_compiler import compile_form, evaluate
+from uflx_compiler import compile_form, evaluate, fold
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import function, gradient, integral, num
 from uflx_spec_interpreter._src.nodes import Coordinate, Gradient, Integral, PullBack
@@ -42,8 +44,10 @@ def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
         # Quadrature and tabulation leave arithmetic on arrays, with no lazy node.
         lazy = (Integral, PullBack, Gradient, Coordinate)
         assert not contains(compiled, lambda n, lazy=lazy: isinstance(n, lazy))
-        value = evaluate(compiled, {("coefficients", u): U})
-        assert np.isclose(value, oracle(e, {u: U})(()), rtol=1e-8), e
+        env = {("coefficients", u): U}
+        expected = oracle(e, {u: U})(())
+        assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8), e
+        assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8), e
 
 
 def test_the_same_graph_runs_on_jax():
@@ -60,3 +64,27 @@ def test_the_same_graph_runs_on_jax():
     step = 1e-6
     central = evaluate(compiled, {key: U + step * d}) - evaluate(compiled, {key: U - step * d})
     assert np.isclose(jax.grad(f)(jnp.asarray(U)) @ d, central / (2 * step), rtol=1e-6)
+
+
+def instructions(compiled, key, n, folded=None):
+    f = jax.jit(lambda U: evaluate(compiled, {key: U}, jnp, folded))
+    return len(re.findall(r"= \S+ \w[\w-]*\(", f.lower(jnp.zeros(n)).compile().as_text()))
+
+
+def test_folding_the_geometry_shrinks_the_kernel():
+    # The geometry of a mesh with constant coordinates reads no kernel input, so it is folded.
+    D = mixed()[0]
+    V = basix_space("V", D, P, 2)
+    u = function(V, "u")
+    compiled = compile_form(functionals(D, u)[3], 4)
+    key = ("coefficients", u)
+    folded = fold(compiled)
+    assert compiled not in folded and folded
+    plain, small = (
+        instructions(compiled, key, V.num_dofs),
+        instructions(compiled, key, V.num_dofs, folded),
+    )
+    assert small < plain / 3, (plain, small)
+    U = np.random.default_rng(7).normal(size=V.num_dofs)
+    f = jax.jit(lambda U: evaluate(compiled, {key: U}, jnp, folded))
+    assert np.isclose(f(jnp.asarray(U)), evaluate(compiled, {key: U}))
