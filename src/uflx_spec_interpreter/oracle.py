@@ -13,6 +13,7 @@ from .nodes import (
     DecomposedDomain,
     DirectionalDerivative,
     Division,
+    EllipsisIndex,
     Float,
     Form,
     Function,
@@ -79,7 +80,7 @@ def jacobian_of(chart, X):
 
 def index_value(i, ienv):
     # The value of an entry: an int, an Index from the environment, or a read of a table.
-    if isinstance(i, Index):
+    if isinstance(i, Index | EllipsisIndex):
         return ienv[i]
     if isinstance(i, GatheredIndex):
         values = i.table.values
@@ -295,22 +296,32 @@ def evaluate_uncached(e, env, ienv=None, over=None):
         case Indexed(x, idx):
             fx = ev(x)
 
-            key = tuple(index_value(i, ienv) for i in idx)
+            # The value of an EllipsisIndex is a tuple, one entry for each axis that it covers.
+            values = [index_value(i, ienv) for i in idx]
+            key = tuple(k for v in values for k in (v if isinstance(v, tuple) else (v,)))
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
+            # An EllipsisIndex ranges over the tuples of values of the axes that it covers.
             extents = [free(x)[i] for i in idx]
+            ranges = [
+                list(itertools.product(*map(range, n))) if isinstance(n, tuple) else range(n)
+                for n in extents
+            ]
             fs = {
-                combo: ev(x, ienv | dict(zip(idx, combo)))
-                for combo in itertools.product(*(range(n) for n in extents))
+                combo: ev(x, ienv | dict(zip(idx, combo))) for combo in itertools.product(*ranges)
             }
+            shape = tuple(m for n in extents for m in (n if isinstance(n, tuple) else (n,)))
+
+            def flat(combo):
+                return tuple(k for v in combo for k in (v if isinstance(v, tuple) else (v,)))
 
             def value(vals):
                 out = {combo: f(vals) for combo, f in fs.items()}
                 if isinstance(e, IndexSum):
                     return sum(out.values())
-                arr = np.empty(extents, dtype=complex)
+                arr = np.empty(shape, dtype=complex)
                 for k, v in out.items():
-                    arr[k] = v
+                    arr[flat(k)] = v
                 return arr
 
             return value

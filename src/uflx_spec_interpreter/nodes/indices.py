@@ -18,6 +18,15 @@ class Index(Base):
     labels = ("label",)
 
 
+@final
+class EllipsisIndex(Base):
+    identifier = "uflx.EllipsisIndex"
+    # An index that covers any number of axes, whose extent is a tuple of extents.
+    label: str | tuple
+    opaque = ("label",)
+    labels = ("label",)
+
+
 class AbstractIndexValue(Base):
     # A table of index values that the solver gives, which is not an expression.
     @property

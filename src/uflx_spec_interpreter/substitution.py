@@ -1,6 +1,6 @@
 from functools import cache
 
-from .nodes import AbstractExpression, Base, Function, Index
+from .nodes import AbstractExpression, Base, EllipsisIndex, Function, Index
 
 
 def operands(e, names=None):
@@ -72,8 +72,8 @@ def rename(node, name, avoid):
     # The label refers to the bound operands and to avoid, never to the binding node.
     body = tuple(getattr(node, f) for f in node.scope)
     label = ("uflx.rename", name, body, tuple(avoid))
-    if isinstance(name, Index):
-        return Index(label)
+    if isinstance(name, Index | EllipsisIndex):
+        return type(name)(label)
     if isinstance(name, Function):
         return Function(name.space, label)
     raise TypeError("a compound variable has no new name")

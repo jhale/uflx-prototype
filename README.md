@@ -25,7 +25,7 @@ imports only these:
 - `arithmetic.py`: `add`, `subtract`, `negate`, `multiply`, `divide`, `power`,
   the elementary functions and `total`, where `add`, `subtract` and `negate`
   work on tensors componentwise as the specification says
-- `indices.py`: `index`, `index_table` and `gathered_index`
+- `indices.py`: `index`, `ellipsis_index`, `index_table` and `gathered_index`
 - `tensors.py`: `tensor`, `indexed`, `component_tensor`, `index_sum`, `inverse`,
   and the matrix compositions such as `transpose`, `matrix_product` and
   `determinant`

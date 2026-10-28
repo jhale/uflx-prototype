@@ -14,7 +14,7 @@ from .base import AbstractExpression, Base
 from .calculus import Coordinate, DirectionalDerivative, Gradient, Integral, Normal, PullBack
 from .domains import AbstractDomain, CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap
 from .forms import Action, Form, Function, GateauxDerivative, Space
-from .indices import AbstractIndexValue, GatheredIndex, Index, IndexTable
+from .indices import AbstractIndexValue, EllipsisIndex, GatheredIndex, Index, IndexTable
 from .literals import Float, ImaginaryUnit, Integer, Zero
 from .tensors import ComponentTensor, Indexed, IndexSum, Inverse, Tensor
 
@@ -34,6 +34,7 @@ __all__ = [
     "DirectionalDerivative",
     "Division",
     "DomainMap",
+    "EllipsisIndex",
     "Float",
     "Form",
     "Function",

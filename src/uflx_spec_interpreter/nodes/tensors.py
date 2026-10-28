@@ -4,10 +4,10 @@ from functools import cached_property
 from typing import TYPE_CHECKING, final
 
 from .base import AbstractExpression
-from .indices import GatheredIndex, Index
+from .indices import EllipsisIndex, GatheredIndex, Index
 
 if TYPE_CHECKING:
-    from .indices import GatheredIndex, Index
+    from .indices import EllipsisIndex, GatheredIndex, Index
 
 
 @final
@@ -36,17 +36,26 @@ class Tensor(AbstractExpression):
 class Indexed(AbstractExpression):
     identifier = "uflx.Indexed"
     expression: AbstractExpression
-    indices: tuple[int | Index | GatheredIndex, ...]
+    indices: tuple[int | Index | GatheredIndex | EllipsisIndex, ...]
 
     @cached_property
     def free_indices(self):
-        # An Index takes the extent of its axis, and a gathered index states its own.
+        # An Index takes the extent of its axis, an EllipsisIndex the extents of every axis that
+        # the other entries leave, and a gathered index states its own.
+        shape = self.expression.value_shape
+        covered = len(shape) - len(self.indices) + 1
         out = dict(self.expression.free_indices)
-        for k, i in enumerate(self.indices):
+        k = 0
+        for i in self.indices:
+            if isinstance(i, EllipsisIndex):
+                out[i] = tuple(shape[k : k + covered])
+                k += covered
+                continue
             if isinstance(i, Index):
-                out[i] = self.expression.value_shape[k]
-            elif not isinstance(i, int):
+                out[i] = shape[k]
+            elif isinstance(i, GatheredIndex):
                 out |= dict(i.free_indices)
+            k += 1
         return tuple(out.items())
 
     @cached_property
@@ -66,7 +75,7 @@ class Indexed(AbstractExpression):
 class ComponentTensor(AbstractExpression):
     identifier = "uflx.ComponentTensor"
     expression: AbstractExpression
-    indices: tuple[Index, ...]
+    indices: tuple[Index | EllipsisIndex, ...]
     scope = ("expression", "indices")
 
     def bound(self):
@@ -74,8 +83,13 @@ class ComponentTensor(AbstractExpression):
 
     @cached_property
     def value_shape(self):
+        # An EllipsisIndex gives one axis for each of its extents.
         free = dict(self.expression.free_indices)
-        return tuple(free[i] for i in self.indices)
+        return tuple(
+            n
+            for i in self.indices
+            for n in (free[i] if isinstance(i, EllipsisIndex) else (free[i],))
+        )
 
     @cached_property
     def free_indices(self):
@@ -94,7 +108,7 @@ class ComponentTensor(AbstractExpression):
 class IndexSum(AbstractExpression):
     identifier = "uflx.IndexSum"
     expression: AbstractExpression
-    indices: tuple[Index, ...]
+    indices: tuple[Index | EllipsisIndex, ...]
     scope = ("expression", "indices")
 
     def bound(self):
