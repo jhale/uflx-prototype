@@ -16,6 +16,9 @@ def apply_quadrature(f, degree):
         match map_fields(e, rewrite):
             case Integral(g, BasixCell() as K):
                 return rule(g, K, degree)
+            case Integral(g, RD(0)):
+                # A point has the one weight 1.
+                return g
             case e:
                 return e
 

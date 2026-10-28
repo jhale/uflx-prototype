@@ -2,8 +2,10 @@ import numpy as np
 
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
+    AbstractExtent,
     ComponentTensor,
     Conjugate,
+    Coordinate,
     Division,
     Float,
     GatheredIndex,
@@ -43,8 +45,17 @@ def free(n):
     return [i for i, _ in n.free_indices]
 
 
-def extents(n):
-    return dict(n.free_indices)
+def size(m, env):
+    # An extent known only at assembly is a kernel input, as a solver gives it.
+    return env[m] if isinstance(m, AbstractExtent) else m
+
+
+def extents(n, env):
+    return {i: size(m, env) for i, m in n.free_indices}
+
+
+def value_shape(n, env):
+    return [size(m, env) for m in n.value_shape]
 
 
 def aligned(n, data, order, xp):
@@ -64,8 +75,8 @@ def node(n, value, env, xp):
             return xp.asarray(v)
         case ImaginaryUnit():
             return xp.asarray(1j)
-        case Zero(value_shape, free_indices, _):
-            return xp.zeros([m for _, m in free_indices] + list(value_shape))
+        case Zero(shape, free_indices, _):
+            return xp.zeros([size(m, env) for _, m in free_indices] + [size(m, env) for m in shape])
         case RuntimeArray(label, _):
             return xp.asarray(env[label])
         case Sum(a, b):
@@ -93,35 +104,39 @@ def node(n, value, env, xp):
                 ImaginaryPart: xp.imag,
             }[type(n)]
             return op(value(a))
+        case Coordinate(P) if P.dimension == 0:
+            return xp.zeros((0,))
         case Inverse(a):
             return xp.linalg.inv(value(a))
         case Tensor(entries):
             parts = [
                 xp.broadcast_to(
                     aligned(x, value(x), order, xp),
-                    full_shape(n, order)[: len(order)] + list(x.value_shape),
+                    full_shape(n, order, env)[: len(order)] + value_shape(x, env),
                 )
                 for x in entries
             ]
             return xp.stack(parts, axis=len(order))
         case Indexed(x, indices):
-            return indexed(n, x, indices, value, xp)
+            return indexed(n, x, indices, value, env, xp)
         case ComponentTensor(x, indices):
-            return xp.reshape(aligned(x, value(x), order + list(indices), xp), full_shape(n, order))
+            return xp.reshape(
+                aligned(x, value(x), order + list(indices), xp), full_shape(n, order, env)
+            )
         case IndexSum(x, indices):
             data = aligned(x, value(x), order + list(indices), xp)
             return xp.sum(data, axis=tuple(range(len(order), len(order) + len(indices))))
     raise TypeError(f"the compiler cannot evaluate {type(n).__name__}")
 
 
-def full_shape(n, order):
-    return [extents(n)[i] for i in order] + list(n.value_shape)
+def full_shape(n, order, env):
+    return [extents(n, env)[i] for i in order] + value_shape(n, env)
 
 
-def indexed(n, x, indices, value, xp):
+def indexed(n, x, indices, value, env, xp):
     # Every axis of x is read through an integer array that broadcasts over the free indices.
     order = free(n)
-    sizes = extents(n)
+    sizes = extents(n, env)
 
     def iota(i):
         return np.arange(sizes[i]).reshape([-1 if j == i else 1 for j in order])
