@@ -19,7 +19,7 @@ from uflx_toy.nodes import IndexTable, RuntimeArray
 from uflx_toy.runtime import runtime_array
 
 from .evaluation import evaluate
-from .inputs import Basis, nodes, reads_input
+from .inputs import Basis, runtime_arrays
 
 
 def tabulate(f):
@@ -91,7 +91,7 @@ def basis_table(V, j, derivative, points):
     # An axis for each free index of the points, such as the point and the facet, then the dof
     # and the derivative. Points known only at assembly give a table that runtime_tables fills.
     E = V.element(j)
-    if not reads_input(points):
+    if not runtime_arrays(points):
         return table(basis(E, derivative, np.real(np.asarray(evaluate(points, {}, np)))))
     extents = [m for _, m in points.free_indices]
     derivatives = (points.value_shape[0],) if derivative else ()
@@ -109,7 +109,7 @@ def basis(E, derivative, X):
 def runtime_tables(e, env):
     # The library tabulates at the points that the solver gives, before the kernel runs.
     found = {}
-    for n in nodes(e):
+    for n in runtime_arrays(e):
         match n:
             case RuntimeArray(Basis(V, j, points, derivative) as label, _):
                 X = np.real(np.asarray(evaluate(points, env, np)))

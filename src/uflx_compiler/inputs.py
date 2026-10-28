@@ -13,37 +13,25 @@ class Basis(NamedTuple):
     derivative: int
 
 
-def nodes(e):
-    # Each node of the graph of e once.
-    seen = {}
-
-    def walk(n):
-        if n not in seen:
-            seen[n] = None
-            for c in expressions(n):
-                walk(c)
-
-    walk(e)
-    return list(seen)
+def arrays(arrays, e):
+    # The runtime arrays that e reads, in the order of a walk from e.
+    own = {e: None} if isinstance(e, RuntimeArray) else {}
+    return own | {n: None for c in expressions(e) for n in arrays(c)}
 
 
-def reads(reads, e):
-    return isinstance(e, RuntimeArray) or any(map(reads, expressions(e)))
-
-
-def reads_input(e):
-    return memoized(reads)(e)
+def runtime_arrays(e):
+    return list(memoized(arrays)(e))
 
 
 def kernel_inputs(e):
     # The arrays that a consumer passes by label, with the label of an extent known only at
     # assembly in place of its length, which the consumer passes under that label too. The
     # basis tables are left out, because runtime_tables computes them from their points.
-    arrays = [n for n in nodes(e) if isinstance(n, RuntimeArray)]
-    tables = [n.label for n in arrays if isinstance(n.label, Basis)]
-    arrays += [n for b in tables for n in nodes(b.points) if isinstance(n, RuntimeArray)]
+    found = runtime_arrays(e)
+    tables = [n.label for n in found if isinstance(n.label, Basis)]
+    found = [n for n in found if n.label not in tables]
+    found += [n for b in tables for n in runtime_arrays(b.points)]
     return {
         n.label: tuple(m.label if isinstance(m, AbstractExtent) else m for m in n.value_shape)
-        for n in arrays
-        if not isinstance(n.label, Basis)
+        for n in found
     }
