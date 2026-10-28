@@ -46,7 +46,10 @@ and the white-box tests import:
   contracts.
 - `nodes/algebra.py`, `nodes/calculus.py`, `nodes/domains.py` and
   `nodes/forms.py`: the node classes, by chapter of the specification
-- `substitution.py`: traversal, freshening and simultaneous substitution
+- `interning.py`: the table of nodes, their canonical text and the seed-free
+  digest
+- `substitution.py`: traversal, rebuilding, freshening and simultaneous
+  substitution
 - `passes/commuting.py`: the commuting node classes, into which an evaluated
   node moves
 - `passes/derivative_table.py`: the derivatives of the node classes, shared by
