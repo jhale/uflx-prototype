@@ -3,52 +3,54 @@ import numbers
 import weakref
 from dataclasses import dataclass, fields
 from functools import cached_property
-
-# Every node by its digest, so that equal nodes are the same object.
-TABLE = weakref.WeakValueDictionary()
-
-
-def encode(value):
-    # A canonical encoding, tagged by type, so 1, 1.0 and True differ, and so do 0.0 and -0.0.
-    match value:
-        case Base():
-            return b"N" + value.digest.to_bytes(16, "big")
-        case None:
-            return b"n"
-        case bool():
-            return b"b1" if value else b"b0"
-        case numbers.Integral():
-            return b"i" + str(int(value)).encode() + b";"
-        case numbers.Real():
-            return b"f" + float(value).hex().encode() + b";"
-        case numbers.Complex():
-            return b"c" + encode(float(value.real)) + encode(float(value.imag))
-        case str():
-            data = value.encode()
-            return b"s" + str(len(data)).encode() + b":" + data
-        case tuple():
-            return b"t" + str(len(value)).encode() + b":" + b"".join(map(encode, value))
-    raise TypeError(f"not a construction argument: {value!r}")
-
-
-def digest_of(identifier, values):
-    # Seed-free, unlike the built-in hash of str and bytes, so equal in every process.
-    data = encode(identifier) + encode(tuple(values))
-    return int.from_bytes(hashlib.blake2b(data, digest_size=16).digest(), "big")
+from typing import ClassVar
 
 
 class Interned(type):
+    # Every node by its digest, so that equal nodes are the same object.
+    _table: ClassVar[weakref.WeakValueDictionary] = weakref.WeakValueDictionary()
+
     def __call__(cls, *args, **kwargs):
         if "identifier" not in cls.__dict__:
             raise TypeError(f"{cls.__name__} states no identifier")
         node = super().__call__(*args, **kwargs)
-        digest = digest_of(cls.identifier, (getattr(node, f.name) for f in fields(node)))
-        existing = TABLE.get(digest)
+        digest = Interned.digest_of(cls.identifier, (getattr(node, f.name) for f in fields(node)))
+        existing = Interned._table.get(digest)
         if existing is not None:
             return existing
         object.__setattr__(node, "digest", digest)
-        TABLE[digest] = node
+        Interned._table[digest] = node
         return node
+
+    @staticmethod
+    def encode(value):
+        # A canonical encoding, tagged by type, so 1, 1.0 and True differ, and so do 0.0 and -0.0.
+        encode = Interned.encode
+        match value:
+            case Base():
+                return b"N" + value.digest.to_bytes(16, "big")
+            case None:
+                return b"n"
+            case bool():
+                return b"b1" if value else b"b0"
+            case numbers.Integral():
+                return b"i" + str(int(value)).encode() + b";"
+            case numbers.Real():
+                return b"f" + float(value).hex().encode() + b";"
+            case numbers.Complex():
+                return b"c" + encode(float(value.real)) + encode(float(value.imag))
+            case str():
+                data = value.encode()
+                return b"s" + str(len(data)).encode() + b":" + data
+            case tuple():
+                return b"t" + str(len(value)).encode() + b":" + b"".join(map(encode, value))
+        raise TypeError(f"not a construction argument: {value!r}")
+
+    @staticmethod
+    def digest_of(identifier, values):
+        # Seed-free, unlike the built-in hash of str and bytes, so equal in every process.
+        data = Interned.encode(identifier) + Interned.encode(tuple(values))
+        return int.from_bytes(hashlib.blake2b(data, digest_size=16).digest(), "big")
 
 
 class Base(metaclass=Interned):

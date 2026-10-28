@@ -1,7 +1,8 @@
 from dataclasses import replace
 
 from ..commuting import COMMUTING, commute
-from ..nodes import Action, Conjugate, Form, Function, Product, Zero, members
+from ..forms import members
+from ..nodes import Action, Conjugate, Form, Function, Product, Zero
 from ..static import arity, free_indices
 from ..substitution import expressions, freshen, map_fields, substitute
 

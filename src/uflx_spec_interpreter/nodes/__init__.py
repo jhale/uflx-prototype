@@ -18,13 +18,12 @@ from .algebra import (
     Tensor,
     Zero,
 )
-from .base import TABLE, AbstractExpression, Base, Index, Interned, digest_of, encode
+from .base import AbstractExpression, Base, Index, Interned
 from .calculus import Coordinate, DirectionalDerivative, Gradient, Integral, Normal, PullBack
-from .domains import CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap, cell_domain
-from .forms import Action, Form, Function, GateauxDerivative, Space, entry_fns, members
+from .domains import CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap
+from .forms import Action, Form, Function, GateauxDerivative, Space
 
 __all__ = [
-    "TABLE",
     "Absolute",
     "AbstractExpression",
     "Action",
@@ -63,9 +62,4 @@ __all__ = [
     "Sum",
     "Tensor",
     "Zero",
-    "cell_domain",
-    "digest_of",
-    "encode",
-    "entry_fns",
-    "members",
 ]

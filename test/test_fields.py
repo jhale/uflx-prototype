@@ -6,6 +6,7 @@ from test_integrals import D as MESH
 from test_integrals import K
 from testutil import assert_clean
 
+from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.geometry import density
 from uflx_spec_interpreter.nodes import (
     Action,
@@ -25,7 +26,6 @@ from uflx_spec_interpreter.nodes import (
     PullBack,
     Space,
     Sum,
-    cell_domain,
 )
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions, derivatives, integrals

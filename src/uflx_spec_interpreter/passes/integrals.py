@@ -1,4 +1,5 @@
 from ..algebra import total
+from ..domains import cell_domain
 from ..geometry import density
 from ..nodes import (
     ComponentTensor,
@@ -9,7 +10,6 @@ from ..nodes import (
     Integral,
     Product,
     PullBack,
-    cell_domain,
 )
 from ..static import free, shape, support
 from ..substitution import expressions, map_fields

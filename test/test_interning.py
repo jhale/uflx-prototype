@@ -9,18 +9,18 @@ import pytest
 from test_surface import Ms
 from testutil import contains
 
-from uflx_spec_interpreter import nodes
+from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.geometry import density, inverse_jacobian, metric
 from uflx_spec_interpreter.nodes import (
     Base,
     Function,
     Index,
     Indexed,
+    Interned,
     Num,
     Space,
     Sum,
     Tensor,
-    cell_domain,
 )
 from uflx_spec_interpreter.substitution import map_fields
 
@@ -54,25 +54,26 @@ def test_unused_nodes_are_freed():
 
 def test_hash_is_the_same_in_every_process():
     code = (
-        "from uflx_spec_interpreter.nodes import Fn, Indexed, Space, Sum, Tensor, Num\n"
-        "u = Fn(Space('V'), ('label', 'with', 'strings'))\n"
+        "from uflx_spec_interpreter.nodes import Function, Indexed, Num, Space, Sum, Tensor\n"
+        "u = Function(Space('V'), ('label', 'with', 'strings'))\n"
         "print(hash(Sum(Indexed(Tensor((u, Num(2.5))), (1,)), u)))\n"
     )
     hashes = set()
     for seed in ("1", "2"):
         env = os.environ | {"PYTHONHASHSEED": seed}
         out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True)
+        assert out.returncode == 0, out.stderr
         hashes.add(out.stdout.strip())
-    assert len(hashes) == 1
+    assert len(hashes) == 1 and hashes != {""}
 
 
 def test_hash_does_not_depend_on_where_the_class_is():
     e = Sum(Num(1), Function(V, "u"))
-    digest = nodes.digest_of(Sum.identifier, [getattr(e, f.name) for f in fields(e)])
+    digest = Interned.digest_of(Sum.identifier, [getattr(e, f.name) for f in fields(e)])
     module, qualname = Sum.__module__, Sum.__qualname__
     try:
         Sum.__module__, Sum.__qualname__ = "elsewhere", "Elsewhere"
-        assert nodes.digest_of(Sum.identifier, [getattr(e, f.name) for f in fields(e)]) == digest
+        assert Interned.digest_of(Sum.identifier, [getattr(e, f.name) for f in fields(e)]) == digest
     finally:
         Sum.__module__, Sum.__qualname__ = module, qualname
     assert e.digest == digest

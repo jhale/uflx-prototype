@@ -2,6 +2,7 @@ from test_facets import table
 from test_integrals import D, c
 
 from uflx_spec_interpreter import nodes
+from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.nodes import (
     AbstractExpression,
     Base,
@@ -14,7 +15,6 @@ from uflx_spec_interpreter.nodes import (
     PullBack,
     RealPart,
     Space,
-    cell_domain,
 )
 from uflx_spec_interpreter.passes import pullbacks
 from uflx_spec_interpreter.static import free

@@ -45,7 +45,9 @@ class Form(AbstractExpression):
     scope = ("expression", "arguments")
 
     def bound(self):
-        return [n for a in self.arguments for n in entry_fns(a)]
+        # The functions of the entries, without the conjugate of an entry conjugate(v).
+        members = [m for a in self.arguments for m in (a if isinstance(a, tuple) else (a,))]
+        return [m.operand if isinstance(m, Conjugate) else m for m in members]
 
     @cached_property
     def value_shape(self):
@@ -72,14 +74,6 @@ class Action(AbstractExpression):
     @cached_property
     def arity(self):
         return self.form.arity - 1
-
-
-def members(entry):
-    return list(entry) if isinstance(entry, tuple) else [entry]
-
-
-def entry_fns(entry):
-    return [m.operand if isinstance(m, Conjugate) else m for m in members(entry)]
 
 
 @dataclass(frozen=True, eq=False)
