@@ -16,10 +16,12 @@ from uflx_spec_interpreter.geometry import density, inverse_jacobian, metric
 from uflx_spec_interpreter.interning import digest_of
 from uflx_spec_interpreter.nodes import (
     Base,
+    Float,
     Function,
+    ImaginaryUnit,
     Index,
     Indexed,
-    Num,
+    Integer,
     Sum,
     Tensor,
 )
@@ -30,19 +32,26 @@ V = space("V")
 
 def test_equal_constructions_are_one_object():
     u = Function(V, "u")
-    assert Sum(Num(1), u) is Sum(Num(1), Function(space("V"), "u"))
-    X = Tensor((Num(1), Num(2)))
-    assert Index(("matmul", X, u, 0)) is Index(("matmul", Tensor((Num(1), Num(2))), u, 0))
+    assert Sum(Integer(1), u) is Sum(Integer(1), Function(space("V"), "u"))
+    X = Tensor((Integer(1), Integer(2)))
+    assert Index(("matmul", X, u, 0)) is Index(("matmul", Tensor((Integer(1), Integer(2))), u, 0))
     assert space("V") is space("V", dual=False)
 
 
-def test_constants_differ_by_type_and_sign():
-    values = [Num(1), Num(1.0), Num(True), Num(0.0), Num(-0.0), Num(1 + 0j)]
-    assert len({id(v) for v in values}) == 6
+def test_literals_take_exact_types():
+    values = [Integer(1), Float(1.0), Float(0.0), Float(-0.0), ImaginaryUnit()]
+    assert len({id(v) for v in values}) == 5
+    assert ImaginaryUnit() is ImaginaryUnit()
+    with pytest.raises(TypeError):
+        Integer(True)
+    with pytest.raises(TypeError):
+        Float(1)
+    with pytest.raises(ValueError):
+        Float(float("inf"))
 
 
 def test_rebuilding_returns_the_same_object():
-    e = Sum(Num(1), Function(V, "u"))
+    e = Sum(Integer(1), Function(V, "u"))
     assert rebuild(e) is e
     assert map_fields(e, lambda x: x) is e
 
@@ -56,9 +65,9 @@ def test_unused_nodes_are_freed():
 def test_hash_is_the_same_in_every_process():
     code = (
         "from uflx_spec_interpreter.forms import space\n"
-        "from uflx_spec_interpreter.nodes import Function, Indexed, Num, Sum, Tensor\n"
+        "from uflx_spec_interpreter.nodes import Float, Function, Indexed, Integer, Sum, Tensor\n"
         "u = Function(space('V'), ('label', 'with', 'strings'))\n"
-        "print(hash(Sum(Indexed(Tensor((u, Num(2.5))), (1,)), u)))\n"
+        "print(hash(Sum(Indexed(Tensor((u, Float(2.5))), (1,)), u)))\n"
     )
     hashes = set()
     for seed in ("1", "2"):
@@ -70,7 +79,7 @@ def test_hash_is_the_same_in_every_process():
 
 
 def test_hash_does_not_depend_on_where_the_class_is():
-    e = Sum(Num(1), Function(V, "u"))
+    e = Sum(Integer(1), Function(V, "u"))
     digest = digest_of(Sum.identifier, e.construction_arguments)
     module, qualname = Sum.__module__, Sum.__qualname__
     try:
@@ -97,8 +106,8 @@ def test_density_and_inverse_jacobian_share_the_metric():
 
 
 def test_indexed_expressions_are_interned():
-    T = Tensor((Num(1), Num(2)))
-    assert Indexed(T, (Index("i"),)) is Indexed(Tensor((Num(1), Num(2))), (Index("i"),))
+    T = Tensor((Integer(1), Integer(2)))
+    assert Indexed(T, (Index("i"),)) is Indexed(Tensor((Integer(1), Integer(2))), (Index("i"),))
 
 
 def test_labels_that_read_alike_are_distinct():

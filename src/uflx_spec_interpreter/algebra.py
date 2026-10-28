@@ -7,15 +7,17 @@ from .nodes import (
     Conjugate,
     Coordinate,
     Division,
+    Float,
     GatheredIndex,
     Gradient,
     ImaginaryPart,
+    ImaginaryUnit,
     Index,
     Indexed,
     IndexSum,
+    Integer,
     Inverse,
     Logarithm,
-    Num,
     Power,
     Product,
     RealPart,
@@ -27,7 +29,10 @@ from .nodes import (
 
 
 def num(value):
-    return Num(value)
+    # A literal of the specification: an Integer, a Float, or a complex number as a composition.
+    if isinstance(value, complex):
+        return add(num(value.real), multiply(ImaginaryUnit(), num(value.imag)))
+    return Integer(value) if isinstance(value, int) else Float(value)
 
 
 def zero(value_shape, free_indices, argument_spaces):
@@ -72,7 +77,7 @@ def add(a, b):
 
 
 def negate(a):
-    return componentwise(lambda x: Product(Num(-1), x), "negate", a)
+    return componentwise(lambda x: Product(Integer(-1), x), "negate", a)
 
 
 def subtract(a, b):
@@ -124,7 +129,9 @@ def total(es):
 
 
 def identity(n):
-    return Tensor(tuple(Tensor(tuple(Num(1 if r == c else 0) for c in range(n))) for r in range(n)))
+    return Tensor(
+        tuple(Tensor(tuple(Integer(1 if r == c else 0) for c in range(n))) for r in range(n))
+    )
 
 
 def transpose(X):
@@ -158,7 +165,7 @@ def norm(u):
 
 
 def unit(u):
-    return scale(Division(Num(1), norm(u)), u)
+    return scale(Division(Integer(1), norm(u)), u)
 
 
 def gram(J):
@@ -174,7 +181,7 @@ def tangent_gram(J, P):
 def determinant(M, n):
     # The Leibniz formula.
     return total(
-        reduce(Product, (Indexed(M, (r, p[r])) for r in range(n)), Num(sign(p)))
+        reduce(Product, (Indexed(M, (r, p[r])) for r in range(n)), Integer(sign(p)))
         for p in permutations(range(n))
     )
 

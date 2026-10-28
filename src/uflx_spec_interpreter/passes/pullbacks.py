@@ -14,8 +14,8 @@ from ..nodes import (
     Index,
     Indexed,
     IndexSum,
+    Integer,
     Normal,
-    Num,
     Product,
     PullBack,
     SideMap,
@@ -98,8 +98,8 @@ def normal(f, m):
     B, A = side_maps(f.side, m)
     p0, p1 = ([Indexed(f.side.positions, (m.cell_index, v, k)) for k in range(2)] for v in range(2))
     t = [subtract(b, a) for a, b in zip(p0, p1, strict=True)]
-    m0 = Tensor((t[1], Product(Num(-1), t[0])))
-    away = dot(m0, Tensor(tuple(subtract(a, Num(1 / 3)) for a in p0)))
+    m0 = Tensor((t[1], Product(Integer(-1), t[0])))
+    away = dot(m0, Tensor(tuple(subtract(a, Division(Integer(1), Integer(3))) for a in p0)))
     mhat = scale(Division(away, Absolute(away)), m0)
     K = pb(inverse_jacobian(B), A)
     return unit(matvec(transpose(K), mhat))

@@ -1,5 +1,5 @@
 from .algebra import determinant, gram, matrix_product, tangent_gram, transpose
-from .nodes import Absolute, Gradient, Inverse, Num, SquareRoot
+from .nodes import Absolute, Gradient, Integer, Inverse, SquareRoot
 
 
 def jacobian(m):
@@ -20,7 +20,7 @@ def density(m):
     # sqrt(det G), with the closed form |det J| for a cell of the ambient dimension.
     k, n = m.parameter_domain.dimension, m.ambient_domain.ambient_coordinate_domain.dimension
     if k == 0:
-        return Num(1)
+        return Integer(1)
     if k == m.parameter_domain.ambient_coordinate_domain.dimension == n:
         return Absolute(determinant(jacobian(m), k))
     return SquareRoot(

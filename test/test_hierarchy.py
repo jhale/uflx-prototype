@@ -22,9 +22,10 @@ from uflx_spec_interpreter.static import free
 from uflx_spec_interpreter.substitution import rebuild
 
 EXPRESSIONS = (
-    "Num Zero Sum Product Division Power Absolute Conjugate RealPart ImaginaryPart SquareRoot "
-    "Logarithm Tensor Indexed ComponentTensor IndexSum Inverse Coordinate Gradient "
-    "DirectionalDerivative Integral PullBack Normal Function Form Action GateauxDerivative"
+    "Integer Float ImaginaryUnit Zero Sum Product Division Power Absolute Conjugate RealPart "
+    "ImaginaryPart SquareRoot Logarithm Tensor Indexed ComponentTensor IndexSum Inverse "
+    "Coordinate Gradient DirectionalDerivative Integral PullBack Normal Function Form Action "
+    "GateauxDerivative"
 ).split()
 OTHERS = {
     nodes: [
@@ -109,15 +110,15 @@ def test_a_domain_is_a_contract():
 
 
 def test_nodes_are_immutable_and_take_their_arguments():
-    e = nodes.Num(1)
+    e = nodes.Integer(1)
     with pytest.raises(AttributeError):
         e.value = 2
     with pytest.raises(TypeError):
-        nodes.Num()
+        nodes.Integer()
     with pytest.raises(TypeError):
-        nodes.Num(1, 2)
+        nodes.Integer(1, 2)
     with pytest.raises(TypeError):
         rebuild(e, other=3)
-    assert rebuild(e, value=2) is nodes.Num(2)
+    assert rebuild(e, value=2) is nodes.Integer(2)
     assert nodes.Sum.argument_names == ("first", "second")
     assert nodes.Form.argument_names == ("expression", "arguments")

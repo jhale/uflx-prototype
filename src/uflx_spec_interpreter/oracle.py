@@ -13,20 +13,22 @@ from .nodes import (
     DecomposedDomain,
     DirectionalDerivative,
     Division,
+    Float,
     Form,
     Function,
     GateauxDerivative,
     GatheredIndex,
     Gradient,
     ImaginaryPart,
+    ImaginaryUnit,
     Index,
     Indexed,
     IndexSum,
+    Integer,
     Integral,
     Inverse,
     Logarithm,
     Normal,
-    Num,
     Power,
     Product,
     PullBack,
@@ -225,8 +227,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
         value = over[e]
         return lambda vals: value() if callable(value) else value
     match e:
-        case Num(v):
+        case Integer(v) | Float(v):
             return lambda vals: v
+        case ImaginaryUnit():
+            return lambda vals: 1j
         case Function(space, _) if space.domain is not None:
 
             def function_value(vals):
@@ -372,7 +376,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 y = np.real(np.asarray(psi(())))
                 if isinstance(m, CellMap):
                     cell = evaluate(
-                        Indexed(Tensor((Num(0), Num(1), Num(2), Num(3))), (m.cell_index,)),
+                        Indexed(
+                            Tensor((Integer(0), Integer(1), Integer(2), Integer(3))),
+                            (m.cell_index,),
+                        ),
                         env,
                         ienv,
                         over,

@@ -20,7 +20,8 @@ The public API is the free functions, named as in the specification, in the
 modules at the top of the package. A user, and a test that builds expressions,
 imports only these:
 
-- `algebra.py`: `num`, `zero`, `index`, `tensor`, `indexed`, `component_tensor`,
+- `algebra.py`: `num`, which builds the literal of an `int` or a `float`, and a
+  complex number as a composition with `ImaginaryUnit`, `zero`, `index`, `tensor`, `indexed`, `component_tensor`,
   `index_sum`, `gathered_index`, the arithmetic (`add`, `subtract`, `negate`,
   `multiply`, `divide`, `power`, which work on tensors componentwise where the
   specification says so), the elementary functions, `inverse`, and the matrix
@@ -78,8 +79,6 @@ python test/test_full.py 100
 The classes, their fields, the passes and the helpers use the names of the
 specification. The toy simplifies the specification in these places:
 
-- `Num` is every constant, where the specification has `Integer`, `Float` and
-  `ImaginaryUnit`.
 - `Space` is every space, with the flags `dual` and `complex`, where the
   specification has `AbstractFunctionSpace`, `DualSpace` and `ConjugateSpace`.
 - `CoordinateDomain` is both `RD` and a reference cell, and has no vertices.

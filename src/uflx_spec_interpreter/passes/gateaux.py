@@ -2,10 +2,12 @@ from ..nodes import (
     Absolute,
     Conjugate,
     DirectionalDerivative,
+    Division,
     Form,
     GateauxDerivative,
     ImaginaryPart,
-    Num,
+    ImaginaryUnit,
+    Integer,
     Product,
     RealPart,
     Sum,
@@ -26,9 +28,9 @@ def rule(g):
         case GateauxDerivative(F, x, a, w) if holomorphic(F, x):
             return Form(DirectionalDerivative(F, x, a, w), (w,))
         case GateauxDerivative(F, x, a, Conjugate(w) as entry):
-            return Form(half_sum(F, x, a, w, Num(1j)), (entry,))
+            return Form(half_sum(F, x, a, w, ImaginaryUnit()), (entry,))
         case GateauxDerivative(F, x, a, w):
-            return Form(half_sum(F, x, a, w, Num(-1j)), (w,))
+            return Form(half_sum(F, x, a, w, Product(Integer(-1), ImaginaryUnit())), (w,))
     return g
 
 
@@ -48,10 +50,10 @@ def holomorphic(F, x, inside=False):
 
 def half_sum(F, x, a, w, sign):
     return Product(
-        Num(0.5),
+        Division(Integer(1), Integer(2)),
         Sum(
             DirectionalDerivative(F, x, a, w),
-            Product(sign, DirectionalDerivative(F, x, a, Product(Num(1j), w))),
+            Product(sign, DirectionalDerivative(F, x, a, Product(ImaginaryUnit(), w))),
         ),
     )
 

@@ -5,9 +5,9 @@ from ..nodes import (
     Conjugate,
     Division,
     Function,
+    Integer,
     Inverse,
     Logarithm,
-    Num,
     Power,
     Product,
     SquareRoot,
@@ -24,13 +24,13 @@ def derivative_of_node(f, d, constant, avoid):
         case Division(b, c):
             return subtract(Division(d(b), c), Division(Product(b, d(c)), Product(c, c)))
         case Power(b, c) if constant(c):
-            return Product(Product(c, Power(b, Sum(c, Num(-1)))), d(b))
+            return Product(Product(c, Power(b, Sum(c, Integer(-1)))), d(b))
         case Power(b, c):
             return Product(f, Sum(Product(Logarithm(b), d(c)), Division(Product(c, d(b)), b)))
         case Absolute(b):
             return abs_derivative(b, d(b))
         case SquareRoot(b):
-            return Division(d(b), Product(Num(2), f))
+            return Division(d(b), Product(Integer(2), f))
         case Logarithm(b):
             return Division(d(b), b)
         case Inverse(A):
@@ -44,7 +44,7 @@ def derivative_of_node(f, d, constant, avoid):
 
 def abs_derivative(b, db):
     return Division(
-        Sum(Product(Conjugate(b), db), Product(b, Conjugate(db))), Product(Num(2), Absolute(b))
+        Sum(Product(Conjugate(b), db), Product(b, Conjugate(db))), Product(Integer(2), Absolute(b))
     )
 
 
