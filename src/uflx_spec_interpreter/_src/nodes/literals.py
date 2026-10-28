@@ -5,6 +5,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, final
 
 from .base import AbstractExpression
+from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
     from .indices import Index
@@ -36,7 +37,7 @@ class Integer(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "real"
+        return ScalarType.real
 
     @cached_property
     def support(self):
@@ -71,7 +72,7 @@ class Float(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "real"
+        return ScalarType.real
 
     @cached_property
     def support(self):
@@ -96,7 +97,7 @@ class ImaginaryUnit(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "complex"
+        return ScalarType.complex
 
     @cached_property
     def support(self):
@@ -114,7 +115,7 @@ class Zero(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "real"
+        return ScalarType.real
 
     @cached_property
     def support(self):

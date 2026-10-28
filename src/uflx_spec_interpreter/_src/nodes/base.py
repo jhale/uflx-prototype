@@ -6,6 +6,7 @@ from typing import ClassVar, dataclass_transform
 
 from ..interning import digest_of, table
 from ..tuples import members
+from .scalar_types import ScalarType
 
 
 @dataclass_transform(frozen_default=True, eq_default=False)
@@ -90,7 +91,11 @@ class AbstractExpression(Base):
     def joined_scalar_type(*operands):
         # The default rule, complex if and only if an edge is a complex expression.
         flat = [m for x in operands for m in members(x)]
-        return "complex" if any(m.scalar_type == "complex" for m in flat) else "real"
+        return (
+            ScalarType.complex
+            if any(m.scalar_type == ScalarType.complex for m in flat)
+            else ScalarType.real
+        )
 
     # The free functions import the nodes, so each overload imports its free function locally.
     def __add__(self, other):

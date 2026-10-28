@@ -3,6 +3,7 @@ from testutil import ill_typed, keeps_static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    ScalarType,
     absolute,
     conjugate,
     directional_derivative,
@@ -15,7 +16,7 @@ from uflx_spec_interpreter._src.passes import actions, derivatives, gateaux
 from uflx_toy.spaces import space
 
 # Derivatives in two unknowns at once, as for a mixed problem.
-C, R = space("C"), space("R", scalar_type="real")
+C, R = space("C"), space("R", scalar_type=ScalarType.real)
 u, p, a0, a1, h0, h1 = (function(C, n) for n in ("u", "p", "a0", "a1", "h0", "h1"))
 ENV = {u: 0.3 + 0.2j, p: -0.5 + 0.4j, a0: 0.7 - 0.1j, a1: 0.2 + 0.6j, h0: 0.4j, h1: 1.1}
 

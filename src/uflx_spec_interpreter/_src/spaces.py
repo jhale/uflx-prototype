@@ -1,8 +1,8 @@
-from .nodes import ConjugateSpace, DualSpace
+from .nodes import ConjugateSpace, DualSpace, ScalarType
 
 
 def conjugate_space(V):
-    return V if V.scalar_type == "real" else ConjugateSpace(V)
+    return V if V.scalar_type == ScalarType.real else ConjugateSpace(V)
 
 
 def dual_space(S):

@@ -30,6 +30,7 @@ from .indices import (
     Index,
 )
 from .literals import Float, ImaginaryUnit, Integer, Zero
+from .scalar_types import ScalarType
 from .spaces import AbstractFunctionSpace, ConjugateSpace, DualSpace
 from .tensors import ComponentTensor, Indexed, IndexSum, Inverse, Tensor
 from .topology import AbstractCellType, AbstractTopology
@@ -78,6 +79,7 @@ __all__ = [
     "Product",
     "PullBack",
     "RealPart",
+    "ScalarType",
     "SideMap",
     "SquareRoot",
     "Sum",

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, final
 
 from ..tuples import members
 from .base import AbstractExpression
+from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain, DomainMap, SideMap
@@ -59,7 +60,7 @@ class Coordinate(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "real"
+        return ScalarType.real
 
     @cached_property
     def support(self):
@@ -170,7 +171,7 @@ class Normal(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "real"
+        return ScalarType.real
 
     @cached_property
     def support(self):

@@ -12,6 +12,7 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractReferenceCell,
     AbstractTopology,
     Integer,
+    ScalarType,
     Tensor,
     Zero,
 )
@@ -54,7 +55,7 @@ class RuntimeArray(AbstractExpression):
     free_indices = ()
     argument_spaces = ()
     support = None
-    scalar_type = "real"
+    scalar_type = ScalarType.real
 
 
 @final

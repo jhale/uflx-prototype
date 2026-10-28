@@ -26,7 +26,7 @@ from ._src.geometry import density, inverse_jacobian, jacobian
 from ._src.indices import ellipsis_index, gathered_index, index
 from ._src.literals import num
 from ._src.maps import domain_map, pull_back
-from ._src.nodes import RD
+from ._src.nodes import RD, ScalarType
 from ._src.passes.actions import apply_actions
 from ._src.passes.derivatives import apply_derivatives
 from ._src.passes.gateaux import apply_gateaux_derivatives
@@ -47,9 +47,11 @@ from ._src.tensors import (
 )
 from ._src.topology import cell_index
 
-# The free functions of the specification, the class RD, and the short name num.
+# The free functions of the specification, the class RD, the scalar types, and the
+# short name num.
 __all__ = [
     "RD",
+    "ScalarType",
     "absolute",
     "action",
     "add",

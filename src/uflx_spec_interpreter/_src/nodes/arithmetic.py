@@ -4,6 +4,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, final
 
 from .base import AbstractExpression
+from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
     pass
@@ -165,7 +166,7 @@ class RealPart(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "real"
+        return ScalarType.real
 
     @cached_property
     def support(self):
@@ -191,7 +192,7 @@ class ImaginaryPart(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "real"
+        return ScalarType.real
 
     @cached_property
     def support(self):
@@ -217,7 +218,7 @@ class Absolute(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        return "real"
+        return ScalarType.real
 
     @cached_property
     def support(self):

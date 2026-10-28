@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, final
 
 from ..tuples import members
 from .base import Base
+from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
@@ -61,8 +62,8 @@ class DualSpace(AbstractFunctionSpace):
 
     @cached_property
     def scalar_type(self):
-        complex_ = any(s.scalar_type == "complex" for s in members(self.space))
-        return "complex" if complex_ else "real"
+        is_complex = any(s.scalar_type == ScalarType.complex for s in members(self.space))
+        return ScalarType.complex if is_complex else ScalarType.real
 
     @cached_property
     def argument_spaces(self):

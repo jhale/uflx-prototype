@@ -1,4 +1,4 @@
-from uflx_spec_interpreter import num, tensor
+from uflx_spec_interpreter import ScalarType, num, tensor
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Action,
@@ -54,7 +54,7 @@ def keeps_static_type(e, out):
         out.argument_spaces,
     )
     # A Zero is real with no support, so the scalar type may become real and the support none.
-    scalar = out.scalar_type in (e.scalar_type, "real")
+    scalar = out.scalar_type in (e.scalar_type, ScalarType.real)
     return same and scalar and out.support in (e.support, None)
 
 
@@ -123,7 +123,7 @@ def complex_for_real(V, g):
     # A complex argument for a real space, which only a real argument may fill.
     if isinstance(V, tuple):
         return any(complex_for_real(W, h) for W, h in zip(V, g, strict=True))
-    return g.scalar_type == "complex" and V.scalar_type == "real"
+    return g.scalar_type == ScalarType.complex and V.scalar_type == ScalarType.real
 
 
 def spaces_of(g):

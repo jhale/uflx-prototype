@@ -36,6 +36,7 @@ from uflx_spec_interpreter._src.nodes import (
     Product,
     PullBack,
     RealPart,
+    ScalarType,
     SideMap,
     SquareRoot,
     Sum,
@@ -395,7 +396,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 # The value is that of the entry, so the direction of conjugate(w) is its conjugate.
                 wv = list(wv) if isinstance(entry, tuple) else [wv]
                 wv = [np.conj(d) for d in wv] if antilinear else wv
-                if all(m.space.scalar_type == "real" for m in xs):
+                if all(m.space.scalar_type == ScalarType.real for m in xs):
                     return delta(wv, rest)
                 sign = 1j if antilinear else -1j
                 return 0.5 * (delta(wv, rest) + sign * delta([1j * d for d in wv], rest))

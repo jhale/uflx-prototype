@@ -10,6 +10,7 @@ from ..nodes import (
     Integer,
     Product,
     RealPart,
+    ScalarType,
     Sum,
 )
 from ..static import zero_like
@@ -37,7 +38,7 @@ def rule(g):
 
 def real(x):
     # A tuple variable is real only if every member is, the scalar type of its derivative.
-    return all(m.space.scalar_type == "real" for m in members(x))
+    return all(m.space.scalar_type == ScalarType.real for m in members(x))
 
 
 def antilinear(entry):

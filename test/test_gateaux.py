@@ -6,6 +6,7 @@ from testutil import assert_clean, check_types, ill_typed
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    ScalarType,
     absolute,
     action,
     add,
@@ -22,11 +23,11 @@ from uflx_spec_interpreter._src.passes import actions, derivatives, gateaux
 from uflx_spec_interpreter._src.static import arity
 from uflx_toy.spaces import space
 
-C, R = space("C"), space("R", scalar_type="real")
+C, R = space("C"), space("R", scalar_type=ScalarType.real)
 # A load in each dual space, linear in its argument like every action.
 LOADS = {
     C: function(dual_space(space("C")), "l"),
-    R: function(dual_space(space("R", scalar_type="real")), "l"),
+    R: function(dual_space(space("R", scalar_type=ScalarType.real)), "l"),
 }
 LOAD_VALUE = 0.7 - 0.4j
 

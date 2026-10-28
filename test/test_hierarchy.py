@@ -3,6 +3,7 @@ from test_integrals import D, c
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    ScalarType,
     cell_domain,
     component_tensor,
     conjugate_space,
@@ -89,7 +90,7 @@ def test_a_curried_form_has_the_argument_spaces_of_its_expression_first():
 
 
 def test_conjugating_an_argument_space_twice_gives_it_back():
-    V, R = space("V"), space("R", scalar_type="real")
+    V, R = space("V"), space("R", scalar_type=ScalarType.real)
     assert conjugate_space(R) is R
     assert Conjugate(Conjugate(Form(Function(V, "v"), (Function(V, "v"),)))).argument_spaces == (V,)
 

@@ -6,6 +6,7 @@ from typing import final
 from ..tuples import members
 from .arithmetic import Conjugate
 from .base import AbstractExpression
+from .scalar_types import ScalarType
 from .spaces import AbstractFunctionSpace
 
 
@@ -143,9 +144,9 @@ class GateauxDerivative(AbstractExpression):
 
     @cached_property
     def scalar_type(self):
-        if self.joined_scalar_type(self.variable) == "real":
+        if self.joined_scalar_type(self.variable) == ScalarType.real:
             return self.expression.scalar_type
-        return "complex"
+        return ScalarType.complex
 
     @cached_property
     def support(self):
