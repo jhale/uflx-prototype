@@ -41,6 +41,10 @@ class Function(AbstractExpression):
     def support(self):
         return self.space.domain
 
+    @cached_property
+    def free_indices(self):
+        return ()
+
 
 @final
 class Form(AbstractExpression):
@@ -63,6 +67,14 @@ class Form(AbstractExpression):
         # The arguments of the expression come first, then the entries.
         return self.expression.arity + len(self.arguments)
 
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()
+
 
 @final
 class Action(AbstractExpression):
@@ -79,6 +91,14 @@ class Action(AbstractExpression):
     @cached_property
     def arity(self):
         return self.form.arity - 1
+
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()
 
 
 @final
@@ -103,3 +123,11 @@ class GateauxDerivative(AbstractExpression):
     @cached_property
     def arity(self):
         return self.expression.arity + 1
+
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()

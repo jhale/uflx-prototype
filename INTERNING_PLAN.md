@@ -1,8 +1,9 @@
 # Interning the nodes
 
 > Since written, the nodes are no longer dataclasses. A class declares its
-> construction arguments by annotation, and the metaclass `Interned` interns
-> them before construction (see `nodes/base.py`).
+> construction arguments by annotation, `Base` interns them before
+> construction, and `AbstractExpression` has no defaults, so each concrete
+> class states its whole static type (see `nodes/base.py`).
 
 A plan for interning every node of the toy, so that equal objects are the same
 object, as rule 7 of the base object in LANGUAGE.md allows.

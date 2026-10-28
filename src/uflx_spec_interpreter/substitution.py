@@ -5,20 +5,7 @@ from .nodes import AbstractExpression, Base, Function, Index
 
 def operands(e, names=None):
     # The nodes on the edges of e, in order, through tuples, or those of the named arguments.
-    if names is None:
-        return list(e.operands)
-    out = []
-
-    def walk(x):
-        if isinstance(x, Base):
-            out.append(x)
-        elif isinstance(x, tuple):
-            for y in x:
-                walk(y)
-
-    for n in names:
-        walk(getattr(e, n))
-    return out
+    return list(e.operands if names is None else e.operands_of(names))
 
 
 def traversed(e):

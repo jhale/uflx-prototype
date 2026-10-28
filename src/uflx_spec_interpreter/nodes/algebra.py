@@ -15,6 +15,22 @@ class Num(AbstractExpression):
     value: int | float | complex
     opaque = ("value",)
 
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return ()
+
+    @cached_property
+    def arity(self):
+        return 0
+
+    @cached_property
+    def support(self):
+        return None
+
 
 @final
 class Zero(AbstractExpression):
@@ -29,6 +45,10 @@ class Zero(AbstractExpression):
     def arity(self):
         return len(self.argument_spaces)
 
+    @cached_property
+    def support(self):
+        return None
+
 
 @final
 class Sum(AbstractExpression):
@@ -39,6 +59,18 @@ class Sum(AbstractExpression):
     @cached_property
     def value_shape(self):
         return self.first.value_shape
+
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def arity(self):
+        return self.first.arity
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()
 
 
 @final
@@ -51,12 +83,40 @@ class Product(AbstractExpression):
     def arity(self):
         return self.first.arity + self.second.arity
 
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()
+
 
 @final
 class Division(AbstractExpression):
     identifier = "uflx.Division"
     first: AbstractExpression
     second: AbstractExpression
+
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def arity(self):
+        return self.first.arity
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()
 
 
 @final
@@ -68,11 +128,39 @@ class Conjugate(AbstractExpression):
     def value_shape(self):
         return self.operand.value_shape
 
+    @cached_property
+    def free_indices(self):
+        return self.operand.free_indices
+
+    @cached_property
+    def arity(self):
+        return self.operand.arity
+
+    @cached_property
+    def support(self):
+        return self.operand.support
+
 
 @final
 class RealPart(AbstractExpression):
     identifier = "uflx.RealPart"
     operand: AbstractExpression
+
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.operand.free_indices
+
+    @cached_property
+    def arity(self):
+        return self.operand.arity
+
+    @cached_property
+    def support(self):
+        return self.operand.support
 
 
 @final
@@ -80,11 +168,43 @@ class ImaginaryPart(AbstractExpression):
     identifier = "uflx.ImaginaryPart"
     operand: AbstractExpression
 
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.operand.free_indices
+
+    @cached_property
+    def arity(self):
+        return self.operand.arity
+
+    @cached_property
+    def support(self):
+        return self.operand.support
+
 
 @final
 class Absolute(AbstractExpression):
     identifier = "uflx.Absolute"
     operand: AbstractExpression
+
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.operand.free_indices
+
+    @cached_property
+    def arity(self):
+        return self.operand.arity
+
+    @cached_property
+    def support(self):
+        return self.operand.support
 
 
 @final
@@ -92,11 +212,43 @@ class SquareRoot(AbstractExpression):
     identifier = "uflx.SquareRoot"
     operand: AbstractExpression
 
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.operand.free_indices
+
+    @cached_property
+    def arity(self):
+        return self.operand.arity
+
+    @cached_property
+    def support(self):
+        return self.operand.support
+
 
 @final
 class Logarithm(AbstractExpression):
     identifier = "uflx.Logarithm"
     operand: AbstractExpression
+
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.operand.free_indices
+
+    @cached_property
+    def arity(self):
+        return self.operand.arity
+
+    @cached_property
+    def support(self):
+        return self.operand.support
 
 
 @final
@@ -108,12 +260,40 @@ class Inverse(AbstractExpression):
     def value_shape(self):
         return tuple(reversed(self.operand.value_shape))
 
+    @cached_property
+    def free_indices(self):
+        return self.operand.free_indices
+
+    @cached_property
+    def arity(self):
+        return self.operand.arity
+
+    @cached_property
+    def support(self):
+        return self.operand.support
+
 
 @final
 class Power(AbstractExpression):
     identifier = "uflx.Power"
     first: AbstractExpression
     second: AbstractExpression
+
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def arity(self):
+        return self.first.arity
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()
 
 
 @final
@@ -124,6 +304,18 @@ class Tensor(AbstractExpression):
     @cached_property
     def value_shape(self):
         return (len(self.entries), *self.entries[0].value_shape)
+
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def arity(self):
+        return self.entries[0].arity
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()
 
 
 @final
@@ -142,6 +334,18 @@ class Indexed(AbstractExpression):
             elif not isinstance(i, int):
                 out |= dict(i.free_indices)
         return tuple(out.items())
+
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def arity(self):
+        return self.expression.arity
+
+    @cached_property
+    def support(self):
+        return self.expression.support
 
 
 @final
@@ -163,6 +367,14 @@ class ComponentTensor(AbstractExpression):
     def free_indices(self):
         return tuple((i, n) for i, n in self.expression.free_indices if i not in self.indices)
 
+    @cached_property
+    def arity(self):
+        return self.expression.arity
+
+    @cached_property
+    def support(self):
+        return self.expression.support
+
 
 @final
 class IndexSum(AbstractExpression):
@@ -177,6 +389,18 @@ class IndexSum(AbstractExpression):
     @cached_property
     def free_indices(self):
         return tuple((i, n) for i, n in self.expression.free_indices if i not in self.indices)
+
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def arity(self):
+        return self.expression.arity
+
+    @cached_property
+    def support(self):
+        return self.expression.support
 
 
 @final

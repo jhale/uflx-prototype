@@ -71,19 +71,18 @@ def test_a_curried_form_counts_the_arguments_of_its_expression():
     assert RealPart(inner).arity == 1
 
 
-def test_most_classes_use_the_defaults():
-    # A class states only the parts of its static type that differ from the defaults.
-    for name in (
-        "SquareRoot",
-        "Logarithm",
-        "Absolute",
-        "RealPart",
-        "ImaginaryPart",
-        "Division",
-        "Power",
-    ):
-        own = vars(getattr(nodes, name))
-        assert not {"value_shape", "free_indices", "arity", "support"} & set(own), name
+def test_every_expression_class_states_its_static_type():
+    # The abstract class has no defaults, so each concrete class decides its own.
+    for cls in concrete_classes():
+        if issubclass(cls, AbstractExpression):
+            own = set(vars(cls)) | set(cls.argument_names)
+            assert {"value_shape", "free_indices", "arity", "support"} <= own, cls.__name__
+    assert AbstractExpression.__abstractmethods__ >= {
+        "value_shape",
+        "free_indices",
+        "arity",
+        "support",
+    }
 
 
 def concrete_classes():

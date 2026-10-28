@@ -1,8 +1,9 @@
 # AbstractExpression
 
 > Since written, the nodes are no longer dataclasses. A class declares its
-> construction arguments by annotation, and the metaclass `Interned` interns
-> them before construction (see `nodes/base.py`).
+> construction arguments by annotation, `Base` interns them before
+> construction, and `AbstractExpression` has no defaults, so each concrete
+> class states its whole static type (see `nodes/base.py`).
 
 A plan for splitting the toy's one base class into `Base` and
 `AbstractExpression`, as the class hierarchy of LANGUAGE.md does, with the

@@ -26,6 +26,18 @@ class DirectionalDerivative(AbstractExpression):
     def value_shape(self):
         return self.expression.value_shape
 
+    @cached_property
+    def free_indices(self):
+        return self.free_indices_of_operands()
+
+    @cached_property
+    def arity(self):
+        return self.expression.arity
+
+    @cached_property
+    def support(self):
+        return self.support_of_operands()
+
 
 @final
 class Coordinate(AbstractExpression):
@@ -40,6 +52,14 @@ class Coordinate(AbstractExpression):
     @cached_property
     def support(self):
         return self.domain
+
+    @cached_property
+    def free_indices(self):
+        return ()
+
+    @cached_property
+    def arity(self):
+        return 0
 
 
 @final
@@ -56,6 +76,14 @@ class Gradient(AbstractExpression):
     @cached_property
     def support(self):
         return self.domain
+
+    @cached_property
+    def free_indices(self):
+        return self.expression.free_indices
+
+    @cached_property
+    def arity(self):
+        return self.expression.arity
 
 
 @final
@@ -75,6 +103,10 @@ class PullBack(AbstractExpression):
     @cached_property
     def support(self):
         return self.domain.parameter_domain
+
+    @cached_property
+    def arity(self):
+        return self.expression.arity
 
 
 @final
@@ -98,6 +130,10 @@ class Integral(AbstractExpression):
     def support(self):
         return None
 
+    @cached_property
+    def arity(self):
+        return self.expression.arity
+
 
 @final
 class Normal(AbstractExpression):
@@ -113,3 +149,11 @@ class Normal(AbstractExpression):
     @cached_property
     def support(self):
         return self.parameter_domain
+
+    @cached_property
+    def free_indices(self):
+        return ()
+
+    @cached_property
+    def arity(self):
+        return 0

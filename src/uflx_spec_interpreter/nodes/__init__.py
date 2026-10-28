@@ -18,7 +18,7 @@ from .algebra import (
     Tensor,
     Zero,
 )
-from .base import AbstractExpression, Base, Index, Interned
+from .base import AbstractExpression, Base, Index
 from .calculus import Coordinate, DirectionalDerivative, Gradient, Integral, Normal, PullBack
 from .domains import AbstractDomain, CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap
 from .forms import Action, Form, Function, GateauxDerivative, Space
@@ -48,7 +48,6 @@ __all__ = [
     "IndexSum",
     "Indexed",
     "Integral",
-    "Interned",
     "Inverse",
     "Logarithm",
     "Normal",

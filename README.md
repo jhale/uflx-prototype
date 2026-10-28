@@ -37,12 +37,13 @@ imports only these:
 The private API is the classes in `nodes/`, which only the passes, the oracle
 and the white-box tests import:
 
-- `nodes/base.py`: `Base`, whose metaclass `Interned` reads the construction
-  arguments of each class from its annotations, as rules 4 and 5 of the
-  specification describe, and interns every object with a seed-free hash before
-  it is built (see `INTERNING_PLAN.md`); `AbstractExpression`, whose static type
-  each class states (see `ABSTRACT_EXPRESSION_PLAN.md`); and `Index`. Every
-  concrete class is `@final`, and the abstract classes are contracts.
+- `nodes/base.py`: `Base`, which reads the construction arguments of each class
+  from its annotations, as rules 4 and 5 of the specification describe, and
+  interns every object with a seed-free hash before it is built (see
+  `INTERNING_PLAN.md`); `AbstractExpression`, whose static type each concrete
+  class states, with no defaults (see `ABSTRACT_EXPRESSION_PLAN.md`); and
+  `Index`. Every concrete class is `@final`, and the abstract classes are
+  contracts.
 - `nodes/algebra.py`, `nodes/calculus.py`, `nodes/domains.py` and
   `nodes/forms.py`: the node classes, by chapter of the specification
 - `substitution.py`: traversal, freshening and simultaneous substitution
