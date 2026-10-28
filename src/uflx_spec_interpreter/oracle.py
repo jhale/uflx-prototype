@@ -101,9 +101,24 @@ def tangent_projector(P):
         T = jacobian_of(POINTS[("chart", P)], POINTS[("ref", P)])
     else:
         piece = P.pieces[0]
-        chart = piece_map(piece, {next(iter(free(piece.psi))): POINTS[("cell", P)]})
+        index = next(iter(free(piece.psi)))
+        cell = POINTS[("cell", P)] if ("cell", P) in POINTS else locate(P, POINTS[P])
+        chart = piece_map(piece, {index: cell})
         T = jacobian_of(chart, reference_point(chart, POINTS[P], topdim(P)))
     return T @ np.linalg.pinv(T)
+
+
+def locate(P, x):
+    # The cell of P that contains x, as a mesh library finds it for a point.
+    piece = P.pieces[0]
+    index = next(iter(free(piece.psi)))
+    for cell in range(free(piece.psi)[index]):
+        chart = piece_map(piece, {index: cell})
+        X = reference_point(chart, x, topdim(P))
+        inside = np.all(X > -1e-9) and np.sum(X) < 1 + 1e-9
+        if inside and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
+            return cell
+    raise ValueError(f"no cell of P contains {x}")
 
 
 def integrate(P, fn):
