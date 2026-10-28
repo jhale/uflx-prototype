@@ -50,10 +50,11 @@ def restriction(f, E, s):
 
 
 def side_domain(D, S):
-    # Piece i is the coordinates of D through the inclusion of group i from its first side.
+    # Piece i is the coordinates of D through the first side of group i on the topology of D.
     pieces = []
     for i, F in enumerate(S.cell_types):
-        B, A = inclusion(D, S, i, S.sides[i][0][0])
+        s = next(name for name, T, _ in S.sides[i] if T == D.topology)
+        B, A = inclusion(D, S, i, s)
         pieces.append(DomainMap(F, PullBack(PullBack(Coordinate(D), B), A), D.ambient_domain))
     return DecomposedDomain(tuple(pieces))
 

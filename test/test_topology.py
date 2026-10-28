@@ -32,3 +32,13 @@ def test_a_restriction_is_a_pull_back_by_a_side_map():
     assert restriction(num(1), E, "+") == num(1)
     f = restriction(u, E, "+")
     assert f.domain == side_map(D, E, "+") and isinstance(f.domain, SideMap) and f.support == E
+
+
+def test_a_side_domain_takes_the_side_on_the_topology_of_the_domain():
+    # As for a mesh and a submesh, the first side is on another topology.
+    other = static_topology((K,), (((0, 1, 2),),), ())
+    S = static_topology(
+        (interval,), (((0, 1), (1, 2)),), ((("submesh", other, 0), ("mesh", SQUARE, 0)),)
+    )
+    E = side_domain(D, S)
+    assert E.topology == S and E.ambient_domain == D.ambient_domain
