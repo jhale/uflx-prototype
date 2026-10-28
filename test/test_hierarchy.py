@@ -183,6 +183,6 @@ def test_cell_domains_are_domain_maps_into_the_decomposed_domain():
     assert dict(cells.free_indices) == dict(piece.parameterisation.free_indices)
     g = GatheredIndex(IndexTable((1, 0), 2), (Index("e"),))
     k = Index(("uflx.gathered_cell_domain", D, 0, g, 0))
-    by_cell = component_tensor(indexed(piece.parameterisation, (k,)), (c, k))
-    chi = component_tensor(indexed(by_cell, (g, k)), (k,))
+    # The composition of the specification, with the partial indexing [g].
+    chi = component_tensor(indexed(piece.parameterisation, (k,)), (c, k))[g]
     assert gathered_cell_domain(D, 0, g) == DomainMap(piece.parameter_domain, chi, D)

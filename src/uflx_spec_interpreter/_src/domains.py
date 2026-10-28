@@ -11,6 +11,7 @@ from .nodes import (
     PullBack,
     SideMap,
 )
+from .tensors import component
 from .topology import cell_index
 
 
@@ -28,8 +29,7 @@ def gathered_cell_domain(D, j, g):
     piece = D.pieces[j]
     ((c, _),) = piece.parameterisation.free_indices
     k = Index(("uflx.gathered_cell_domain", D, j, g, 0))
-    by_cell = ComponentTensor(Indexed(piece.parameterisation, (k,)), (c, k))
-    chi = ComponentTensor(Indexed(by_cell, (g, k)), (k,))
+    chi = component(ComponentTensor(Indexed(piece.parameterisation, (k,)), (c, k)), (g,))
     return DomainMap(piece.parameter_domain, chi, D)
 
 
@@ -73,5 +73,5 @@ def inclusion_points(S, i, s, owner):
     return ComponentTensor(Indexed(positions, (e, v, k)), (v, k))
 
 
-def normal(D, E, s):
-    return Normal(D, E, s)
+def normal(sm):
+    return Normal(sm)

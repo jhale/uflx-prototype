@@ -124,7 +124,7 @@ def edge_integrand(rnd, D, E, sides):
             indexed(gradient(g, D), (rnd.randrange(3),)),
         ]
     )
-    n = normal(D, E, sm.side)
+    n = normal(sm)
     return rnd.choice(
         [
             pull_back(f, sm),

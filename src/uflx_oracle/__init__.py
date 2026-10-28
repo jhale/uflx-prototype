@@ -423,7 +423,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
-        case Normal(Dd, Ed, side):
+        case Normal(SideMap(Dd, Ed, side)):
 
             def normal(vals):
                 # In the tangent plane of the cell, orthogonal to the edge, away from the cell.

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, final
 from .base import AbstractExpression
 
 if TYPE_CHECKING:
-    from .domains import AbstractDomain, DecomposedDomain, DomainMap, SideMap
+    from .domains import AbstractDomain, DomainMap, SideMap
     from .forms import Function
 
 
@@ -162,14 +162,11 @@ class Integral(AbstractExpression):
 @final
 class Normal(AbstractExpression):
     identifier = "uflx.Normal"
-    ambient_domain: DecomposedDomain
-    parameter_domain: DecomposedDomain
-    side: str
-    opaque = ("side",)
+    side_map: SideMap
 
     @cached_property
     def value_shape(self):
-        return (self.ambient_domain.ambient_coordinate_domain.dimension,)
+        return (self.side_map.ambient_domain.ambient_coordinate_domain.dimension,)
 
     @cached_property
     def scalar_type(self):
@@ -177,7 +174,7 @@ class Normal(AbstractExpression):
 
     @cached_property
     def support(self):
-        return self.parameter_domain
+        return self.side_map.parameter_domain
 
     @cached_property
     def free_indices(self):

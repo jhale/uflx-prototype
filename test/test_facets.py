@@ -72,7 +72,7 @@ def integrand(rnd, E, sides):
             terms.append(
                 multiply(
                     restricted(rnd, sm),
-                    indexed(normal(D, E, sm.side), (rnd.randrange(2),)),
+                    indexed(normal(sm), (rnd.randrange(2),)),
                 )
             )
         elif pick == 2:
@@ -84,7 +84,7 @@ def integrand(rnd, E, sides):
     for t in terms[1:]:
         f = add(f, t)
     if rnd.random() < 0.2:
-        f = normal(D, E, next(iter(sides)))
+        f = normal(sides[next(iter(sides))])
     return f
 
 

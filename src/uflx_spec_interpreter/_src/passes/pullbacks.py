@@ -46,7 +46,7 @@ def pb(f, m):
             return contract_gradient(
                 Gradient(pb(g, m), m.parameter_domain), inverse_jacobian(m), f, m
             )
-        case Normal() if cell_of(m) is not None and m.ambient_domain == f.parameter_domain:
+        case Normal(sm) if cell_of(m) is not None and m.ambient_domain == sm.parameter_domain:
             return normal(f, m)
         case Function() | Normal() | Coordinate():
             return PullBack(f, m)
@@ -90,7 +90,7 @@ def side_maps(f, m, sm):
 
 def normal(f, m):
     # The composition of the pull-back of Normal, with the normal m_hat of the cell of E in K_j.
-    B, A, points = side_maps(f, m, f)
+    B, A, points = side_maps(f, m, f.side_map)
     K_j = B.parameter_domain
     m0 = cofactor_normal(jacobian(A), K_j.dimension)
     away = m0 @ subtract(component(points, (0,)), centroid(K_j))
