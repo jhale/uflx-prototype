@@ -74,23 +74,28 @@ def cell(C):
 
 
 def values(u, found_cell, derivative, points):
-    # The table has an axis for each free index of the points, such as the point and the facet.
-    # Points known only at assembly give a table that the library computes then.
+    # The gathered coefficients of the cell times the table, summed over the dofs of the cell.
     V, (j, entry) = u.space, found_cell
-    E, axes = V.element(j), [i for i, _ in points.free_indices]
+    axes = [i for i, _ in points.free_indices]
     i = index(("compiler.tabulation", u, entry, points, "i"))
     dofs = IndexTable(V.dofmap[j], V.num_dofs)
     coefficient = coefficients(u)[GatheredIndex(dofs, (entry, i))]
-    if reads_input(points):
-        extents = [m for _, m in points.free_indices]
-        derivatives = (points.value_shape[0],) if derivative else ()
-        phi = runtime_array(("basis", V, j, points, derivative), (*extents, E.dim, *derivatives))
-    else:
-        phi = table(basis(E, derivative, np.real(np.asarray(evaluate(points, {}, np)))))
+    phi = basis_table(V, j, derivative, points)
     if derivative == 0:
         return index_sum(coefficient * phi[(*axes, i)], (i,))
     d = index(("compiler.tabulation", u, entry, points, "d"))
     return component_tensor(index_sum(coefficient * phi[(*axes, i, d)], (i,)), (d,))
+
+
+def basis_table(V, j, derivative, points):
+    # An axis for each free index of the points, such as the point and the facet, then the dof
+    # and the derivative. Points known only at assembly give a table that runtime_tables fills.
+    E = V.element(j)
+    if not reads_input(points):
+        return table(basis(E, derivative, np.real(np.asarray(evaluate(points, {}, np)))))
+    extents = [m for _, m in points.free_indices]
+    derivatives = (points.value_shape[0],) if derivative else ()
+    return runtime_array(("basis", V, j, points, derivative), (*extents, E.dim, *derivatives))
 
 
 def basis(E, derivative, X):

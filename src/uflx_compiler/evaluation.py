@@ -59,7 +59,8 @@ def value_shape(n, env):
 
 
 def aligned(n, data, order, xp):
-    # The free axes of n moved into the given order, with an axis of length 1 for an absent index.
+    # The free axes of n moved into the given order, with an axis of length 1 for an absent
+    # index. With n free in (i, j) and the order (j, k, i), the axes become (j, 1, i).
     axes = free(n)
     present = [i for i in order if i in axes]
     values = range(len(axes), len(axes) + len(n.value_shape))
@@ -68,64 +69,53 @@ def aligned(n, data, order, xp):
     return xp.reshape(data, [lengths.get(i, 1) for i in order] + list(data.shape[len(present) :]))
 
 
+BINARY = {Sum: "add", Product: "multiply", Division: "divide", Power: "power"}
+UNARY = {
+    Absolute: "abs",
+    SquareRoot: "sqrt",
+    Logarithm: "log",
+    Conjugate: "conj",
+    RealPart: "real",
+    ImaginaryPart: "imag",
+}
+
+
 def node(n, value, env, xp):
     order = free(n)
+
+    def operand(x, axes=order):
+        # The value of x with its free axes in the given order, to broadcast against.
+        return aligned(x, value(x), axes, xp)
+
     match n:
         case Integer(v) | Float(v):
             return xp.asarray(v)
         case ImaginaryUnit():
             return xp.asarray(1j)
-        case Zero(shape, free_indices, _):
-            return xp.zeros([size(m, env) for _, m in free_indices] + [size(m, env) for m in shape])
+        case Zero():
+            return xp.zeros(full_shape(n, order, env))
         case RuntimeArray(label, _):
             return xp.asarray(env[label])
-        case Sum(a, b):
-            return aligned(a, value(a), order, xp) + aligned(b, value(b), order, xp)
-        case Product(a, b):
-            return aligned(a, value(a), order, xp) * aligned(b, value(b), order, xp)
-        case Division(a, b):
-            return aligned(a, value(a), order, xp) / aligned(b, value(b), order, xp)
-        case Power(a, b):
-            return xp.power(aligned(a, value(a), order, xp), aligned(b, value(b), order, xp))
-        case (
-            Absolute(a)
-            | SquareRoot(a)
-            | Logarithm(a)
-            | Conjugate(a)
-            | RealPart(a)
-            | ImaginaryPart(a)
-        ):
-            op = {
-                Absolute: xp.abs,
-                SquareRoot: xp.sqrt,
-                Logarithm: xp.log,
-                Conjugate: xp.conj,
-                RealPart: xp.real,
-                ImaginaryPart: xp.imag,
-            }[type(n)]
-            return op(value(a))
+        case _ if type(n) in BINARY:
+            return getattr(xp, BINARY[type(n)])(operand(n.first), operand(n.second))
+        case _ if type(n) in UNARY:
+            return getattr(xp, UNARY[type(n)])(value(n.operand))
         case Coordinate(P) if P.dimension == 0:
             return xp.zeros((0,))
         case Inverse(a):
             return xp.linalg.inv(value(a))
         case Tensor(entries):
-            parts = [
-                xp.broadcast_to(
-                    aligned(x, value(x), order, xp),
-                    full_shape(n, order, env)[: len(order)] + value_shape(x, env),
-                )
-                for x in entries
-            ]
+            # The entries, each over every free index of n, stacked as the first axis of the value.
+            lengths = [extents(n, env)[i] for i in order]
+            parts = [xp.broadcast_to(operand(x), lengths + value_shape(x, env)) for x in entries]
             return xp.stack(parts, axis=len(order))
         case Indexed(x, indices):
             return indexed(n, x, indices, value, env, xp)
         case ComponentTensor(x, indices):
-            return xp.reshape(
-                aligned(x, value(x), order + list(indices), xp), full_shape(n, order, env)
-            )
+            return operand(x, order + list(indices))
         case IndexSum(x, indices):
-            data = aligned(x, value(x), order + list(indices), xp)
-            return xp.sum(data, axis=tuple(range(len(order), len(order) + len(indices))))
+            summed = tuple(range(len(order), len(order) + len(indices)))
+            return xp.sum(operand(x, order + list(indices)), axis=summed)
     raise TypeError(f"the compiler cannot evaluate {type(n).__name__}")
 
 
