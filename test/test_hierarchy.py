@@ -1,3 +1,4 @@
+import pytest
 from test_facets import table
 from test_integrals import D, c
 
@@ -83,3 +84,40 @@ def test_most_classes_use_the_defaults():
     ):
         own = vars(getattr(nodes, name))
         assert not {"value_shape", "free_indices", "arity", "support"} & set(own), name
+
+
+def concrete_classes():
+    return [
+        cls for cls in vars(nodes).values() if isinstance(cls, type) and "identifier" in vars(cls)
+    ]
+
+
+def test_every_concrete_class_is_final():
+    for cls in concrete_classes():
+        assert getattr(cls, "__final__", False), cls.__name__
+    with pytest.raises(TypeError):
+
+        class Larger(nodes.Sum):
+            pass
+
+
+def test_a_domain_is_a_contract():
+    with pytest.raises(TypeError):
+        nodes.AbstractDomain()
+    K = nodes.CoordinateDomain("K", 2)
+    assert K.dimension == 2 and K.ambient_domain is K and isinstance(K, nodes.AbstractDomain)
+
+
+def test_nodes_are_immutable_and_take_their_arguments():
+    e = nodes.Num(1)
+    with pytest.raises(AttributeError):
+        e.value = 2
+    with pytest.raises(TypeError):
+        nodes.Num()
+    with pytest.raises(TypeError):
+        nodes.Num(1, 2)
+    with pytest.raises(TypeError):
+        e.rebuild(other=3)
+    assert e.rebuild(value=2) is nodes.Num(2)
+    assert nodes.Sum.argument_names == ("first", "second")
+    assert nodes.Form.argument_names == ("expression", "arguments")

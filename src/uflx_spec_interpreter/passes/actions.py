@@ -1,5 +1,3 @@
-from dataclasses import replace
-
 from ..forms import members
 from ..nodes import Action, Conjugate, Form, Function, Product, Zero
 from ..static import arity, free_indices
@@ -26,10 +24,10 @@ def act(f, p, g):
 
 
 def bind(form, q, g):
-    rest = freshen(replace(form, arguments=without(form.arguments, q)), members(g))
+    rest = freshen(form.rebuild(arguments=without(form.arguments, q)), members(g))
     pairs = zip(members(form.arguments[q]), members(g), strict=True)
     body = substitute(rest.expression, dict(binding(entry, value) for entry, value in pairs))
-    return replace(rest, expression=body) if rest.arguments else body
+    return rest.rebuild(expression=body) if rest.arguments else body
 
 
 def binding(entry, value):

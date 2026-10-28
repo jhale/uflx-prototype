@@ -1,4 +1,3 @@
-from dataclasses import fields, replace
 from functools import cache
 
 from .nodes import AbstractExpression, Base, Function, Index
@@ -15,10 +14,15 @@ def operands(e, names=None):
             for y in x:
                 walk(y)
 
-    names = [f.name for f in fields(e) if f.name not in e.opaque] if names is None else names
+    names = traversed(e) if names is None else names
     for n in names:
         walk(getattr(e, n))
     return out
+
+
+def traversed(e):
+    # The construction arguments that traversal visits.
+    return [n for n in e.argument_names if n not in e.opaque]
 
 
 def expressions(e):
@@ -35,15 +39,15 @@ def map_fields(e, fn, names=None):
             return tuple(walk(y) for y in x)
         return x
 
-    names = [f.name for f in fields(e) if f.name not in e.opaque] if names is None else names
-    return replace(e, **{n: walk(getattr(e, n)) for n in names})
+    names = traversed(e) if names is None else names
+    return e.rebuild(**{n: walk(getattr(e, n)) for n in names})
 
 
 def occurs(r, e):
     # Whether r is free in e.
     if e == r:
         return True
-    names = [f.name for f in fields(e) if f.name not in e.opaque]
+    names = traversed(e)
     if any(occurs(n, r) for n in e.bound()):
         names = [n for n in names if n not in e.scope]
     return any(occurs(r, x) for x in operands(e, names))
@@ -90,6 +94,6 @@ def _substitute(e, items):
     if not fresh.scope:
         return _substitute(fresh, items)
     e = fresh
-    outside = [f.name for f in fields(e) if f.name not in e.opaque and f.name not in e.scope]
+    outside = [n for n in traversed(e) if n not in e.scope]
     e = map_fields(e, lambda x: _substitute(x, items), outside)
     return map_fields(e, lambda x: _substitute(x, tuple(inner.items())), e.scope)

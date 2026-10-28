@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "uflx-spec-interpreter"
 version = "0.1.0"
 description = "A toy implementation of the evaluation passes of the UFLx language specification"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]

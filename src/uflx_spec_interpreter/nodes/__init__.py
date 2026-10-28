@@ -20,11 +20,12 @@ from .algebra import (
 )
 from .base import AbstractExpression, Base, Index, Interned
 from .calculus import Coordinate, DirectionalDerivative, Gradient, Integral, Normal, PullBack
-from .domains import CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap
+from .domains import AbstractDomain, CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap
 from .forms import Action, Form, Function, GateauxDerivative, Space
 
 __all__ = [
     "Absolute",
+    "AbstractDomain",
     "AbstractExpression",
     "Action",
     "Base",

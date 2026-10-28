@@ -1,26 +1,31 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
 from functools import cached_property
+from typing import TYPE_CHECKING, final
 
 from .algebra import Conjugate
 from .base import AbstractExpression, Base
 
+if TYPE_CHECKING:
+    from .domains import AbstractDomain
 
-@dataclass(frozen=True, eq=False)
+
+@final
 class Space(Base):
     identifier = "toy.Space"
     name: str
     dual: bool
-    value_shape: tuple
-    domain: object
+    value_shape: tuple[int, ...]
+    domain: AbstractDomain | None
     complex: bool
     opaque = ("name", "dual", "value_shape", "domain", "complex")
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class Function(AbstractExpression):
     identifier = "uflx.Function"
     space: Space
-    label: object
+    label: str | tuple
     opaque = ("space", "label")
     labels = ("label",)
 
@@ -37,10 +42,10 @@ class Function(AbstractExpression):
         return self.space.domain
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class Form(AbstractExpression):
     identifier = "uflx.Form"
-    expression: Base
+    expression: AbstractExpression
     arguments: tuple
     scope = ("expression", "arguments")
 
@@ -59,12 +64,12 @@ class Form(AbstractExpression):
         return self.expression.arity + len(self.arguments)
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class Action(AbstractExpression):
     identifier = "uflx.Action"
-    form: Base
+    form: AbstractExpression
     position: int
-    argument: object
+    argument: AbstractExpression | tuple[AbstractExpression, ...]
     opaque = ("position",)
 
     @cached_property
@@ -76,13 +81,13 @@ class Action(AbstractExpression):
         return self.form.arity - 1
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class GateauxDerivative(AbstractExpression):
     identifier = "uflx.GateauxDerivative"
-    expression: Base
-    variable: Base
-    point: Base
-    argument: Base
+    expression: AbstractExpression
+    variable: Function
+    point: AbstractExpression
+    argument: Function | Conjugate
     scope = ("expression", "variable", "argument")
 
     def bound(self):

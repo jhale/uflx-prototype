@@ -1,11 +1,32 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from abc import abstractmethod
 from functools import cached_property
+from typing import TYPE_CHECKING, final
 
-from .base import Base
+from .base import AbstractExpression, Base, Index
+
+if TYPE_CHECKING:
+    from .algebra import GatheredIndex
 
 
-@dataclass(frozen=True, eq=False)
-class CoordinateDomain(Base):
+class AbstractDomain(Base):
+    # A domain states its dimension, its ambient domain and its ambient coordinate domain.
+    @property
+    @abstractmethod
+    def dimension(self) -> int: ...
+
+    @property
+    @abstractmethod
+    def ambient_domain(self) -> AbstractDomain: ...
+
+    @property
+    @abstractmethod
+    def ambient_coordinate_domain(self) -> CoordinateDomain: ...
+
+
+@final
+class CoordinateDomain(AbstractDomain):
     identifier = "toy.CoordinateDomain"
     # A coordinate domain, which stands for both RD and a reference cell.
     name: str
@@ -21,22 +42,22 @@ class CoordinateDomain(Base):
         return self
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class DomainMap(Base):
     identifier = "uflx.DomainMap"
-    parameter_domain: Base
-    parameterisation: Base
-    ambient_domain: Base
+    parameter_domain: AbstractDomain
+    parameterisation: AbstractExpression
+    ambient_domain: AbstractDomain
 
     @cached_property
     def free_indices(self):
         return self.parameterisation.free_indices
 
 
-@dataclass(frozen=True, eq=False)
-class DecomposedDomain(Base):
+@final
+class DecomposedDomain(AbstractDomain):
     identifier = "uflx.DecomposedDomain"
-    pieces: tuple
+    pieces: tuple[DomainMap, ...]
 
     @property
     def ambient_domain(self):
@@ -51,13 +72,13 @@ class DecomposedDomain(Base):
         return self.pieces[0].parameter_domain.dimension
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class CellMap(Base):
     identifier = "toy.CellMap"
     # The cells of one piece, selected by the cell index, an Index or a GatheredIndex.
-    ambient_domain: Base
+    ambient_domain: DecomposedDomain
     piece: int
-    cell_index: Base
+    cell_index: Index | GatheredIndex
     opaque = ("piece",)
 
     @property
@@ -80,12 +101,12 @@ class CellMap(Base):
         return piece.parameterisation
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class SideMap(Base):
     identifier = "uflx.SideMap"
     # The cells of the parameter domain in the ambient domain from one side, by the side tables.
-    ambient_domain: Base
-    parameter_domain: Base
-    cells: Base
-    positions: Base
+    ambient_domain: DecomposedDomain
+    parameter_domain: DecomposedDomain
+    cells: AbstractExpression
+    positions: AbstractExpression
     free_indices = ()

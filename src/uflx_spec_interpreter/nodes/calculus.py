@@ -1,16 +1,22 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
 from functools import cached_property
+from typing import TYPE_CHECKING, final
 
-from .base import AbstractExpression, Base
+from .base import AbstractExpression
+
+if TYPE_CHECKING:
+    from .domains import AbstractDomain, CellMap, DecomposedDomain, DomainMap, SideMap
+    from .forms import Function
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class DirectionalDerivative(AbstractExpression):
     identifier = "uflx.DirectionalDerivative"
-    expression: Base
-    variable: Base
-    point: Base
-    direction: Base
+    expression: AbstractExpression
+    variable: Function
+    point: AbstractExpression
+    direction: AbstractExpression
     scope = ("expression", "variable")
 
     def bound(self):
@@ -21,10 +27,10 @@ class DirectionalDerivative(AbstractExpression):
         return self.expression.value_shape
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class Coordinate(AbstractExpression):
     identifier = "uflx.Coordinate"
-    domain: Base
+    domain: AbstractDomain
     opaque = ("domain",)
 
     @cached_property
@@ -36,11 +42,11 @@ class Coordinate(AbstractExpression):
         return self.domain
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class Gradient(AbstractExpression):
     identifier = "uflx.Gradient"
-    expression: Base
-    domain: Base
+    expression: AbstractExpression
+    domain: AbstractDomain
     opaque = ("domain",)
 
     @cached_property
@@ -52,11 +58,11 @@ class Gradient(AbstractExpression):
         return self.domain
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class PullBack(AbstractExpression):
     identifier = "uflx.PullBack"
-    expression: Base
-    domain: Base
+    expression: AbstractExpression
+    domain: DomainMap | CellMap | SideMap
 
     @cached_property
     def value_shape(self):
@@ -71,11 +77,11 @@ class PullBack(AbstractExpression):
         return self.domain.parameter_domain
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class Integral(AbstractExpression):
     identifier = "uflx.Integral"
-    expression: Base
-    domain: Base
+    expression: AbstractExpression
+    domain: AbstractDomain
     opaque = ("domain",)
 
     @cached_property
@@ -93,12 +99,12 @@ class Integral(AbstractExpression):
         return None
 
 
-@dataclass(frozen=True, eq=False)
+@final
 class Normal(AbstractExpression):
     identifier = "uflx.Normal"
-    ambient_domain: Base
-    parameter_domain: Base
-    side: Base
+    ambient_domain: DecomposedDomain
+    parameter_domain: DecomposedDomain
+    side: SideMap
 
     @cached_property
     def value_shape(self):

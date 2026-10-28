@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import gc
 import os
 import subprocess
 import sys
 import weakref
-from dataclasses import dataclass, fields, replace
 
 import pytest
 from test_surface import Ms
@@ -42,7 +43,7 @@ def test_constants_differ_by_type_and_sign():
 
 def test_rebuilding_returns_the_same_object():
     e = Sum(Num(1), Function(V, "u"))
-    assert replace(e) is e
+    assert e.rebuild() is e
     assert map_fields(e, lambda x: x) is e
 
 
@@ -70,18 +71,17 @@ def test_hash_is_the_same_in_every_process():
 
 def test_hash_does_not_depend_on_where_the_class_is():
     e = Sum(Num(1), Function(V, "u"))
-    digest = Interned.digest_of(Sum.identifier, [getattr(e, f.name) for f in fields(e)])
+    digest = Interned.digest_of(Sum.identifier, e.construction_arguments)
     module, qualname = Sum.__module__, Sum.__qualname__
     try:
         Sum.__module__, Sum.__qualname__ = "elsewhere", "Elsewhere"
-        assert Interned.digest_of(Sum.identifier, [getattr(e, f.name) for f in fields(e)]) == digest
+        assert Interned.digest_of(Sum.identifier, e.construction_arguments) == digest
     finally:
         Sum.__module__, Sum.__qualname__ = module, qualname
     assert e.digest == digest
 
 
 def test_a_class_with_no_identifier_raises():
-    @dataclass(frozen=True, eq=False)
     class Anonymous(Base):
         value: int
 
