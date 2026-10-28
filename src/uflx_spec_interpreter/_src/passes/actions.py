@@ -1,7 +1,7 @@
-from ..forms import members
 from ..nodes import Action, Conjugate, DualSpace, Form, Function, Product, Zero
 from ..static import arity, free_indices
 from ..substitution import expressions, freshen, map_fields, rebuild, substitute
+from ..tuples import members
 from .commuting import COMMUTING, commute
 
 

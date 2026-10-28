@@ -1,7 +1,7 @@
-from ..forms import members
 from ..nodes import DirectionalDerivative
 from ..static import zero_like
 from ..substitution import expressions, map_fields, occurs, substitute
+from ..tuples import members
 from .derivative_table import derivative_of_node
 
 

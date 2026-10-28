@@ -3,7 +3,6 @@ import itertools
 import numpy as np
 
 from uflx_spec_interpreter._src.domains import cell_of
-from uflx_spec_interpreter._src.forms import members
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
@@ -44,6 +43,7 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 from uflx_spec_interpreter._src.static import arity, free, support
+from uflx_spec_interpreter._src.tuples import members
 from uflx_toy.nodes import RuntimeArray
 
 EPS = 1e-4
@@ -323,7 +323,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             # The value of an EllipsisIndex is a tuple, one entry for each axis that it covers.
             values = [index_value(i, ienv) for i in idx]
-            key = tuple(k for v in values for k in (v if isinstance(v, tuple) else (v,)))
+            key = tuple(k for v in values for k in members(v))
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
             # An EllipsisIndex ranges over the tuples of values of the axes that it covers.
@@ -335,10 +335,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             fs = {
                 combo: ev(x, ienv | dict(zip(idx, combo))) for combo in itertools.product(*ranges)
             }
-            shape = tuple(m for n in extents for m in (n if isinstance(n, tuple) else (n,)))
+            shape = tuple(m for n in extents for m in members(n))
 
             def flat(combo):
-                return tuple(k for v in combo for k in (v if isinstance(v, tuple) else (v,)))
+                return tuple(k for v in combo for k in members(v))
 
             def value(vals):
                 out = {combo: f(vals) for combo, f in fs.items()}

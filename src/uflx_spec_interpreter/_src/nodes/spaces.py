@@ -4,6 +4,7 @@ from abc import abstractmethod
 from functools import cached_property
 from typing import TYPE_CHECKING, final
 
+from ..tuples import members
 from .base import Base
 
 if TYPE_CHECKING:
@@ -60,8 +61,8 @@ class DualSpace(AbstractFunctionSpace):
 
     @cached_property
     def scalar_type(self):
-        members = self.space if isinstance(self.space, tuple) else (self.space,)
-        return "complex" if any(s.scalar_type == "complex" for s in members) else "real"
+        complex_ = any(s.scalar_type == "complex" for s in members(self.space))
+        return "complex" if complex_ else "real"
 
     @cached_property
     def argument_spaces(self):

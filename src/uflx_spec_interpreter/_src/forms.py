@@ -1,8 +1,5 @@
 from .nodes import Action, Conjugate, Form, Function, GateauxDerivative
-
-
-def members(entry):
-    return list(entry) if isinstance(entry, tuple) else [entry]
+from .tuples import members
 
 
 def entry_fns(entry):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING, final
 
+from ..tuples import members
 from .base import AbstractExpression
 
 if TYPE_CHECKING:
@@ -21,7 +22,7 @@ class DirectionalDerivative(AbstractExpression):
     scope = ("expression", "variable")
 
     def bound(self):
-        return self.members(self.variable)
+        return members(self.variable)
 
     @cached_property
     def value_shape(self):
@@ -29,7 +30,7 @@ class DirectionalDerivative(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        edges = (self.expression, *self.members(self.point), *self.members(self.direction))
+        edges = (self.expression, *members(self.point), *members(self.direction))
         return tuple(dict(p for x in edges for p in x.free_indices).items())
 
     @cached_property
@@ -42,7 +43,7 @@ class DirectionalDerivative(AbstractExpression):
 
     @cached_property
     def support(self):
-        edges = (*self.members(self.direction), *self.members(self.point), self.expression)
+        edges = (*members(self.direction), *members(self.point), self.expression)
         return next((x.support for x in edges if x.support is not None), None)
 
 

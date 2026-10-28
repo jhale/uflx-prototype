@@ -1,4 +1,3 @@
-from ..forms import members
 from ..nodes import (
     Absolute,
     Conjugate,
@@ -15,6 +14,7 @@ from ..nodes import (
 )
 from ..static import zero_like
 from ..substitution import expressions, map_fields, occurs, operands
+from ..tuples import members
 
 NONHOLOMORPHIC = (Conjugate, Absolute, RealPart, ImaginaryPart)
 

@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod, update_abstractmethods
 from typing import ClassVar, dataclass_transform
 
 from ..interning import digest_of, table
+from ..tuples import members
 
 
 @dataclass_transform(frozen_default=True, eq_default=False)
@@ -86,14 +87,9 @@ class AbstractExpression(Base):
     def scalar_type(self) -> str: ...
 
     @staticmethod
-    def members(x):
-        # The members of a tuple of expressions, or the one expression.
-        return list(x) if isinstance(x, tuple) else [x]
-
-    @staticmethod
     def joined_scalar_type(*operands):
         # The default rule, complex if and only if an edge is a complex expression.
-        flat = [m for x in operands for m in (x if isinstance(x, tuple) else (x,))]
+        flat = [m for x in operands for m in members(x)]
         return "complex" if any(m.scalar_type == "complex" for m in flat) else "real"
 
     # The free functions import the nodes, so each overload imports its free function locally.
@@ -153,7 +149,7 @@ class AbstractExpression(Base):
     def __getitem__(self, entries):
         from ..tensors import component
 
-        return component(self, entries if isinstance(entries, tuple) else (entries,))
+        return component(self, members(entries))
 
     def __iter__(self):
         raise TypeError(f"{type(self).__name__} is not iterable")

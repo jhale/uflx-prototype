@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import final
 
+from ..tuples import members
 from .arithmetic import Conjugate
 from .base import AbstractExpression
 from .spaces import AbstractFunctionSpace
@@ -55,8 +56,8 @@ class Form(AbstractExpression):
 
     def bound(self):
         # The functions of the entries, without the conjugate of an entry conjugate(v).
-        members = [m for a in self.arguments for m in (a if isinstance(a, tuple) else (a,))]
-        return [m.operand if isinstance(m, Conjugate) else m for m in members]
+        entries = [m for a in self.arguments for m in members(a)]
+        return [m.operand if isinstance(m, Conjugate) else m for m in entries]
 
     @cached_property
     def value_shape(self):
@@ -99,8 +100,8 @@ class Action(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        members = self.argument if isinstance(self.argument, tuple) else (self.argument,)
-        return tuple(dict(p for x in (self.form, *members) for p in x.free_indices).items())
+        arguments = members(self.argument)
+        return tuple(dict(p for x in (self.form, *arguments) for p in x.free_indices).items())
 
     @cached_property
     def scalar_type(self):
@@ -121,9 +122,9 @@ class GateauxDerivative(AbstractExpression):
     scope = ("expression", "variable", "argument")
 
     def bound(self):
-        entries = self.members(self.argument)
+        entries = members(self.argument)
         return [
-            *self.members(self.variable),
+            *members(self.variable),
             *(m.operand if isinstance(m, Conjugate) else m for m in entries),
         ]
 
@@ -137,7 +138,7 @@ class GateauxDerivative(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        edges = (self.expression, *self.members(self.point))
+        edges = (self.expression, *members(self.point))
         return tuple(dict(p for x in edges for p in x.free_indices).items())
 
     @cached_property
