@@ -51,3 +51,24 @@ ruff check . && ruff format --check .
 coverage run -m pytest && coverage report
 python test/test_full.py 100
 ```
+
+## Differences from the specification
+
+The classes, their fields, the passes and the helpers use the names of the
+specification. The toy simplifies the specification in these places:
+
+- `Num` is every constant, where the specification has `Integer`, `Float` and
+  `ImaginaryUnit`.
+- `Space` is every space, with the flags `dual` and `complex`, where the
+  specification has `AbstractFunctionSpace`, `DualSpace` and `ConjugateSpace`.
+- `CoordDomain` is both `RD` and a reference cell, and has no vertices.
+- `CellMap` is a cell of a decomposed domain, or a gathered cell, which the
+  specification writes as a `DomainMap` through `cell_domain` and
+  `gathered_cell_domain`.
+- `arity` counts the arguments, where the specification has
+  `argument_spaces`, so a `Zero` has placeholder argument spaces.
+- A `SideMap` holds its side tables, where the specification reads them from
+  the topology by the name of the side.
+- `ambient_dim` is the dimension of the ambient coordinate domain, which the
+  specification writes out in words.
+- The constructors do not validate their arguments (rule 8).

@@ -25,10 +25,10 @@ def act(f, p, g):
 
 
 def bind(form, q, g):
-    rest = freshen(replace(form, args=without(form.args, q)), members(g))
-    pairs = zip(members(form.args[q]), members(g), strict=True)
-    body = substitute(rest.e, dict(binding(entry, value) for entry, value in pairs))
-    return replace(rest, e=body) if rest.args else body
+    rest = freshen(replace(form, arguments=without(form.arguments, q)), members(g))
+    pairs = zip(members(form.arguments[q]), members(g), strict=True)
+    body = substitute(rest.expression, dict(binding(entry, value) for entry, value in pairs))
+    return replace(rest, expression=body) if rest.arguments else body
 
 
 def binding(entry, value):

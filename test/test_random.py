@@ -26,7 +26,7 @@ from uflx_spec_interpreter.static import arity
 
 V = Space("V")
 u, v, w, z, h, q = (Function(V, n) for n in "uvwzhq")
-U = Function(Space("W", shape=(2,)), "U")
+U = Function(Space("W", value_shape=(2,)), "U")
 POOL = [u, v, w, z, h, q]
 BOUND = [v, q, Function(V, "y1"), Function(V, "y2"), Function(V, "y3")]
 i = Index("i")
@@ -106,7 +106,9 @@ def main(trials):
                 print("first failure, seed", seed, before, after)
         if contains(
             e,
-            lambda n: isinstance(n, Action) and not (isinstance(n.f, Function) and n.f.space.dual),
+            lambda n: (
+                isinstance(n, Action) and not (isinstance(n.form, Function) and n.form.space.dual)
+            ),
         ):
             lazy += 1
             rejected += not actions.in_n2(e)

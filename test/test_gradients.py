@@ -92,7 +92,9 @@ def target(rnd):
 
 
 def needs_pass(n):
-    return isinstance(n, Gradient) and not isinstance(n.b, (Function, Normal, PullBack, Gradient))
+    return isinstance(n, Gradient) and not isinstance(
+        n.expression, (Function, Normal, PullBack, Gradient)
+    )
 
 
 def main(trials):

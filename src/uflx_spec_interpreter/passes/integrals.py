@@ -1,5 +1,5 @@
 from ..algebra import total
-from ..domains import DecomposedDomain, ambient, cell_domain
+from ..domains import DecomposedDomain, cell_domain
 from ..geometry import density
 from ..nodes import ComponentTensor, Index, Indexed, IndexSum, Integral, Product, PullBack
 from ..static import free, shape, support
@@ -20,9 +20,9 @@ def rule(e):
 def piece_integral(f, D, j):
     # Pulled back by the cells of D, or by the piece if the support is the ambient domain.
     piece, cells = D.pieces[j], cell_domain(D, j)
-    g = PullBack(f, piece if support(f) == ambient(D) else cells)
-    term = rule(Integral(Product(g, density(cells)), piece.P))
-    family = tuple(free(piece.psi))
+    g = PullBack(f, piece if support(f) == D.ambient_domain else cells)
+    term = rule(Integral(Product(g, density(cells)), piece.parameter_domain))
+    family = tuple(free(piece.parameterisation))
     return IndexSum(term, family) if family else term
 
 

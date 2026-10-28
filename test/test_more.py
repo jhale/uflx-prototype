@@ -23,7 +23,7 @@ from uflx_spec_interpreter.static import arity
 
 rng = np.random.default_rng(2)
 V, Vd, Q = Space("V"), Space("V", dual=True), Space("Q")
-W, Wd = Space("W", shape=(2,)), Space("W", dual=True, shape=(2,))
+W, Wd = Space("W", value_shape=(2,)), Space("W", dual=True, value_shape=(2,))
 u, v, w, z, h = (Function(V, n) for n in "uvwzh")
 q, r = Function(Q, "q"), Function(Q, "r")
 U, Y, T, U2 = (Function(W, n) for n in ("U", "Y", "T", "U2"))

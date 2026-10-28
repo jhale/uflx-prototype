@@ -18,20 +18,20 @@ from .substitution import freshen, map_fields
 
 # The commuting node classes and the operands into which an evaluated node moves.
 COMMUTING = {
-    Sum: ("a", "b"),
+    Sum: ("first", "second"),
     Tensor: ("entries",),
-    Indexed: ("e",),
-    ComponentTensor: ("e",),
-    IndexSum: ("e",),
-    Form: ("e",),
-    DirectionalDerivative: ("f",),
-    Conjugate: ("a",),
-    RealPart: ("a",),
-    ImaginaryPart: ("a",),
-    Division: ("a",),
-    Gradient: ("b",),
-    PullBack: ("b",),
-    Integral: ("b",),
+    Indexed: ("expression",),
+    ComponentTensor: ("expression",),
+    IndexSum: ("expression",),
+    Form: ("expression",),
+    DirectionalDerivative: ("expression",),
+    Conjugate: ("operand",),
+    RealPart: ("operand",),
+    ImaginaryPart: ("operand",),
+    Division: ("first",),
+    Gradient: ("expression",),
+    PullBack: ("expression",),
+    Integral: ("expression",),
 }
 
 

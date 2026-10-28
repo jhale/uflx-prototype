@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 
 from .base import AbstractExpression, Base, Index
@@ -14,108 +14,101 @@ class Num(AbstractExpression):
 @dataclass(frozen=True, eq=False)
 class Zero(AbstractExpression):
     identifier = "uflx.Zero"
-    shape: tuple
-    free: tuple
-    args: tuple
-    opaque = ("shape", "free", "args")
-
-    @cached_property
-    def value_shape(self):
-        return self.shape
-
-    @cached_property
-    def free_indices(self):
-        return tuple(self.free)
+    # The fields are the static type, so they must not take the defaults of AbstractExpression.
+    value_shape: tuple = field()
+    free_indices: tuple = field()
+    argument_spaces: tuple
+    opaque = ("value_shape", "free_indices", "argument_spaces")
 
     @cached_property
     def arity(self):
-        return len(self.args)
+        return len(self.argument_spaces)
 
 
 @dataclass(frozen=True, eq=False)
 class Sum(AbstractExpression):
     identifier = "uflx.Sum"
-    a: Base
-    b: Base
+    first: Base
+    second: Base
 
     @cached_property
     def value_shape(self):
-        return self.a.value_shape
+        return self.first.value_shape
 
 
 @dataclass(frozen=True, eq=False)
 class Product(AbstractExpression):
     identifier = "uflx.Product"
-    a: Base
-    b: Base
+    first: Base
+    second: Base
 
     @cached_property
     def arity(self):
-        return self.a.arity + self.b.arity
+        return self.first.arity + self.second.arity
 
 
 @dataclass(frozen=True, eq=False)
 class Division(AbstractExpression):
     identifier = "uflx.Division"
-    a: Base
-    c: Base
+    first: Base
+    second: Base
 
 
 @dataclass(frozen=True, eq=False)
 class Conjugate(AbstractExpression):
     identifier = "uflx.Conjugate"
-    a: Base
+    operand: Base
 
     @cached_property
     def value_shape(self):
-        return self.a.value_shape
+        return self.operand.value_shape
 
 
 @dataclass(frozen=True, eq=False)
 class RealPart(AbstractExpression):
     identifier = "uflx.RealPart"
-    a: Base
+    operand: Base
 
 
 @dataclass(frozen=True, eq=False)
 class ImaginaryPart(AbstractExpression):
     identifier = "uflx.ImaginaryPart"
-    a: Base
+    operand: Base
 
 
 @dataclass(frozen=True, eq=False)
 class Absolute(AbstractExpression):
     identifier = "uflx.Absolute"
-    a: Base
+    operand: Base
 
 
 @dataclass(frozen=True, eq=False)
 class SquareRoot(AbstractExpression):
     identifier = "uflx.SquareRoot"
-    a: Base
+    operand: Base
 
 
 @dataclass(frozen=True, eq=False)
 class Logarithm(AbstractExpression):
     identifier = "uflx.Logarithm"
-    a: Base
+    operand: Base
 
 
 @dataclass(frozen=True, eq=False)
 class Inverse(AbstractExpression):
     identifier = "uflx.Inverse"
-    a: Base
+    operand: Base
 
     @cached_property
     def value_shape(self):
-        return tuple(reversed(self.a.value_shape))
+        return tuple(reversed(self.operand.value_shape))
 
 
 @dataclass(frozen=True, eq=False)
 class Power(AbstractExpression):
     identifier = "uflx.Power"
-    a: Base
-    c: Base
+    first: Base
+    second: Base
 
 
 @dataclass(frozen=True, eq=False)
@@ -131,16 +124,16 @@ class Tensor(AbstractExpression):
 @dataclass(frozen=True, eq=False)
 class Indexed(AbstractExpression):
     identifier = "uflx.Indexed"
-    e: Base
-    idx: tuple
+    expression: Base
+    indices: tuple
 
     @cached_property
     def free_indices(self):
         # An Index takes the extent of its axis, and a gathered index states its own.
-        out = dict(self.e.free_indices)
-        for k, i in enumerate(self.idx):
+        out = dict(self.expression.free_indices)
+        for k, i in enumerate(self.indices):
             if isinstance(i, Index):
-                out[i] = self.e.value_shape[k]
+                out[i] = self.expression.value_shape[k]
             elif not isinstance(i, int):
                 out |= dict(i.free_indices)
         return tuple(out.items())
@@ -149,33 +142,33 @@ class Indexed(AbstractExpression):
 @dataclass(frozen=True, eq=False)
 class ComponentTensor(AbstractExpression):
     identifier = "uflx.ComponentTensor"
-    e: Base
-    idx: tuple
-    scope = ("e", "idx")
+    expression: Base
+    indices: tuple
+    scope = ("expression", "indices")
 
     def bound(self):
-        return list(self.idx)
+        return list(self.indices)
 
     @cached_property
     def value_shape(self):
-        free = dict(self.e.free_indices)
-        return tuple(free[i] for i in self.idx)
+        free = dict(self.expression.free_indices)
+        return tuple(free[i] for i in self.indices)
 
     @cached_property
     def free_indices(self):
-        return tuple((i, n) for i, n in self.e.free_indices if i not in self.idx)
+        return tuple((i, n) for i, n in self.expression.free_indices if i not in self.indices)
 
 
 @dataclass(frozen=True, eq=False)
 class IndexSum(AbstractExpression):
     identifier = "uflx.IndexSum"
-    e: Base
-    idx: tuple
-    scope = ("e", "idx")
+    expression: Base
+    indices: tuple
+    scope = ("expression", "indices")
 
     def bound(self):
-        return list(self.idx)
+        return list(self.indices)
 
     @cached_property
     def free_indices(self):
-        return tuple((i, n) for i, n in self.e.free_indices if i not in self.idx)
+        return tuple((i, n) for i, n in self.expression.free_indices if i not in self.indices)

@@ -9,32 +9,28 @@ from .substitution import substitute
 class CoordDomain(Base):
     identifier = "toy.CoordDomain"
     name: str
-    dim: int
-    opaque = ("name", "dim")
+    dimension: int
+    opaque = ("name", "dimension")
 
     @property
     def ambient_dim(self):
-        return self.dim
+        return self.dimension
 
     @property
-    def topdim(self):
-        return self.dim
+    def ambient_domain(self):
+        return self
 
 
 @dataclass(frozen=True, eq=False)
 class DomainMap(Base):
     identifier = "uflx.DomainMap"
-    P: Base
-    psi: Base
-    Q: Base
-
-    @property
-    def parameter_domain(self):
-        return self.P
+    parameter_domain: Base
+    parameterisation: Base
+    ambient_domain: Base
 
     @cached_property
     def free_indices(self):
-        return self.psi.free_indices
+        return self.parameterisation.free_indices
 
 
 @dataclass(frozen=True, eq=False)
@@ -44,23 +40,19 @@ class DecomposedDomain(Base):
 
     @property
     def ambient_dim(self):
-        return self.pieces[0].Q.ambient_dim
+        return self.pieces[0].ambient_domain.ambient_dim
 
     @property
-    def topdim(self):
-        return self.pieces[0].P.topdim
+    def ambient_domain(self):
+        return self.pieces[0].ambient_domain
+
+    @property
+    def dimension(self):
+        return self.pieces[0].parameter_domain.dimension
 
 
 def ambient_dim(P):
     return P.ambient_dim
-
-
-def topdim(P):
-    return P.topdim
-
-
-def ambient(P):
-    return P.pieces[0].Q if isinstance(P, DecomposedDomain) else P
 
 
 @dataclass(frozen=True, eq=False)
@@ -81,35 +73,27 @@ class GatheredIndex(Base):
 class CellMap(Base):
     identifier = "toy.CellMap"
     # Piece j of D seen as a domain in D, for the cell selected by entry (an Index or a Gathered).
-    D: Base
+    ambient_domain: Base
     j: int
     entry: Base
     opaque = ("j",)
 
     @property
-    def P(self):
-        return self.D.pieces[self.j].P
-
-    @property
-    def Q(self):
-        return self.D
-
-    @property
     def parameter_domain(self):
-        return self.P
+        return self.ambient_domain.pieces[self.j].parameter_domain
 
     @cached_property
     def free_indices(self):
-        return self.psi.free_indices
+        return self.parameterisation.free_indices
 
     @property
-    def psi(self):
-        piece = self.D.pieces[self.j]
-        family = [i for i, _ in piece.psi.free_indices]
+    def parameterisation(self):
+        piece = self.ambient_domain.pieces[self.j]
+        family = [i for i, _ in piece.parameterisation.free_indices]
         return (
-            substitute(piece.psi, {family[0]: self.entry})
+            substitute(piece.parameterisation, {family[0]: self.entry})
             if family and family[0] != self.entry
-            else piece.psi
+            else piece.parameterisation
         )
 
 
@@ -117,17 +101,18 @@ class CellMap(Base):
 class SideMap(Base):
     identifier = "uflx.SideMap"
     # The map from the cells of E into D, from one side, through the side tables.
-    D: Base
-    E: Base
+    ambient_domain: Base
+    parameter_domain: Base
     cells: Base
     positions: Base
     free_indices = ()
 
-    @property
-    def parameter_domain(self):
-        return self.E
-
 
 def cell_domain(D, j):
-    family = [i for i, _ in D.pieces[j].psi.free_indices]
-    return CellMap(D, j, family[0]) if family else DomainMap(D.pieces[j].P, D.pieces[j].psi, D)
+    piece = D.pieces[j]
+    family = [i for i, _ in piece.parameterisation.free_indices]
+    return (
+        CellMap(D, j, family[0])
+        if family
+        else DomainMap(piece.parameter_domain, piece.parameterisation, D)
+    )

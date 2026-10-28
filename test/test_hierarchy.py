@@ -55,8 +55,8 @@ def test_the_static_type_is_computed_once():
 def test_a_pull_back_leaves_a_gathered_entry_unchanged():
     g = GatheredIndex(table([1, 0]), (c,))
     out = pullbacks.pb(Indexed(Coordinate(D), (g,)), cell_domain(D, 0))
-    assert isinstance(out, Indexed) and out.idx == (g,) and out.idx[0] is g
-    assert not isinstance(out.e, PullBack) and not isinstance(out.e, Function)
+    assert isinstance(out, Indexed) and out.indices == (g,) and out.indices[0] is g
+    assert not isinstance(out.expression, PullBack) and not isinstance(out.expression, Function)
 
 
 def test_a_curried_form_counts_the_arguments_of_its_expression():

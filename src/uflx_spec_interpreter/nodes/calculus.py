@@ -7,86 +7,86 @@ from .base import AbstractExpression, Base
 @dataclass(frozen=True, eq=False)
 class DirectionalDerivative(AbstractExpression):
     identifier = "uflx.DirectionalDerivative"
-    f: Base
-    x: Base
-    a: Base
-    h: Base
-    scope = ("f", "x")
+    expression: Base
+    variable: Base
+    point: Base
+    direction: Base
+    scope = ("expression", "variable")
 
     def bound(self):
-        return [self.x]
+        return [self.variable]
 
     @cached_property
     def value_shape(self):
-        return self.f.value_shape
+        return self.expression.value_shape
 
 
 @dataclass(frozen=True, eq=False)
 class Coordinate(AbstractExpression):
     identifier = "uflx.Coordinate"
-    P: Base
-    opaque = ("P",)
+    domain: Base
+    opaque = ("domain",)
 
     @cached_property
     def value_shape(self):
-        return (self.P.ambient_dim,)
+        return (self.domain.ambient_dim,)
 
     @cached_property
     def support(self):
-        return self.P
+        return self.domain
 
 
 @dataclass(frozen=True, eq=False)
 class Gradient(AbstractExpression):
     identifier = "uflx.Gradient"
-    b: Base
-    P: Base
-    opaque = ("P",)
+    expression: Base
+    domain: Base
+    opaque = ("domain",)
 
     @cached_property
     def value_shape(self):
-        return (*self.b.value_shape, self.P.ambient_dim)
+        return (*self.expression.value_shape, self.domain.ambient_dim)
 
     @cached_property
     def support(self):
-        return self.P
+        return self.domain
 
 
 @dataclass(frozen=True, eq=False)
 class PullBack(AbstractExpression):
     identifier = "uflx.PullBack"
-    b: Base
-    m: Base
+    expression: Base
+    domain: Base
 
     @cached_property
     def value_shape(self):
-        return self.b.value_shape
+        return self.expression.value_shape
 
     @cached_property
     def free_indices(self):
-        return tuple((dict(self.b.free_indices) | dict(self.m.free_indices)).items())
+        return tuple((dict(self.expression.free_indices) | dict(self.domain.free_indices)).items())
 
     @cached_property
     def support(self):
-        return self.m.parameter_domain
+        return self.domain.parameter_domain
 
 
 @dataclass(frozen=True, eq=False)
 class Integral(AbstractExpression):
     identifier = "uflx.Integral"
-    b: Base
-    P: Base
-    opaque = ("P",)
+    expression: Base
+    domain: Base
+    opaque = ("domain",)
 
     @cached_property
     def value_shape(self):
-        return self.b.value_shape
+        return self.expression.value_shape
 
     @cached_property
     def free_indices(self):
         # The free indices of the pieces of P are summed over.
-        bound = {i for piece in getattr(self.P, "pieces", ()) for i, _ in piece.free_indices}
-        return tuple((i, n) for i, n in self.b.free_indices if i not in bound)
+        bound = {i for piece in getattr(self.domain, "pieces", ()) for i, _ in piece.free_indices}
+        return tuple((i, n) for i, n in self.expression.free_indices if i not in bound)
 
     @cached_property
     def support(self):
@@ -96,14 +96,14 @@ class Integral(AbstractExpression):
 @dataclass(frozen=True, eq=False)
 class Normal(AbstractExpression):
     identifier = "uflx.Normal"
-    D: Base
-    E: Base
+    ambient_domain: Base
+    parameter_domain: Base
     side: Base
 
     @cached_property
     def value_shape(self):
-        return (self.D.ambient_dim,)
+        return (self.ambient_domain.ambient_dim,)
 
     @cached_property
     def support(self):
-        return self.E
+        return self.parameter_domain

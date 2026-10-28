@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 
-from .domains import CellMap, CoordDomain, DecomposedDomain, GatheredIndex, SideMap, ambient
+from .domains import CellMap, CoordDomain, DecomposedDomain, GatheredIndex, SideMap
 from .nodes import (
     Absolute,
     Action,
@@ -71,15 +71,15 @@ def jacobian_of(chart, X):
     return np.array([(chart(X + H * e) - chart(X - H * e)) / (2 * H) for e in np.eye(len(X))]).T
 
 
-def topdim(P):
-    return P.dim if isinstance(P, CoordDomain) else topdim(P.pieces[0].P)
-
-
 def piece_map(piece, members):
     # The map of one member of a piece, from reference coordinates to ambient coordinates.
     return lambda X: np.real(
         np.asarray(
-            at(piece.P, np.asarray(X, dtype=float), lambda: evaluate(piece.psi, {}, members)(()))
+            at(
+                piece.parameter_domain,
+                np.asarray(X, dtype=float),
+                lambda: evaluate(piece.parameterisation, {}, members)(()),
+            )
         )
     )
 
@@ -101,20 +101,20 @@ def tangent_projector(P):
         T = jacobian_of(POINTS[("chart", P)], POINTS[("ref", P)])
     else:
         piece = P.pieces[0]
-        index = next(iter(free(piece.psi)))
+        index = next(iter(free(piece.parameterisation)))
         cell = POINTS[("cell", P)] if ("cell", P) in POINTS else locate(P, POINTS[P])
         chart = piece_map(piece, {index: cell})
-        T = jacobian_of(chart, reference_point(chart, POINTS[P], topdim(P)))
+        T = jacobian_of(chart, reference_point(chart, POINTS[P], P.dimension))
     return T @ np.linalg.pinv(T)
 
 
 def locate(P, x):
     # The cell of P that contains x, as a mesh library finds it for a point.
     piece = P.pieces[0]
-    index = next(iter(free(piece.psi)))
-    for cell in range(free(piece.psi)[index]):
+    index = next(iter(free(piece.parameterisation)))
+    for cell in range(free(piece.parameterisation)[index]):
         chart = piece_map(piece, {index: cell})
-        X = reference_point(chart, x, topdim(P))
+        X = reference_point(chart, x, P.dimension)
         inside = np.all(X > -1e-9) and np.sum(X) < 1 + 1e-9
         if inside and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
             return cell
@@ -124,9 +124,9 @@ def locate(P, x):
 def integrate(P, fn):
     # The integral of fn over P, with fn reading the point of P from POINTS.
     if isinstance(P, CoordDomain):
-        if P.dim == 0:
+        if P.dimension == 0:
             rule = [(np.zeros(0), 1.0)]
-        elif P.dim == 1:
+        elif P.dimension == 1:
             x, w = np.polynomial.legendre.leggauss(6)
             rule = [(np.array([(a + 1) / 2]), b / 2) for a, b in zip(x, w)]
         else:
@@ -134,19 +134,24 @@ def integrate(P, fn):
         return sum(w * at(P, p, lambda: fn({})) for p, w in rule)
     total = 0
     for piece in P.pieces:
-        fr = free(piece.psi)
+        fr = free(piece.parameterisation)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             members = dict(zip(fr, combo))
-            psi = evaluate(piece.psi, {}, members)
+            psi = evaluate(piece.parameterisation, {}, members)
 
             def mapped(inner, piece=piece, psi=psi, members=members):
                 y = np.real(np.asarray(psi(())))
-                if isinstance(piece.P, CoordDomain):
-                    ref = POINTS[piece.P]
+                if isinstance(piece.parameter_domain, CoordDomain):
+                    ref = POINTS[piece.parameter_domain]
                     chart_in = lambda X: X
                 else:
-                    ref, chart_in = POINTS[("ref", piece.P)], POINTS[("chart", piece.P)]
-                chart = lambda X: np.real(np.asarray(at(piece.P, chart_in(X), lambda: psi(()))))
+                    ref, chart_in = (
+                        POINTS[("ref", piece.parameter_domain)],
+                        POINTS[("chart", piece.parameter_domain)],
+                    )
+                chart = lambda X: np.real(
+                    np.asarray(at(piece.parameter_domain, chart_in(X), lambda: psi(())))
+                )
                 if len(ref) == 0:
                     scale = 1.0
                 else:
@@ -154,7 +159,7 @@ def integrate(P, fn):
                     Je = jacobian_of(chart, ref)
                     scale = np.sqrt(abs(np.linalg.det(Je.T @ Je)) / abs(np.linalg.det(T.T @ T)))
                 cell = next(iter(members.values()), None)
-                inside = lambda: at(P, y, lambda: at(ambient(P), y, lambda: fn(members)))
+                inside = lambda: at(P, y, lambda: at(P.ambient_domain, y, lambda: fn(members)))
                 return (
                     at(
                         ("ref", P),
@@ -164,7 +169,7 @@ def integrate(P, fn):
                     * scale
                 )
 
-            total += integrate(piece.P, mapped)
+            total += integrate(piece.parameter_domain, mapped)
     return total
 
 
@@ -204,8 +209,8 @@ def entry_value(member, value):
     if not isinstance(member, Conjugate):
         return member, value
     if callable(value):
-        return member.a, lambda *point: np.conj(value(*point))
-    return member.a, np.conj(value)
+        return member.operand, lambda *point: np.conj(value(*point))
+    return member.operand, np.conj(value)
 
 
 # The value of an expression is a function of the values of its arguments.
@@ -357,7 +362,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return restricted
         case PullBack(b, m):
-            fb, psi = ev(b), ev(m.psi)
+            fb, psi = ev(b), ev(m.parameterisation)
 
             def pulled(vals):
                 y = np.real(np.asarray(psi(())))
@@ -369,9 +374,11 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                         over,
                     )(())
                     return at(
-                        ("cell", m.Q), int(np.real(cell)), lambda: at(m.Q, y, lambda: fb(vals))
+                        ("cell", m.ambient_domain),
+                        int(np.real(cell)),
+                        lambda: at(m.ambient_domain, y, lambda: fb(vals)),
                     )
-                return at(m.Q, y, lambda: fb(vals))
+                return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
         case Normal(Dd, Ed, sidemap):
@@ -381,11 +388,13 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
                 cell = int(np.real(np.asarray(evaluate(cells, env)(()))[e]))
-                edge = piece_map(Ed.pieces[0], {next(iter(free(Ed.pieces[0].psi))): e})
+                edge = piece_map(Ed.pieces[0], {next(iter(free(Ed.pieces[0].parameterisation))): e})
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)
-                chart = piece_map(Dd.pieces[0], {next(iter(free(Dd.pieces[0].psi))): cell})
-                X = reference_point(chart, x, topdim(Dd))
+                chart = piece_map(
+                    Dd.pieces[0], {next(iter(free(Dd.pieces[0].parameterisation))): cell}
+                )
+                X = reference_point(chart, x, Dd.dimension)
                 d = jacobian_of(chart, X) @ (X - 1 / (len(X) + 1))
                 n = d - (d @ t) * t
                 return n / np.linalg.norm(n)
@@ -405,7 +414,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                     for k in np.eye(len(p))
                 ]
                 g = np.stack(cols, axis=-1)
-                if isinstance(P, DecomposedDomain) and topdim(P) < len(p):
+                if isinstance(P, DecomposedDomain) and P.dimension < len(p):
                     # The tangential gradient on a domain of lower dimension.
                     g = g @ tangent_projector(P)
                 return g

@@ -35,7 +35,7 @@ from uflx_spec_interpreter.passes import actions, derivatives
 from uflx_spec_interpreter.static import arity, free, shape
 
 V, Vd = Space("V"), Space("V", dual=True)
-W, Wd = Space("W", shape=(2,)), Space("W", dual=True, shape=(2,))
+W, Wd = Space("W", value_shape=(2,)), Space("W", dual=True, value_shape=(2,))
 u, v, w, z, h, q = (Function(V, n) for n in "uvwzhq")
 U, U2, U3 = (Function(W, n) for n in ("U", "U2", "U3"))
 lV, lW = Function(Vd, "lV"), Function(Wd, "lW")
@@ -235,7 +235,8 @@ def main(trials):
                 isinstance(n, DirectionalDerivative)
                 or (
                     lambda n: (
-                        isinstance(n, Action) and not (isinstance(n.f, Function) and n.f.space.dual)
+                        isinstance(n, Action)
+                        and not (isinstance(n.form, Function) and n.form.space.dual)
                     )
                 )(n)
             ),

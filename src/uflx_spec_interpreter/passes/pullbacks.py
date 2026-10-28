@@ -4,7 +4,6 @@ from ..domains import (
     DomainMap,
     GatheredIndex,
     SideMap,
-    topdim,
 )
 from ..geometry import inverse_jacobian
 from ..nodes import (
@@ -36,18 +35,22 @@ def pb(f, m):
             return PullBack(f, m)
         case _ if support(f) is None:
             return broadcast(f, m)
-        case Coordinate(Q) if Q == m.Q:
-            return m.psi
-        case PullBack(g, SideMap() as sm) if isinstance(m, CellMap) and m.D == sm.E:
+        case Coordinate(Q) if Q == m.ambient_domain:
+            return m.parameterisation
+        case PullBack(g, SideMap() as sm) if (
+            isinstance(m, CellMap) and m.ambient_domain == sm.parameter_domain
+        ):
             B, A = side_maps(sm, m)
             return pb(pb(g, B), A)
         case PullBack():
             return PullBack(f, m)
-        case Gradient(_, Q) if topdim(m.P) < topdim(Q):
+        case Gradient(_, Q) if m.parameter_domain.dimension < Q.dimension:
             return PullBack(f, m)
         case Gradient(g, _):
-            return contract_gradient(Gradient(pb(g, m), m.P), inverse_jacobian(m), f, m)
-        case Normal() if isinstance(m, CellMap) and m.D == f.E:
+            return contract_gradient(
+                Gradient(pb(g, m), m.parameter_domain), inverse_jacobian(m), f, m
+            )
+        case Normal() if isinstance(m, CellMap) and m.ambient_domain == f.parameter_domain:
             return normal(f, m)
         case Function() | Normal() | Coordinate():
             return PullBack(f, m)
@@ -62,7 +65,7 @@ def broadcast(f, m):
 
 
 def pointwise(f, m):
-    fresh = freshen(f, [m.psi]) if f.scope else f
+    fresh = freshen(f, [m.parameterisation]) if f.scope else f
     return map_fields(fresh, lambda x: pb(x, m) if isinstance(x, AbstractExpression) else x)
 
 
@@ -82,14 +85,14 @@ def contract_gradient(gradP, K, f, m):
 def side_maps(sm, m):
     # The cell on the side and the inclusion of the cell of E into it, for the cells of m.
     e = m.entry
-    B = CellMap(sm.D, 0, GatheredIndex(sm.cells, (e,)))
-    I = sm.E.pieces[0].P
+    B = CellMap(sm.ambient_domain, 0, GatheredIndex(sm.cells, (e,)))
+    I = sm.parameter_domain.pieces[0].parameter_domain
     k = Index(("uflx.inclusion", sm, e))
     # The affine map through the positions of the vertices of the cell of E, a constant for a point.
-    p = [Indexed(sm.positions, (e, v, k)) for v in range(topdim(I) + 1)]
+    p = [Indexed(sm.positions, (e, v, k)) for v in range(I.dimension + 1)]
     X = Coordinate(I)
     edges = [Product(subtract(p[v], p[0]), Indexed(X, (v - 1,))) for v in range(1, len(p))]
-    return B, DomainMap(I, ComponentTensor(total([p[0], *edges]), (k,)), B.P)
+    return B, DomainMap(I, ComponentTensor(total([p[0], *edges]), (k,)), B.parameter_domain)
 
 
 def normal(f, m):
@@ -119,7 +122,7 @@ def in_n5(e):
             Function() | Normal() | Coordinate() | PullBack(), _
         ):
             pass
-        case PullBack(Gradient(_, Q), m) if topdim(m.P) < topdim(Q):
+        case PullBack(Gradient(_, Q), m) if m.parameter_domain.dimension < Q.dimension:
             pass
         case PullBack():
             return False

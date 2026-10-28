@@ -10,10 +10,10 @@ class Space(Base):
     identifier = "toy.Space"
     name: str
     dual: bool = False
-    shape: tuple = ()
+    value_shape: tuple = ()
     domain: object = None
     complex: bool = True
-    opaque = ("name", "dual", "shape", "domain", "complex")
+    opaque = ("name", "dual", "value_shape", "domain", "complex")
 
 
 @dataclass(frozen=True, eq=False)
@@ -26,7 +26,7 @@ class Function(AbstractExpression):
 
     @cached_property
     def value_shape(self):
-        return () if self.space.dual else self.space.shape
+        return () if self.space.dual else self.space.value_shape
 
     @cached_property
     def arity(self):
@@ -40,38 +40,38 @@ class Function(AbstractExpression):
 @dataclass(frozen=True, eq=False)
 class Form(AbstractExpression):
     identifier = "uflx.Form"
-    e: Base
-    args: tuple
-    scope = ("e", "args")
+    expression: Base
+    arguments: tuple
+    scope = ("expression", "arguments")
 
     def bound(self):
-        return [n for a in self.args for n in entry_fns(a)]
+        return [n for a in self.arguments for n in entry_fns(a)]
 
     @cached_property
     def value_shape(self):
-        return self.e.value_shape
+        return self.expression.value_shape
 
     @cached_property
     def arity(self):
         # The arguments of the expression come first, then the entries.
-        return self.e.arity + len(self.args)
+        return self.expression.arity + len(self.arguments)
 
 
 @dataclass(frozen=True, eq=False)
 class Action(AbstractExpression):
     identifier = "uflx.Action"
-    f: Base
-    p: int
-    g: object
-    opaque = ("p",)
+    form: Base
+    position: int
+    argument: object
+    opaque = ("position",)
 
     @cached_property
     def value_shape(self):
-        return self.f.value_shape
+        return self.form.value_shape
 
     @cached_property
     def arity(self):
-        return self.f.arity - 1
+        return self.form.arity - 1
 
 
 def members(entry):
@@ -79,25 +79,28 @@ def members(entry):
 
 
 def entry_fns(entry):
-    return [m.a if isinstance(m, Conjugate) else m for m in members(entry)]
+    return [m.operand if isinstance(m, Conjugate) else m for m in members(entry)]
 
 
 @dataclass(frozen=True, eq=False)
 class GateauxDerivative(AbstractExpression):
     identifier = "uflx.GateauxDerivative"
-    F: Base
-    x: Base
-    a: Base
-    entry: Base
-    scope = ("F", "x", "entry")
+    expression: Base
+    variable: Base
+    point: Base
+    argument: Base
+    scope = ("expression", "variable", "argument")
 
     def bound(self):
-        return [self.x, self.entry.a if isinstance(self.entry, Conjugate) else self.entry]
+        return [
+            self.variable,
+            self.argument.operand if isinstance(self.argument, Conjugate) else self.argument,
+        ]
 
     @cached_property
     def value_shape(self):
-        return self.F.value_shape
+        return self.expression.value_shape
 
     @cached_property
     def arity(self):
-        return self.F.arity + 1
+        return self.expression.arity + 1

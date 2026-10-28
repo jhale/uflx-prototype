@@ -168,8 +168,8 @@ def check(name, e, env, bad, rows):
         out3,
         lambda n: (
             isinstance(n, PullBack)
-            and isinstance(n.m, (CellMap, DomainMap))
-            and not isinstance(n.b, (Function, Normal, PullBack, Gradient, SideMap))
+            and isinstance(n.domain, (CellMap, DomainMap))
+            and not isinstance(n.expression, (Function, Normal, PullBack, Gradient, SideMap))
         ),
     ):
         bad["lazy"] += 1

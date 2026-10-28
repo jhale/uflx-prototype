@@ -96,17 +96,21 @@ def integrand(rnd, Q, f):
 
 def stays_for_the_mesh_library(n):
     # A pull-back by the points of a function or of its gradient remains for the mesh library.
-    return isinstance(n, PullBack) and isinstance(n.b, (Function, Gradient))
+    return isinstance(n, PullBack) and isinstance(n.expression, (Function, Gradient))
 
 
 def needs_pass(n):
     return isinstance(n, Gradient) and not isinstance(
-        n.b, (Function, Coordinate, Gradient, PullBack)
+        n.expression, (Function, Coordinate, Gradient, PullBack)
     )
 
 
 def by_the_points(n):
-    return isinstance(n, PullBack) and isinstance(n.m, DomainMap) and n.m.Q in (D, M)
+    return (
+        isinstance(n, PullBack)
+        and isinstance(n.domain, DomainMap)
+        and n.domain.ambient_domain in (D, M)
+    )
 
 
 def main(trials):
