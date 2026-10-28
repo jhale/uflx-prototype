@@ -7,30 +7,32 @@ from testutil import assert_clean, contains
 
 import uflx_oracle as oracle
 from uflx_oracle import evaluate
-from uflx_spec_interpreter.arithmetic import (
+from uflx_spec_interpreter import (
     absolute,
     add,
+    component_tensor,
     conjugate,
+    coordinate,
     divide,
+    function,
+    gradient,
+    index,
+    index_sum,
+    indexed,
+    integral,
+    inverse,
     logarithm,
     multiply,
+    num,
     power,
     real_part,
+    space,
     square_root,
+    tensor,
 )
-from uflx_spec_interpreter.calculus import coordinate, gradient, integral
-from uflx_spec_interpreter.forms import function, space
-from uflx_spec_interpreter.indices import index
-from uflx_spec_interpreter.literals import num
-from uflx_spec_interpreter.nodes import (
-    Function,
-    Gradient,
-    Normal,
-    PullBack,
-)
-from uflx_spec_interpreter.passes import gradients
-from uflx_spec_interpreter.static import free, shape
-from uflx_spec_interpreter.tensors import component_tensor, index_sum, indexed, inverse, tensor
+from uflx_spec_interpreter._src.nodes import Function, Gradient, Normal, PullBack
+from uflx_spec_interpreter._src.passes import gradients
+from uflx_spec_interpreter._src.static import free, shape
 
 X = coordinate(K)
 u = function(space("V", domain=K), "u")

@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 
-from uflx_spec_interpreter.nodes import (
+from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractExtent,
     Action,
@@ -41,7 +41,7 @@ from uflx_spec_interpreter.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter.static import arity, free, support
+from uflx_spec_interpreter._src.static import arity, free, support
 from uflx_toy.nodes import RuntimeArray
 
 EPS = 1e-4

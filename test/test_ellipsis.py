@@ -1,14 +1,22 @@
 import numpy as np
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter.arithmetic import conjugate, multiply
-from uflx_spec_interpreter.calculus import directional_derivative
-from uflx_spec_interpreter.forms import function, space
-from uflx_spec_interpreter.indices import ellipsis_index, index
-from uflx_spec_interpreter.literals import num
-from uflx_spec_interpreter.passes import derivatives
-from uflx_spec_interpreter.substitution import substitute
-from uflx_spec_interpreter.tensors import component_tensor, index_sum, indexed, tensor
+from uflx_spec_interpreter import (
+    component_tensor,
+    conjugate,
+    directional_derivative,
+    ellipsis_index,
+    function,
+    index,
+    index_sum,
+    indexed,
+    multiply,
+    num,
+    space,
+    tensor,
+)
+from uflx_spec_interpreter._src.passes import derivatives
+from uflx_spec_interpreter._src.substitution import substitute
 
 r, s = ellipsis_index("r"), ellipsis_index("s")
 i, k = index("i"), index("k")
@@ -85,8 +93,8 @@ def test_substitution_renames_a_bound_ellipsis():
 def test_a_gradient_of_a_tensor_built_with_an_ellipsis():
     from test_integrals import K
 
-    from uflx_spec_interpreter.calculus import coordinate, gradient, integral
-    from uflx_spec_interpreter.passes import gradients
+    from uflx_spec_interpreter import coordinate, gradient, integral
+    from uflx_spec_interpreter._src.passes import gradients
 
     X = coordinate(K)
     xy = multiply(indexed(X, (0,)), indexed(X, (1,)))

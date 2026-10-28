@@ -1,13 +1,25 @@
 import numpy as np
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter.arithmetic import add, conjugate, divide, multiply
-from uflx_spec_interpreter.forms import action, form, function, space
-from uflx_spec_interpreter.indices import index
-from uflx_spec_interpreter.literals import num, zero
-from uflx_spec_interpreter.passes import actions
-from uflx_spec_interpreter.static import arity
-from uflx_spec_interpreter.tensors import component_tensor, index_sum, indexed, tensor
+from uflx_spec_interpreter import (
+    action,
+    add,
+    component_tensor,
+    conjugate,
+    divide,
+    form,
+    function,
+    index,
+    index_sum,
+    indexed,
+    multiply,
+    num,
+    space,
+    tensor,
+)
+from uflx_spec_interpreter._src.literals import zero
+from uflx_spec_interpreter._src.passes import actions
+from uflx_spec_interpreter._src.static import arity
 
 rng = np.random.default_rng(2)
 V, Vd, Q = space("V"), space("V", dual=True), space("Q")

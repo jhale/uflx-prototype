@@ -2,10 +2,9 @@ import pytest
 from test_integrals import D, c
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import nodes
-from uflx_spec_interpreter.domains import cell_domain
-from uflx_spec_interpreter.forms import space
-from uflx_spec_interpreter.nodes import (
+from uflx_spec_interpreter import cell_domain, space
+from uflx_spec_interpreter._src import nodes
+from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Base,
     Coordinate,
@@ -17,9 +16,9 @@ from uflx_spec_interpreter.nodes import (
     PullBack,
     RealPart,
 )
-from uflx_spec_interpreter.passes import pullbacks
-from uflx_spec_interpreter.static import free
-from uflx_spec_interpreter.substitution import rebuild
+from uflx_spec_interpreter._src.passes import pullbacks
+from uflx_spec_interpreter._src.static import free
+from uflx_spec_interpreter._src.substitution import rebuild
 from uflx_toy.nodes import IndexTable
 
 EXPRESSIONS = (

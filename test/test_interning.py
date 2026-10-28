@@ -10,11 +10,10 @@ import pytest
 from test_surface import Ms
 from testutil import contains
 
-from uflx_spec_interpreter.domains import cell_domain
-from uflx_spec_interpreter.forms import space
-from uflx_spec_interpreter.geometry import density, inverse_jacobian, metric
-from uflx_spec_interpreter.interning import digest_of
-from uflx_spec_interpreter.nodes import (
+from uflx_spec_interpreter import cell_domain, density, inverse_jacobian, space
+from uflx_spec_interpreter._src.geometry import metric
+from uflx_spec_interpreter._src.interning import digest_of
+from uflx_spec_interpreter._src.nodes import (
     Base,
     Float,
     Function,
@@ -25,7 +24,7 @@ from uflx_spec_interpreter.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter.substitution import map_fields, rebuild
+from uflx_spec_interpreter._src.substitution import map_fields, rebuild
 
 V = space("V")
 
@@ -64,8 +63,9 @@ def test_unused_nodes_are_freed():
 
 def test_hash_is_the_same_in_every_process():
     code = (
-        "from uflx_spec_interpreter.forms import space\n"
-        "from uflx_spec_interpreter.nodes import Float, Function, Indexed, Integer, Sum, Tensor\n"
+        "from uflx_spec_interpreter import space\n"
+        "from uflx_spec_interpreter._src.nodes import "
+        "Float, Function, Indexed, Integer, Sum, Tensor\n"
         "u = Function(space('V'), ('label', 'with', 'strings'))\n"
         "print(hash(Sum(Indexed(Tensor((u, Float(2.5))), (1,)), u)))\n"
     )

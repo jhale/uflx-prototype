@@ -12,7 +12,7 @@ oracle to the extension to the core, which `test/test_boundaries.py` checks:
   `RuntimeArray`
 - `uflx_oracle`: the oracle that the tests compare the passes against
 
-The passes, in `src/uflx_spec_interpreter/`, in the order of the specification:
+The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
 
 | Pass | Module | Output grammar |
 | --- | --- | --- |
@@ -23,12 +23,20 @@ The passes, in `src/uflx_spec_interpreter/`, in the order of the specification:
 | 4 `expand_pull_backs` | `passes/pullbacks.py` | N5 |
 | 5 `apply_gradients` | `passes/gradients.py` | N6 |
 
-The package splits a public API from a private one.
+The core splits a public API from a private one, as JAX does with `jax._src`.
 
-The public API is the free functions, named as in the specification, in the
-modules at the top of the package. A user, and a test that builds expressions,
-imports only these. `AbstractExpression` also has the operator overloads of
-the specification, which call these free functions and reject Python numbers:
+The public API is `uflx_spec_interpreter/__init__.py`, which re-exports the
+free functions of the specification and declares them in `__all__`, with the
+stand-ins `space` and `coordinate_domain` and the short name `num`. A user,
+and a test that builds expressions, imports only these, as in
+`from uflx_spec_interpreter import add, index`. `AbstractExpression` also has
+the operator overloads of the specification, which call these free functions
+and reject Python numbers.
+
+Everything else is in the private package `_src`, which only the toy
+extension, the oracle and the white-box tests import. The toy imports only
+`_src.nodes`, for the base classes it extends. The free functions are in the
+modules of `_src`:
 
 - `literals.py`: `num`, which builds the literal of an `int` or a `float`, and a
   complex number as a composition with `ImaginaryUnit`, and `zero`
@@ -49,8 +57,7 @@ the specification, which call these free functions and reject Python numbers:
 - `forms.py`: `space`, `function`, `form`, `action` and `gateaux_derivative`
 - `static.py`: the free functions that read the static type
 
-The private API is the classes in `nodes/`, which only the passes, the oracle
-and the white-box tests import:
+The private modules of `_src`:
 
 - `nodes/base.py`: `Base`, which reads the construction arguments of each class
   from its annotations, as rules 4 and 5 of the specification describe, and
@@ -61,7 +68,7 @@ and the white-box tests import:
 - `nodes/literals.py`, `nodes/arithmetic.py`, `nodes/indices.py`,
   `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py` and
   `nodes/forms.py`: the node classes, by section of the specification, each
-  with a public module of the same name for its free functions
+  with a module of the same name for its free functions
 - `interning.py`: the table of nodes, their canonical text and the seed-free
   digest
 - `substitution.py`: traversal, rebuilding, freshening and simultaneous

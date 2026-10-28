@@ -5,11 +5,21 @@ import numpy as np
 from testutil import assert_clean
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter.arithmetic import absolute, add, conjugate, multiply, real_part
-from uflx_spec_interpreter.forms import action, form, function, gateaux_derivative, space
-from uflx_spec_interpreter.literals import num
-from uflx_spec_interpreter.passes import actions, derivatives, gateaux
-from uflx_spec_interpreter.static import arity
+from uflx_spec_interpreter import (
+    absolute,
+    action,
+    add,
+    conjugate,
+    form,
+    function,
+    gateaux_derivative,
+    multiply,
+    num,
+    real_part,
+    space,
+)
+from uflx_spec_interpreter._src.passes import actions, derivatives, gateaux
+from uflx_spec_interpreter._src.static import arity
 
 C, R = space("C"), space("R", complex=False)
 # A load in each dual space, linear in its argument like every action.

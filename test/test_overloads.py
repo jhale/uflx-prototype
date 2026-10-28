@@ -2,11 +2,8 @@ import numpy as np
 import pytest
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter.arithmetic import imaginary_part, real_part
-from uflx_spec_interpreter.indices import ellipsis_index, index
-from uflx_spec_interpreter.literals import num
-from uflx_spec_interpreter.nodes import ComponentTensor, Indexed, Integer, Power, Product, Sum
-from uflx_spec_interpreter.tensors import tensor
+from uflx_spec_interpreter import ellipsis_index, imaginary_part, index, num, real_part, tensor
+from uflx_spec_interpreter._src.nodes import ComponentTensor, Indexed, Integer, Power, Product, Sum
 
 RNG = np.random.default_rng(1)
 A, B = RNG.normal(size=(2, 3)), RNG.normal(size=(3, 3))

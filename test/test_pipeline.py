@@ -6,25 +6,30 @@ import numpy as np
 from testutil import assert_clean
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter.arithmetic import (
+from uflx_spec_interpreter import (
     absolute,
+    action,
     add,
     conjugate,
+    directional_derivative,
     divide,
+    form,
+    function,
     imaginary_part,
+    index,
+    index_sum,
+    indexed,
     logarithm,
     multiply,
+    num,
     power,
     real_part,
+    space,
     square_root,
+    tensor,
 )
-from uflx_spec_interpreter.calculus import directional_derivative
-from uflx_spec_interpreter.forms import action, form, function, space
-from uflx_spec_interpreter.indices import index
-from uflx_spec_interpreter.literals import num
-from uflx_spec_interpreter.passes import actions, derivatives
-from uflx_spec_interpreter.static import arity
-from uflx_spec_interpreter.tensors import index_sum, indexed, tensor
+from uflx_spec_interpreter._src.passes import actions, derivatives
+from uflx_spec_interpreter._src.static import arity
 
 V, Vd = space("V"), space("V", dual=True)
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")

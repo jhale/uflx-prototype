@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import final
 
-from uflx_spec_interpreter.nodes import AbstractExpression, AbstractExtent, AbstractIndexValue
+from uflx_spec_interpreter._src.nodes import AbstractExpression, AbstractExtent, AbstractIndexValue
 
 
 @final

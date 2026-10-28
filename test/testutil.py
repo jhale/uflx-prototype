@@ -1,4 +1,4 @@
-from uflx_spec_interpreter.substitution import operands
+from uflx_spec_interpreter._src.substitution import operands
 
 
 def contains(e, predicate):

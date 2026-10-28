@@ -2,13 +2,18 @@ import numpy as np
 from testutil import contains
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter.calculus import coordinate, integral
-from uflx_spec_interpreter.domains import coordinate_domain
-from uflx_spec_interpreter.indices import index
-from uflx_spec_interpreter.literals import num
-from uflx_spec_interpreter.maps import domain_map, pull_back
-from uflx_spec_interpreter.nodes import PullBack
-from uflx_spec_interpreter.passes import (
+from uflx_spec_interpreter import (
+    coordinate,
+    coordinate_domain,
+    domain_map,
+    index,
+    index_sum,
+    integral,
+    num,
+    pull_back,
+)
+from uflx_spec_interpreter._src.nodes import PullBack
+from uflx_spec_interpreter._src.passes import (
     actions,
     derivatives,
     gateaux,
@@ -16,7 +21,6 @@ from uflx_spec_interpreter.passes import (
     integrals,
     pullbacks,
 )
-from uflx_spec_interpreter.tensors import index_sum
 from uflx_toy.runtime import runtime_array, runtime_extent
 
 i = index("i")
