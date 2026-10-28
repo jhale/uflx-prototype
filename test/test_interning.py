@@ -99,3 +99,10 @@ def test_density_and_inverse_jacobian_share_the_metric():
 def test_indexed_expressions_are_interned():
     T = Tensor((Num(1), Num(2)))
     assert Indexed(T, (Index("i"),)) is Indexed(Tensor((Num(1), Num(2))), (Index("i"),))
+
+
+def test_labels_that_read_alike_are_distinct():
+    # The text of the encoding delimits strings, tuples and numbers, so none run together.
+    labels = [("a,b",), ("a", "b"), "1", 1, (1,), ((1,),), "(1)", None, "None", 1 + 0j, "#0"]
+    functions = [Function(V, label) for label in labels]
+    assert len({id(f) for f in functions}) == len(labels)
