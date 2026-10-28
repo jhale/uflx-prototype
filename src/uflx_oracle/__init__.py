@@ -14,6 +14,7 @@ from uflx_spec_interpreter._src.nodes import (
     DecomposedDomain,
     DirectionalDerivative,
     Division,
+    DualSpace,
     EllipsisIndex,
     Float,
     Form,
@@ -256,10 +257,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return v(POINTS[space.domain]) if callable(v) else v
 
             return function_value
-        case Function(space, _) if not space.dual:
+        case Function(space, _) if not isinstance(space, DualSpace):
             return lambda vals: env[e]() if callable(env[e]) else env[e]
         case Function(space, _):
-            if space.dual:
+            if isinstance(space, DualSpace):
                 return lambda vals: env[e](vals[0])
             return lambda vals: env[e]
         case Zero(s, _, _):
@@ -364,7 +365,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 rest, wv = tuple(vals[:-1]), vals[-1]
                 # The value is that of the entry, so the direction of conjugate(w) is its conjugate.
                 wv = np.conj(wv) if isinstance(entry, Conjugate) else wv
-                if not x.space.complex:
+                if x.space.scalar_type == "real":
                     return delta(wv, rest)
                 sign = 1j if isinstance(entry, Conjugate) else -1j
                 return 0.5 * (delta(wv, rest) + sign * delta(1j * wv, rest))

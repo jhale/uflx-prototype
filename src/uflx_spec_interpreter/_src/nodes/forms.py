@@ -1,41 +1,37 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, final
+from typing import final
 
 from .arithmetic import Conjugate
-from .base import AbstractExpression, Base
-
-if TYPE_CHECKING:
-    from .domains import AbstractDomain
+from .base import AbstractExpression
+from .spaces import AbstractFunctionSpace
 
 
-@final
-class Space(Base):
-    identifier = "toy.Space"
-    name: str
-    dual: bool
-    value_shape: tuple[int, ...]
-    domain: AbstractDomain | None
-    complex: bool
-    opaque = ("name", "dual", "value_shape", "domain", "complex")
+def entry_space(entry):
+    # The space of v, the conjugate of the space for conjugate(v), and a tuple for a tuple entry.
+    from ..spaces import conjugated
+
+    if isinstance(entry, tuple):
+        return tuple(map(entry_space, entry))
+    return conjugated(entry.operand.space) if isinstance(entry, Conjugate) else entry.space
 
 
 @final
 class Function(AbstractExpression):
     identifier = "uflx.Function"
-    space: Space
+    space: AbstractFunctionSpace
     label: str | tuple
     opaque = ("space", "label")
     labels = ("label",)
 
     @cached_property
     def value_shape(self):
-        return () if self.space.dual else self.space.value_shape
+        return self.space.value_shape
 
     @cached_property
-    def arity(self):
-        return 1 if self.space.dual else 0
+    def argument_spaces(self):
+        return self.space.argument_spaces
 
     @cached_property
     def support(self):
@@ -63,9 +59,9 @@ class Form(AbstractExpression):
         return self.expression.value_shape
 
     @cached_property
-    def arity(self):
+    def argument_spaces(self):
         # The arguments of the expression come first, then the entries.
-        return self.expression.arity + len(self.arguments)
+        return self.expression.argument_spaces + tuple(map(entry_space, self.arguments))
 
     @cached_property
     def free_indices(self):
@@ -89,8 +85,9 @@ class Action(AbstractExpression):
         return self.form.value_shape
 
     @cached_property
-    def arity(self):
-        return self.form.arity - 1
+    def argument_spaces(self):
+        spaces = self.form.argument_spaces
+        return spaces[: self.position] + spaces[self.position + 1 :]
 
     @cached_property
     def free_indices(self):
@@ -122,8 +119,8 @@ class GateauxDerivative(AbstractExpression):
         return self.expression.value_shape
 
     @cached_property
-    def arity(self):
-        return self.expression.arity + 1
+    def argument_spaces(self):
+        return (*self.expression.argument_spaces, entry_space(self.argument))
 
     @cached_property
     def free_indices(self):

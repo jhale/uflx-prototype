@@ -10,7 +10,7 @@ import pytest
 from test_surface import Ms
 from testutil import contains
 
-from uflx_spec_interpreter import cell_domain, density, inverse_jacobian, space
+from uflx_spec_interpreter import cell_domain, density, inverse_jacobian
 from uflx_spec_interpreter._src.geometry import metric
 from uflx_spec_interpreter._src.interning import digest_of
 from uflx_spec_interpreter._src.nodes import (
@@ -25,6 +25,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
 )
 from uflx_spec_interpreter._src.substitution import map_fields, rebuild
+from uflx_toy.spaces import space
 
 V = space("V")
 
@@ -34,7 +35,7 @@ def test_equal_constructions_are_one_object():
     assert Sum(Integer(1), u) is Sum(Integer(1), Function(space("V"), "u"))
     X = Tensor((Integer(1), Integer(2)))
     assert Index(("matmul", X, u, 0)) is Index(("matmul", Tensor((Integer(1), Integer(2))), u, 0))
-    assert space("V") is space("V", dual=False)
+    assert space("V") is space("V")
 
 
 def test_literals_take_exact_types():
@@ -63,7 +64,7 @@ def test_unused_nodes_are_freed():
 
 def test_hash_is_the_same_in_every_process():
     code = (
-        "from uflx_spec_interpreter import space\n"
+        "from uflx_toy.spaces import space\n"
         "from uflx_spec_interpreter._src.nodes import "
         "Float, Function, Indexed, Integer, Sum, Tensor\n"
         "u = Function(space('V'), ('label', 'with', 'strings'))\n"

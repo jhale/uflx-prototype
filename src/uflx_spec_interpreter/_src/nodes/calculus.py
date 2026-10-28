@@ -35,8 +35,8 @@ class DirectionalDerivative(AbstractExpression):
         )
 
     @cached_property
-    def arity(self):
-        return self.expression.arity
+    def argument_spaces(self):
+        return self.expression.argument_spaces
 
     @cached_property
     def support(self):
@@ -62,8 +62,8 @@ class Coordinate(AbstractExpression):
         return ()
 
     @cached_property
-    def arity(self):
-        return 0
+    def argument_spaces(self):
+        return ()
 
 
 @final
@@ -86,8 +86,8 @@ class Gradient(AbstractExpression):
         return self.expression.free_indices
 
     @cached_property
-    def arity(self):
-        return self.expression.arity
+    def argument_spaces(self):
+        return self.expression.argument_spaces
 
 
 @final
@@ -109,8 +109,8 @@ class PullBack(AbstractExpression):
         return self.domain.parameter_domain
 
     @cached_property
-    def arity(self):
-        return self.expression.arity
+    def argument_spaces(self):
+        return self.expression.argument_spaces
 
 
 @final
@@ -135,8 +135,8 @@ class Integral(AbstractExpression):
         return None
 
     @cached_property
-    def arity(self):
-        return self.expression.arity
+    def argument_spaces(self):
+        return self.expression.argument_spaces
 
 
 @final
@@ -159,5 +159,5 @@ class Normal(AbstractExpression):
         return ()
 
     @cached_property
-    def arity(self):
-        return 0
+    def argument_spaces(self):
+        return ()

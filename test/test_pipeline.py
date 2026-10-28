@@ -13,6 +13,7 @@ from uflx_spec_interpreter import (
     conjugate,
     directional_derivative,
     divide,
+    dual_space,
     form,
     function,
     imaginary_part,
@@ -24,14 +25,14 @@ from uflx_spec_interpreter import (
     num,
     power,
     real_part,
-    space,
     square_root,
     tensor,
 )
 from uflx_spec_interpreter._src.passes import actions, derivatives
 from uflx_spec_interpreter._src.static import arity
+from uflx_toy.spaces import space
 
-V, Vd = space("V"), space("V", dual=True)
+V, Vd = space("V"), dual_space(space("V"))
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
 l = function(Vd, "l")
 C = multiply(u, w)

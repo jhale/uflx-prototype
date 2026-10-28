@@ -24,8 +24,8 @@ class Tensor(AbstractExpression):
         return tuple(dict(p for x in self.entries for p in x.free_indices).items())
 
     @cached_property
-    def arity(self):
-        return self.entries[0].arity
+    def argument_spaces(self):
+        return self.entries[0].argument_spaces
 
     @cached_property
     def support(self):
@@ -63,8 +63,8 @@ class Indexed(AbstractExpression):
         return ()
 
     @cached_property
-    def arity(self):
-        return self.expression.arity
+    def argument_spaces(self):
+        return self.expression.argument_spaces
 
     @cached_property
     def support(self):
@@ -96,8 +96,8 @@ class ComponentTensor(AbstractExpression):
         return tuple((i, n) for i, n in self.expression.free_indices if i not in self.indices)
 
     @cached_property
-    def arity(self):
-        return self.expression.arity
+    def argument_spaces(self):
+        return self.expression.argument_spaces
 
     @cached_property
     def support(self):
@@ -123,8 +123,8 @@ class IndexSum(AbstractExpression):
         return ()
 
     @cached_property
-    def arity(self):
-        return self.expression.arity
+    def argument_spaces(self):
+        return self.expression.argument_spaces
 
     @cached_property
     def support(self):
@@ -145,8 +145,8 @@ class Inverse(AbstractExpression):
         return self.operand.free_indices
 
     @cached_property
-    def arity(self):
-        return self.operand.arity
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):

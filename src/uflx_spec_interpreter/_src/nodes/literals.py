@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, final
 from .base import AbstractExpression
 
 if TYPE_CHECKING:
-    from .forms import Space
     from .indices import Index
 
 
@@ -32,8 +31,8 @@ class Integer(AbstractExpression):
         return ()
 
     @cached_property
-    def arity(self):
-        return 0
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):
@@ -63,8 +62,8 @@ class Float(AbstractExpression):
         return ()
 
     @cached_property
-    def arity(self):
-        return 0
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):
@@ -84,8 +83,8 @@ class ImaginaryUnit(AbstractExpression):
         return ()
 
     @cached_property
-    def arity(self):
-        return 0
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):
@@ -95,15 +94,11 @@ class ImaginaryUnit(AbstractExpression):
 @final
 class Zero(AbstractExpression):
     identifier = "uflx.Zero"
-    # The fields are the static type, so they must not take the defaults of AbstractExpression.
+    # The fields are the static type.
     value_shape: tuple[int, ...]
     free_indices: tuple[tuple[Index, int], ...]
-    argument_spaces: tuple[Space, ...]
+    argument_spaces: tuple
     opaque = ("value_shape", "free_indices", "argument_spaces")
-
-    @cached_property
-    def arity(self):
-        return len(self.argument_spaces)
 
     @cached_property
     def support(self):

@@ -1,5 +1,5 @@
 from ..forms import members
-from ..nodes import Action, Conjugate, Form, Function, Product, Zero
+from ..nodes import Action, Conjugate, DualSpace, Form, Function, Product, Zero
 from ..static import arity, free_indices
 from ..substitution import expressions, freshen, map_fields, rebuild, substitute
 from .commuting import COMMUTING, commute
@@ -18,7 +18,7 @@ def act(f, p, g):
             return commute(f, lambda b: act(b, p, g), members(g))
         case Zero(s, _, args):
             return Zero(s, free_indices(f, *members(g)), without(args, p))
-        case Function(space, _) if space.dual:
+        case Function(space, _) if isinstance(space, DualSpace):
             return Action(f, p, g)
     raise TypeError(f"cannot occur: {f}")
 
@@ -53,7 +53,7 @@ def apply_actions(e):
 
 def in_n2(e):
     match e:
-        case Action(Function(space, _), _, _) if space.dual:
+        case Action(Function(space, _), _, _) if isinstance(space, DualSpace):
             pass
         case Action():
             return False

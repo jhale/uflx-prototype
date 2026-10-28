@@ -3,7 +3,7 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean
+from testutil import assert_clean, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -20,11 +20,11 @@ from uflx_spec_interpreter import (
     integral,
     multiply,
     num,
-    space,
     tensor,
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter._src.static import free, shape
+from uflx_toy.spaces import space
 
 R2 = coordinate_domain("R2", 2)
 K = coordinate_domain("K", 2)
@@ -139,7 +139,7 @@ def main(trials):
         out3 = integrals.expand_integrals(e)
         out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
         rejected += not integrals.in_n4(e)
-        if (shape(e), free(e)) != (shape(out), free(out)):
+        if static_type(e) != static_type(out):
             bad["static"] += 1
             if bad["static"] <= 2:
                 print(

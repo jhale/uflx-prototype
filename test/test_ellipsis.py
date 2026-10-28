@@ -12,11 +12,11 @@ from uflx_spec_interpreter import (
     indexed,
     multiply,
     num,
-    space,
     tensor,
 )
 from uflx_spec_interpreter._src.passes import derivatives
 from uflx_spec_interpreter._src.substitution import substitute
+from uflx_toy.spaces import space
 
 r, s = ellipsis_index("r"), ellipsis_index("s")
 i, k = index("i"), index("k")

@@ -1,3 +1,4 @@
+from uflx_spec_interpreter._src.nodes import DualSpace, Function
 from uflx_spec_interpreter._src.substitution import operands
 
 
@@ -18,3 +19,12 @@ def assert_clean(counts):
         assert counts.get(key, 0) == 0, counts
     if "lazy" in counts:
         assert counts["rejected"] == counts["lazy"] > 0, counts
+
+
+def pairing(action):
+    return isinstance(action.form, Function) and isinstance(action.form.space, DualSpace)
+
+
+def static_type(e):
+    # The free indices compare as a dict, since a pass may reorder them.
+    return e.value_shape, dict(e.free_indices), e.argument_spaces

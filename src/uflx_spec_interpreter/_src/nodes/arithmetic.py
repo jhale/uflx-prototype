@@ -24,8 +24,8 @@ class Sum(AbstractExpression):
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @cached_property
-    def arity(self):
-        return self.first.arity
+    def argument_spaces(self):
+        return self.first.argument_spaces
 
     @cached_property
     def support(self):
@@ -39,8 +39,8 @@ class Product(AbstractExpression):
     second: AbstractExpression
 
     @cached_property
-    def arity(self):
-        return self.first.arity + self.second.arity
+    def argument_spaces(self):
+        return self.first.argument_spaces + self.second.argument_spaces
 
     @cached_property
     def value_shape(self):
@@ -70,8 +70,8 @@ class Division(AbstractExpression):
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @cached_property
-    def arity(self):
-        return self.first.arity
+    def argument_spaces(self):
+        return self.first.argument_spaces
 
     @cached_property
     def support(self):
@@ -93,8 +93,8 @@ class Power(AbstractExpression):
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @cached_property
-    def arity(self):
-        return self.first.arity
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):
@@ -115,8 +115,11 @@ class Conjugate(AbstractExpression):
         return self.operand.free_indices
 
     @cached_property
-    def arity(self):
-        return self.operand.arity
+    def argument_spaces(self):
+        # The free functions import the nodes, so the import is local.
+        from ..spaces import conjugated
+
+        return conjugated(self.operand.argument_spaces)
 
     @cached_property
     def support(self):
@@ -137,8 +140,8 @@ class RealPart(AbstractExpression):
         return self.operand.free_indices
 
     @cached_property
-    def arity(self):
-        return self.operand.arity
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):
@@ -159,8 +162,8 @@ class ImaginaryPart(AbstractExpression):
         return self.operand.free_indices
 
     @cached_property
-    def arity(self):
-        return self.operand.arity
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):
@@ -181,8 +184,8 @@ class Absolute(AbstractExpression):
         return self.operand.free_indices
 
     @cached_property
-    def arity(self):
-        return self.operand.arity
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):
@@ -203,8 +206,8 @@ class SquareRoot(AbstractExpression):
         return self.operand.free_indices
 
     @cached_property
-    def arity(self):
-        return self.operand.arity
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):
@@ -225,8 +228,8 @@ class Logarithm(AbstractExpression):
         return self.operand.free_indices
 
     @cached_property
-    def arity(self):
-        return self.operand.arity
+    def argument_spaces(self):
+        return ()
 
     @cached_property
     def support(self):

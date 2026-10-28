@@ -22,7 +22,7 @@ from ..nodes import (
     Sum,
     Tensor,
 )
-from ..static import arity, free, shape, support, zero_like
+from ..static import free, shape, support, zero_like
 from ..substitution import expressions, freshen, map_fields
 from ..tensors import transpose, unit
 
@@ -60,7 +60,9 @@ def pb(f, m):
 def broadcast(f, m):
     # f has no support, so the pull-back is f on every member of the family of m.
     pulled = PullBack(f, m)
-    return f if free(pulled).keys() <= free(f).keys() else Sum(f, zero_like(pulled, arity(f)))
+    if free(pulled).keys() <= free(f).keys():
+        return f
+    return Sum(f, zero_like(pulled, f.argument_spaces))
 
 
 def pointwise(f, m):

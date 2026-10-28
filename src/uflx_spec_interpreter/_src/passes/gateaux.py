@@ -12,7 +12,7 @@ from ..nodes import (
     RealPart,
     Sum,
 )
-from ..static import arity, zero_like
+from ..static import zero_like
 from ..substitution import expressions, map_fields, occurs, operands
 
 NONHOLOMORPHIC = (Conjugate, Absolute, RealPart, ImaginaryPart)
@@ -21,10 +21,10 @@ NONHOLOMORPHIC = (Conjugate, Absolute, RealPart, ImaginaryPart)
 def rule(g):
     # The rule table of apply_gateaux_derivatives, keyed on the space of x and the entry.
     match g:
-        case GateauxDerivative(F, x, a, entry) if not x.space.complex:
+        case GateauxDerivative(F, x, a, entry) if x.space.scalar_type == "real":
             return Form(DirectionalDerivative(F, x, a, direction(entry)), (entry,))
         case GateauxDerivative(F, x, _, Conjugate()) if holomorphic(F, x):
-            return zero_like(F, arity(F) + 1)
+            return zero_like(F, g.argument_spaces)
         case GateauxDerivative(F, x, a, w) if holomorphic(F, x):
             return Form(DirectionalDerivative(F, x, a, w), (w,))
         case GateauxDerivative(F, x, a, Conjugate(w) as entry):

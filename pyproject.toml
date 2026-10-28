@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
-test = ["pytest", "coverage"]
+test = ["pytest", "pytest-xdist", "coverage"]
 lint = ["ruff"]
 
 [tool.setuptools.packages.find]

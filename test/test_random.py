@@ -2,7 +2,7 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, contains
+from testutil import assert_clean, contains, pairing
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -18,12 +18,12 @@ from uflx_spec_interpreter import (
     indexed,
     multiply,
     num,
-    space,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import Action, Function
+from uflx_spec_interpreter._src.nodes import Action
 from uflx_spec_interpreter._src.passes import actions
 from uflx_spec_interpreter._src.static import arity
+from uflx_toy.spaces import space
 
 V = space("V")
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
@@ -108,9 +108,7 @@ def main(trials):
                 print("first failure, seed", seed, before, after)
         if contains(
             e,
-            lambda n: (
-                isinstance(n, Action) and not (isinstance(n.form, Function) and n.form.space.dual)
-            ),
+            lambda n: isinstance(n, Action) and not pairing(n),
         ):
             lazy += 1
             rejected += not actions.in_n2(e)

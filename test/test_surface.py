@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from test_facets import table
 from test_integrals import K
-from testutil import assert_clean, contains
+from testutil import assert_clean, contains, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -25,7 +25,6 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
     side_map,
-    space,
     tensor,
 )
 from uflx_spec_interpreter._src.nodes import (
@@ -38,8 +37,8 @@ from uflx_spec_interpreter._src.nodes import (
     SideMap,
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
-from uflx_spec_interpreter._src.static import free, shape
 from uflx_toy.indices import index_table
+from uflx_toy.spaces import space
 
 R3 = coordinate_domain("R3", 3)
 I = coordinate_domain("I", 1)
@@ -188,7 +187,7 @@ def check(name, e, env, bad, rows):
     ):
         bad["lazy"] += 1
         bad["rejected"] += not pullbacks.in_n5(out3)
-    if (shape(e), free(e)) != (shape(out), free(out)):
+    if static_type(e) != static_type(out):
         bad["static"] += 1
     bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
     before, after = evaluate(e, env)(()), evaluate(out, env)(())

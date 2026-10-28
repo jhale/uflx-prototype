@@ -1,4 +1,3 @@
-from .forms import space
 from .nodes import Zero
 
 
@@ -12,7 +11,7 @@ def free(e):
 
 
 def arity(e):
-    return e.arity
+    return len(e.argument_spaces)
 
 
 def support(e):
@@ -26,6 +25,5 @@ def free_indices(*es):
     return tuple(merged.items())
 
 
-def zero_like(f, n_args, *others):
-    # Placeholder argument spaces, since the toy does not track the spaces of arguments.
-    return Zero(shape(f), free_indices(f, *others), tuple(space("arg") for _ in range(n_args)))
+def zero_like(f, argument_spaces, *others):
+    return Zero(shape(f), free_indices(f, *others), argument_spaces)

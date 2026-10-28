@@ -4,6 +4,7 @@ from ..nodes import (
     Action,
     Conjugate,
     Division,
+    DualSpace,
     Function,
     Integer,
     Inverse,
@@ -36,7 +37,7 @@ def derivative_of_node(f, d, constant, avoid):
             return Division(d(b), b)
         case Inverse(A):
             return inverse_derivative(A, d(A))
-        case Action(Function(space, _) as l, 0, w) if space.dual:
+        case Action(Function(space, _) as l, 0, w) if isinstance(space, DualSpace):
             return Action(l, 0, d(w))
         case _ if type(f) in COMMUTING:
             return commute(f, d, avoid)

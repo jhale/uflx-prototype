@@ -7,20 +7,21 @@ from uflx_spec_interpreter import (
     component_tensor,
     conjugate,
     directional_derivative,
+    dual_space,
     form,
     function,
     index,
     indexed,
     multiply,
     num,
-    space,
     tensor,
 )
 from uflx_spec_interpreter._src.passes import actions
 from uflx_spec_interpreter._src.static import arity
+from uflx_toy.spaces import space
 
 rng = np.random.default_rng(1)
-V, Vd = space("V"), space("V", dual=True)
+V, Vd = space("V"), dual_space(space("V"))
 u, v, w, z, h = (function(V, n) for n in "uvwzh")
 l = function(Vd, "l")
 i, j = index("i"), index("j")

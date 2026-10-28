@@ -1,4 +1,3 @@
-from ..forms import space
 from ..nodes import (
     ComponentTensor,
     Coordinate,
@@ -10,7 +9,7 @@ from ..nodes import (
     PullBack,
     Zero,
 )
-from ..static import arity, free_indices, shape, support
+from ..static import free_indices, shape, support
 from ..substitution import expressions, map_fields
 from ..tensors import identity
 from .derivative_table import derivative_of_node
@@ -27,7 +26,7 @@ def partial(f, P, j):
             return Zero(
                 shape(f),
                 (*free_indices(f), (j, P.ambient_coordinate_domain.dimension)),
-                zero_args(f),
+                f.argument_spaces,
             )
         case Coordinate(Q) if Q == P and P.dimension == P.ambient_coordinate_domain.dimension:
             i = Index(("uflx.apply_gradients", f, P))
@@ -39,10 +38,6 @@ def partial(f, P, j):
             entry = Indexed(Gradient(f, P), (*axes, j))
             return ComponentTensor(entry, axes) if axes else entry
     return derivative_of_node(f, lambda b: partial(b, P, j), lambda c: support(c) is None, [])
-
-
-def zero_args(f):
-    return tuple(space("arg") for _ in range(arity(f)))
 
 
 def gradient(f, P):

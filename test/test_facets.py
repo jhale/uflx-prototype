@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 from test_integrals import R2, D
-from testutil import assert_clean, contains
+from testutil import assert_clean, contains, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -23,7 +23,6 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
     side_map,
-    space,
     tensor,
 )
 from uflx_spec_interpreter._src.nodes import (
@@ -36,8 +35,8 @@ from uflx_spec_interpreter._src.nodes import (
     SideMap,
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
-from uflx_spec_interpreter._src.static import free, shape
 from uflx_toy.indices import index_table
+from uflx_toy.spaces import space
 
 I = coordinate_domain("I", 1)
 k, e = index("k"), index("e")
@@ -151,7 +150,7 @@ def main(trials):
         ):
             lazy += 1
             rejected += not pullbacks.in_n5(out3)
-        if (shape(e_int), free(e_int)) != (shape(out), free(out)):
+        if static_type(e_int) != static_type(out):
             bad["static"] += 1
         bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
         before, after = evaluate(e_int, env)(()), evaluate(out, env)(())

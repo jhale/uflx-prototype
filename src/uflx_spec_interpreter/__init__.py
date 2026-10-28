@@ -21,7 +21,7 @@ from ._src.domains import (
     normal,
     side_map,
 )
-from ._src.forms import action, form, function, gateaux_derivative, space
+from ._src.forms import action, form, function, gateaux_derivative
 from ._src.geometry import density, inverse_jacobian, jacobian
 from ._src.indices import ellipsis_index, gathered_index, index
 from ._src.literals import num
@@ -32,6 +32,7 @@ from ._src.passes.gateaux import apply_gateaux_derivatives
 from ._src.passes.gradients import apply_gradients
 from ._src.passes.integrals import expand_integrals
 from ._src.passes.pullbacks import expand_pull_backs
+from ._src.spaces import conjugate_space, dual_space
 from ._src.tensors import (
     component,
     component_tensor,
@@ -44,8 +45,8 @@ from ._src.tensors import (
     transpose,
 )
 
-# The free functions of the specification, and the stand-ins space,
-# coordinate_domain and num until the core has the classes of the specification.
+# The free functions of the specification, the stand-in coordinate_domain until
+# the core has the classes of the specification, and the short name num.
 __all__ = [
     "absolute",
     "action",
@@ -58,6 +59,7 @@ __all__ = [
     "component",
     "component_tensor",
     "conjugate",
+    "conjugate_space",
     "coordinate",
     "coordinate_domain",
     "decomposed_domain",
@@ -66,6 +68,7 @@ __all__ = [
     "directional_derivative",
     "divide",
     "domain_map",
+    "dual_space",
     "ellipsis_index",
     "expand_integrals",
     "expand_pull_backs",
@@ -93,7 +96,6 @@ __all__ = [
     "pull_back",
     "real_part",
     "side_map",
-    "space",
     "square_root",
     "subtract",
     "tensor",

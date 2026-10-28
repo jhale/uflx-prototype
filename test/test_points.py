@@ -5,7 +5,7 @@ import numpy as np
 from test_facets import table
 from test_integrals import R2, D, u
 from test_surface import R3, M
-from testutil import assert_clean, contains
+from testutil import assert_clean, contains, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -24,12 +24,11 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
     side_map,
-    space,
 )
 from uflx_spec_interpreter._src.nodes import Coordinate, DomainMap, Function, Gradient, PullBack
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
-from uflx_spec_interpreter._src.static import free, shape
 from uflx_toy.indices import index_table
+from uflx_toy.spaces import space
 
 i, k = index("i"), index("k")
 POINT = coordinate_domain("pt", 0)
@@ -140,7 +139,7 @@ def main(trials):
         if contains(out4, needs_pass):
             bad["lazy"] += 1
             bad["rejected"] += not gradients.in_n6(out4)
-        if (shape(e), free(e)) != (shape(out), free(out)):
+        if static_type(e) != static_type(out):
             bad["static"] += 1
         bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
         if restricted:

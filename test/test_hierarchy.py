@@ -2,11 +2,13 @@ import pytest
 from test_integrals import D, c
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import cell_domain, space
+from uflx_spec_interpreter import cell_domain, conjugate_space, dual_space
 from uflx_spec_interpreter._src import nodes
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Base,
+    Conjugate,
+    ConjugateSpace,
     Coordinate,
     Form,
     Function,
@@ -20,6 +22,7 @@ from uflx_spec_interpreter._src.passes import pullbacks
 from uflx_spec_interpreter._src.static import free
 from uflx_spec_interpreter._src.substitution import rebuild
 from uflx_toy.nodes import IndexTable
+from uflx_toy.spaces import space
 
 EXPRESSIONS = (
     "Integer Float ImaginaryUnit Zero Sum Product Division Power Absolute Conjugate RealPart "
@@ -27,10 +30,12 @@ EXPRESSIONS = (
     "Coordinate Gradient DirectionalDerivative Integral PullBack Normal Function Form Action "
     "GateauxDerivative"
 ).split()
+STATIC_TYPE = {"value_shape", "free_indices", "argument_spaces", "support"}
 OTHERS = {
     nodes: [
         "Index",
-        "Space",
+        "ConjugateSpace",
+        "DualSpace",
         "GatheredIndex",
         "CoordinateDomain",
         "DecomposedDomain",
@@ -64,13 +69,28 @@ def test_a_pull_back_leaves_a_gathered_entry_unchanged():
     assert not isinstance(out.expression, PullBack) and not isinstance(out.expression, Function)
 
 
-def test_a_curried_form_counts_the_arguments_of_its_expression():
-    V = space("V")
-    u, v, w = (Function(V, n) for n in "uvw")
+def test_a_curried_form_has_the_argument_spaces_of_its_expression_first():
+    V, W = space("V"), space("W")
+    u, v, w = Function(V, "u"), Function(V, "v"), Function(W, "w")
     inner = Form(Product(u, v), (v,))
-    assert inner.arity == 1
-    assert Form(Product(inner, w), (w,)).arity == 2
-    assert RealPart(inner).arity == 1
+    assert inner.argument_spaces == (V,)
+    assert Form(Product(inner, w), (Conjugate(w),)).argument_spaces == (V, ConjugateSpace(W))
+    assert Conjugate(inner).argument_spaces == (ConjugateSpace(V),)
+    assert RealPart(u).argument_spaces == ()
+
+
+def test_conjugating_an_argument_space_twice_gives_it_back():
+    V, R = space("V"), space("R", scalar_type="real")
+    assert conjugate_space(R) is R
+    assert Conjugate(Conjugate(Form(Function(V, "v"), (Function(V, "v"),)))).argument_spaces == (V,)
+
+
+def test_a_dual_space_has_the_conjugate_argument_space():
+    V, Q = space("V"), space("Q")
+    l = Function(dual_space(V), "l")
+    assert l.argument_spaces == (ConjugateSpace(V),) and l.value_shape == ()
+    assert dual_space((V, Q)).argument_spaces == ((ConjugateSpace(V), ConjugateSpace(Q)),)
+    assert dual_space(dual_space(V)).argument_spaces == (ConjugateSpace(dual_space(V)),)
 
 
 def test_every_expression_class_states_its_static_type():
@@ -78,13 +98,8 @@ def test_every_expression_class_states_its_static_type():
     for cls in concrete_classes():
         if issubclass(cls, AbstractExpression):
             own = set(vars(cls)) | set(cls.argument_names)
-            assert {"value_shape", "free_indices", "arity", "support"} <= own, cls.__name__
-    assert AbstractExpression.__abstractmethods__ >= {
-        "value_shape",
-        "free_indices",
-        "arity",
-        "support",
-    }
+            assert STATIC_TYPE <= own, cls.__name__
+    assert AbstractExpression.__abstractmethods__ >= STATIC_TYPE
 
 
 def concrete_classes():

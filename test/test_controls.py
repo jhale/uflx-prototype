@@ -1,9 +1,10 @@
 # Negative controls: each breaks the passes on purpose, and the tests must notice.
 import test_random
 
-from uflx_spec_interpreter import action, form, function, multiply, num, space
+from uflx_spec_interpreter import action, form, function, multiply, num
 from uflx_spec_interpreter._src import substitution
 from uflx_spec_interpreter._src.passes import actions
+from uflx_toy.spaces import space
 
 
 def test_without_freshening_values_change(monkeypatch):

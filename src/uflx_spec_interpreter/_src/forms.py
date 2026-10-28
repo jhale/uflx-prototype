@@ -1,4 +1,4 @@
-from .nodes import Action, Conjugate, Form, Function, GateauxDerivative, Space
+from .nodes import Action, Conjugate, Form, Function, GateauxDerivative
 
 
 def members(entry):
@@ -8,10 +8,6 @@ def members(entry):
 def entry_fns(entry):
     # The functions of an entry, without the conjugate of an entry conjugate(v).
     return [m.operand if isinstance(m, Conjugate) else m for m in members(entry)]
-
-
-def space(name, dual=False, value_shape=(), domain=None, complex=True):
-    return Space(name, dual, value_shape, domain, complex)
 
 
 def function(space, label):

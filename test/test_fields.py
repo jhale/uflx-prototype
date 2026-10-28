@@ -26,11 +26,11 @@ from uflx_spec_interpreter import (
     multiply,
     num,
     pull_back,
-    space,
 )
 from uflx_spec_interpreter._src.nodes import Function
 from uflx_spec_interpreter._src.passes import actions, derivatives, integrals
 from uflx_spec_interpreter._src.static import arity
+from uflx_toy.spaces import space
 
 VD = space("VD", domain=MESH)
 u, w, h = (function(VD, n) for n in "uwh")

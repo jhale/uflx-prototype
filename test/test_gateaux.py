@@ -10,22 +10,23 @@ from uflx_spec_interpreter import (
     action,
     add,
     conjugate,
+    dual_space,
     form,
     function,
     gateaux_derivative,
     multiply,
     num,
     real_part,
-    space,
 )
 from uflx_spec_interpreter._src.passes import actions, derivatives, gateaux
 from uflx_spec_interpreter._src.static import arity
+from uflx_toy.spaces import space
 
-C, R = space("C"), space("R", complex=False)
+C, R = space("C"), space("R", scalar_type="real")
 # A load in each dual space, linear in its argument like every action.
 LOADS = {
-    C: function(space("C", dual=True), "l"),
-    R: function(space("R", dual=True, complex=False), "l"),
+    C: function(dual_space(space("C")), "l"),
+    R: function(dual_space(space("R", scalar_type="real")), "l"),
 }
 LOAD_VALUE = 0.7 - 0.4j
 

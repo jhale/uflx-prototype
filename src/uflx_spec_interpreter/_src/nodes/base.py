@@ -75,7 +75,7 @@ class AbstractExpression(Base):
 
     @property
     @abstractmethod
-    def arity(self) -> int: ...
+    def argument_spaces(self) -> tuple: ...
 
     @property
     @abstractmethod

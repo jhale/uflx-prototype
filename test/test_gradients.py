@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 from test_integrals import K
-from testutil import assert_clean, contains
+from testutil import assert_clean, contains, static_type
 
 import uflx_oracle as oracle
 from uflx_oracle import evaluate
@@ -26,13 +26,12 @@ from uflx_spec_interpreter import (
     num,
     power,
     real_part,
-    space,
     square_root,
     tensor,
 )
 from uflx_spec_interpreter._src.nodes import Function, Gradient, Normal, PullBack
 from uflx_spec_interpreter._src.passes import gradients
-from uflx_spec_interpreter._src.static import free, shape
+from uflx_toy.spaces import space
 
 X = coordinate(K)
 u = function(space("V", domain=K), "u")
@@ -116,7 +115,7 @@ def run(trials):
         if contains(e, needs_pass):
             bad["lazy"] += 1
             bad["rejected"] += not gradients.in_n6(e)
-        if (shape(e), free(e)) != (shape(out), free(out)):
+        if static_type(e) != static_type(out):
             bad["static"] += 1
         bad["grammar"] += not gradients.in_n6(out)
         before, after = evaluate(e, ENV)(()), evaluate(out, ENV)(())

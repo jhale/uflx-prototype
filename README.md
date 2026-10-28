@@ -8,8 +8,8 @@ oracle to the extension to the core, which `test/test_boundaries.py` checks:
 
 - `uflx_spec_interpreter`: the core, with only what the specification defines
 - `uflx_toy`: a language extension, with the classes that the specification
-  leaves to a library or to an extension, `IndexTable`, `RuntimeExtent` and
-  `RuntimeArray`
+  leaves to a library or to an extension, `IndexTable`, `RuntimeExtent`,
+  `RuntimeArray` and the space `Space`
 - `uflx_oracle`: the oracle that the tests compare the passes against
 
 The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
@@ -27,7 +27,7 @@ The core splits a public API from a private one, as JAX does with `jax._src`.
 
 The public API is `uflx_spec_interpreter/__init__.py`, which re-exports the
 free functions of the specification and declares them in `__all__`, with the
-stand-ins `space` and `coordinate_domain` and the short name `num`. A user,
+stand-in `coordinate_domain` and the short name `num`. A user,
 and a test that builds expressions, imports only these, as in
 `from uflx_spec_interpreter import add, index`. `AbstractExpression` also has
 the operator overloads of the specification, which call these free functions
@@ -54,7 +54,8 @@ modules of `_src`:
 - `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
 - `domains.py`: `coordinate_domain`, `decomposed_domain`, `cell_domain`,
   `gathered_cell_domain`, `side_map` and `normal`
-- `forms.py`: `space`, `function`, `form`, `action` and `gateaux_derivative`
+- `spaces.py`: `conjugate_space` and `dual_space`
+- `forms.py`: `function`, `form`, `action` and `gateaux_derivative`
 - `static.py`: the free functions that read the static type
 
 The private modules of `_src`:
@@ -67,7 +68,7 @@ The private modules of `_src`:
   Every concrete class is `@final`, and the abstract classes are contracts.
 - `nodes/literals.py`, `nodes/arithmetic.py`, `nodes/indices.py`,
   `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py` and
-  `nodes/forms.py`: the node classes, by section of the specification, each
+  `nodes/spaces.py`, `nodes/forms.py`: the node classes, by section of the specification, each
   with a module of the same name for its free functions
 - `interning.py`: the table of nodes, their canonical text and the seed-free
   digest
@@ -93,7 +94,7 @@ of trials as its argument, and prints its counts.
 
 ```
 pip install -e ".[test,lint]"
-pytest
+pytest -n auto
 ruff check . && ruff format --check .
 coverage run -m pytest && coverage report
 python test/test_full.py 100
@@ -105,14 +106,10 @@ The classes, their fields, the passes and the helpers use the names of the
 specification. The core still simplifies the specification in these places,
 which the toy replaces with the classes of the specification one at a time:
 
-- `Space` is every space, with the flags `dual` and `complex`, where the
-  specification has `AbstractFunctionSpace`, `DualSpace` and `ConjugateSpace`.
 - `CoordinateDomain` is both `RD` and a reference cell, and has no vertices.
 - `CellMap` is a cell of a decomposed domain, or a gathered cell, which the
   specification writes as a `DomainMap` through `cell_domain` and
   `gathered_cell_domain`.
-- `arity` counts the arguments, where the specification has
-  `argument_spaces`, so a `Zero` has placeholder argument spaces.
 - A `SideMap` holds its side tables, where the specification reads them from
   the topology by the name of the side.
 - The constructors do not validate their arguments (rule 8).

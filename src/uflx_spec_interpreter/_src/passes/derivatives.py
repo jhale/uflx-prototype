@@ -1,5 +1,5 @@
 from ..nodes import DirectionalDerivative
-from ..static import arity, zero_like
+from ..static import zero_like
 from ..substitution import expressions, map_fields, occurs, substitute
 from .derivative_table import derivative_of_node
 
@@ -14,7 +14,7 @@ def rules(f, x, a, h):
     # The leaf rows of apply_derivatives, then the derivatives of the node classes.
     match f:
         case _ if not occurs(x, f):
-            return zero_like(f, arity(f), a, h)
+            return zero_like(f, f.argument_spaces, a, h)
         case _ if f == x:
             return h
     return derivative_of_node(f, lambda b: rules(b, x, a, h), lambda c: not occurs(x, c), [x, a, h])

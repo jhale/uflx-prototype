@@ -3,7 +3,13 @@ from __future__ import annotations
 from functools import cached_property
 from typing import final
 
-from uflx_spec_interpreter._src.nodes import AbstractExpression, AbstractExtent, AbstractIndexValue
+from uflx_spec_interpreter._src.nodes import (
+    AbstractDomain,
+    AbstractExpression,
+    AbstractExtent,
+    AbstractFunctionSpace,
+    AbstractIndexValue,
+)
 
 
 @final
@@ -39,5 +45,17 @@ class RuntimeArray(AbstractExpression):
     value_shape: tuple
     opaque = ("label", "value_shape")
     free_indices = ()
-    arity = 0
+    argument_spaces = ()
     support = None
+
+
+@final
+class Space(AbstractFunctionSpace):
+    identifier = "toy.Space"
+    # A space of fields, whose functions the oracle reads from its environment.
+    name: str
+    value_shape: tuple
+    domain: AbstractDomain | None
+    scalar_type: str
+    opaque = ("name", "value_shape", "domain", "scalar_type")
+    argument_spaces = ()

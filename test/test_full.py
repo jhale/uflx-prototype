@@ -3,7 +3,7 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, contains
+from testutil import assert_clean, contains, pairing, static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -14,6 +14,7 @@ from uflx_spec_interpreter import (
     conjugate,
     directional_derivative,
     divide,
+    dual_space,
     form,
     function,
     imaginary_part,
@@ -26,17 +27,17 @@ from uflx_spec_interpreter import (
     num,
     power,
     real_part,
-    space,
     square_root,
     tensor,
 )
 from uflx_spec_interpreter._src.literals import zero
-from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative, Function
+from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative
 from uflx_spec_interpreter._src.passes import actions, derivatives
 from uflx_spec_interpreter._src.static import arity, free, shape
+from uflx_toy.spaces import space
 
-V, Vd = space("V"), space("V", dual=True)
-W, Wd = space("W", value_shape=(2,)), space("W", dual=True, value_shape=(2,))
+V, Vd = space("V"), dual_space(space("V"))
+W, Wd = space("W", value_shape=(2,)), dual_space(space("W", value_shape=(2,)))
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
 U, U2, U3 = (function(W, n) for n in ("U", "U2", "U3"))
 lV, lW = function(Vd, "lV"), function(Wd, "lW")
@@ -179,12 +180,16 @@ def leaf_form(rnd, specs):
     return form(body, tuple(entries))
 
 
+def spaces(spec):
+    return tuple(map(spaces, spec)) if isinstance(spec, tuple) else {"V": V, "W": W}[spec]
+
+
 def random_form(rnd, specs, depth):
     if depth == 0 or rnd.random() < 0.25:
         return leaf_form(rnd, specs) if specs else scalar(rnd, 2)
     op = rnd.randrange(9)
     if op == 8:
-        return zero((), (), tuple(space("arg") for _ in specs))
+        return zero((), (), tuple(spaces(spec) for spec in specs))
     if op == 0:
         return add(random_form(rnd, specs, depth - 1), random_form(rnd, specs, depth - 1))
     if op == 1:
@@ -227,7 +232,7 @@ def main(trials):
         specs = rnd.choice([[], ["V"], ["W"], [("V", "W")], ["V", "W"]])
         e = random_form(rnd, specs, 3)
         out = derivatives.apply_derivatives(actions.apply_actions(e))
-        if (shape(e), free(e), arity(e)) != (shape(out), free(out), arity(out)):
+        if static_type(e) != static_type(out):
             bad["static"] += 1
             if bad["static"] <= 2:
                 print(
@@ -237,12 +242,7 @@ def main(trials):
             e,
             lambda n: (
                 isinstance(n, DirectionalDerivative)
-                or (
-                    lambda n: (
-                        isinstance(n, Action)
-                        and not (isinstance(n.form, Function) and n.form.space.dual)
-                    )
-                )(n)
+                or (lambda n: isinstance(n, Action) and not pairing(n))(n)
             ),
         ):
             lazy += 1
