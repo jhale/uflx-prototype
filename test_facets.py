@@ -1,0 +1,101 @@
+import itertools
+import random
+import sys
+
+import numpy as np
+
+import integrals
+import pullbacks
+from core import CT, Coordinate, CoordDomain, Decomposed, DomainMap, Fn, Gradient, Index, Indexed, Integral, Normal, Num, Prod, PullBack, SideMap, Space, Sum, Tensor
+from core import CellMap
+from oracle import evaluate
+from testutil import contains
+from static import free, shape
+from test_integrals import D, R2
+
+I = CoordDomain("I", 1)
+k, e = Index("k"), Index("e")
+num = Num
+
+
+def table(rows):
+    def build(x):
+        return Tensor(tuple(build(y) for y in x)) if isinstance(x, (list, tuple)) else num(x)
+    return build(rows)
+
+
+def facets(vertices):
+    # A family of straight facets with the free index e.
+    fv = table(vertices)
+    psi = CT(Sum(Indexed(fv, (e, 0, k)), Prod(Sum(Indexed(fv, (e, 1, k)), Prod(num(-1), Indexed(fv, (e, 0, k)))), Indexed(Coordinate(I), (0,)))), (k,))
+    return Decomposed((DomainMap(I, psi, R2),))
+
+
+# The diagonal of the square, with the cell 0 on the side "+" and the cell 1 on the side "-".
+E_int = facets([[(0, 0), (1, 1)]])
+sides_int = {
+    "+": SideMap(D, E_int, table([0]), table([[(0, 0), (0, 1)]])),
+    "-": SideMap(D, E_int, table([1]), table([[(0, 0), (1, 0)]])),
+}
+# The four boundary edges, each with its one cell on the side "inside".
+E_bnd = facets([[(0, 0), (1, 0)], [(1, 0), (1, 1)], [(1, 1), (0, 1)], [(0, 1), (0, 0)]])
+sides_bnd = {"inside": SideMap(D, E_bnd, table([0, 0, 1, 1]), table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]))}
+
+V = Space("V", domain=D)
+u, w = Fn(V, "u"), Fn(V, "w")
+
+
+def restricted(rnd, sm):
+    f = rnd.choice([u, w, Indexed(Gradient(u, D), (rnd.randrange(2),)), Indexed(Coordinate(D), (rnd.randrange(2),)),
+                    Prod(u, w), Indexed(Gradient(Prod(u, w), D), (rnd.randrange(2),))])
+    return PullBack(f, sm)
+
+
+def integrand(rnd, E, sides):
+    terms = []
+    for _ in range(rnd.randrange(1, 3)):
+        sm = sides[rnd.choice(list(sides))]
+        pick = rnd.randrange(4)
+        if pick == 0:
+            terms.append(restricted(rnd, sm))
+        elif pick == 1:
+            terms.append(Prod(restricted(rnd, sm), Indexed(Normal(D, E, sm), (rnd.randrange(2),))))
+        elif pick == 2:
+            a, b = sides[list(sides)[0]], sides[list(sides)[-1]]
+            terms.append(Sum(restricted(rnd, a), Prod(num(-1), restricted(rnd, b))))
+        else:
+            terms.append(num(rnd.choice([1, 2])))
+    f = terms[0]
+    for t in terms[1:]:
+        f = Sum(f, t)
+    if rnd.random() < 0.2:
+        f = Normal(D, E, sides[list(sides)[0]])
+    return f
+
+
+def main(trials):
+    env = {u: {0: lambda x: 1 + x[0] + 2 * x[1], 1: lambda x: 3 - x[0] * x[1]}, w: lambda x: 2 + x[0] * x[1]}
+    bad = dict(value=0, static=0, grammar=0)
+    lazy, rejected = 0, 0
+    for seed in range(trials):
+        rnd = random.Random(seed)
+        E, sides = rnd.choice([(E_int, sides_int), (E_bnd, sides_bnd)])
+        e_int = Integral(integrand(rnd, E, sides), E)
+        out3 = integrals.expand_integrals(e_int)
+        out = pullbacks.expand_pull_backs(out3)
+        if contains(out3, lambda n: isinstance(n, PullBack) and isinstance(n.m, (CellMap, DomainMap)) and not isinstance(n.b, (Fn, Normal, PullBack, Gradient, SideMap))):
+            lazy += 1
+            rejected += not pullbacks.in_n5(out3)
+        if (shape(e_int), free(e_int)) != (shape(out), free(out)):
+            bad["static"] += 1
+        bad["grammar"] += not pullbacks.in_n5(out)
+        before, after = evaluate(e_int, env)(()), evaluate(out, env)(())
+        if not np.allclose(before, after, rtol=1e-5, atol=1e-7):
+            bad["value"] += 1
+            if bad["value"] <= 3:
+                print("value changed, seed", seed, before, after)
+    print(f"{trials} facet integrals: {bad['value']} values changed, {bad['static']} static types changed, {bad['grammar']} outside N5; N5 rejected {rejected} of {lazy} inputs with a pull-back to expand")
+
+
+if __name__ == "__main__":
+    main(int(sys.argv[1]) if len(sys.argv) > 1 else 60)
