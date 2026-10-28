@@ -1,4 +1,5 @@
 import basix
+import numpy as np
 
 from uflx_spec_interpreter import RD, domain_map, index, index_sum, pull_back, tensor
 from uflx_spec_interpreter._src.nodes import Float, Integral
@@ -25,8 +26,7 @@ def rule(g, K, degree):
     if K.cell_type in PRODUCTS:
         return product_rule(g, K, degree)
     X, w = basix.make_quadrature(K.cell_type, degree)
-    points = tensor(tuple(tensor(tuple(Float(float(x)) for x in p)) for p in X))
-    weights = constants(w)
+    points, weights = constant(X), constant(w)
     q = index(("compiler.quadrature", g, K, degree))
     return index_sum(weights[q] * pull_back(g, domain_map(RD(0), points[q], K)), (q,))
 
@@ -34,7 +34,7 @@ def rule(g, K, degree):
 def product_rule(g, K, degree):
     # Coordinate k of the points reads only its own index, which tabulation reads as separable.
     X, w = basix.make_quadrature(basix.CellType.interval, degree)
-    X, w = constants(X[:, 0]), constants(w)
+    X, w = constant(X[:, 0]), constant(w)
     q = tuple(index(("compiler.quadrature", g, K, degree, k)) for k in range(K.dimension))
     points = tensor(tuple(X[i] for i in q))
     weight = w[q[0]]
@@ -46,5 +46,9 @@ def product_rule(g, K, degree):
 PRODUCTS = (basix.CellType.quadrilateral, basix.CellType.hexahedron)
 
 
-def constants(values):
-    return tensor(tuple(Float(float(x)) for x in values))
+def constant(values):
+    # An array of numbers as a Tensor of Floats, or a Float.
+    values = np.asarray(values)
+    if values.ndim == 0:
+        return Float(float(values))
+    return tensor(tuple(map(constant, values)))

@@ -162,8 +162,8 @@ def indexed(n, x, indices, value, env, xp):
         match k:
             case Index():
                 return iota(k)
-            case GatheredIndex(table, entries):
-                return np.asarray(table.values)[tuple(entry(m) for m in entries)]
+            case GatheredIndex() as g:
+                return np.asarray(g.table.values)[tuple(entry(m) for m in g.indices)]
         return k
 
     keys = [iota(i) for i in free(x)] + [entry(k) for k in indices]

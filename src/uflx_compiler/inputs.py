@@ -10,7 +10,7 @@ class Basis(NamedTuple):
     space: object
     piece: int
     points: object
-    derivative: int
+    direction: int | None
 
 
 def arrays(arrays, e):
