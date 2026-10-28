@@ -11,6 +11,7 @@ from ..nodes import (
     Logarithm,
     Power,
     Product,
+    RealPart,
     SquareRoot,
     Sum,
 )
@@ -45,9 +46,8 @@ def derivative_of_node(f, d, constant, avoid):
 
 
 def abs_derivative(b, db):
-    return Division(
-        Sum(Product(Conjugate(b), db), Product(b, Conjugate(db))), Product(Integer(2), Absolute(b))
-    )
+    # Re(conj(b) db) / |b|, which is real arithmetic like the Absolute it replaces.
+    return Division(RealPart(Product(Conjugate(b), db)), Absolute(b))
 
 
 def inverse_derivative(A, dA):

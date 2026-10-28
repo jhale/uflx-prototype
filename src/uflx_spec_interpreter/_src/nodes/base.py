@@ -81,6 +81,16 @@ class AbstractExpression(Base):
     @abstractmethod
     def support(self): ...
 
+    @property
+    @abstractmethod
+    def scalar_type(self) -> str: ...
+
+    @staticmethod
+    def joined_scalar_type(*operands):
+        # The default rule, complex if and only if an edge is a complex expression.
+        flat = [m for x in operands for m in (x if isinstance(x, tuple) else (x,))]
+        return "complex" if any(m.scalar_type == "complex" for m in flat) else "real"
+
     # The free functions import the nodes, so each overload imports its free function locally.
     def __add__(self, other):
         from ..arithmetic import add

@@ -28,6 +28,10 @@ class Sum(AbstractExpression):
         return self.first.argument_spaces
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.first, self.second)
+
+    @cached_property
     def support(self):
         return self.second.support or self.first.support
 
@@ -49,6 +53,10 @@ class Product(AbstractExpression):
     @cached_property
     def free_indices(self):
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.first, self.second)
 
     @cached_property
     def support(self):
@@ -74,6 +82,10 @@ class Division(AbstractExpression):
         return self.first.argument_spaces
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.first, self.second)
+
+    @cached_property
     def support(self):
         return self.second.support or self.first.support
 
@@ -95,6 +107,10 @@ class Power(AbstractExpression):
     @cached_property
     def argument_spaces(self):
         return ()
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.first, self.second)
 
     @cached_property
     def support(self):
@@ -122,6 +138,10 @@ class Conjugate(AbstractExpression):
         return conjugated(self.operand.argument_spaces)
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.operand)
+
+    @cached_property
     def support(self):
         return self.operand.support
 
@@ -142,6 +162,10 @@ class RealPart(AbstractExpression):
     @cached_property
     def argument_spaces(self):
         return ()
+
+    @cached_property
+    def scalar_type(self):
+        return "real"
 
     @cached_property
     def support(self):
@@ -166,6 +190,10 @@ class ImaginaryPart(AbstractExpression):
         return ()
 
     @cached_property
+    def scalar_type(self):
+        return "real"
+
+    @cached_property
     def support(self):
         return self.operand.support
 
@@ -186,6 +214,10 @@ class Absolute(AbstractExpression):
     @cached_property
     def argument_spaces(self):
         return ()
+
+    @cached_property
+    def scalar_type(self):
+        return "real"
 
     @cached_property
     def support(self):
@@ -210,6 +242,10 @@ class SquareRoot(AbstractExpression):
         return ()
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.operand)
+
+    @cached_property
     def support(self):
         return self.operand.support
 
@@ -230,6 +266,10 @@ class Logarithm(AbstractExpression):
     @cached_property
     def argument_spaces(self):
         return ()
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.operand)
 
     @cached_property
     def support(self):

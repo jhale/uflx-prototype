@@ -47,7 +47,7 @@ def pairing(action):
 
 def static_type(e):
     # The free indices compare as a dict, since a pass may reorder them.
-    return e.value_shape, dict(e.free_indices), e.argument_spaces
+    return e.value_shape, dict(e.free_indices), e.argument_spaces, e.scalar_type
 
 
 # The operands whose argument spaces a node passes on, by the static type table.

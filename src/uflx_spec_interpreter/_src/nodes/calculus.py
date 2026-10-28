@@ -39,6 +39,10 @@ class DirectionalDerivative(AbstractExpression):
         return self.expression.argument_spaces
 
     @cached_property
+    def scalar_type(self):
+        return self.expression.scalar_type
+
+    @cached_property
     def support(self):
         return self.direction.support or self.point.support or self.expression.support
 
@@ -52,6 +56,10 @@ class Coordinate(AbstractExpression):
     @cached_property
     def value_shape(self):
         return (self.domain.ambient_coordinate_domain.dimension,)
+
+    @cached_property
+    def scalar_type(self):
+        return "real"
 
     @cached_property
     def support(self):
@@ -76,6 +84,10 @@ class Gradient(AbstractExpression):
     @cached_property
     def value_shape(self):
         return (*self.expression.value_shape, self.domain.ambient_coordinate_domain.dimension)
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
 
     @cached_property
     def support(self):
@@ -105,6 +117,10 @@ class PullBack(AbstractExpression):
         return tuple((dict(self.expression.free_indices) | dict(self.domain.free_indices)).items())
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
+
+    @cached_property
     def support(self):
         return self.domain.parameter_domain
 
@@ -131,6 +147,10 @@ class Integral(AbstractExpression):
         return tuple((i, n) for i, n in self.expression.free_indices if i not in bound)
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
+
+    @cached_property
     def support(self):
         return None
 
@@ -149,6 +169,10 @@ class Normal(AbstractExpression):
     @cached_property
     def value_shape(self):
         return (self.ambient_domain.ambient_coordinate_domain.dimension,)
+
+    @cached_property
+    def scalar_type(self):
+        return "real"
 
     @cached_property
     def support(self):

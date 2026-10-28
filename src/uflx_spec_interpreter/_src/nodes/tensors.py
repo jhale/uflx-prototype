@@ -28,6 +28,10 @@ class Tensor(AbstractExpression):
         return self.entries[0].argument_spaces
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(*self.entries)
+
+    @cached_property
     def support(self):
         return next((x.support for x in reversed(self.entries) if x.support), None)
 
@@ -67,6 +71,10 @@ class Indexed(AbstractExpression):
         return self.expression.argument_spaces
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
+
+    @cached_property
     def support(self):
         return self.expression.support
 
@@ -100,6 +108,10 @@ class ComponentTensor(AbstractExpression):
         return self.expression.argument_spaces
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
+
+    @cached_property
     def support(self):
         return self.expression.support
 
@@ -127,6 +139,10 @@ class IndexSum(AbstractExpression):
         return self.expression.argument_spaces
 
     @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
+
+    @cached_property
     def support(self):
         return self.expression.support
 
@@ -147,6 +163,10 @@ class Inverse(AbstractExpression):
     @cached_property
     def argument_spaces(self):
         return ()
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.operand)
 
     @cached_property
     def support(self):

@@ -35,6 +35,10 @@ class Integer(AbstractExpression):
         return ()
 
     @cached_property
+    def scalar_type(self):
+        return "real"
+
+    @cached_property
     def support(self):
         return None
 
@@ -66,6 +70,10 @@ class Float(AbstractExpression):
         return ()
 
     @cached_property
+    def scalar_type(self):
+        return "real"
+
+    @cached_property
     def support(self):
         return None
 
@@ -87,6 +95,10 @@ class ImaginaryUnit(AbstractExpression):
         return ()
 
     @cached_property
+    def scalar_type(self):
+        return "complex"
+
+    @cached_property
     def support(self):
         return None
 
@@ -99,6 +111,10 @@ class Zero(AbstractExpression):
     free_indices: tuple[tuple[Index, int], ...]
     argument_spaces: tuple
     opaque = ("value_shape", "free_indices", "argument_spaces")
+
+    @cached_property
+    def scalar_type(self):
+        return "real"
 
     @cached_property
     def support(self):

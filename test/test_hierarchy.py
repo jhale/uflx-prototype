@@ -40,7 +40,7 @@ EXPRESSIONS = (
     "Coordinate Gradient DirectionalDerivative Integral PullBack Normal Function Form Action "
     "GateauxDerivative"
 ).split()
-STATIC_TYPE = {"value_shape", "free_indices", "argument_spaces", "support"}
+STATIC_TYPE = {"value_shape", "free_indices", "argument_spaces", "support", "scalar_type"}
 OTHERS = {
     nodes: [
         "Index",

@@ -51,6 +51,7 @@ class RuntimeArray(AbstractExpression):
     free_indices = ()
     argument_spaces = ()
     support = None
+    scalar_type = "real"
 
 
 @final

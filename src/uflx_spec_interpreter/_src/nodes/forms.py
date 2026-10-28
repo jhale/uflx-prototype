@@ -34,6 +34,10 @@ class Function(AbstractExpression):
         return self.space.argument_spaces
 
     @cached_property
+    def scalar_type(self):
+        return self.space.scalar_type
+
+    @cached_property
     def support(self):
         return self.space.domain
 
@@ -68,6 +72,10 @@ class Form(AbstractExpression):
         return self.expression.free_indices
 
     @cached_property
+    def scalar_type(self):
+        return self.expression.scalar_type
+
+    @cached_property
     def support(self):
         return self.expression.support
 
@@ -93,6 +101,10 @@ class Action(AbstractExpression):
     def free_indices(self):
         members = self.argument if isinstance(self.argument, tuple) else (self.argument,)
         return tuple(dict(p for x in (self.form, *members) for p in x.free_indices).items())
+
+    @cached_property
+    def scalar_type(self):
+        return self.form.scalar_type
 
     @cached_property
     def support(self):
@@ -125,6 +137,12 @@ class GateauxDerivative(AbstractExpression):
     @cached_property
     def free_indices(self):
         return tuple(dict(self.expression.free_indices + self.point.free_indices).items())
+
+    @cached_property
+    def scalar_type(self):
+        if self.joined_scalar_type(self.variable) == "real":
+            return self.expression.scalar_type
+        return "complex"
 
     @cached_property
     def support(self):
