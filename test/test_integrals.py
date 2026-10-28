@@ -21,7 +21,7 @@ from uflx_spec_interpreter.nodes import (
     Tensor,
 )
 from uflx_spec_interpreter.oracle import evaluate
-from uflx_spec_interpreter.passes import integrals, pullbacks
+from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
 R2 = CoordDomain("R2", 2)
@@ -136,7 +136,7 @@ def main(trials):
         kind = rnd.choice(["domain", "ambient", "none"])
         e = Integral(integrand(rnd, dom, kind), dom)
         out3 = integrals.expand_integrals(e)
-        out = pullbacks.expand_pull_backs(out3)
+        out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
         rejected += not integrals.in_n4(e)
         if (shape(e), free(e)) != (shape(out), free(out)):
             bad["static"] += 1
@@ -149,7 +149,10 @@ def main(trials):
                     (shape(out), free(out)),
                 )
         bad["grammar"] += not (
-            integrals.in_n4(out3) and integrals.in_n4(out) and pullbacks.in_n5(out)
+            integrals.in_n4(out3)
+            and integrals.in_n4(out)
+            and pullbacks.in_n5(out)
+            and gradients.in_n6(out)
         )
         fr = free(e)
         for combo in itertools.product(*(range(n) for n in fr.values())):

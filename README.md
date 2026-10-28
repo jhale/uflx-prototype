@@ -12,6 +12,7 @@ The passes, in `src/uflx_spec_interpreter/`, in the order of the specification:
 | 2 `apply_derivatives` | `passes/derivatives.py` | N3 |
 | 3 `expand_integrals` | `passes/integrals.py` | N4 |
 | 4 `expand_pull_backs` | `passes/pullbacks.py` | N5 |
+| 5 `apply_gradients` | `passes/gradients.py` | N6 |
 
 The language itself is split by concern:
 
@@ -19,6 +20,7 @@ The language itself is split by concern:
 - `domains.py`: domains, domain maps and their cells
 - `substitution.py`: traversal, freshening and simultaneous substitution
 - `commuting.py`: the commuting node classes, into which an evaluated node moves
+- `calculus.py`: the derivatives of the node classes, shared by passes 2 and 5
 - `geometry.py`: the Jacobian matrix, its inverse on the tangent space, and the density
 - `static.py`: static types
 - `algebra.py`: the matrix compositions the passes share

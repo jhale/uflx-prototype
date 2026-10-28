@@ -23,7 +23,7 @@ from uflx_spec_interpreter.nodes import (
     Tensor,
 )
 from uflx_spec_interpreter.oracle import evaluate
-from uflx_spec_interpreter.passes import integrals, pullbacks
+from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
 I = CoordDomain("I", 1)
@@ -123,7 +123,7 @@ def main(trials):
         E, sides = rnd.choice([(E_int, sides_int), (E_bnd, sides_bnd)])
         e_int = Integral(integrand(rnd, E, sides), E)
         out3 = integrals.expand_integrals(e_int)
-        out = pullbacks.expand_pull_backs(out3)
+        out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
         if contains(
             out3,
             lambda n: (
@@ -136,7 +136,7 @@ def main(trials):
             rejected += not pullbacks.in_n5(out3)
         if (shape(e_int), free(e_int)) != (shape(out), free(out)):
             bad["static"] += 1
-        bad["grammar"] += not pullbacks.in_n5(out)
+        bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
         before, after = evaluate(e_int, env)(()), evaluate(out, env)(())
         if not np.allclose(before, after, rtol=1e-5, atol=1e-7):
             bad["value"] += 1

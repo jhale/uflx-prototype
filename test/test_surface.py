@@ -25,7 +25,7 @@ from uflx_spec_interpreter.nodes import (
     Tensor,
 )
 from uflx_spec_interpreter.oracle import evaluate
-from uflx_spec_interpreter.passes import integrals, pullbacks
+from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
 R3 = CoordDomain("R3", 3)
@@ -158,7 +158,7 @@ def edge_integrand(rnd, D, E, sides):
 
 def check(name, e, env, bad, rows):
     out3 = integrals.expand_integrals(e)
-    out = pullbacks.expand_pull_backs(out3)
+    out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
     if contains(
         out3,
         lambda n: (
@@ -171,7 +171,7 @@ def check(name, e, env, bad, rows):
         bad["rejected"] += not pullbacks.in_n5(out3)
     if (shape(e), free(e)) != (shape(out), free(out)):
         bad["static"] += 1
-    bad["grammar"] += not pullbacks.in_n5(out)
+    bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
     before, after = evaluate(e, env)(()), evaluate(out, env)(())
     if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
         bad["value"] += 1
