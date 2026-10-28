@@ -38,22 +38,28 @@ class.
 
 ## The static type
 
-1. `AbstractExpression` has four properties, each a
-   `functools.cached_property`, which writes to the instance `__dict__` and so
-   works on a frozen dataclass:
-   - `value_shape`, a `tuple`;
-   - `free_indices`, a `tuple` of the pairs of an `Index` and its extent, in
-     order of first occurrence, so the property is immutable;
-   - `arity`, the number of arguments, because the toy does not track the
-     argument spaces beyond their number;
-   - `support`, a domain or `None`.
-1. The rules stay in `static.py`, one `match` per property as now, renamed
-   `rule_shape`, `rule_free`, `rule_arity` and `rule_support`, and read the
-   static type of the operands through the properties. With interning, each
-   node computes each property once, on first use.
-1. `shape`, `free`, `arity` and `support` in `static.py` become readers:
+As built, after review: each class states its own static type, so that a class
+added by a language extension carries its static type with it.
+
+1. `AbstractExpression` has four `functools.cached_property` defaults, which
+   hold for most classes, and computes each once for each interned node:
+   - `value_shape` is `()`;
+   - `free_indices` is the union of those of the expression operands, as a
+     `tuple` of the pairs of an `Index` and its extent;
+   - `arity` is that of the first expression operand, or 0;
+   - `support` is the support found among the expression operands.
+1. A class overrides only what differs, as a short property next to its fields,
+   such as `Gradient.value_shape` or `Integral.free_indices`. `Sqrt`, `Log`,
+   `Abs` and the other scalar classes need no override.
+1. The domains state `ambient_dim` and `topdim`, the maps state
+   `parameter_domain` and `free_indices`, and `Gathered` states its free
+   indices, so the expressions read them with no import of `domains.py`.
+1. `shape`, `free`, `arity` and `support` in `static.py` read the properties.
    `free(e)` returns `dict(e.free_indices)`, a fresh `dict`, so no caller
-   changes. `memoised` goes.
+   changes.
+
+Moving the rules found that the arity of a `Form` ignored the arity of its
+expression, and that `RealPart` and the other scalar classes forced arity 0.
 
 ## Using the split
 
@@ -61,7 +67,7 @@ class.
 | ---- | ------ |
 | `nodes.py` | `Base` and `AbstractExpression`, and the parent of each class from the table |
 | `domains.py` | The parent of each class; `free_indices` read from `piece.psi`, with no import of `static.py` |
-| `static.py` | The rules read the properties of the operands; the four readers; no `memoised` |
+| `static.py` | The four readers, `free_indices` and `zero_like`; no rules and no `memoised` |
 | `substitution.py` | `expressions(e)`, the operands of `e` that are expressions |
 | `passes/pullbacks.py` | `pointwise` maps `pb` over the expressions; `NOT_EXPRESSIONS` goes |
 | `passes/*.py` | `in_n1` to `in_n6` walk `expressions(e)` |

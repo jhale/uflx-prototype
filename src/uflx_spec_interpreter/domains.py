@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import cached_property
 
 from .nodes import Base
 from .substitution import substitute
@@ -11,6 +12,14 @@ class CoordDomain(Base):
     dim: int
     opaque = ("name", "dim")
 
+    @property
+    def ambient_dim(self):
+        return self.dim
+
+    @property
+    def topdim(self):
+        return self.dim
+
 
 @dataclass(frozen=True, eq=False)
 class DomainMap(Base):
@@ -19,21 +28,35 @@ class DomainMap(Base):
     psi: Base
     Q: Base
 
+    @property
+    def parameter_domain(self):
+        return self.P
+
+    @cached_property
+    def free_indices(self):
+        return self.psi.free_indices
+
 
 @dataclass(frozen=True, eq=False)
 class Decomposed(Base):
     identifier = "uflx.DecomposedDomain"
     pieces: tuple
 
+    @property
+    def ambient_dim(self):
+        return self.pieces[0].Q.ambient_dim
+
+    @property
+    def topdim(self):
+        return self.pieces[0].P.topdim
+
 
 def ambient_dim(P):
-    if isinstance(P, CoordDomain):
-        return P.dim
-    return ambient_dim(P.pieces[0].Q)
+    return P.ambient_dim
 
 
 def topdim(P):
-    return P.dim if isinstance(P, CoordDomain) else topdim(P.pieces[0].P)
+    return P.topdim
 
 
 def ambient(P):
@@ -46,6 +69,12 @@ class Gathered(Base):
     # An index read from a table at the given entries.
     table: Base
     indices: tuple
+
+    @cached_property
+    def free_indices(self):
+        # Each Index entry takes the extent of its axis of the table.
+        shape = self.table.value_shape
+        return tuple((j, shape[m]) for m, j in enumerate(self.indices) if not isinstance(j, int))
 
 
 @dataclass(frozen=True, eq=False)
@@ -66,6 +95,14 @@ class CellMap(Base):
         return self.D
 
     @property
+    def parameter_domain(self):
+        return self.P
+
+    @cached_property
+    def free_indices(self):
+        return self.psi.free_indices
+
+    @property
     def psi(self):
         piece = self.D.pieces[self.j]
         family = [i for i, _ in piece.psi.free_indices]
@@ -84,6 +121,11 @@ class SideMap(Base):
     E: Base
     cells: Base
     positions: Base
+    free_indices = ()
+
+    @property
+    def parameter_domain(self):
+        return self.E
 
 
 def cell_domain(D, j):

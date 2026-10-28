@@ -67,31 +67,45 @@ class Base(metaclass=Interned):
 
 
 class AbstractExpression(Base):
-    # The static type, derived from the construction arguments once for each interned node.
-    # The rules import this module, so they are imported where they are used.
+    # The static type, derived once for each interned node. The defaults hold for most classes.
+    def expression_operands(self):
+        out = []
+
+        def walk(x):
+            if isinstance(x, AbstractExpression):
+                out.append(x)
+            elif isinstance(x, tuple):
+                for y in x:
+                    walk(y)
+
+        for f in fields(self):
+            if f.name not in self.opaque:
+                walk(getattr(self, f.name))
+        return out
+
     @cached_property
     def value_shape(self):
-        from ..static import rule_shape
-
-        return rule_shape(self)
+        return ()
 
     @cached_property
     def free_indices(self):
-        from ..static import rule_free
-
-        return tuple(rule_free(self).items())
+        out = {}
+        for x in self.expression_operands():
+            out |= dict(x.free_indices)
+        return tuple(out.items())
 
     @cached_property
     def arity(self):
-        from ..static import rule_arity
-
-        return rule_arity(self)
+        operands = self.expression_operands()
+        return operands[0].arity if operands else 0
 
     @cached_property
     def support(self):
-        from ..static import rule_support
-
-        return rule_support(self)
+        found = None
+        for x in self.expression_operands():
+            if x.support is not None:
+                found = x.support
+        return found
 
 
 @dataclass(frozen=True, eq=False)

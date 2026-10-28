@@ -30,7 +30,8 @@ The language itself is split by concern:
 - `commuting.py`: the commuting node classes, into which an evaluated node moves
 - `calculus.py`: the derivatives of the node classes, shared by passes 2 and 5
 - `geometry.py`: the Jacobian matrix, its inverse on the tangent space, and the density
-- `static.py`: the rules of the static type, and the free functions that read it
+- `static.py`: the free functions that read the static type, which each class
+  states
 - `algebra.py`: the matrix compositions the passes share
 
 `oracle.py` evaluates an expression from the definitions of its nodes, with

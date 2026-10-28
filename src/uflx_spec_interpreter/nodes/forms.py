@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import cached_property
 
 from .algebra import Conj
 from .base import AbstractExpression, Base
@@ -23,6 +24,18 @@ class Fn(AbstractExpression):
     opaque = ("space", "label")
     labels = ("label",)
 
+    @cached_property
+    def value_shape(self):
+        return () if self.space.dual else self.space.shape
+
+    @cached_property
+    def arity(self):
+        return 1 if self.space.dual else 0
+
+    @cached_property
+    def support(self):
+        return self.space.domain
+
 
 @dataclass(frozen=True, eq=False)
 class Form(AbstractExpression):
@@ -34,6 +47,15 @@ class Form(AbstractExpression):
     def bound(self):
         return [n for a in self.args for n in entry_fns(a)]
 
+    @cached_property
+    def value_shape(self):
+        return self.e.value_shape
+
+    @cached_property
+    def arity(self):
+        # The arguments of the expression come first, then the entries.
+        return self.e.arity + len(self.args)
+
 
 @dataclass(frozen=True, eq=False)
 class Action(AbstractExpression):
@@ -42,6 +64,14 @@ class Action(AbstractExpression):
     p: int
     g: object
     opaque = ("p",)
+
+    @cached_property
+    def value_shape(self):
+        return self.f.value_shape
+
+    @cached_property
+    def arity(self):
+        return self.f.arity - 1
 
 
 def members(entry):
@@ -63,3 +93,11 @@ class Gateaux(AbstractExpression):
 
     def bound(self):
         return [self.x, self.entry.a if isinstance(self.entry, Conj) else self.entry]
+
+    @cached_property
+    def value_shape(self):
+        return self.F.value_shape
+
+    @cached_property
+    def arity(self):
+        return self.F.arity + 1

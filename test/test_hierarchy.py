@@ -3,7 +3,18 @@ from test_integrals import D, c
 
 from uflx_spec_interpreter import domains, nodes
 from uflx_spec_interpreter.domains import Gathered, cell_domain
-from uflx_spec_interpreter.nodes import AbstractExpression, Base, Coordinate, Fn, Indexed, PullBack
+from uflx_spec_interpreter.nodes import (
+    AbstractExpression,
+    Base,
+    Coordinate,
+    Fn,
+    Form,
+    Indexed,
+    Prod,
+    PullBack,
+    Re,
+    Space,
+)
 from uflx_spec_interpreter.passes import pullbacks
 from uflx_spec_interpreter.static import free
 
@@ -38,3 +49,19 @@ def test_a_pull_back_leaves_a_gathered_entry_unchanged():
     out = pullbacks.pb(Indexed(Coordinate(D), (g,)), cell_domain(D, 0))
     assert isinstance(out, Indexed) and out.idx == (g,) and out.idx[0] is g
     assert not isinstance(out.e, PullBack) and not isinstance(out.e, Fn)
+
+
+def test_a_curried_form_counts_the_arguments_of_its_expression():
+    V = Space("V")
+    u, v, w = (Fn(V, n) for n in "uvw")
+    inner = Form(Prod(u, v), (v,))
+    assert inner.arity == 1
+    assert Form(Prod(inner, w), (w,)).arity == 2
+    assert Re(inner).arity == 1
+
+
+def test_most_classes_use_the_defaults():
+    # A class states only the parts of its static type that differ from the defaults.
+    for name in ("Sqrt", "Log", "Abs", "Re", "Im", "Div", "Power"):
+        own = vars(getattr(nodes, name))
+        assert not {"value_shape", "free_indices", "arity", "support"} & set(own), name
