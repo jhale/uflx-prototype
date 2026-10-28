@@ -56,7 +56,7 @@ modules of `_src`:
 - `cells.py`: `affine_map`, and the edges, the Jacobian and the centroid that the
   pull-back of a normal composes
 - `topology.py`: `cell_index`
-- `domains.py`: `decomposed_domain`, `cell_domain`, `side_domain`, `restriction`,
+- `domains.py`: `decomposed_domain`, `cell_domain`, `side_domain`,
   `gathered_cell_domain`, `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`
 - `forms.py`: `function`, `form`, `action` and `gateaux_derivative`

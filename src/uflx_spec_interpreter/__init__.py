@@ -19,7 +19,6 @@ from ._src.domains import (
     decomposed_domain,
     gathered_cell_domain,
     normal,
-    restriction,
     side_domain,
     side_map,
 )
@@ -100,7 +99,6 @@ __all__ = [
     "power",
     "pull_back",
     "real_part",
-    "restriction",
     "side_domain",
     "side_map",
     "square_root",

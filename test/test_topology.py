@@ -3,7 +3,7 @@ from test_integrals import DIAGONAL, SQUARE, D, K, c
 from test_integrals import I as interval
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import cell_index, function, num, restriction, side_domain, side_map
+from uflx_spec_interpreter import cell_index, function, pull_back, side_domain, side_map
 from uflx_spec_interpreter._src.nodes import SideMap
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology
@@ -29,9 +29,8 @@ def test_a_mesh_and_its_sides_have_topologies():
 def test_a_restriction_is_a_pull_back_by_a_side_map():
     E = side_domain(D, DIAGONAL)
     u = function(space("V", domain=D), "u")
-    assert restriction(num(1), E, "+") == num(1)
-    f = restriction(u, E, "+")
-    assert f.domain == side_map(D, E, "+") and isinstance(f.domain, SideMap) and f.support == E
+    f = pull_back(u, side_map(D, E, "+"))
+    assert isinstance(f.domain, SideMap) and f.support == E and f.free_indices == ()
 
 
 def test_a_side_domain_takes_the_side_on_the_topology_of_the_domain():

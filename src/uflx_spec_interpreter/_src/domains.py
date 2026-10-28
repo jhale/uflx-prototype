@@ -45,10 +45,6 @@ def side_map(D, E, s):
     return SideMap(D, E, s)
 
 
-def restriction(f, E, s):
-    return f if f.support is None else PullBack(f, SideMap(f.support, E, s))
-
-
 def side_domain(D, S):
     # Piece i is the coordinates of D through the first side of group i on the topology of D.
     pieces = []
