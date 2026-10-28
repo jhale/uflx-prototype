@@ -1,3 +1,5 @@
+from functools import cache
+
 import basix
 
 from uflx_spec_interpreter import RD, domain_map, index, index_sum, pull_back, tensor
@@ -9,6 +11,7 @@ from uflx_toy.basix_nodes import BasixCell
 
 def apply_quadrature(f, degree):
     # An integral over a reference cell becomes the weighted sum over the points of a rule.
+    @cache
     def rewrite(e):
         match map_fields(e, rewrite):
             case Integral(g, BasixCell() as K):

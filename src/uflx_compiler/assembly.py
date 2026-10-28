@@ -2,7 +2,7 @@ import numpy as np
 
 from uflx_spec_interpreter import component_tensor, index
 from uflx_spec_interpreter._src.nodes import Conjugate, Form
-from uflx_spec_interpreter._src.substitution import map_fields
+from uflx_spec_interpreter._src.substitution import substitute
 from uflx_spec_interpreter._src.tensors import identity
 
 from .evaluation import evaluate
@@ -24,7 +24,7 @@ def assemble(form, degree):
         J, k = (index(("compiler.assembly", p, n)) for n in range(2))
         replacements[coefficients(v)] = component_tensor(identity(v.space.num_dofs)[J, k], (k,))
         rows.append(J)
-    e = replace(e, replacements)
+    e = substitute(e, replacements)
     folded = fold(e)
     order = [i for i, _ in e.free_indices]
 
@@ -33,16 +33,3 @@ def assemble(form, degree):
         return xp.transpose(data, [order.index(J) for J in rows]) if rows else data
 
     return tensor
-
-
-def replace(e, mapping):
-    done = {}
-
-    def walk(x):
-        if x in mapping:
-            return mapping[x]
-        if x not in done:
-            done[x] = map_fields(x, walk)
-        return done[x]
-
-    return walk(e)
