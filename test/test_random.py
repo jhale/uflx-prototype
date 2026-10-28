@@ -54,7 +54,7 @@ def scalar(rnd, depth):
         return conjugate(a)
     if op == 3:
         return divide(a, num(rnd.choice([2, -4])))
-    return directional_derivative(multiply(u, a), u, h, u)
+    return directional_derivative(multiply(u, a), u, u, h)
 
 
 def random_form(rnd, kinds, depth):
@@ -81,7 +81,7 @@ def random_form(rnd, kinds, depth):
     if op == 3:
         return conjugate(random_form(rnd, tuple(not k for k in kinds), depth - 1))
     if op == 4:
-        return directional_derivative(random_form(rnd, kinds, depth - 1), u, h, u)
+        return directional_derivative(random_form(rnd, kinds, depth - 1), u, u, h)
     if op == 5:
         return indexed(
             tensor((random_form(rnd, kinds, depth - 1), random_form(rnd, kinds, depth - 1))),

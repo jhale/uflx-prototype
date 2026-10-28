@@ -22,5 +22,5 @@ def action(f, position, g):
     return Action(f, position, g)
 
 
-def gateaux_derivative(F, x, w, a=None):
-    return GateauxDerivative(F, x, x if a is None else a, w)
+def gateaux_derivative(F, x, a, w):
+    return GateauxDerivative(F, x, a, w)

@@ -50,8 +50,8 @@ def test_the_core_normal_form_rejects_what_its_table_leaves_out():
         pull_back(multiply(u, u), cells),
         # A cell of the dimension of the domain of the gradient, so the pass rewrites it.
         pull_back(gradient(u, D), cells),
-        directional_derivative(multiply(v, v), v, w, v),
-        gateaux_derivative(multiply(v, v), v, w, v),
+        directional_derivative(multiply(v, v), v, v, w),
+        gateaux_derivative(multiply(v, v), v, v, w),
         action(form(multiply(v, w), (v,)), 0, w),
         add(num(1), integral(u, D)),
     ):

@@ -9,8 +9,8 @@ def gradient(f, P):
     return Gradient(f, P)
 
 
-def directional_derivative(f, x, h, a=None):
-    return DirectionalDerivative(f, x, x if a is None else a, h)
+def directional_derivative(f, x, a, h):
+    return DirectionalDerivative(f, x, a, h)
 
 
 def integral(f, P):

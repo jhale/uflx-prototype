@@ -69,6 +69,6 @@ def test_cases():
         check(f"capture, family index i = {k}", action(G, 0, g), {i: k})
 
     # The argument contains the variable of the derivative: expect h * u, not 2 h u.
-    J = form(directional_derivative(multiply(u, v), u, h, u), (v,))
+    J = form(directional_derivative(multiply(u, v), u, u, h), (v,))
     out = check("action on a form with a derivative of u at u", action(J, 0, u))
     assert np.isclose(evaluate(out, env)(()), env[h] * env[u])

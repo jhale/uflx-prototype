@@ -151,7 +151,7 @@ def derivative(rnd, body, nd):
         direction = rnd.choice(
             [tensor((h, z)), component_tensor(multiply(indexed(c, (kf,)), indexed(U3, (m,))), (m,))]
         )
-    return directional_derivative(f, x, direction, point)
+    return directional_derivative(f, x, point, direction)
 
 
 # A spec names the space of an argument, "V" or "W", with a star for an entry conjugate(v).

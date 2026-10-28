@@ -73,7 +73,7 @@ def test_a_directional_derivative_through_an_ellipsis():
     x, h = function(space("V"), "x"), function(space("V"), "h")
     F = component_tensor(multiply(x, multiply(x, indexed(array(T), (r,)))), (r,))
     f = index_sum(multiply(indexed(F, (r,)), indexed(F, (r,))), (r,))
-    e = directional_derivative(f, x, h)
+    e = directional_derivative(f, x, x, h)
     out = derivatives.apply_derivatives(e)
     env = {x: 0.7, h: 0.3}
     assert np.isclose(evaluate(e, env)(()), evaluate(out, env)(()), rtol=1e-6)

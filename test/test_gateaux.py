@@ -64,7 +64,7 @@ def main(trials):
             (test,),
         )
         entry = conjugate(w) if rnd.random() < 0.5 else w
-        e = gateaux_derivative(F, u, entry, u)
+        e = gateaux_derivative(F, u, u, entry)
         if rnd.random() < 0.4:
             # An action on the new argument, the derivative in a fixed direction.
             e = action(e, 1, rnd.choice([z, add(u, z)]))
@@ -111,7 +111,7 @@ def test_pairing_with_the_conjugate():
     env = {u: 0.3 + 0.2j, w: 0.1 - 0.5j, l: lambda x: LOAD_VALUE * x}
     assert not gateaux.holomorphic(F, u)
     for entry in (w, conjugate(w)):
-        e = gateaux_derivative(F, u, entry, u)
+        e = gateaux_derivative(F, u, u, entry)
         out = derivatives.apply_derivatives(
             actions.apply_actions(gateaux.apply_gateaux_derivatives(e))
         )

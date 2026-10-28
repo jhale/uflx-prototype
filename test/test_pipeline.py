@@ -77,7 +77,7 @@ def derivative(rnd, f, nd):
     x = rnd.choice(VARIABLES)
     f = multiply(x, scalar(rnd, 2, nd))
     point = x if rnd.random() < 0.7 else rnd.choice([z, add(x, num(0.1))])
-    return directional_derivative(f, x, rnd.choice([h, z, num(1)]), point)
+    return directional_derivative(f, x, point, rnd.choice([h, z, num(1)]))
 
 
 def random_form(rnd, kinds, depth):
@@ -104,7 +104,7 @@ def random_form(rnd, kinds, depth):
     if op == 3:
         x = rnd.choice(VARIABLES)
         return directional_derivative(
-            multiply(x, random_form(rnd, kinds, depth - 1)), x, rnd.choice([h, z]), x
+            multiply(x, random_form(rnd, kinds, depth - 1)), x, x, rnd.choice([h, z])
         )
     if op == 4:
         return index_sum(multiply(indexed(c, (i,)), random_form(rnd, kinds, depth - 1)), (i,))

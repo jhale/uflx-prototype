@@ -75,7 +75,7 @@ def random_form(rnd, n, depth):
         body = multiply(b, body)
     e = form(integral_of(rnd, body), tuple(names)) if names else integral_of(rnd, body)
     if depth > 0 and rnd.random() < 0.5:
-        e = directional_derivative(e, u, rnd.choice([h, w]), u)
+        e = directional_derivative(e, u, u, rnd.choice([h, w]))
     if depth > 0 and rnd.random() < 0.6:
         bigger = random_form(rnd, n + 1, depth - 1)
         e = add(e, action(bigger, rnd.randrange(n + 1), field(rnd, [], 1)))
