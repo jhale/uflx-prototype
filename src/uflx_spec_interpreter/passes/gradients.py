@@ -13,7 +13,7 @@ from ..nodes import (
 )
 from ..static import arity, free_indices, shape, support
 from ..substitution import expressions, map_fields
-from .node_derivatives import derivative_of_node
+from .derivative_table import derivative_of_node
 from .pullbacks import expand_pull_backs
 
 # Expressions whose gradient a library provides, so the gradient remains.

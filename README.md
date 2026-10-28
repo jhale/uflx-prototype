@@ -46,7 +46,7 @@ and the white-box tests import:
 - `substitution.py`: traversal, freshening and simultaneous substitution
 - `passes/commuting.py`: the commuting node classes, into which an evaluated
   node moves
-- `passes/node_derivatives.py`: the derivatives of the node classes, shared by
+- `passes/derivative_table.py`: the derivatives of the node classes, shared by
   passes 2 and 5
 
 `oracle.py` evaluates an expression from the definitions of its nodes, with
