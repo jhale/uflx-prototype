@@ -4,8 +4,7 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
-from uflx_spec_interpreter import actions, derivatives, gateaux
-from uflx_spec_interpreter.core import (
+from uflx_spec_interpreter.nodes import (
     Abs,
     Action,
     Conj,
@@ -19,6 +18,7 @@ from uflx_spec_interpreter.core import (
     Sum,
 )
 from uflx_spec_interpreter.oracle import evaluate
+from uflx_spec_interpreter.passes import actions, derivatives, gateaux
 from uflx_spec_interpreter.static import arity
 
 C, R = Space("C"), Space("R", complex=False)

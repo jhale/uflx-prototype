@@ -1,25 +1,8 @@
-from .algebra import determinant, gram, tangent_gram, total
-from .core import (
-    CT,
-    Abs,
-    Decomposed,
-    Gradient,
-    Index,
-    Indexed,
-    Integral,
-    ISum,
-    Num,
-    Prod,
-    PullBack,
-    Sqrt,
-    ambient,
-    ambient_dim,
-    cell_domain,
-    map_fields,
-    operands,
-    topdim,
-)
-from .static import free, shape, support
+from ..algebra import determinant, gram, tangent_gram, total
+from ..domains import Decomposed, ambient, ambient_dim, cell_domain, topdim
+from ..nodes import CT, Abs, Gradient, Index, Indexed, Integral, ISum, Num, Prod, PullBack, Sqrt
+from ..static import free, shape, support
+from ..substitution import map_fields, operands
 
 
 def rule(e):

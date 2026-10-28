@@ -1,21 +1,9 @@
 from dataclasses import replace
 
-from .core import (
-    COMMUTING,
-    Action,
-    Fn,
-    Form,
-    Prod,
-    Zero,
-    commute,
-    entry_fns,
-    freshen,
-    map_fields,
-    members,
-    operands,
-    substitute,
-)
-from .static import arity, free_indices
+from ..commuting import COMMUTING, commute
+from ..nodes import Action, Fn, Form, Prod, Zero, entry_fns, members
+from ..static import arity, free_indices
+from ..substitution import freshen, map_fields, operands, substitute
 
 
 def act(f, p, g):

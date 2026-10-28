@@ -1,4 +1,5 @@
-from .core import (
+from .domains import Gathered, SideMap, ambient_dim
+from .nodes import (
     CT,
     Abs,
     Action,
@@ -9,7 +10,6 @@ from .core import (
     Fn,
     Form,
     Gateaux,
-    Gathered,
     Gradient,
     Im,
     Indexed,
@@ -23,15 +23,13 @@ from .core import (
     Prod,
     PullBack,
     Re,
-    SideMap,
     Space,
     Sqrt,
     Sum,
     Tensor,
     Zero,
-    ambient_dim,
-    operands,
 )
+from .substitution import operands
 
 
 def shape(e):

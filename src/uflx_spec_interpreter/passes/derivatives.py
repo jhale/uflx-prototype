@@ -1,26 +1,8 @@
-from .algebra import matmul, minus, negate, transpose
-from .core import (
-    COMMUTING,
-    Abs,
-    Action,
-    Conj,
-    D,
-    Div,
-    Fn,
-    Inv,
-    Log,
-    Num,
-    Power,
-    Prod,
-    Sqrt,
-    Sum,
-    commute,
-    map_fields,
-    occurs,
-    operands,
-    substitute,
-)
-from .static import arity, zero_like
+from ..algebra import matmul, minus, negate, transpose
+from ..commuting import COMMUTING, commute
+from ..nodes import Abs, Action, Conj, D, Div, Fn, Inv, Log, Num, Power, Prod, Sqrt, Sum
+from ..static import arity, zero_like
+from ..substitution import map_fields, occurs, operands, substitute
 
 
 def deriv(f, x, a, h):

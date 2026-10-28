@@ -5,13 +5,10 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
-from uflx_spec_interpreter import integrals, pullbacks
-from uflx_spec_interpreter.core import (
+from uflx_spec_interpreter.domains import CoordDomain, Decomposed, DomainMap
+from uflx_spec_interpreter.nodes import (
     CT,
-    CoordDomain,
     Coordinate,
-    Decomposed,
-    DomainMap,
     Fn,
     Gradient,
     Index,
@@ -24,6 +21,7 @@ from uflx_spec_interpreter.core import (
     Tensor,
 )
 from uflx_spec_interpreter.oracle import evaluate
+from uflx_spec_interpreter.passes import integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
 R2 = CoordDomain("R2", 2)

@@ -2,21 +2,18 @@ import itertools
 
 import numpy as np
 
-from .core import (
+from .domains import CellMap, CoordDomain, Decomposed, Gathered, SideMap, ambient
+from .nodes import (
     CT,
     Abs,
     Action,
-    CellMap,
     Conj,
-    CoordDomain,
     Coordinate,
     D,
-    Decomposed,
     Div,
     Fn,
     Form,
     Gateaux,
-    Gathered,
     Gradient,
     Im,
     Index,
@@ -31,12 +28,10 @@ from .core import (
     Prod,
     PullBack,
     Re,
-    SideMap,
     Sqrt,
     Sum,
     Tensor,
     Zero,
-    ambient,
     entry_fns,
 )
 from .static import arity, free, support

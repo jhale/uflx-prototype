@@ -1,7 +1,6 @@
 import numpy as np
 
-from uflx_spec_interpreter import actions
-from uflx_spec_interpreter.core import (
+from uflx_spec_interpreter.nodes import (
     CT,
     Action,
     Conj,
@@ -17,6 +16,7 @@ from uflx_spec_interpreter.core import (
     Tensor,
 )
 from uflx_spec_interpreter.oracle import evaluate
+from uflx_spec_interpreter.passes import actions
 from uflx_spec_interpreter.static import arity
 
 rng = np.random.default_rng(1)

@@ -5,8 +5,7 @@ import sys
 import numpy as np
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter import actions, derivatives
-from uflx_spec_interpreter.core import (
+from uflx_spec_interpreter.nodes import (
     CT,
     Abs,
     Action,
@@ -32,6 +31,7 @@ from uflx_spec_interpreter.core import (
     Zero,
 )
 from uflx_spec_interpreter.oracle import evaluate
+from uflx_spec_interpreter.passes import actions, derivatives
 from uflx_spec_interpreter.static import arity, free, shape
 
 V, Vd = Space("V"), Space("V", dual=True)

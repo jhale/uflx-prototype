@@ -1,19 +1,8 @@
 from functools import reduce
 from itertools import combinations, permutations
 
-from .core import (
-    CT,
-    Coordinate,
-    Gradient,
-    Index,
-    Indexed,
-    ISum,
-    Num,
-    Prod,
-    Sum,
-    Tensor,
-    ambient_dim,
-)
+from .domains import ambient_dim
+from .nodes import CT, Coordinate, Gradient, Index, Indexed, ISum, Num, Prod, Sum, Tensor
 
 
 def total(es):

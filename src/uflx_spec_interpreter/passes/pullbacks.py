@@ -1,13 +1,11 @@
-from .core import (
+from ..domains import CellMap, DomainMap, Gathered, SideMap, ambient_dim, topdim
+from ..nodes import (
     CT,
     Abs,
-    CellMap,
     Conj,
     Coordinate,
     Div,
-    DomainMap,
     Fn,
-    Gathered,
     Gradient,
     Im,
     Index,
@@ -21,19 +19,14 @@ from .core import (
     Prod,
     PullBack,
     Re,
-    SideMap,
     Space,
     Sqrt,
     Sum,
     Tensor,
     Zero,
-    ambient_dim,
-    freshen,
-    map_fields,
-    operands,
-    topdim,
 )
-from .static import arity, free, shape, support
+from ..static import arity, free, shape, support
+from ..substitution import freshen, map_fields, operands
 
 
 def fresh(f, m, n):
@@ -108,7 +101,7 @@ def pb(f, m):
             return contract_gradient(Gradient(pb(g, m), m.P), K, f, m)
         case Gradient(g, Q):
             # A parameter domain of lower dimension than its ambient: K = (J^T J + I - Pi)^-1 J^T.
-            from .algebra import tangent_gram
+            from ..algebra import tangent_gram
 
             J = Gradient(m.psi, m.P)
             a, c, l = (fresh(f, m, ("K", n)) for n in (0, 2, 3))

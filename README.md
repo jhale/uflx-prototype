@@ -7,15 +7,20 @@ The passes, in `src/uflx_spec_interpreter/`, in the order of the specification:
 
 | Pass | Module | Output grammar |
 | --- | --- | --- |
-| 0 `apply_gateaux_derivatives` | `gateaux.py` | N1 |
-| 1 `apply_actions` | `actions.py` | N2 |
-| 2 `apply_derivatives` | `derivatives.py` | N3 |
-| 3 `expand_integrals` | `integrals.py` | N4 |
-| 4 `expand_pull_backs` | `pullbacks.py` | N5 |
+| 0 `apply_gateaux_derivatives` | `passes/gateaux.py` | N1 |
+| 1 `apply_actions` | `passes/actions.py` | N2 |
+| 2 `apply_derivatives` | `passes/derivatives.py` | N3 |
+| 3 `expand_integrals` | `passes/integrals.py` | N4 |
+| 4 `expand_pull_backs` | `passes/pullbacks.py` | N5 |
 
-`core.py` holds the node classes, substitution, freshening and the commuting
-node classes. `static.py` computes static types, and `algebra.py` the matrix
-compositions the passes share.
+The language itself is split by concern:
+
+- `nodes.py`: the node classes, from the expressions to the form layer
+- `domains.py`: domains, domain maps and their cells
+- `substitution.py`: traversal, freshening and simultaneous substitution
+- `commuting.py`: the commuting node classes, into which an evaluated node moves
+- `static.py`: static types
+- `algebra.py`: the matrix compositions the passes share
 
 `oracle.py` evaluates an expression from the definitions of its nodes, with
 finite differences for derivatives, quadrature for integrals and numeric maps
