@@ -83,7 +83,7 @@ def test_the_gateaux_derivatives_assemble_to_the_derivatives_of_the_energy():
     energy = integral(num(0.5) * dot(u, u, D) + num(0.25) * u * u * u * u, D)
     residual = gateaux_derivative(energy, u, u, v)
     tangent = gateaux_derivative(residual, u, u, w)
-    key = ("coefficients", u)
+    key = "coefficients:u"
     U = np.random.default_rng(10).normal(size=V.num_dofs) * 0.5
     compiled = compile_form(energy, 8)
     folded = fold(compiled)

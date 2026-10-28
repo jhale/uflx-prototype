@@ -33,7 +33,8 @@ def tabulate(f):
 
 
 def coefficients(u):
-    return runtime_array(("coefficients", u), (u.space.num_dofs,))
+    # A label that a consumer writes, from the label of the function.
+    return runtime_array(f"coefficients:{u.label}", (u.space.num_dofs,))
 
 
 def leaf(e):

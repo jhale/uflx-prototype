@@ -47,7 +47,7 @@ def free(n):
 
 def size(m, env):
     # An extent known only at assembly is a kernel input, as a solver gives it.
-    return env[m] if isinstance(m, AbstractExtent) else m
+    return env[m.label] if isinstance(m, AbstractExtent) else m
 
 
 def extents(n, env):

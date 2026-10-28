@@ -112,6 +112,11 @@ def cell_value(m, ienv):
     return None
 
 
+def lookup(env, node, label):
+    # An input by its node, or by the label that a consumer of a kernel passes.
+    return env[node] if node in env else env[label]
+
+
 def side_cell(E, side):
     # The piece and the cell on the side of the current cell of E, through the side tables.
     i = POINTS.get(("piece", E), 0)
@@ -318,7 +323,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def basix_value(vals):
                 # The coefficients of the dofs of the cell times the basis, as the library of V.
-                return basix_function(space, env[e], env)
+                return basix_function(space, lookup(env, e, f"coefficients:{e.label}"), env)
 
             return basix_value
         case Function(space, _) if space.domain is not None:
@@ -545,7 +550,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return lambda vals: integrate(P, lambda members: piece_value(members, vals), env)
         case RuntimeArray():
-            return lambda vals: env[e]
+            return lambda vals: lookup(env, e, e.label)
     raise TypeError(e)
 
 
@@ -553,4 +558,4 @@ def size(n, env):
     # The value of an AbstractExtent is bound in env, as a solver gives it to a kernel.
     if isinstance(n, tuple):
         return tuple(size(m, env) for m in n)
-    return env[n] if isinstance(n, AbstractExtent) else n
+    return lookup(env, n, n.label) if isinstance(n, AbstractExtent) else n

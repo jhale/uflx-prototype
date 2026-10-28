@@ -8,7 +8,14 @@ import pytest
 from test_basix import CELLS, mixed, quadrilaterals, square
 from testutil import contains
 
-from uflx_compiler import assemble, compile_form, evaluate, fold, runtime_tables
+from uflx_compiler import (
+    assemble,
+    compile_form,
+    evaluate,
+    fold,
+    kernel_inputs,
+    runtime_tables,
+)
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
@@ -64,7 +71,7 @@ def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
         # Quadrature and tabulation leave arithmetic on arrays, with no lazy node.
         lazy = (Integral, PullBack, Gradient, Coordinate)
         assert not contains(compiled, lambda n, lazy=lazy: isinstance(n, lazy))
-        env = {("coefficients", u): U}
+        env = {"coefficients:u": U}
         expected = oracle(e, {u: U})(())
         assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8), e
         assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8), e
@@ -76,7 +83,7 @@ def test_the_same_graph_runs_on_jax():
     u = function(V, "u")
     U = np.random.default_rng(5).normal(size=V.num_dofs)
     compiled = compile_form(functionals(D, u)[3], 8)
-    key = ("coefficients", u)
+    key = "coefficients:u"
     f = jax.jit(lambda U: evaluate(compiled, {key: U}, jnp))
     assert np.isclose(f(jnp.asarray(U)), evaluate(compiled, {key: U}))
     # The derivative in the coefficients is the residual vector, here by automatic differentiation.
@@ -97,7 +104,7 @@ def test_folding_the_geometry_shrinks_the_kernel():
     V = basix_space("V", D, P, 2)
     u = function(V, "u")
     compiled = compile_form(functionals(D, u)[3], 4)
-    key = ("coefficients", u)
+    key = "coefficients:u"
     folded = fold(compiled)
     assert compiled not in folded and folded
     plain, small = (
@@ -133,7 +140,7 @@ def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
     V = basix_space("V", D, P, 1, discontinuous)
     u = function(V, "u")
     U = np.random.default_rng(8).normal(size=V.num_dofs)
-    env = {("coefficients", u): U}
+    env = {"coefficients:u": U}
     for e in facet_functionals(D, E, B, u):
         compiled = compile_form(e, 4)
         lazy = (Integral, PullBack, Gradient, Coordinate)
@@ -168,16 +175,21 @@ def test_a_function_at_points_known_only_at_assembly():
             # Points in the reference triangle, as a cut of each cell would give.
             X = rng.dirichlet(np.ones(3), size=(cells, n))[..., 1:]
             W = rng.random((cells, n))
-            env = runtime_tables(
-                compiled, {q: n, "points": X, "weights": W, ("coefficients", u): U}
-            )
-            expected = oracle(e, {u: U, q: n, points: X, weights: W})(())
+            # The consumer passes the inputs that the kernel states, by label, to both.
+            assert kernel_inputs(compiled) == {
+                "points": (2, "q", 2),
+                "weights": (2, "q"),
+                "coefficients:u": (V.num_dofs,),
+            }
+            given = {"q": n, "points": X, "weights": W, "coefficients:u": U}
+            env = runtime_tables(compiled, given)
+            expected = oracle(e, given)(())
             assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8)
             # JAX takes the arrays in a fixed order, and the extent stays a Python int.
-            keys = [k for k in env if k != q]
+            keys = [k for k in env if k != "q"]
 
             def run(arrays, keys=keys, n=n, compiled=compiled):
-                return evaluate(compiled, dict(zip(keys, arrays, strict=True)) | {q: n}, jnp)
+                return evaluate(compiled, dict(zip(keys, arrays, strict=True)) | {"q": n}, jnp)
 
             arrays = tuple(jnp.asarray(env[k]) for k in keys)
             assert np.isclose(jax.jit(run)(arrays), expected)
@@ -205,7 +217,7 @@ def test_geometry_from_coordinates_given_at_assembly():
     g = gradient(u, D)
     energy = integral(g[0] * g[0] + g[1] * g[1], D)
     compiled = compile_form(energy, 4)
-    env = {"x": coordinates, ("coefficients", u): U}
+    env = {"x": coordinates, "coefficients:u": U}
     expected = oracle(energy, {x: coordinates, u: U})(())
     assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8)
     M = assemble(form(integral(u * v, D), (v, u)), 4)({"x": coordinates})

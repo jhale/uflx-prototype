@@ -22,7 +22,9 @@ checks:
   pass that rewrites an integral over a Basix cell as a weighted sum over the
   points of a rule of Basix, a tabulation pass that rewrites a function of a
   `BasixSpace` at the points as its coefficients times the tabulated basis, a
-  table that `runtime_tables` fills at assembly for points known only then, and
+  table that `runtime_tables` fills at assembly for points known only then,
+  `kernel_inputs`, which lists the arrays and extents that a consumer passes by
+  label, such as `"coefficients:u"`, and
   an evaluator of the arithmetic that remains on NumPy or JAX arrays, after
   `fold` has computed once the subgraphs that read no kernel input
   and `assemble`, which puts the unit vectors in place of the coefficients of

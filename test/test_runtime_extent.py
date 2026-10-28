@@ -83,7 +83,9 @@ def test_the_compiler_reads_the_extent_and_the_points_at_assembly():
         rng = np.random.default_rng(n)
         P, w = rng.random((n, 2)), rng.random(n)
         expected = sum(wk * (p[0] ** 2 * p[1] + 3 * p[0]) for p, wk in zip(P, w, strict=True))
-        env = {q: n, points.label: P, weights.label: w}
+        env = {"q": n, points.label: P, weights.label: w}
         assert np.isclose(run(compiled, env), expected)
-        f = jax.jit(lambda P, w, n=n: run(compiled, {q: n, points.label: P, weights.label: w}, jnp))
+        f = jax.jit(
+            lambda P, w, n=n: run(compiled, {"q": n, points.label: P, weights.label: w}, jnp)
+        )
         assert np.isclose(f(P, w), expected)
