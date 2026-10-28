@@ -2,12 +2,12 @@ import itertools
 
 import numpy as np
 
+from uflx_spec_interpreter._src.domains import cell_of
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
     AbstractExtent,
     Action,
-    CellMap,
     ComponentTensor,
     Conjugate,
     Coordinate,
@@ -91,6 +91,17 @@ def index_value(i, ienv):
             values = values[index_value(j, ienv)]
         return values
     return i
+
+
+def cell_value(m, ienv):
+    # The cell that a cell domain or a gathered cell domain reads, as the library of a function.
+    if cell_of(m) is not None:
+        ((c, _),) = m.parameterisation.free_indices
+        return ienv[c]
+    match m.parameterisation:
+        case ComponentTensor(Indexed(ComponentTensor(_, (_, _)), (GatheredIndex() as g, _)), _):
+            return index_value(g, ienv)
+    return None
 
 
 def piece_map(piece, members):
@@ -393,10 +404,11 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def pulled(vals):
                 y = np.real(np.asarray(psi(())))
-                if isinstance(m, CellMap):
+                cell = cell_value(m, ienv)
+                if cell is not None:
                     return at(
                         ("cell", m.ambient_domain),
-                        index_value(m.cell_index, ienv),
+                        cell,
                         lambda: at(m.ambient_domain, y, lambda: fb(vals)),
                     )
                 return at(m.ambient_domain, y, lambda: fb(vals))

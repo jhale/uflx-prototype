@@ -25,7 +25,6 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.nodes import (
-    CellMap,
     DomainMap,
     Function,
     Gradient,
@@ -144,7 +143,7 @@ def main(trials):
             out3,
             lambda n: (
                 isinstance(n, PullBack)
-                and isinstance(n.domain, (CellMap, DomainMap))
+                and isinstance(n.domain, DomainMap)
                 and not isinstance(n.expression, (Function, Normal, PullBack, Gradient, SideMap))
             ),
         ):

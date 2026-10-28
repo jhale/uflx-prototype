@@ -110,10 +110,12 @@ def needs_pass(n):
 
 
 def by_the_points(n):
+    # A gathered cell domain also maps into the mesh, but from a reference cell, not a point.
     return (
         isinstance(n, PullBack)
         and isinstance(n.domain, DomainMap)
         and n.domain.ambient_domain in (D, M)
+        and n.domain.parameter_domain == POINT
     )
 
 

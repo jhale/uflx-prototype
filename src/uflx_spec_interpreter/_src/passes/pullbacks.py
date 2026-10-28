@@ -1,9 +1,9 @@
 from ..arithmetic import subtract, total
+from ..domains import cell_of, gathered_cell_domain
 from ..geometry import inverse_jacobian
 from ..nodes import (
     Absolute,
     AbstractExpression,
-    CellMap,
     ComponentTensor,
     Coordinate,
     Division,
@@ -37,7 +37,7 @@ def pb(f, m):
         case Coordinate(Q) if Q == m.ambient_domain:
             return m.parameterisation
         case PullBack(g, SideMap() as sm) if (
-            isinstance(m, CellMap) and m.ambient_domain == sm.parameter_domain
+            cell_of(m) is not None and m.ambient_domain == sm.parameter_domain
         ):
             B, A = side_maps(sm, m)
             return pb(pb(g, B), A)
@@ -49,7 +49,7 @@ def pb(f, m):
             return contract_gradient(
                 Gradient(pb(g, m), m.parameter_domain), inverse_jacobian(m), f, m
             )
-        case Normal() if isinstance(m, CellMap) and m.ambient_domain == f.parameter_domain:
+        case Normal() if cell_of(m) is not None and m.ambient_domain == f.parameter_domain:
             return normal(f, m)
         case Function() | Normal() | Coordinate():
             return PullBack(f, m)
@@ -83,11 +83,17 @@ def contract_gradient(gradP, K, f, m):
     )
 
 
+def cell_index_of(m):
+    # The one free index of the cells of m, a cell domain.
+    ((e, _),) = m.parameterisation.free_indices
+    return e
+
+
 def side_maps(sm, m):
     # The cell on the side and the inclusion of the cell of E into it, for the cells of m.
-    e = m.cell_index
-    B = CellMap(sm.ambient_domain, 0, GatheredIndex(sm.cells, (e,)))
-    I = sm.parameter_domain.pieces[0].parameter_domain
+    e = cell_index_of(m)
+    B = gathered_cell_domain(sm.ambient_domain, 0, GatheredIndex(sm.cells, (e,)))
+    I = m.parameter_domain
     k = Index(("uflx.inclusion", sm, e))
     # The affine map through the positions of the vertices of the cell of E, a constant for a point.
     p = [Indexed(sm.positions, (e, v, k)) for v in range(I.dimension + 1)]
@@ -99,7 +105,8 @@ def side_maps(sm, m):
 def normal(f, m):
     # Kᵀm̂ / |Kᵀm̂|, with m̂ the normal of the edge in the reference triangle, away from its centroid.
     B, A = side_maps(f.side, m)
-    p0, p1 = ([Indexed(f.side.positions, (m.cell_index, v, k)) for k in range(2)] for v in range(2))
+    e = cell_index_of(m)
+    p0, p1 = ([Indexed(f.side.positions, (e, v, k)) for k in range(2)] for v in range(2))
     t = [subtract(b, a) for a, b in zip(p0, p1, strict=True)]
     m0 = Tensor((t[1], Product(Integer(-1), t[0])))
     away = m0 @ Tensor(tuple(subtract(a, Division(Integer(1), Integer(3))) for a in p0))

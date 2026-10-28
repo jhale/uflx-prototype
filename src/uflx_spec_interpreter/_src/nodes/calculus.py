@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, final
 from .base import AbstractExpression
 
 if TYPE_CHECKING:
-    from .domains import AbstractDomain, CellMap, DecomposedDomain, DomainMap, SideMap
+    from .domains import AbstractDomain, DecomposedDomain, DomainMap, SideMap
     from .forms import Function
 
 
@@ -94,7 +94,7 @@ class Gradient(AbstractExpression):
 class PullBack(AbstractExpression):
     identifier = "uflx.PullBack"
     expression: AbstractExpression
-    domain: DomainMap | CellMap | SideMap
+    domain: DomainMap | SideMap
 
     @cached_property
     def value_shape(self):

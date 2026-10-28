@@ -9,7 +9,7 @@ oracle to the extension to the core, which `test/test_boundaries.py` checks:
 - `uflx_spec_interpreter`: the core, with only what the specification defines
 - `uflx_toy`: a language extension, with the classes that the specification
   leaves to a library or to an extension, `IndexTable`, `RuntimeExtent`,
-  `RuntimeArray` and the space `Space`
+  `RuntimeArray`, the space `Space` and the reference cell `ReferenceSimplex`
 - `uflx_oracle`: the oracle that the tests compare the passes against
 
 The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
@@ -108,10 +108,6 @@ The classes, their fields, the passes and the helpers use the names of the
 specification. The core still simplifies the specification in these places,
 which the toy replaces with the classes of the specification one at a time:
 
-- `CoordinateDomain` is both `RD` and a reference cell, and has no vertices.
-- `CellMap` is a cell of a decomposed domain, or a gathered cell, which the
-  specification writes as a `DomainMap` through `cell_domain` and
-  `gathered_cell_domain`.
 - A `SideMap` holds its side tables, where the specification reads them from
   the topology by the name of the side.
 - The constructors do not validate their arguments (rule 8).

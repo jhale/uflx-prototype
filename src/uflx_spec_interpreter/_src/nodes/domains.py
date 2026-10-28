@@ -5,11 +5,10 @@ from functools import cached_property
 from typing import TYPE_CHECKING, final
 
 from .base import AbstractExpression, Base
-from .indices import Index
 from .topology import AbstractCellType
 
 if TYPE_CHECKING:
-    from .indices import AbstractIndexValue, GatheredIndex
+    from .indices import AbstractIndexValue
 
 
 class AbstractDomain(Base):
@@ -75,35 +74,6 @@ class DecomposedDomain(AbstractDomain):
     @property
     def dimension(self):
         return self.pieces[0].parameter_domain.dimension
-
-
-@final
-class CellMap(Base):
-    identifier = "toy.CellMap"
-    # The cells of one piece, selected by the cell index, an Index or a GatheredIndex.
-    ambient_domain: DecomposedDomain
-    piece: int
-    cell_index: Index | GatheredIndex
-    opaque = ("piece",)
-
-    @property
-    def parameter_domain(self):
-        return self.ambient_domain.pieces[self.piece].parameter_domain
-
-    @cached_property
-    def free_indices(self):
-        return self.parameterisation.free_indices
-
-    @property
-    def parameterisation(self):
-        # The substitution imports the nodes, so the import is local.
-        from ..substitution import substitute
-
-        piece = self.ambient_domain.pieces[self.piece]
-        family = [i for i, _ in piece.parameterisation.free_indices]
-        if family and family[0] != self.cell_index:
-            return substitute(piece.parameterisation, {family[0]: self.cell_index})
-        return piece.parameterisation
 
 
 @final

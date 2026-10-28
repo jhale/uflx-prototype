@@ -2,7 +2,14 @@ import pytest
 from test_integrals import D, c
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import cell_domain, conjugate_space, dual_space
+from uflx_spec_interpreter import (
+    cell_domain,
+    component_tensor,
+    conjugate_space,
+    dual_space,
+    gathered_cell_domain,
+    indexed,
+)
 from uflx_spec_interpreter._src import nodes
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
@@ -10,9 +17,11 @@ from uflx_spec_interpreter._src.nodes import (
     Conjugate,
     ConjugateSpace,
     Coordinate,
+    DomainMap,
     Form,
     Function,
     GatheredIndex,
+    Index,
     Indexed,
     Product,
     PullBack,
@@ -41,7 +50,6 @@ OTHERS = {
         "RD",
         "DecomposedDomain",
         "DomainMap",
-        "CellMap",
         "SideMap",
     ],
 }
@@ -166,3 +174,15 @@ def test_a_reference_cell_is_a_coordinate_domain_and_a_cell_type():
     assert K.dimension == 2 and K.num_vertices == 3 and K.vertices.value_shape == (3, 2)
     assert reference_simplex(0).vertices.value_shape == (1, 0)
     assert K != nodes.RD(2) and reference_simplex(0) != nodes.RD(0)
+
+
+def test_cell_domains_are_domain_maps_into_the_decomposed_domain():
+    piece = D.pieces[0]
+    cells = cell_domain(D, 0)
+    assert cells == DomainMap(piece.parameter_domain, piece.parameterisation, D)
+    assert dict(cells.free_indices) == dict(piece.parameterisation.free_indices)
+    g = GatheredIndex(IndexTable((1, 0), 2), (Index("e"),))
+    k = Index(("uflx.gathered_cell_domain", D, 0, g, 0))
+    by_cell = component_tensor(indexed(piece.parameterisation, (k,)), (c, k))
+    chi = component_tensor(indexed(by_cell, (g, k)), (k,))
+    assert gathered_cell_domain(D, 0, g) == DomainMap(piece.parameter_domain, chi, D)
