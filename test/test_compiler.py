@@ -5,12 +5,20 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from test_basix import CELLS, mixed, square
+from test_basix import CELLS, mixed, quadrilaterals, square
 from testutil import contains
 
 from uflx_compiler import compile_form, evaluate, fold
 from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import function, gradient, integral, num
+from uflx_spec_interpreter import (
+    function,
+    gradient,
+    integral,
+    normal,
+    num,
+    pull_back,
+    side_map,
+)
 from uflx_spec_interpreter._src.nodes import Coordinate, Gradient, Integral, PullBack
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
@@ -88,3 +96,37 @@ def test_folding_the_geometry_shrinks_the_kernel():
     U = np.random.default_rng(7).normal(size=V.num_dofs)
     f = jax.jit(lambda U: evaluate(compiled, {key: U}, jnp, folded))
     assert np.isclose(f(jnp.asarray(U)), evaluate(compiled, {key: U}))
+
+
+def facet_functionals(D, E, B, u):
+    plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
+    jump = pull_back(u, plus) - pull_back(u, minus)
+    g = gradient(u, D)
+    return [
+        integral(pull_back(u, plus) * normal(plus)[0], E),
+        integral(jump * jump, E),
+        integral(pull_back(g[0], inside) * normal(inside)[0], B),
+        integral(pull_back(u, minus) * pull_back(g[1], plus), E),
+    ]
+
+
+@pytest.mark.parametrize("mesh", ["triangles", "quadrilaterals", "mixed"])
+@pytest.mark.parametrize("discontinuous", [False, True])
+def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
+    D, E, B = {
+        "triangles": lambda: square(basix_cell(CELLS[2])),
+        "quadrilaterals": quadrilaterals,
+        "mixed": mixed,
+    }[mesh]()
+    V = basix_space("V", D, P, 1, discontinuous)
+    u = function(V, "u")
+    U = np.random.default_rng(8).normal(size=V.num_dofs)
+    env = {("coefficients", u): U}
+    for e in facet_functionals(D, E, B, u):
+        compiled = compile_form(e, 4)
+        lazy = (Integral, PullBack, Gradient, Coordinate)
+        assert not contains(compiled, lambda n, lazy=lazy: isinstance(n, lazy))
+        expected = oracle(e, {u: U})(())
+        assert np.isclose(
+            evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8, atol=1e-12
+        ), e
