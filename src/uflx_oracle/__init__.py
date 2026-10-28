@@ -1,5 +1,6 @@
 import itertools
 
+import basix
 import numpy as np
 
 from uflx_spec_interpreter._src.domains import cell_of
@@ -45,6 +46,7 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_spec_interpreter._src.static import arity, free, support
 from uflx_spec_interpreter._src.tuples import members
+from uflx_toy.basix_nodes import BasixCell
 from uflx_toy.nodes import RuntimeArray
 
 EPS = 1e-4
@@ -155,24 +157,45 @@ def locate(P, x):
     for cell in range(free(piece.parameterisation)[index]):
         chart = piece_map(piece, {index: cell})
         X = reference_point(chart, x, P.dimension)
-        inside = np.all(X > -1e-9) and np.sum(X) < 1 + 1e-9
-        if inside and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
+        if inside(piece.parameter_domain, X) and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
             return cell
     raise ValueError(f"no cell of P contains {x}")
+
+
+def rule_on(P):
+    # Basix gives the rule on its cells, and the rules of the oracle are on the unit simplex.
+    if isinstance(P, BasixCell):
+        points, weights = basix.make_quadrature(P.cell_type, 12)
+        return list(zip(points, weights, strict=True))
+    if P.dimension == 0:
+        return [(np.zeros(0), 1.0)]
+    if P.dimension == 1:
+        x, w = np.polynomial.legendre.leggauss(6)
+        return [(np.array([(a + 1) / 2]), b / 2) for a, b in zip(x, w, strict=True)]
+    return QUAD
+
+
+def inside(K, X):
+    # Whether X lies in the reference cell K, a unit simplex, square or cube.
+    if isinstance(K, BasixCell) and K.cell_type in (
+        basix.CellType.quadrilateral,
+        basix.CellType.hexahedron,
+    ):
+        return np.all(X > -1e-9) and np.all(X < 1 + 1e-9)
+    return np.all(X > -1e-9) and np.sum(X) < 1 + 1e-9
+
+
+def reference_centroid(K):
+    # The mean of the vertices of K, or of the unit simplex for a domain with no vertices.
+    if hasattr(K, "vertices"):
+        return np.mean(np.real(np.asarray(evaluate(K.vertices, {})(()))), axis=0)
+    return np.full(K.dimension, 1 / (K.dimension + 1))
 
 
 def integrate(P, fn):
     # The integral of fn over P, with fn reading the point of P from POINTS.
     if isinstance(P, AbstractCoordinateDomain):
-        # The rules are on the unit simplex, so a coordinate domain of dimension 1 or more is one.
-        if P.dimension == 0:
-            rule = [(np.zeros(0), 1.0)]
-        elif P.dimension == 1:
-            x, w = np.polynomial.legendre.leggauss(6)
-            rule = [(np.array([(a + 1) / 2]), b / 2) for a, b in zip(x, w)]
-        else:
-            rule = QUAD
-        return sum(w * at(P, p, lambda: fn({})) for p, w in rule)
+        return sum(w * at(P, p, lambda: fn({})) for p, w in rule_on(P))
     total = 0
     for number, piece in enumerate(P.pieces):
         fr = free(piece.parameterisation)
@@ -455,7 +478,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                     Dd.pieces[0], {next(iter(free(Dd.pieces[0].parameterisation))): cell}
                 )
                 X = reference_point(chart, x, Dd.dimension)
-                d = jacobian_of(chart, X) @ (X - 1 / (len(X) + 1))
+                d = jacobian_of(chart, X) @ (X - reference_centroid(Dd.pieces[0].parameter_domain))
                 n = d - (d @ t) * t
                 return n / np.linalg.norm(n)
 

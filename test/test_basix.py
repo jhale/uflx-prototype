@@ -17,6 +17,7 @@ from uflx_spec_interpreter import (
     indexed,
     integral,
     normal,
+    num,
     pull_back,
     side_domain,
     side_map,
@@ -101,3 +102,47 @@ def test_a_basix_cell_gives_its_facet_normals_as_a_table():
         _, E, _ = square(K)
         _, _, m = E.topology.side_tables(0, "+")
         assert (m.support is None) == constant and m.value_shape == (2,)
+
+
+def quadrilaterals():
+    # The unit square as two quadrilaterals split at x = 1/2, with bilinear cell maps.
+    Q, I = basix_cell(basix.CellType.quadrilateral), basix_cell(CELLS[1])
+    T = static_topology((Q,), (((0, 1, 3, 4), (1, 2, 4, 5)),), ())
+    c, k = cell_index(T, 0), index("k")
+    p = table([[(0, 0), (0.5, 0), (0, 1), (0.5, 1)], [(0.5, 0), (1, 0), (0.5, 1), (1, 1)]])
+    X = coordinate(Q)
+    x, y, one = X[0], X[1], num(1)
+    shapes = [(one - x) * (one - y), x * (one - y), (one - x) * y, x * y]
+    psi = shapes[0] * indexed(p, (c, 0, k))
+    for v in range(1, 4):
+        psi = psi + shapes[v] * indexed(p, (c, v, k))
+    D = decomposed_domain((domain_map(Q, component_tensor(psi, (k,)), RD(2)),))
+    interior = static_topology((I,), (((1, 4),),), ((("+", T, 0), ("-", T, 0)),))
+    boundary = static_topology(
+        (I,), (((0, 1), (1, 2), (2, 5), (5, 4), (4, 3), (3, 0)),), ((("inside", T, 0),),)
+    )
+    return D, side_domain(D, interior), side_domain(D, boundary)
+
+
+def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
+    D, E, B = quadrilaterals()
+    u = function(space("V", domain=D), "u")
+    plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
+    env = {u: {0: lambda x: 1 + x[0] + 2 * x[1], 1: lambda x: 3 - x[0] * x[1]}}
+    Z = coordinate(D)
+    exact = [
+        (integral(num(1), D), 1),
+        (integral(normal(plus)[0], E), 1),
+        (integral(normal(minus)[0], E), -1),
+        (integral(normal(inside)[0] * pull_back(Z[0], inside), B), 1),
+        (integral(normal(inside)[1] * pull_back(Z[1], inside), B), 1),
+        (integral(pull_back(u, plus) - pull_back(u, minus), E), -0.25),
+        (integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B), None),
+    ]
+    for e, expected in exact:
+        out = gradients.apply_gradients(pullbacks.expand_pull_backs(integrals.expand_integrals(e)))
+        assert gradients.in_n6(out)
+        before, after = evaluate(e, env)(()), evaluate(out, env)(())
+        assert np.isclose(before, after, rtol=1e-6), (before, after)
+        if expected is not None:
+            assert np.isclose(after, expected, rtol=1e-6), (after, expected)
