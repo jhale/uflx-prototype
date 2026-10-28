@@ -77,6 +77,18 @@ def jacobian_of(chart, X):
     return np.array([(chart(X + H * e) - chart(X - H * e)) / (2 * H) for e in np.eye(len(X))]).T
 
 
+def index_value(i, ienv):
+    # The value of an entry: an int, an Index from the environment, or a read of a table.
+    if isinstance(i, Index):
+        return ienv[i]
+    if isinstance(i, GatheredIndex):
+        values = i.table.values
+        for j in i.indices:
+            values = values[index_value(j, ienv)]
+        return values
+    return i
+
+
 def piece_map(piece, members):
     # The map of one member of a piece, from reference coordinates to ambient coordinates.
     return lambda X: np.real(
@@ -283,15 +295,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
         case Indexed(x, idx):
             fx = ev(x)
 
-            def entry(i):
-                if isinstance(i, Index):
-                    return ienv[i]
-                if isinstance(i, GatheredIndex):
-                    table = np.asarray(evaluate(i.table, env, ienv, over)(()))
-                    return int(np.real(table[tuple(entry(j) for j in i.indices)]))
-                return i
-
-            key = tuple(entry(i) for i in idx)
+            key = tuple(index_value(i, ienv) for i in idx)
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
             extents = [free(x)[i] for i in idx]
@@ -365,7 +369,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def restricted(vals):
                 # The point of E, read from the cell on the side through the table of cells.
-                cell = int(np.real(np.asarray(evaluate(cells, env)(()))[POINTS[("cell", Ed)]]))
+                cell = cells.values[POINTS[("cell", Ed)]]
                 return at(("cell", Dd), cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
 
             return restricted
@@ -375,18 +379,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def pulled(vals):
                 y = np.real(np.asarray(psi(())))
                 if isinstance(m, CellMap):
-                    cell = evaluate(
-                        Indexed(
-                            Tensor((Integer(0), Integer(1), Integer(2), Integer(3))),
-                            (m.cell_index,),
-                        ),
-                        env,
-                        ienv,
-                        over,
-                    )(())
                     return at(
                         ("cell", m.ambient_domain),
-                        int(np.real(cell)),
+                        index_value(m.cell_index, ienv),
                         lambda: at(m.ambient_domain, y, lambda: fb(vals)),
                     )
                 return at(m.ambient_domain, y, lambda: fb(vals))
@@ -398,7 +393,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def normal(vals):
                 # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
-                cell = int(np.real(np.asarray(evaluate(cells, env)(()))[e]))
+                cell = cells.values[e]
                 edge = piece_map(Ed.pieces[0], {next(iter(free(Ed.pieces[0].parameterisation))): e})
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)

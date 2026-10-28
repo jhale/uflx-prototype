@@ -9,6 +9,7 @@ from uflx_spec_interpreter.algebra import (
     add,
     component_tensor,
     index,
+    index_table,
     indexed,
     multiply,
     num,
@@ -61,8 +62,8 @@ def facets(vertices):
 # The diagonal of the square, with the cell 0 on the side "+" and the cell 1 on the side "-".
 E_int = facets([[(0, 0), (1, 1)]])
 sides_int = {
-    "+": side_map(D, E_int, table([0]), table([[(0, 0), (0, 1)]])),
-    "-": side_map(D, E_int, table([1]), table([[(0, 0), (1, 0)]])),
+    "+": side_map(D, E_int, index_table((0,), 2), table([[(0, 0), (0, 1)]])),
+    "-": side_map(D, E_int, index_table((1,), 2), table([[(0, 0), (1, 0)]])),
 }
 # The four boundary edges, each with its one cell on the side "inside".
 E_bnd = facets([[(0, 0), (1, 0)], [(1, 0), (1, 1)], [(1, 1), (0, 1)], [(0, 1), (0, 0)]])
@@ -70,7 +71,7 @@ sides_bnd = {
     "inside": side_map(
         D,
         E_bnd,
-        table([0, 0, 1, 1]),
+        index_table((0, 0, 1, 1), 2),
         table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]),
     )
 }

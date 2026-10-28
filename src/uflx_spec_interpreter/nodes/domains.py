@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, final
 from .base import AbstractExpression, Base, Index
 
 if TYPE_CHECKING:
-    from .algebra import GatheredIndex
+    from .algebra import AbstractIndexValue, GatheredIndex
 
 
 class AbstractDomain(Base):
@@ -107,6 +107,6 @@ class SideMap(Base):
     # The cells of the parameter domain in the ambient domain from one side, by the side tables.
     ambient_domain: DecomposedDomain
     parameter_domain: DecomposedDomain
-    cells: AbstractExpression
+    cells: AbstractIndexValue
     positions: AbstractExpression
     free_indices = ()

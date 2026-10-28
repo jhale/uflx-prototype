@@ -22,7 +22,7 @@ imports only these:
 
 - `algebra.py`: `num`, which builds the literal of an `int` or a `float`, and a
   complex number as a composition with `ImaginaryUnit`, `zero`, `index`, `tensor`, `indexed`, `component_tensor`,
-  `index_sum`, `gathered_index`, the arithmetic (`add`, `subtract`, `negate`,
+  `index_sum`, `index_table`, `gathered_index`, the arithmetic (`add`, `subtract`, `negate`,
   `multiply`, `divide`, `power`, which work on tensors componentwise where the
   specification says so), the elementary functions, `inverse`, and the matrix
   compositions such as `transpose`, `matrix_product` and `determinant`
@@ -87,6 +87,8 @@ specification. The toy simplifies the specification in these places:
   `gathered_cell_domain`.
 - `arity` counts the arguments, where the specification has
   `argument_spaces`, so a `Zero` has placeholder argument spaces.
+- `IndexTable` is an `AbstractIndexValue` whose values the toy knows, so the
+  oracle can read them, where the specification leaves the values to a library.
 - A `SideMap` holds its side tables, where the specification reads them from
   the topology by the name of the side.
 - The constructors do not validate their arguments (rule 8).

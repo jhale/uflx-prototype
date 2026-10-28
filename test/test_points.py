@@ -7,7 +7,15 @@ from test_integrals import R2, D, u
 from test_surface import R3, M
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter.algebra import add, component_tensor, index, indexed, multiply, num
+from uflx_spec_interpreter.algebra import (
+    add,
+    component_tensor,
+    index,
+    index_table,
+    indexed,
+    multiply,
+    num,
+)
 from uflx_spec_interpreter.calculus import coordinate, gradient, integral
 from uflx_spec_interpreter.domains import coordinate_domain, decomposed_domain, side_map
 from uflx_spec_interpreter.forms import function, space
@@ -60,7 +68,7 @@ def in_square(x):
 def topology_of_points(Q, coordinates, located):
     # The points as a topology with the side "inside", and the restriction to them.
     E = points(coordinates, R2 if Q == D else R3)
-    cells = table([cell for cell, _ in located])
+    cells = index_table(tuple(cell for cell, _ in located), 2)
     positions = table([[X] for _, X in located])
     return E, side_map(Q, E, cells, positions)
 

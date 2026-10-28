@@ -15,6 +15,7 @@ from .nodes import (
     Index,
     Indexed,
     IndexSum,
+    IndexTable,
     Integer,
     Inverse,
     Logarithm,
@@ -41,6 +42,10 @@ def zero(value_shape, free_indices, argument_spaces):
 
 def index(label):
     return Index(label)
+
+
+def index_table(values, extent):
+    return IndexTable(values, extent)
 
 
 def gathered_index(table, indices):

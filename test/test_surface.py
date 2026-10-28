@@ -11,6 +11,7 @@ from uflx_spec_interpreter.algebra import (
     component_tensor,
     index,
     index_sum,
+    index_table,
     indexed,
     multiply,
     num,
@@ -106,14 +107,14 @@ def sides(D, curved):
     # The fold and the boundary of the surface D, with their side tables.
     E_int, E_bnd = edges(INTERIOR, curved), edges(BOUNDARY, curved)
     interior = {
-        "+": side_map(D, E_int, table([0]), table([[(0, 0), (0, 1)]])),
-        "-": side_map(D, E_int, table([1]), table([[(0, 0), (1, 0)]])),
+        "+": side_map(D, E_int, index_table((0,), 2), table([[(0, 0), (0, 1)]])),
+        "-": side_map(D, E_int, index_table((1,), 2), table([[(0, 0), (1, 0)]])),
     }
     boundary = {
         "inside": side_map(
             D,
             E_bnd,
-            table([0, 0, 1, 1]),
+            index_table((0, 0, 1, 1), 2),
             table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]),
         )
     }
