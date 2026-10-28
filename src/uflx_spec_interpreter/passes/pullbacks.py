@@ -1,32 +1,82 @@
-from ..domains import CellMap, DomainMap, Gathered, SideMap, ambient_dim, topdim
+from ..algebra import dot, matvec, minus, scale, tangent_inverse, transpose, unit
+from ..domains import (
+    CellMap,
+    CoordDomain,
+    Decomposed,
+    DomainMap,
+    Gathered,
+    SideMap,
+    ambient_dim,
+    topdim,
+)
 from ..nodes import (
     CT,
     Abs,
-    Conj,
     Coordinate,
     Div,
     Fn,
     Gradient,
-    Im,
     Index,
     Indexed,
     Inv,
     ISum,
-    Log,
     Normal,
     Num,
-    Power,
     Prod,
     PullBack,
-    Re,
     Space,
-    Sqrt,
     Sum,
     Tensor,
-    Zero,
 )
-from ..static import arity, free, shape, support
+from ..static import arity, free, shape, support, zero_like
 from ..substitution import freshen, map_fields, operands
+
+# Nodes in the fields of an expression that are not expressions, so a pull-back leaves them.
+NOT_EXPRESSIONS = (Index, Gathered, Space, CoordDomain, Decomposed, DomainMap, CellMap, SideMap)
+
+
+def pb(f, m):
+    # The rule table of expand_pull_backs, for PullBack(f, m).
+    match f:
+        case _ if isinstance(m, SideMap) and support(f) is not None:
+            return PullBack(f, m)
+        case _ if support(f) is None:
+            return broadcast(f, m)
+        case Coordinate(Q) if Q == m.Q:
+            return m.psi
+        case PullBack(g, SideMap() as sm) if isinstance(m, CellMap) and m.D == sm.E:
+            B, A = side_maps(sm, m)
+            return pb(pb(g, B), A)
+        case PullBack():
+            return PullBack(f, m)
+        case Gradient(_, Q) if topdim(m.P) < topdim(Q):
+            return PullBack(f, m)
+        case Gradient(g, _) if topdim(m.P) == ambient_dim(m.P):
+            return contract_gradient(Gradient(pb(g, m), m.P), Inv(jacobian(m)), f, m)
+        case Gradient(g, _):
+            K = tangent_inverse(jacobian(m), m.P)
+            return contract_gradient(Gradient(pb(g, m), m.P), K, f, m)
+        case Normal() if isinstance(m, CellMap) and m.D == f.E:
+            return normal(f, m)
+        case Fn() | Normal() | Coordinate():
+            return PullBack(f, m)
+        case _:
+            return pointwise(f, m)
+
+
+def broadcast(f, m):
+    # f has no support, so the pull-back is f on every member of the family of m.
+    pulled = PullBack(f, m)
+    return f if free(pulled).keys() <= free(f).keys() else Sum(f, zero_like(pulled, arity(f)))
+
+
+def pointwise(f, m):
+    fresh = freshen(f, [m.psi]) if f.scope else f
+    return map_fields(fresh, lambda x: x if isinstance(x, NOT_EXPRESSIONS) else pb(x, m))
+
+
+def jacobian(m):
+    return Gradient(m.psi, m.P)
 
 
 def fresh(f, m, n):
@@ -41,102 +91,43 @@ def contract_gradient(gradP, K, f, m):
 
 
 def side_maps(sm, m):
-    # The cell on the side and the inclusion of the cell of E into it, for the cells selected by m.
+    # The cell on the side and the inclusion of the cell of E into it, for the cells of m.
     e = m.entry
     B = CellMap(sm.D, 0, Gathered(sm.cells, (e,)))
     I = sm.E.pieces[0].P
     k = Index(("uflx.inclusion", sm, e))
-    pos = lambda v: Indexed(sm.positions, (e, v, k))
-    psi = CT(
-        Sum(pos(0), Prod(Sum(pos(1), Prod(Num(-1), pos(0))), Indexed(Coordinate(I), (0,)))), (k,)
-    )
-    A = DomainMap(I, psi, B.P)
-    return B, A
+    p0, p1 = (Indexed(sm.positions, (e, v, k)) for v in range(2))
+    psi = CT(Sum(p0, Prod(minus(p1, p0), Indexed(Coordinate(I), (0,)))), (k,))
+    return B, DomainMap(I, psi, B.P)
 
 
 def normal(f, m):
-    sm = f.side
-    B, A = side_maps(sm, m)
-    e = m.entry
-    pos = lambda v, k: Indexed(sm.positions, (e, v, k))
-    t = [Sum(pos(1, k), Prod(Num(-1), pos(0, k))) for k in range(2)]
+    # Kᵀm̂ / |Kᵀm̂|, with m̂ the normal of the edge in the reference triangle, away from its centroid.
+    B, A = side_maps(f.side, m)
+    p0, p1 = ([Indexed(f.side.positions, (m.entry, v, k)) for k in range(2)] for v in range(2))
+    t = [minus(b, a) for a, b in zip(p0, p1, strict=True)]
     m0 = Tensor((t[1], Prod(Num(-1), t[0])))
-    d = Tensor(tuple(Sum(pos(0, k), Num(-1 / 3)) for k in range(2)))
-    r = fresh(f, m, "r")
-    dot = ISum(Prod(Indexed(m0, (r,)), Indexed(d, (r,))), (r,))
-    sign = Div(dot, Abs(dot))
-    j, s = fresh(f, m, "j"), fresh(f, m, "s")
-    mhat = CT(Prod(sign, Indexed(m0, (s,))), (s,))
-    K = Inv(PullBack(Gradient(B.psi, B.P), A))
-    v = CT(ISum(Prod(Indexed(K, (r, j)), Indexed(mhat, (r,))), (r,)), (j,))
-    q = fresh(f, m, "q")
-    length = Sqrt(ISum(Prod(Indexed(v, (q,)), Indexed(v, (q,))), (q,)))
-    return CT(Div(Indexed(v, (j,)), length), (j,))
-
-
-def pb(f, m):
-    # The rows of expand_pull_backs, for PullBack(f, m).
-    if isinstance(m, SideMap) and support(f) is not None:
-        # A restriction waits for the pull-back by a cell of E, which selects the cell on the side.
-        return PullBack(f, m)
-    if support(f) is None:
-        missing = {i: n for i, n in free(PullBack(f, m)).items() if i not in free(f)}
-        if not missing:
-            return f
-        return Sum(
-            f, Zero(shape(f), tuple(missing.items()), tuple(Space("arg") for _ in range(arity(f))))
-        )
-    match f:
-        case Coordinate(Q) if Q == m.Q:
-            return m.psi
-        case PullBack(g, SideMap() as sm) if isinstance(m, CellMap) and m.D == sm.E:
-            B, A = side_maps(sm, m)
-            return pb(pb(g, B), A)
-        case PullBack():
-            return PullBack(f, m)
-        case Gradient(g, Q) if topdim(m.P) < topdim(Q):
-            return PullBack(f, m)
-        case Gradient(g, Q) if topdim(m.P) == ambient_dim(m.P):
-            K = Inv(Gradient(m.psi, m.P))
-            return contract_gradient(Gradient(pb(g, m), m.P), K, f, m)
-        case Gradient(g, Q):
-            # A parameter domain of lower dimension than its ambient: K = (J^T J + I - Pi)^-1 J^T.
-            from ..algebra import tangent_gram
-
-            J = Gradient(m.psi, m.P)
-            a, c, l = (fresh(f, m, ("K", n)) for n in (0, 2, 3))
-            G = tangent_gram(J, m.P)
-            K = CT(ISum(Prod(Indexed(Inv(G), (a, c)), Indexed(J, (l, c))), (c,)), (a, l))
-            return contract_gradient(Gradient(pb(g, m), m.P), K, f, m)
-        case Normal() if isinstance(m, CellMap) and m.D == f.E:
-            return normal(f, m)
-        case Fn() | Normal():
-            return PullBack(f, m)
-        case Indexed(x, idx):
-            return Indexed(pb(x, m), idx)
-        case CT() | ISum():
-            fr = freshen(f, [m.psi])
-            return type(fr)(pb(fr.e, m), fr.idx)
-        case Tensor(es):
-            return Tensor(tuple(pb(x, m) for x in es))
-        case (
-            Sum() | Prod() | Div() | Conj() | Re() | Im() | Abs() | Sqrt() | Log() | Power() | Inv()
-        ):
-            return map_fields(f, lambda x: pb(x, m))
-    raise TypeError(f"no row: {type(f).__name__}")
+    away = dot(m0, Tensor(tuple(minus(a, Num(1 / 3)) for a in p0)))
+    mhat = scale(Div(away, Abs(away)), m0)
+    K = Inv(PullBack(jacobian(B), A))
+    return unit(matvec(transpose(K), mhat))
 
 
 def expand_pull_backs(e):
-    e = map_fields(e, expand_pull_backs)
-    return pb(e.b, e.m) if isinstance(e, PullBack) else e
+    # Inner pull-backs first, then the rule for the expression of each pull-back.
+    match map_fields(e, expand_pull_backs):
+        case PullBack(f, m):
+            return pb(f, m)
+        case e:
+            return e
 
 
 def in_n5(e):
-    if isinstance(e, PullBack):
-        b, m = e.b, e.m
-        ok = isinstance(b, (Fn, Normal, PullBack)) or (
-            isinstance(b, Gradient) and topdim(m.P) < topdim(b.P)
-        )
-        if not ok:
+    match e:
+        case PullBack(_, SideMap()) | PullBack(Fn() | Normal() | Coordinate() | PullBack(), _):
+            pass
+        case PullBack(Gradient(_, Q), m) if topdim(m.P) < topdim(Q):
+            pass
+        case PullBack():
             return False
     return all(in_n5(c) for c in operands(e))

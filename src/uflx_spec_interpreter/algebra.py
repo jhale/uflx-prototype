@@ -2,7 +2,21 @@ from functools import reduce
 from itertools import combinations, permutations
 
 from .domains import ambient_dim
-from .nodes import CT, Coordinate, Gradient, Index, Indexed, ISum, Num, Prod, Sum, Tensor
+from .nodes import (
+    CT,
+    Coordinate,
+    Div,
+    Gradient,
+    Index,
+    Indexed,
+    Inv,
+    ISum,
+    Num,
+    Prod,
+    Sqrt,
+    Sum,
+    Tensor,
+)
 
 
 def total(es):
@@ -38,6 +52,29 @@ def matmul(X, Y, *rest):
     return matmul(XY, *rest) if rest else XY
 
 
+def matvec(X, u):
+    r, t = (Index(("matvec", X, u, n)) for n in range(2))
+    return CT(ISum(Prod(Indexed(X, (r, t)), Indexed(u, (t,))), (t,)), (r,))
+
+
+def dot(u, v):
+    r = Index(("dot", u, v))
+    return ISum(Prod(Indexed(u, (r,)), Indexed(v, (r,))), (r,))
+
+
+def scale(c, u):
+    r = Index(("scale", c, u))
+    return CT(Prod(c, Indexed(u, (r,))), (r,))
+
+
+def norm(u):
+    return Sqrt(dot(u, u))
+
+
+def unit(u):
+    return scale(Div(Num(1), norm(u)), u)
+
+
 def gram(J):
     return matmul(transpose(J), J)
 
@@ -45,6 +82,11 @@ def gram(J):
 def tangent_gram(J, P):
     # JᵀJ + I - Π is invertible on a parameter domain of lower dimension, where JᵀJ is not.
     return add(gram(J), identity(ambient_dim(P)), negate(Gradient(Coordinate(P), P)))
+
+
+def tangent_inverse(J, P):
+    # (JᵀJ + I - Π)⁻¹ Jᵀ is the pseudo-inverse of J on the tangent space of P.
+    return matmul(Inv(tangent_gram(J, P)), transpose(J))
 
 
 def determinant(M, n):
