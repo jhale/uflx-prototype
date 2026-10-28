@@ -1,6 +1,5 @@
 from ..algebra import identity
 from ..calculus import derivative_of_node
-from ..domains import ambient_dim
 from ..nodes import (
     ComponentTensor,
     Coordinate,
@@ -25,10 +24,16 @@ def partial(f, P, j):
     # Entry j of the last axis of Gradient(f, P), with the leaf rows of apply_gradients first.
     match f:
         case _ if support(f) is None:
-            return Zero(shape(f), (*free_indices(f), (j, ambient_dim(P))), zero_args(f))
-        case Coordinate(Q) if Q == P and P.dimension == ambient_dim(P):
+            return Zero(
+                shape(f),
+                (*free_indices(f), (j, P.ambient_coordinate_domain.dimension)),
+                zero_args(f),
+            )
+        case Coordinate(Q) if Q == P and P.dimension == P.ambient_coordinate_domain.dimension:
             i = Index(("uflx.apply_gradients", f, P))
-            return ComponentTensor(Indexed(identity(ambient_dim(P)), (i, j)), (i,))
+            return ComponentTensor(
+                Indexed(identity(P.ambient_coordinate_domain.dimension), (i, j)), (i,)
+            )
         case _ if isinstance(f, LEAVES):
             axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
             entry = Indexed(Gradient(f, P), (*axes, j))
@@ -50,7 +55,7 @@ def gradient(f, P):
 def evaluated(f, P):
     # A gradient remains on a leaf, except the gradient of the coordinates, which is the identity.
     if isinstance(f, Coordinate):
-        return f == Coordinate(P) and P.dimension == ambient_dim(P)
+        return f == Coordinate(P) and P.dimension == P.ambient_coordinate_domain.dimension
     return not isinstance(f, LEAVES)
 
 

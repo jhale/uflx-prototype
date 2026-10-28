@@ -2,18 +2,21 @@ import itertools
 
 import numpy as np
 
-from .domains import CellMap, CoordDomain, DecomposedDomain, GatheredIndex, SideMap
 from .nodes import (
     Absolute,
     Action,
+    CellMap,
     ComponentTensor,
     Conjugate,
     Coordinate,
+    CoordinateDomain,
+    DecomposedDomain,
     DirectionalDerivative,
     Division,
     Form,
     Function,
     GateauxDerivative,
+    GatheredIndex,
     Gradient,
     ImaginaryPart,
     Index,
@@ -28,6 +31,7 @@ from .nodes import (
     Product,
     PullBack,
     RealPart,
+    SideMap,
     SquareRoot,
     Sum,
     Tensor,
@@ -123,7 +127,7 @@ def locate(P, x):
 
 def integrate(P, fn):
     # The integral of fn over P, with fn reading the point of P from POINTS.
-    if isinstance(P, CoordDomain):
+    if isinstance(P, CoordinateDomain):
         if P.dimension == 0:
             rule = [(np.zeros(0), 1.0)]
         elif P.dimension == 1:
@@ -141,7 +145,7 @@ def integrate(P, fn):
 
             def mapped(inner, piece=piece, psi=psi, members=members):
                 y = np.real(np.asarray(psi(())))
-                if isinstance(piece.parameter_domain, CoordDomain):
+                if isinstance(piece.parameter_domain, CoordinateDomain):
                     ref = POINTS[piece.parameter_domain]
                     chart_in = lambda X: X
                 else:
@@ -368,7 +372,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 y = np.real(np.asarray(psi(())))
                 if isinstance(m, CellMap):
                     cell = evaluate(
-                        Indexed(Tensor((Num(0), Num(1), Num(2), Num(3))), (m.entry,)),
+                        Indexed(Tensor((Num(0), Num(1), Num(2), Num(3))), (m.cell_index,)),
                         env,
                         ienv,
                         over,
@@ -421,7 +425,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return gradient
         case Integral(b, P):
-            if isinstance(P, CoordDomain):
+            if isinstance(P, CoordinateDomain):
                 fb = ev(b)
                 return lambda vals: integrate(P, lambda members: fb(vals))
             fs = {}

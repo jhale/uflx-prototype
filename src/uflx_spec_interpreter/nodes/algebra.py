@@ -172,3 +172,17 @@ class IndexSum(AbstractExpression):
     @cached_property
     def free_indices(self):
         return tuple((i, n) for i, n in self.expression.free_indices if i not in self.indices)
+
+
+@dataclass(frozen=True, eq=False)
+class GatheredIndex(Base):
+    identifier = "uflx.GatheredIndex"
+    # An index read from a table at the given entries, an int or an Index for each axis.
+    table: Base
+    indices: tuple
+
+    @cached_property
+    def free_indices(self):
+        # Each Index entry takes the extent of its axis of the table.
+        shape = self.table.value_shape
+        return tuple((j, shape[m]) for m, j in enumerate(self.indices) if not isinstance(j, int))

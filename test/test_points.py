@@ -7,10 +7,12 @@ from test_integrals import R2, D, u
 from test_surface import R3, M
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter.domains import CoordDomain, DecomposedDomain, DomainMap, SideMap
 from uflx_spec_interpreter.nodes import (
     ComponentTensor,
     Coordinate,
+    CoordinateDomain,
+    DecomposedDomain,
+    DomainMap,
     Function,
     Gradient,
     Index,
@@ -19,6 +21,7 @@ from uflx_spec_interpreter.nodes import (
     Num,
     Product,
     PullBack,
+    SideMap,
     Space,
     Sum,
 )
@@ -27,7 +30,7 @@ from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
 i, k = Index("i"), Index("k")
-POINT = CoordDomain("pt", 0)
+POINT = CoordinateDomain("pt", 0)
 
 
 def points(coordinates, Q):

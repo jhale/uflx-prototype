@@ -5,10 +5,12 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
-from uflx_spec_interpreter.domains import CoordDomain, DecomposedDomain, DomainMap
 from uflx_spec_interpreter.nodes import (
     ComponentTensor,
     Coordinate,
+    CoordinateDomain,
+    DecomposedDomain,
+    DomainMap,
     Function,
     Gradient,
     Index,
@@ -24,8 +26,8 @@ from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
-R2 = CoordDomain("R2", 2)
-K = CoordDomain("K", 2)
+R2 = CoordinateDomain("R2", 2)
+K = CoordinateDomain("K", 2)
 X = Coordinate(K)
 k = Index("k")
 c = Index("c")
@@ -67,7 +69,7 @@ D = DecomposedDomain((DomainMap(K, psi_c, R2),))
 Dp = DecomposedDomain(
     (
         DomainMap(
-            CoordDomain("pt", 0),
+            CoordinateDomain("pt", 0),
             ComponentTensor(
                 Indexed(
                     Tensor(

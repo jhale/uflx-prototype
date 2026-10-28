@@ -10,9 +10,18 @@ from test_surface import Ms
 from testutil import contains
 
 from uflx_spec_interpreter import nodes
-from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.geometry import density, inverse_jacobian, metric
-from uflx_spec_interpreter.nodes import Base, Function, Index, Indexed, Num, Space, Sum, Tensor
+from uflx_spec_interpreter.nodes import (
+    Base,
+    Function,
+    Index,
+    Indexed,
+    Num,
+    Space,
+    Sum,
+    Tensor,
+    cell_domain,
+)
 from uflx_spec_interpreter.substitution import map_fields
 
 V = Space("V")

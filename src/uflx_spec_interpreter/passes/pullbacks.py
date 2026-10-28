@@ -1,18 +1,15 @@
 from ..algebra import dot, matvec, scale, subtract, total, transpose, unit
-from ..domains import (
-    CellMap,
-    DomainMap,
-    GatheredIndex,
-    SideMap,
-)
 from ..geometry import inverse_jacobian
 from ..nodes import (
     Absolute,
     AbstractExpression,
+    CellMap,
     ComponentTensor,
     Coordinate,
     Division,
+    DomainMap,
     Function,
+    GatheredIndex,
     Gradient,
     Index,
     Indexed,
@@ -21,6 +18,7 @@ from ..nodes import (
     Num,
     Product,
     PullBack,
+    SideMap,
     Sum,
     Tensor,
 )
@@ -84,7 +82,7 @@ def contract_gradient(gradP, K, f, m):
 
 def side_maps(sm, m):
     # The cell on the side and the inclusion of the cell of E into it, for the cells of m.
-    e = m.entry
+    e = m.cell_index
     B = CellMap(sm.ambient_domain, 0, GatheredIndex(sm.cells, (e,)))
     I = sm.parameter_domain.pieces[0].parameter_domain
     k = Index(("uflx.inclusion", sm, e))
@@ -98,7 +96,7 @@ def side_maps(sm, m):
 def normal(f, m):
     # Kᵀm̂ / |Kᵀm̂|, with m̂ the normal of the edge in the reference triangle, away from its centroid.
     B, A = side_maps(f.side, m)
-    p0, p1 = ([Indexed(f.side.positions, (m.entry, v, k)) for k in range(2)] for v in range(2))
+    p0, p1 = ([Indexed(f.side.positions, (m.cell_index, v, k)) for k in range(2)] for v in range(2))
     t = [subtract(b, a) for a, b in zip(p0, p1, strict=True)]
     m0 = Tensor((t[1], Product(Num(-1), t[0])))
     away = dot(m0, Tensor(tuple(subtract(a, Num(1 / 3)) for a in p0)))

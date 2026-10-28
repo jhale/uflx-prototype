@@ -1,7 +1,6 @@
 from functools import reduce
 from itertools import combinations, permutations
 
-from .domains import ambient_dim
 from .nodes import (
     ComponentTensor,
     Coordinate,
@@ -80,7 +79,9 @@ def gram(J):
 
 def tangent_gram(J, P):
     # JᵀJ + I - Π is invertible on a parameter domain of lower dimension, where JᵀJ is not.
-    return add(gram(J), identity(ambient_dim(P)), negate(Gradient(Coordinate(P), P)))
+    return add(
+        gram(J), identity(P.ambient_coordinate_domain.dimension), negate(Gradient(Coordinate(P), P))
+    )
 
 
 def determinant(M, n):

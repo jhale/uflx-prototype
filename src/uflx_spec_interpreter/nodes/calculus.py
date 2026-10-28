@@ -29,7 +29,7 @@ class Coordinate(AbstractExpression):
 
     @cached_property
     def value_shape(self):
-        return (self.domain.ambient_dim,)
+        return (self.domain.ambient_coordinate_domain.dimension,)
 
     @cached_property
     def support(self):
@@ -45,7 +45,7 @@ class Gradient(AbstractExpression):
 
     @cached_property
     def value_shape(self):
-        return (*self.expression.value_shape, self.domain.ambient_dim)
+        return (*self.expression.value_shape, self.domain.ambient_coordinate_domain.dimension)
 
     @cached_property
     def support(self):
@@ -102,7 +102,7 @@ class Normal(AbstractExpression):
 
     @cached_property
     def value_shape(self):
-        return (self.ambient_domain.ambient_dim,)
+        return (self.ambient_domain.ambient_coordinate_domain.dimension,)
 
     @cached_property
     def support(self):

@@ -3,6 +3,7 @@ from .algebra import (
     ComponentTensor,
     Conjugate,
     Division,
+    GatheredIndex,
     ImaginaryPart,
     Indexed,
     IndexSum,
@@ -19,6 +20,7 @@ from .algebra import (
 )
 from .base import TABLE, AbstractExpression, Base, Index, Interned, digest_of, encode
 from .calculus import Coordinate, DirectionalDerivative, Gradient, Integral, Normal, PullBack
+from .domains import CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap, cell_domain
 from .forms import Action, Form, Function, GateauxDerivative, Space, entry_fns, members
 
 __all__ = [
@@ -27,14 +29,19 @@ __all__ = [
     "AbstractExpression",
     "Action",
     "Base",
+    "CellMap",
     "ComponentTensor",
     "Conjugate",
     "Coordinate",
+    "CoordinateDomain",
+    "DecomposedDomain",
     "DirectionalDerivative",
     "Division",
+    "DomainMap",
     "Form",
     "Function",
     "GateauxDerivative",
+    "GatheredIndex",
     "Gradient",
     "ImaginaryPart",
     "Index",
@@ -50,11 +57,13 @@ __all__ = [
     "Product",
     "PullBack",
     "RealPart",
+    "SideMap",
     "Space",
     "SquareRoot",
     "Sum",
     "Tensor",
     "Zero",
+    "cell_domain",
     "digest_of",
     "encode",
     "entry_fns",

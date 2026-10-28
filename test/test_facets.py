@@ -5,10 +5,13 @@ import numpy as np
 from test_integrals import R2, D
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter.domains import CellMap, CoordDomain, DecomposedDomain, DomainMap, SideMap
 from uflx_spec_interpreter.nodes import (
+    CellMap,
     ComponentTensor,
     Coordinate,
+    CoordinateDomain,
+    DecomposedDomain,
+    DomainMap,
     Function,
     Gradient,
     Index,
@@ -18,6 +21,7 @@ from uflx_spec_interpreter.nodes import (
     Num,
     Product,
     PullBack,
+    SideMap,
     Space,
     Sum,
     Tensor,
@@ -26,7 +30,7 @@ from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 
-I = CoordDomain("I", 1)
+I = CoordinateDomain("I", 1)
 k, e = Index("k"), Index("e")
 num = Num
 

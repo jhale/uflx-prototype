@@ -1,19 +1,20 @@
 from test_facets import table
 from test_integrals import D, c
 
-from uflx_spec_interpreter import domains, nodes
-from uflx_spec_interpreter.domains import GatheredIndex, cell_domain
+from uflx_spec_interpreter import nodes
 from uflx_spec_interpreter.nodes import (
     AbstractExpression,
     Base,
     Coordinate,
     Form,
     Function,
+    GatheredIndex,
     Indexed,
     Product,
     PullBack,
     RealPart,
     Space,
+    cell_domain,
 )
 from uflx_spec_interpreter.passes import pullbacks
 from uflx_spec_interpreter.static import free
@@ -24,10 +25,11 @@ EXPRESSIONS = (
     "DirectionalDerivative Integral PullBack Normal Function Form Action GateauxDerivative"
 ).split()
 OTHERS = {
-    nodes: ["Index", "Space"],
-    domains: [
+    nodes: [
+        "Index",
+        "Space",
         "GatheredIndex",
-        "CoordDomain",
+        "CoordinateDomain",
         "DecomposedDomain",
         "DomainMap",
         "CellMap",

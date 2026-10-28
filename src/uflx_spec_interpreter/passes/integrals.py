@@ -1,7 +1,16 @@
 from ..algebra import total
-from ..domains import DecomposedDomain, cell_domain
 from ..geometry import density
-from ..nodes import ComponentTensor, Index, Indexed, IndexSum, Integral, Product, PullBack
+from ..nodes import (
+    ComponentTensor,
+    DecomposedDomain,
+    Index,
+    Indexed,
+    IndexSum,
+    Integral,
+    Product,
+    PullBack,
+    cell_domain,
+)
 from ..static import free, shape, support
 from ..substitution import expressions, map_fields
 

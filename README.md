@@ -21,11 +21,13 @@ The language itself is split by concern:
     equal objects are the same object (see `INTERNING_PLAN.md`),
     `AbstractExpression`, whose static type is computed once for each node (see
     `ABSTRACT_EXPRESSION_PLAN.md`), and `Index`
-  - `algebra.py`: numbers, arithmetic, index notation and `Inverse`
+  - `algebra.py`: numbers, arithmetic, index notation, `GatheredIndex` and
+    `Inverse`
   - `calculus.py`: coordinates, gradients, directional derivatives, integrals,
     pull-backs and normals
   - `forms.py`: spaces, functions, forms, actions and Gateaux derivatives
-- `domains.py`: domains, domain maps and their cells
+  - `domains.py`: coordinate domains, domain maps, decomposed domains, cells,
+    side maps and `cell_domain`
 - `substitution.py`: traversal, freshening and simultaneous substitution
 - `commuting.py`: the commuting node classes, into which an evaluated node moves
 - `calculus.py`: the derivatives of the node classes, shared by passes 2 and 5
@@ -61,7 +63,7 @@ specification. The toy simplifies the specification in these places:
   `ImaginaryUnit`.
 - `Space` is every space, with the flags `dual` and `complex`, where the
   specification has `AbstractFunctionSpace`, `DualSpace` and `ConjugateSpace`.
-- `CoordDomain` is both `RD` and a reference cell, and has no vertices.
+- `CoordinateDomain` is both `RD` and a reference cell, and has no vertices.
 - `CellMap` is a cell of a decomposed domain, or a gathered cell, which the
   specification writes as a `DomainMap` through `cell_domain` and
   `gathered_cell_domain`.
@@ -69,6 +71,4 @@ specification. The toy simplifies the specification in these places:
   `argument_spaces`, so a `Zero` has placeholder argument spaces.
 - A `SideMap` holds its side tables, where the specification reads them from
   the topology by the name of the side.
-- `ambient_dim` is the dimension of the ambient coordinate domain, which the
-  specification writes out in words.
 - The constructors do not validate their arguments (rule 8).
