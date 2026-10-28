@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import inspect
 from abc import ABC, abstractmethod, update_abstractmethods
-from importlib import import_module
 from typing import ClassVar, dataclass_transform
 
 from ..interning import digest_of, table
@@ -64,21 +63,6 @@ class Base(ABC):
         return []
 
 
-def free_function(module, name):
-    # The public modules import the nodes, so an overload finds its free function late.
-    return getattr(import_module(f"..{module}", __package__), name)
-
-
-def binary(module, name):
-    def overload(self, other):
-        # A Python number is rejected, and with no reflected overload Python raises TypeError.
-        if not isinstance(other, AbstractExpression):
-            return NotImplemented
-        return free_function(module, name)(self, other)
-
-    return overload
-
-
 class AbstractExpression(Base):
     # Every concrete class states its static type, so the abstract class has no defaults.
     @property
@@ -97,22 +81,64 @@ class AbstractExpression(Base):
     @abstractmethod
     def support(self): ...
 
-    __add__ = binary("arithmetic", "add")
-    __sub__ = binary("arithmetic", "subtract")
-    __mul__ = binary("arithmetic", "multiply")
-    __truediv__ = binary("arithmetic", "divide")
-    __pow__ = binary("arithmetic", "power")
-    __matmul__ = binary("tensors", "matrix_product")
+    # The free functions import the nodes, so each overload imports its free function locally.
+    def __add__(self, other):
+        from ..arithmetic import add
+
+        # A Python number is rejected, as Python raises TypeError with no reflected overload.
+        if not isinstance(other, AbstractExpression):
+            return NotImplemented
+        return add(self, other)
+
+    def __sub__(self, other):
+        from ..arithmetic import subtract
+
+        if not isinstance(other, AbstractExpression):
+            return NotImplemented
+        return subtract(self, other)
+
+    def __mul__(self, other):
+        from ..arithmetic import multiply
+
+        if not isinstance(other, AbstractExpression):
+            return NotImplemented
+        return multiply(self, other)
+
+    def __truediv__(self, other):
+        from ..arithmetic import divide
+
+        if not isinstance(other, AbstractExpression):
+            return NotImplemented
+        return divide(self, other)
+
+    def __pow__(self, other):
+        from ..arithmetic import power
+
+        if not isinstance(other, AbstractExpression):
+            return NotImplemented
+        return power(self, other)
+
+    def __matmul__(self, other):
+        from ..tensors import matrix_product
+
+        if not isinstance(other, AbstractExpression):
+            return NotImplemented
+        return matrix_product(self, other)
 
     def __neg__(self):
-        return free_function("arithmetic", "negate")(self)
+        from ..arithmetic import negate
+
+        return negate(self)
 
     def __abs__(self):
-        return free_function("arithmetic", "absolute")(self)
+        from ..arithmetic import absolute
+
+        return absolute(self)
 
     def __getitem__(self, entries):
-        entries = entries if isinstance(entries, tuple) else (entries,)
-        return free_function("tensors", "component")(self, entries)
+        from ..tensors import component
+
+        return component(self, entries if isinstance(entries, tuple) else (entries,))
 
     def __iter__(self):
         raise TypeError(f"{type(self).__name__} is not iterable")
