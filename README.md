@@ -24,6 +24,8 @@ checks:
   `BasixSpace` at the points as its coefficients times the tabulated basis, and
   an evaluator of the arithmetic that remains on NumPy or JAX arrays, after
   `fold` has computed once the subgraphs that read no kernel input
+  and `assemble`, which puts the unit vectors in place of the coefficients of
+  each argument of a form, so that the form evaluates to its assembled tensor
 
 The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
 
