@@ -3,6 +3,7 @@ import itertools
 import numpy as np
 
 from uflx_spec_interpreter._src.domains import cell_of
+from uflx_spec_interpreter._src.forms import members
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
@@ -375,27 +376,44 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: ff((*tuple(vals[:p]), gv, *tuple(vals[p:])))
         case GateauxDerivative(F, x, a, entry):
             # The definition: the real derivative, split into its linear and antilinear parts.
-            fa = ev(a)
+            xs, fa = members(x), [ev(m) for m in members(a)]
+            antilinear = all(isinstance(m, Conjugate) for m in members(entry))
 
-            def delta(direction, rest):
-                fp = evaluate(F, env, ienv, over | {x: lambda: fa(()) + EPS * direction})(rest)
-                fm = evaluate(F, env, ienv, over | {x: lambda: fa(()) - EPS * direction})(rest)
+            def delta(directions, rest):
+                def moved(step):
+                    return {
+                        m: (lambda f=f, d=d: f(()) + step * d)
+                        for m, f, d in zip(xs, fa, directions, strict=True)
+                    }
+
+                fp = evaluate(F, env, ienv, over | moved(EPS))(rest)
+                fm = evaluate(F, env, ienv, over | moved(-EPS))(rest)
                 return (fp - fm) / (2 * EPS)
 
             def value(vals):
                 rest, wv = tuple(vals[:-1]), vals[-1]
                 # The value is that of the entry, so the direction of conjugate(w) is its conjugate.
-                wv = np.conj(wv) if isinstance(entry, Conjugate) else wv
-                if x.space.scalar_type == "real":
+                wv = list(wv) if isinstance(entry, tuple) else [wv]
+                wv = [np.conj(d) for d in wv] if antilinear else wv
+                if all(m.space.scalar_type == "real" for m in xs):
                     return delta(wv, rest)
-                sign = 1j if isinstance(entry, Conjugate) else -1j
-                return 0.5 * (delta(wv, rest) + sign * delta(1j * wv, rest))
+                sign = 1j if antilinear else -1j
+                return 0.5 * (delta(wv, rest) + sign * delta([1j * d for d in wv], rest))
 
             return value
         case DirectionalDerivative(f, x, a, h):
-            fa, fh = ev(a), ev(h)
-            fp = evaluate(f, env, ienv, over | {x: lambda: fa(()) + EPS * fh(())})
-            fm = evaluate(f, env, ienv, over | {x: lambda: fa(()) - EPS * fh(())})
+            # Every member of a tuple variable moves at once, along its member of the direction.
+            xs = members(x)
+            fa, fh = [ev(m) for m in members(a)], [ev(m) for m in members(h)]
+
+            def moved(step):
+                return {
+                    m: (lambda p=p, d=d: p(()) + step * d(()))
+                    for m, p, d in zip(xs, fa, fh, strict=True)
+                }
+
+            fp = evaluate(f, env, ienv, over | moved(EPS))
+            fm = evaluate(f, env, ienv, over | moved(-EPS))
             return lambda vals: (fp(vals) - fm(vals)) / (2 * EPS)
         case Coordinate(P):
             return lambda vals: np.asarray(POINTS[P], dtype=complex)

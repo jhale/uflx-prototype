@@ -13,14 +13,15 @@ if TYPE_CHECKING:
 @final
 class DirectionalDerivative(AbstractExpression):
     identifier = "uflx.DirectionalDerivative"
+    # The variable, the point and the direction are a function and two expressions, or tuples.
     expression: AbstractExpression
-    variable: Function
-    point: AbstractExpression
-    direction: AbstractExpression
+    variable: Function | tuple[Function, ...]
+    point: AbstractExpression | tuple[AbstractExpression, ...]
+    direction: AbstractExpression | tuple[AbstractExpression, ...]
     scope = ("expression", "variable")
 
     def bound(self):
-        return [self.variable]
+        return self.members(self.variable)
 
     @cached_property
     def value_shape(self):
@@ -28,11 +29,8 @@ class DirectionalDerivative(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return tuple(
-            dict(
-                self.expression.free_indices + self.point.free_indices + self.direction.free_indices
-            ).items()
-        )
+        edges = (self.expression, *self.members(self.point), *self.members(self.direction))
+        return tuple(dict(p for x in edges for p in x.free_indices).items())
 
     @cached_property
     def argument_spaces(self):
@@ -44,7 +42,8 @@ class DirectionalDerivative(AbstractExpression):
 
     @cached_property
     def support(self):
-        return self.direction.support or self.point.support or self.expression.support
+        edges = (*self.members(self.direction), *self.members(self.point), self.expression)
+        return next((x.support for x in edges if x.support is not None), None)
 
 
 @final

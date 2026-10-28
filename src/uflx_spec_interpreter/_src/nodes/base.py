@@ -86,6 +86,11 @@ class AbstractExpression(Base):
     def scalar_type(self) -> str: ...
 
     @staticmethod
+    def members(x):
+        # The members of a tuple of expressions, or the one expression.
+        return list(x) if isinstance(x, tuple) else [x]
+
+    @staticmethod
     def joined_scalar_type(*operands):
         # The default rule, complex if and only if an edge is a complex expression.
         flat = [m for x in operands for m in (x if isinstance(x, tuple) else (x,))]

@@ -115,15 +115,16 @@ class Action(AbstractExpression):
 class GateauxDerivative(AbstractExpression):
     identifier = "uflx.GateauxDerivative"
     expression: AbstractExpression
-    variable: Function
-    point: AbstractExpression
-    argument: Function | Conjugate
+    variable: Function | tuple[Function, ...]
+    point: AbstractExpression | tuple[AbstractExpression, ...]
+    argument: Function | Conjugate | tuple
     scope = ("expression", "variable", "argument")
 
     def bound(self):
+        entries = self.members(self.argument)
         return [
-            self.variable,
-            self.argument.operand if isinstance(self.argument, Conjugate) else self.argument,
+            *self.members(self.variable),
+            *(m.operand if isinstance(m, Conjugate) else m for m in entries),
         ]
 
     @cached_property
@@ -136,7 +137,8 @@ class GateauxDerivative(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return tuple(dict(self.expression.free_indices + self.point.free_indices).items())
+        edges = (self.expression, *self.members(self.point))
+        return tuple(dict(p for x in edges for p in x.free_indices).items())
 
     @cached_property
     def scalar_type(self):
