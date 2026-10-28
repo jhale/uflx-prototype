@@ -1,20 +1,14 @@
 import numpy as np
 
-from uflx_spec_interpreter.algebra import (
-    add,
-    component_tensor,
-    conjugate,
-    index,
-    indexed,
-    multiply,
-    num,
-    tensor,
-)
+from uflx_spec_interpreter.arithmetic import add, conjugate, multiply
 from uflx_spec_interpreter.calculus import directional_derivative
 from uflx_spec_interpreter.forms import action, form, function, space
+from uflx_spec_interpreter.indices import index
+from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions
 from uflx_spec_interpreter.static import arity
+from uflx_spec_interpreter.tensors import component_tensor, indexed, tensor
 
 rng = np.random.default_rng(1)
 V, Vd = space("V"), space("V", dual=True)

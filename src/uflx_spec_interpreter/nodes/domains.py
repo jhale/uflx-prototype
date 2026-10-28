@@ -4,10 +4,11 @@ from abc import abstractmethod
 from functools import cached_property
 from typing import TYPE_CHECKING, final
 
-from .base import AbstractExpression, Base, Index
+from .base import AbstractExpression, Base
+from .indices import Index
 
 if TYPE_CHECKING:
-    from .algebra import AbstractIndexValue, GatheredIndex
+    from .indices import AbstractIndexValue, GatheredIndex
 
 
 class AbstractDomain(Base):

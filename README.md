@@ -20,16 +20,19 @@ The public API is the free functions, named as in the specification, in the
 modules at the top of the package. A user, and a test that builds expressions,
 imports only these:
 
-- `algebra.py`: `num`, which builds the literal of an `int` or a `float`, and a
-  complex number as a composition with `ImaginaryUnit`, `zero`, `index`, `tensor`, `indexed`, `component_tensor`,
-  `index_sum`, `index_table`, `gathered_index`, the arithmetic (`add`, `subtract`, `negate`,
-  `multiply`, `divide`, `power`, which work on tensors componentwise where the
-  specification says so), the elementary functions, `inverse`, and the matrix
-  compositions such as `transpose`, `matrix_product` and `determinant`
+- `literals.py`: `num`, which builds the literal of an `int` or a `float`, and a
+  complex number as a composition with `ImaginaryUnit`, and `zero`
+- `arithmetic.py`: `add`, `subtract`, `negate`, `multiply`, `divide`, `power`,
+  the elementary functions and `total`, where `add`, `subtract` and `negate`
+  work on tensors componentwise as the specification says
+- `indices.py`: `index`, `index_table` and `gathered_index`
+- `tensors.py`: `tensor`, `indexed`, `component_tensor`, `index_sum`, `inverse`,
+  and the matrix compositions such as `transpose`, `matrix_product` and
+  `determinant`
 - `calculus.py`: `coordinate`, `gradient`, `directional_derivative` and
   `integral`
 - `maps.py`: `domain_map` and `pull_back`
-- `geometry.py`: `jacobian`, `inverse_jacobian` and `density`
+- `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
 - `domains.py`: `coordinate_domain`, `decomposed_domain`, `cell_domain`,
   `gathered_cell_domain`, `side_map` and `normal`
 - `forms.py`: `space`, `function`, `form`, `action` and `gateaux_derivative`
@@ -41,12 +44,13 @@ and the white-box tests import:
 - `nodes/base.py`: `Base`, which reads the construction arguments of each class
   from its annotations, as rules 4 and 5 of the specification describe, and
   interns every object with a seed-free hash before it is built (see
-  `INTERNING_PLAN.md`); `AbstractExpression`, whose static type each concrete
-  class states, with no defaults (see `ABSTRACT_EXPRESSION_PLAN.md`); and
-  `Index`. Every concrete class is `@final`, and the abstract classes are
-  contracts.
-- `nodes/algebra.py`, `nodes/calculus.py`, `nodes/domains.py` and
-  `nodes/forms.py`: the node classes, by chapter of the specification
+  `INTERNING_PLAN.md`), and `AbstractExpression`, whose static type each
+  concrete class states, with no defaults (see `ABSTRACT_EXPRESSION_PLAN.md`).
+  Every concrete class is `@final`, and the abstract classes are contracts.
+- `nodes/literals.py`, `nodes/arithmetic.py`, `nodes/indices.py`,
+  `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py` and
+  `nodes/forms.py`: the node classes, by section of the specification, each
+  with a public module of the same name for its free functions
 - `interning.py`: the table of nodes, their canonical text and the seed-free
   digest
 - `substitution.py`: traversal, rebuilding, freshening and simultaneous

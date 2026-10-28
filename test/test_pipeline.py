@@ -5,28 +5,26 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
-from uflx_spec_interpreter.algebra import (
+from uflx_spec_interpreter.arithmetic import (
     absolute,
     add,
     conjugate,
     divide,
     imaginary_part,
-    index,
-    index_sum,
-    indexed,
     logarithm,
     multiply,
-    num,
     power,
     real_part,
     square_root,
-    tensor,
 )
 from uflx_spec_interpreter.calculus import directional_derivative
 from uflx_spec_interpreter.forms import action, form, function, space
+from uflx_spec_interpreter.indices import index
+from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions, derivatives
 from uflx_spec_interpreter.static import arity
+from uflx_spec_interpreter.tensors import index_sum, indexed, tensor
 
 V, Vd = space("V"), space("V", dual=True)
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")

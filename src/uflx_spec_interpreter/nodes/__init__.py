@@ -1,31 +1,22 @@
-from .algebra import (
+from .arithmetic import (
     Absolute,
-    AbstractIndexValue,
-    ComponentTensor,
     Conjugate,
     Division,
-    Float,
-    GatheredIndex,
     ImaginaryPart,
-    ImaginaryUnit,
-    Indexed,
-    IndexSum,
-    IndexTable,
-    Integer,
-    Inverse,
     Logarithm,
     Power,
     Product,
     RealPart,
     SquareRoot,
     Sum,
-    Tensor,
-    Zero,
 )
-from .base import AbstractExpression, Base, Index
+from .base import AbstractExpression, Base
 from .calculus import Coordinate, DirectionalDerivative, Gradient, Integral, Normal, PullBack
 from .domains import AbstractDomain, CellMap, CoordinateDomain, DecomposedDomain, DomainMap, SideMap
 from .forms import Action, Form, Function, GateauxDerivative, Space
+from .indices import AbstractIndexValue, GatheredIndex, Index, IndexTable
+from .literals import Float, ImaginaryUnit, Integer, Zero
+from .tensors import ComponentTensor, Indexed, IndexSum, Inverse, Tensor
 
 __all__ = [
     "Absolute",

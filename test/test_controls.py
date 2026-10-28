@@ -2,8 +2,9 @@
 import test_random
 
 from uflx_spec_interpreter import substitution
-from uflx_spec_interpreter.algebra import multiply, num
+from uflx_spec_interpreter.arithmetic import multiply
 from uflx_spec_interpreter.forms import action, form, function, space
+from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.passes import actions
 
 

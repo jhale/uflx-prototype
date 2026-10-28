@@ -6,26 +6,21 @@ from test_integrals import K
 from testutil import assert_clean, contains
 
 from uflx_spec_interpreter import oracle
-from uflx_spec_interpreter.algebra import (
+from uflx_spec_interpreter.arithmetic import (
     absolute,
     add,
-    component_tensor,
     conjugate,
     divide,
-    index,
-    index_sum,
-    indexed,
-    inverse,
     logarithm,
     multiply,
-    num,
     power,
     real_part,
     square_root,
-    tensor,
 )
 from uflx_spec_interpreter.calculus import coordinate, gradient, integral
 from uflx_spec_interpreter.forms import function, space
+from uflx_spec_interpreter.indices import index
+from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.nodes import (
     Function,
     Gradient,
@@ -35,6 +30,7 @@ from uflx_spec_interpreter.nodes import (
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients
 from uflx_spec_interpreter.static import free, shape
+from uflx_spec_interpreter.tensors import component_tensor, index_sum, indexed, inverse, tensor
 
 X = coordinate(K)
 u = function(space("V", domain=K), "u")

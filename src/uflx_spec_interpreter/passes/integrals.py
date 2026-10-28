@@ -1,4 +1,4 @@
-from ..algebra import total
+from ..arithmetic import total
 from ..domains import cell_domain
 from ..geometry import density
 from ..nodes import (

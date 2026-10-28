@@ -1,5 +1,16 @@
-from .algebra import determinant, gram, matrix_product, tangent_gram, transpose
-from .nodes import Absolute, Gradient, Integer, Inverse, SquareRoot
+from .arithmetic import add, subtract
+from .nodes import Absolute, Coordinate, Gradient, Integer, Inverse, SquareRoot
+from .tensors import determinant, identity, matrix_product, transpose
+
+
+def gram(J):
+    return matrix_product(transpose(J), J)
+
+
+def tangent_gram(J, P):
+    # JᵀJ + I - Π is invertible on a parameter domain of lower dimension, where JᵀJ is not.
+    identity_matrix = identity(P.ambient_coordinate_domain.dimension)
+    return subtract(add(gram(J), identity_matrix), Gradient(Coordinate(P), P))
 
 
 def jacobian(m):

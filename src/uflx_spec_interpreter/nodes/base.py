@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from abc import ABC, abstractmethod, update_abstractmethods
-from typing import ClassVar, dataclass_transform, final
+from typing import ClassVar, dataclass_transform
 
 from ..interning import digest_of, table
 
@@ -80,11 +80,3 @@ class AbstractExpression(Base):
     @property
     @abstractmethod
     def support(self): ...
-
-
-@final
-class Index(Base):
-    identifier = "uflx.Index"
-    label: str | tuple
-    opaque = ("label",)
-    labels = ("label",)

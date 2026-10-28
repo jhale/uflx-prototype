@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING, final
 
-from .algebra import Conjugate
+from .arithmetic import Conjugate
 from .base import AbstractExpression, Base
 
 if TYPE_CHECKING:

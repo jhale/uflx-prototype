@@ -6,20 +6,13 @@ from test_integrals import D as MESH
 from test_integrals import K
 from testutil import assert_clean
 
-from uflx_spec_interpreter.algebra import (
-    add,
-    conjugate,
-    divide,
-    index,
-    index_sum,
-    indexed,
-    multiply,
-    num,
-)
+from uflx_spec_interpreter.arithmetic import add, conjugate, divide, multiply
 from uflx_spec_interpreter.calculus import coordinate, directional_derivative, gradient, integral
 from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.forms import action, form, function, space
 from uflx_spec_interpreter.geometry import density
+from uflx_spec_interpreter.indices import index
+from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.maps import pull_back
 from uflx_spec_interpreter.nodes import (
     Function,
@@ -27,6 +20,7 @@ from uflx_spec_interpreter.nodes import (
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions, derivatives, integrals
 from uflx_spec_interpreter.static import arity
+from uflx_spec_interpreter.tensors import index_sum, indexed
 
 VD = space("VD", domain=MESH)
 u, w, h = (function(VD, n) for n in "uwh")

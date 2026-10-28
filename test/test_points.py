@@ -7,18 +7,12 @@ from test_integrals import R2, D, u
 from test_surface import R3, M
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter.algebra import (
-    add,
-    component_tensor,
-    index,
-    index_table,
-    indexed,
-    multiply,
-    num,
-)
+from uflx_spec_interpreter.arithmetic import add, multiply
 from uflx_spec_interpreter.calculus import coordinate, gradient, integral
 from uflx_spec_interpreter.domains import coordinate_domain, decomposed_domain, side_map
 from uflx_spec_interpreter.forms import function, space
+from uflx_spec_interpreter.indices import index, index_table
+from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.maps import domain_map, pull_back
 from uflx_spec_interpreter.nodes import (
     Coordinate,
@@ -30,6 +24,7 @@ from uflx_spec_interpreter.nodes import (
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
+from uflx_spec_interpreter.tensors import component_tensor, indexed
 
 i, k = index("i"), index("k")
 POINT = coordinate_domain("pt", 0)

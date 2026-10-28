@@ -1,4 +1,4 @@
-from ..algebra import matrix_product, negate, subtract, transpose
+from ..arithmetic import negate, subtract
 from ..nodes import (
     Absolute,
     Action,
@@ -13,6 +13,7 @@ from ..nodes import (
     SquareRoot,
     Sum,
 )
+from ..tensors import matrix_product, transpose
 from .commuting import COMMUTING, commute
 
 

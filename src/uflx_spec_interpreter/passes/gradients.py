@@ -1,4 +1,3 @@
-from ..algebra import identity
 from ..forms import space
 from ..nodes import (
     ComponentTensor,
@@ -13,6 +12,7 @@ from ..nodes import (
 )
 from ..static import arity, free_indices, shape, support
 from ..substitution import expressions, map_fields
+from ..tensors import identity
 from .derivative_table import derivative_of_node
 from .pullbacks import expand_pull_backs
 

@@ -1,4 +1,4 @@
-from ..algebra import dot, matvec, scale, subtract, total, transpose, unit
+from ..arithmetic import subtract, total
 from ..geometry import inverse_jacobian
 from ..nodes import (
     Absolute,
@@ -24,6 +24,7 @@ from ..nodes import (
 )
 from ..static import arity, free, shape, support, zero_like
 from ..substitution import expressions, freshen, map_fields
+from ..tensors import dot, matvec, scale, transpose, unit
 
 
 def pb(f, m):
