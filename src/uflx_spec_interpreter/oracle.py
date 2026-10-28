@@ -32,7 +32,6 @@ from .nodes import (
     Sum,
     Tensor,
     Zero,
-    entry_fns,
 )
 from .static import arity, free, support
 
@@ -186,6 +185,15 @@ def evaluate(e, env, ienv=None, over=None):
     return BUILT[key][-1]
 
 
+def entry_value(member, value):
+    # A value given to an entry conjugate(v) is the value of conjugate(v).
+    if not isinstance(member, Conj):
+        return member, value
+    if callable(value):
+        return member.a, lambda *point: np.conj(value(*point))
+    return member.a, np.conj(value)
+
+
 # The value of an expression is a function of the values of its arguments.
 def evaluate_uncached(e, env, ienv=None, over=None):
     ienv, over = ienv or {}, over or {}
@@ -276,8 +284,8 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 # The expression takes the first arguments, and the form binds the rest.
                 bound = {}
                 for a, val in zip(args, vals[n:]):
-                    names = entry_fns(a)
-                    bound |= dict(zip(names, val if isinstance(a, tuple) else (val,)))
+                    entries, values = (a, val) if isinstance(a, tuple) else ((a,), (val,))
+                    bound |= dict(entry_value(m, v) for m, v in zip(entries, values, strict=True))
                 # A bound value shadows an override of the same function.
                 ov = {k: w for k, w in over.items() if k not in bound}
                 return evaluate(x, env | bound, ienv, ov)(tuple(vals[:n]))
@@ -304,6 +312,8 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def value(vals):
                 rest, wv = tuple(vals[:-1]), vals[-1]
+                # The value is that of the entry, so the direction of conjugate(w) is its conjugate.
+                wv = np.conj(wv) if isinstance(entry, Conj) else wv
                 if not x.space.complex:
                     return delta(wv, rest)
                 sign = 1j if isinstance(entry, Conj) else -1j

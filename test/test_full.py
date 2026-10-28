@@ -209,8 +209,8 @@ def main(trials):
         f: 0.3 * (rng.normal(size=2) + 1j * rng.normal(size=2)) for f in [U, U2, U3] + BOUND["W"]
     }
     cv, cw = complex(*rng.normal(size=2)), rng.normal(size=2) + 1j * rng.normal(size=2)
-    env[lV] = lambda x: cv * np.conj(x)
-    env[lW] = lambda x: np.sum(cw * np.conj(x))
+    env[lV] = lambda x: cv * x
+    env[lW] = lambda x: np.sum(cw * x)
     bad = dict(value=0, static=0, grammar=0)
     lazy, rejected = 0, 0
     for seed in range(trials):

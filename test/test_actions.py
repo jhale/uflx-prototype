@@ -26,7 +26,7 @@ l = Fn(Vd, "l")
 i, j = Index("i"), Index("j")
 env = {f: complex(*rng.normal(size=2)) for f in (u, v, w, z, h)}
 cl = complex(*rng.normal(size=2))
-env[l] = lambda x: cl * np.conj(x)
+env[l] = lambda x: cl * x
 args = tuple(complex(*rng.normal(size=2)) for _ in range(3))
 
 

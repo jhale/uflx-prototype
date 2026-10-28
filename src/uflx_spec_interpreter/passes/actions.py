@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 from ..commuting import COMMUTING, commute
-from ..nodes import Action, Fn, Form, Prod, Zero, entry_fns, members
+from ..nodes import Action, Conj, Fn, Form, Prod, Zero, members
 from ..static import arity, free_indices
 from ..substitution import freshen, map_fields, operands, substitute
 
@@ -26,8 +26,17 @@ def act(f, p, g):
 
 def bind(form, q, g):
     rest = freshen(replace(form, args=without(form.args, q)), members(g))
-    body = substitute(rest.e, dict(zip(entry_fns(form.args[q]), members(g))))
+    pairs = zip(members(form.args[q]), members(g), strict=True)
+    body = substitute(rest.e, dict(binding(entry, value) for entry, value in pairs))
     return replace(rest, e=body) if rest.args else body
+
+
+def binding(entry, value):
+    # The value is that of the entry, so v in an entry conjugate(v) takes the conjugate.
+    match entry:
+        case Conj(v):
+            return v, Conj(value)
+    return entry, value
 
 
 def without(xs, i):

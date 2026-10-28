@@ -36,7 +36,7 @@ q2 = Fn(V, "q2")
 env = {f: cplx() for f in (u, v, w, z, h, q, r, q2)}
 env |= {f: cplx(2) for f in (U, Y, T, U2)}
 cl = cplx(2)
-env[lW] = lambda x: np.sum(cl * np.conj(x))
+env[lW] = lambda x: np.sum(cl * x)
 c, c2 = Tensor((Num(1), Num(2))), Tensor((Num(3), Num(-1)))
 
 

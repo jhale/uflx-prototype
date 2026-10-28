@@ -22,15 +22,24 @@ from uflx_spec_interpreter.passes import actions, derivatives, gateaux
 from uflx_spec_interpreter.static import arity
 
 C, R = Space("C"), Space("R", complex=False)
+# A load in each dual space, linear in its argument like every action.
+LOADS = {C: Fn(Space("C", dual=True), "l"), R: Fn(Space("R", dual=True, complex=False), "l")}
+LOAD_VALUE = 0.7 - 0.4j
 
 
 def body(rnd, u, names, holomorphic, depth):
     if depth == 0 or rnd.random() < 0.3:
         return rnd.choice([u, Num(2), *names])
     a, b = body(rnd, u, names, holomorphic, depth - 1), body(rnd, u, names, holomorphic, depth - 1)
-    ops = [lambda: Sum(a, b), lambda: Prod(a, b)]
+    l = LOADS[u.space]
+    ops = [lambda: Sum(a, b), lambda: Prod(a, b), lambda: Action(l, 0, a)]
     if not holomorphic:
-        ops += [lambda: Conj(a), lambda: Abs(Sum(Num(2), a)), lambda: Re(a)]
+        ops += [
+            lambda: Conj(a),
+            lambda: Abs(Sum(Num(2), a)),
+            lambda: Re(a),
+            lambda: Action(l, 0, Conj(a)),
+        ]
     return rnd.choice(ops)()
 
 
@@ -61,6 +70,8 @@ def main(trials):
             (lambda: complex(*rng.normal(size=2))) if space is C else (lambda: float(rng.normal()))
         )
         env = {f: 0.5 * scalar() for f in (u, v, w, z)}
+        load = LOAD_VALUE if space is C else LOAD_VALUE.real
+        env[LOADS[space]] = lambda x, load=load: load * x
         vals = tuple(0.5 * scalar() for _ in range(arity(e)))
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-5, atol=1e-6):
@@ -81,3 +92,17 @@ if __name__ == "__main__":
 
 def test_gateaux():
     assert_clean(main(400))
+
+
+def test_pairing_with_the_conjugate():
+    # <l, u> u is written with conjugate(u), so it is not holomorphic in u, and J- is not zero.
+    u, w = Fn(C, "u"), Fn(C, "w")
+    l = LOADS[C]
+    F = Prod(Action(l, 0, Conj(u)), u)
+    env = {u: 0.3 + 0.2j, w: 0.1 - 0.5j, l: lambda x: LOAD_VALUE * x}
+    assert not gateaux.holomorphic(F, u)
+    for entry in (w, Conj(w)):
+        e = Gateaux(F, u, u, entry)
+        out = derivatives.apply_derivatives(actions.apply_actions(gateaux.apply_gateaux(e)))
+        before, after = evaluate(e, env)((0.4 + 0.9j,)), evaluate(out, env)((0.4 + 0.9j,))
+        assert np.isclose(before, after) and abs(after) > 0.1

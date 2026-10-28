@@ -112,7 +112,7 @@ def main(trials):
     rng = np.random.default_rng(0)
     env = {f: 0.3 * complex(*rng.normal(size=2)) for f in POOL[:-1] + BOUND}
     cl = complex(*rng.normal(size=2))
-    env[l] = lambda x: cl * np.conj(x)
+    env[l] = lambda x: cl * x
     counts = dict(changed=0, not_n1=0, not_n2=0, derivatives=0, actions=0)
     for seed in range(trials):
         rnd = random.Random(seed)
