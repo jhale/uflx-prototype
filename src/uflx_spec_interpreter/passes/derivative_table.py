@@ -1,4 +1,4 @@
-from ..arithmetic import negate, subtract
+from ..arithmetic import subtract
 from ..nodes import (
     Absolute,
     Action,
@@ -13,7 +13,7 @@ from ..nodes import (
     SquareRoot,
     Sum,
 )
-from ..tensors import matrix_product, transpose
+from ..tensors import transpose
 from .commuting import COMMUTING, commute
 
 
@@ -52,7 +52,4 @@ def abs_derivative(b, db):
 def inverse_derivative(A, dA):
     # The identity-free form -A⁺ dA A⁺ + A⁺ (A⁺)ᵀ (dAᵀ - dAᵀ A A⁺).
     Ai, dAt = Inverse(A), transpose(dA)
-    return Sum(
-        negate(matrix_product(Ai, dA, Ai)),
-        matrix_product(Ai, transpose(Ai), Sum(dAt, negate(matrix_product(dAt, A, Ai)))),
-    )
+    return -(Ai @ dA @ Ai) + Ai @ transpose(Ai) @ (dAt - dAt @ A @ Ai)

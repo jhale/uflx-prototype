@@ -24,7 +24,7 @@ from ..nodes import (
 )
 from ..static import arity, free, shape, support, zero_like
 from ..substitution import expressions, freshen, map_fields
-from ..tensors import dot, matvec, scale, transpose, unit
+from ..tensors import transpose, unit
 
 
 def pb(f, m):
@@ -100,10 +100,10 @@ def normal(f, m):
     p0, p1 = ([Indexed(f.side.positions, (m.cell_index, v, k)) for k in range(2)] for v in range(2))
     t = [subtract(b, a) for a, b in zip(p0, p1, strict=True)]
     m0 = Tensor((t[1], Product(Integer(-1), t[0])))
-    away = dot(m0, Tensor(tuple(subtract(a, Division(Integer(1), Integer(3))) for a in p0)))
-    mhat = scale(Division(away, Absolute(away)), m0)
+    away = m0 @ Tensor(tuple(subtract(a, Division(Integer(1), Integer(3))) for a in p0))
+    mhat = Division(away, Absolute(away)) * m0
     K = pb(inverse_jacobian(B), A)
-    return unit(matvec(transpose(K), mhat))
+    return unit(transpose(K) @ mhat)
 
 
 def expand_pull_backs(e):

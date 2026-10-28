@@ -18,33 +18,44 @@ from .nodes import (
 )
 
 
-def componentwise(rule, label, *operands):
-    # The rule on the components, through derived indices, for an array-valued operand.
-    shape = operands[0].value_shape
-    if not shape:
-        return rule(*operands)
-    axes = tuple(Index((label, operands, n)) for n in range(len(shape)))
-    return ComponentTensor(rule(*(Indexed(x, axes) for x in operands)), axes)
+def derived(name, operands, n):
+    return tuple(Index((name, *operands, m)) for m in range(n))
 
 
-def add(a, b):
-    return componentwise(Sum, "add", a, b)
+def rank(f):
+    return len(f.value_shape)
 
 
-def negate(a):
-    return componentwise(lambda x: Product(Integer(-1), x), "negate", a)
+def add(first, second):
+    if rank(first) and rank(second):
+        K = derived("uflx.add", (first, second), rank(first))
+        return ComponentTensor(Sum(Indexed(first, K), Indexed(second, K)), K)
+    return Sum(first, second)
 
 
-def subtract(a, b):
-    return add(a, negate(b))
+def multiply(first, second):
+    if rank(second) and not rank(first):
+        K = derived("uflx.multiply", (first, second), rank(second))
+        return ComponentTensor(Product(first, Indexed(second, K)), K)
+    if rank(first) and not rank(second):
+        K = derived("uflx.multiply", (first, second), rank(first))
+        return ComponentTensor(Product(Indexed(first, K), second), K)
+    return Product(first, second)
 
 
-def multiply(a, b):
-    return Product(a, b)
+def divide(first, second):
+    if rank(first) and not rank(second):
+        K = derived("uflx.divide", (first, second), rank(first))
+        return ComponentTensor(Division(Indexed(first, K), second), K)
+    return Division(first, second)
 
 
-def divide(a, b):
-    return Division(a, b)
+def negate(f):
+    return multiply(Integer(-1), f)
+
+
+def subtract(first, second):
+    return add(first, negate(second))
 
 
 def power(a, b):
@@ -59,12 +70,19 @@ def conjugate(a):
     return Conjugate(a)
 
 
-def real_part(a):
-    return RealPart(a)
+def entrywise(name, op, f):
+    if not rank(f):
+        return op(f)
+    K = derived(name, (f,), rank(f))
+    return ComponentTensor(op(Indexed(f, K)), K)
 
 
-def imaginary_part(a):
-    return ImaginaryPart(a)
+def real_part(f):
+    return entrywise("uflx.real_part", RealPart, f)
+
+
+def imaginary_part(f):
+    return entrywise("uflx.imaginary_part", ImaginaryPart, f)
 
 
 def square_root(a):

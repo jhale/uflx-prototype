@@ -1,11 +1,10 @@
 from functools import reduce
 from itertools import combinations, permutations
 
-from .arithmetic import total
+from .arithmetic import derived, divide, rank, total
 from .nodes import (
     ComponentTensor,
-    Division,
-    Index,
+    EllipsisIndex,
     Indexed,
     IndexSum,
     Integer,
@@ -42,38 +41,32 @@ def identity(n):
     )
 
 
-def transpose(X):
-    r, s = (Index(("transpose", X, n)) for n in range(2))
-    return ComponentTensor(Indexed(X, (s, r)), (r, s))
+def transpose(A):
+    k, l = derived("uflx.transpose", (A,), 2)
+    return ComponentTensor(Indexed(A, (k, l)), (l, k))
 
 
-def matrix_product(X, Y, *rest):
-    r, s, t = (Index(("matmul", X, Y, n)) for n in range(3))
-    XY = ComponentTensor(IndexSum(Product(Indexed(X, (r, t)), Indexed(Y, (t, s))), (t,)), (r, s))
-    return matrix_product(XY, *rest) if rest else XY
+def matrix_product(first, second):
+    i, k, j = derived("uflx.matrix_product", (first, second), 3)
+    a = (i,) if rank(first) == 2 else ()
+    b = (j,) if rank(second) == 2 else ()
+    contracted = IndexSum(Product(Indexed(first, (*a, k)), Indexed(second, (k, *b))), (k,))
+    return ComponentTensor(contracted, a + b) if a + b else contracted
 
 
-def matvec(X, u):
-    r, t = (Index(("matvec", X, u, n)) for n in range(2))
-    return ComponentTensor(IndexSum(Product(Indexed(X, (r, t)), Indexed(u, (t,))), (t,)), (r,))
-
-
-def dot(u, v):
-    r = Index(("dot", u, v))
-    return IndexSum(Product(Indexed(u, (r,)), Indexed(v, (r,))), (r,))
-
-
-def scale(c, u):
-    r = Index(("scale", c, u))
-    return ComponentTensor(Product(c, Indexed(u, (r,))), (r,))
+def component(f, entries):
+    if len(entries) < rank(f) and not any(isinstance(e, EllipsisIndex) for e in entries):
+        K = derived("uflx.component", (f, entries), rank(f) - len(entries))
+        return ComponentTensor(Indexed(f, (*entries, *K)), K)
+    return Indexed(f, entries)
 
 
 def norm(u):
-    return SquareRoot(dot(u, u))
+    return SquareRoot(matrix_product(u, u))
 
 
 def unit(u):
-    return scale(Division(Integer(1), norm(u)), u)
+    return divide(u, norm(u))
 
 
 def determinant(M, n):

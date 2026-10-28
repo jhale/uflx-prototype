@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 from abc import ABC, abstractmethod, update_abstractmethods
+from importlib import import_module
 from typing import ClassVar, dataclass_transform
 
 from ..interning import digest_of, table
@@ -63,6 +64,21 @@ class Base(ABC):
         return []
 
 
+def free_function(module, name):
+    # The public modules import the nodes, so an overload finds its free function late.
+    return getattr(import_module(f"..{module}", __package__), name)
+
+
+def binary(module, name):
+    def overload(self, other):
+        # A Python number is rejected, and with no reflected overload Python raises TypeError.
+        if not isinstance(other, AbstractExpression):
+            return NotImplemented
+        return free_function(module, name)(self, other)
+
+    return overload
+
+
 class AbstractExpression(Base):
     # Every concrete class states its static type, so the abstract class has no defaults.
     @property
@@ -80,3 +96,23 @@ class AbstractExpression(Base):
     @property
     @abstractmethod
     def support(self): ...
+
+    __add__ = binary("arithmetic", "add")
+    __sub__ = binary("arithmetic", "subtract")
+    __mul__ = binary("arithmetic", "multiply")
+    __truediv__ = binary("arithmetic", "divide")
+    __pow__ = binary("arithmetic", "power")
+    __matmul__ = binary("tensors", "matrix_product")
+
+    def __neg__(self):
+        return free_function("arithmetic", "negate")(self)
+
+    def __abs__(self):
+        return free_function("arithmetic", "absolute")(self)
+
+    def __getitem__(self, entries):
+        entries = entries if isinstance(entries, tuple) else (entries,)
+        return free_function("tensors", "component")(self, entries)
+
+    def __iter__(self):
+        raise TypeError(f"{type(self).__name__} is not iterable")

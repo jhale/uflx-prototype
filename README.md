@@ -18,17 +18,19 @@ The package splits a public API from a private one.
 
 The public API is the free functions, named as in the specification, in the
 modules at the top of the package. A user, and a test that builds expressions,
-imports only these:
+imports only these. `AbstractExpression` also has the operator overloads of
+the specification, which call these free functions and reject Python numbers:
 
 - `literals.py`: `num`, which builds the literal of an `int` or a `float`, and a
   complex number as a composition with `ImaginaryUnit`, and `zero`
 - `arithmetic.py`: `add`, `subtract`, `negate`, `multiply`, `divide`, `power`,
-  the elementary functions and `total`, where `add`, `subtract` and `negate`
-  work on tensors componentwise as the specification says
+  the elementary functions and `total`, where `add`, `multiply`, `divide`,
+  `real_part` and `imaginary_part` read the ranks and build the compositions of
+  tensor arithmetic as the specification says
 - `indices.py`: `index`, `ellipsis_index`, `index_table` and `gathered_index`
-- `tensors.py`: `tensor`, `indexed`, `component_tensor`, `index_sum`, `inverse`,
-  and the matrix compositions such as `transpose`, `matrix_product` and
-  `determinant`
+- `tensors.py`: `tensor`, `indexed`, `component`, `component_tensor`,
+  `index_sum`, `inverse`, and the matrix compositions such as `transpose`,
+  `matrix_product` and `determinant`
 - `calculus.py`: `coordinate`, `gradient`, `directional_derivative` and
   `integral`
 - `maps.py`: `domain_map` and `pull_back`
