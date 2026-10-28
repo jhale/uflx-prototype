@@ -5,6 +5,7 @@ import sys
 import numpy as np
 from testutil import assert_clean, contains
 
+from uflx_oracle import evaluate
 from uflx_spec_interpreter.arithmetic import (
     absolute,
     add,
@@ -26,7 +27,6 @@ from uflx_spec_interpreter.nodes import (
     DirectionalDerivative,
     Function,
 )
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions, derivatives
 from uflx_spec_interpreter.static import arity, free, shape
 from uflx_spec_interpreter.tensors import component_tensor, index_sum, indexed, inverse, tensor

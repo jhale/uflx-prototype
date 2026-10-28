@@ -22,7 +22,7 @@ pythonpath = ["test"]
 
 [tool.coverage.run]
 branch = true
-source = ["uflx_spec_interpreter"]
+source = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle"]
 
 [tool.coverage.report]
 show_missing = true
@@ -37,4 +37,4 @@ select = ["E", "W", "F", "I", "RUF", "UP", "ICN", "NPY", "FLY", "LOG", "ISC"]
 ignore = ["E731", "E741"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["uflx_spec_interpreter"]
+known-first-party = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle"]

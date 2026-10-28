@@ -5,6 +5,7 @@ import sys
 import numpy as np
 from testutil import assert_clean
 
+from uflx_oracle import evaluate
 from uflx_spec_interpreter.arithmetic import add, multiply
 from uflx_spec_interpreter.calculus import coordinate, gradient, integral
 from uflx_spec_interpreter.domains import coordinate_domain, decomposed_domain
@@ -12,7 +13,6 @@ from uflx_spec_interpreter.forms import function, space
 from uflx_spec_interpreter.indices import index
 from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.maps import domain_map
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 from uflx_spec_interpreter.tensors import component_tensor, indexed, tensor

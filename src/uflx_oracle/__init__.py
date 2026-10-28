@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 
-from .nodes import (
+from uflx_spec_interpreter.nodes import (
     Absolute,
     AbstractExtent,
     Action,
@@ -41,7 +41,8 @@ from .nodes import (
     Tensor,
     Zero,
 )
-from .static import arity, free, support
+from uflx_spec_interpreter.static import arity, free, support
+from uflx_toy.nodes import RuntimeArray
 
 EPS = 1e-4
 H = 1e-5
@@ -451,13 +452,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return fs[key](vals)
 
             return lambda vals: integrate(P, lambda members: piece_value(members, vals))
-        case _ if type(e) in RULES:
-            return RULES[type(e)](e, env)
+        case RuntimeArray():
+            return lambda vals: env[e]
     raise TypeError(e)
-
-
-# A language extension adds the evaluation of its node classes here.
-RULES = {}
 
 
 def size(n, env):

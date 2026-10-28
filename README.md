@@ -3,6 +3,15 @@
 A toy implementation of the evaluation passes in the UFLx language specification
 (`design/LANGUAGE.md` in the uflx repository), tested against an independent oracle.
 
+The repository has three packages in `src/`, and imports go only from the
+oracle to the extension to the core, which `test/test_boundaries.py` checks:
+
+- `uflx_spec_interpreter`: the core, with only what the specification defines
+- `uflx_toy`: a language extension, with the classes that the specification
+  leaves to a library or to an extension, `IndexTable`, `RuntimeExtent` and
+  `RuntimeArray`
+- `uflx_oracle`: the oracle that the tests compare the passes against
+
 The passes, in `src/uflx_spec_interpreter/`, in the order of the specification:
 
 | Pass | Module | Output grammar |
@@ -62,14 +71,12 @@ and the white-box tests import:
 - `passes/derivative_table.py`: the derivatives of the node classes, shared by
   passes 2 and 5
 
-`oracle.py` evaluates an expression from the definitions of its nodes, with
+`uflx_oracle` evaluates an expression from the definitions of its nodes, with
 finite differences for derivatives, quadrature for integrals and numeric maps
 for pull-backs, so it does not use the passes. The value of an
-`AbstractExtent` is bound in the environment, as a solver gives it to a kernel.
-
-`extensions/runtime.py` is a language extension outside the core, the kernel
-inputs `RuntimeExtent` and `RuntimeArray` of the cut cell example. It adds the
-evaluation of its classes to `oracle.RULES`.
+`AbstractExtent` is bound in the environment, as a solver gives it to a kernel. The oracle
+evaluates the classes of `uflx_toy` too, and reads the values of an
+`IndexTable`, which the specification leaves to a library.
 
 The tests in `test/` check on random expressions that a pass keeps the value
 and the static type, that its output is in its grammar, and that the grammar
@@ -88,7 +95,8 @@ python test/test_full.py 100
 ## Differences from the specification
 
 The classes, their fields, the passes and the helpers use the names of the
-specification. The toy simplifies the specification in these places:
+specification. The core still simplifies the specification in these places,
+which the toy replaces with the classes of the specification one at a time:
 
 - `Space` is every space, with the flags `dual` and `complex`, where the
   specification has `AbstractFunctionSpace`, `DualSpace` and `ConjugateSpace`.
@@ -98,8 +106,6 @@ specification. The toy simplifies the specification in these places:
   `gathered_cell_domain`.
 - `arity` counts the arguments, where the specification has
   `argument_spaces`, so a `Zero` has placeholder argument spaces.
-- `IndexTable` is an `AbstractIndexValue` whose values the toy knows, so the
-  oracle can read them, where the specification leaves the values to a library.
 - A `SideMap` holds its side tables, where the specification reads them from
   the topology by the name of the side.
 - The constructors do not validate their arguments (rule 8).

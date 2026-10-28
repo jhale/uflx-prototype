@@ -6,6 +6,7 @@ from test_integrals import D as MESH
 from test_integrals import K
 from testutil import assert_clean
 
+from uflx_oracle import evaluate
 from uflx_spec_interpreter.arithmetic import add, conjugate, divide, multiply
 from uflx_spec_interpreter.calculus import coordinate, directional_derivative, gradient, integral
 from uflx_spec_interpreter.domains import cell_domain
@@ -17,7 +18,6 @@ from uflx_spec_interpreter.maps import pull_back
 from uflx_spec_interpreter.nodes import (
     Function,
 )
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions, derivatives, integrals
 from uflx_spec_interpreter.static import arity
 from uflx_spec_interpreter.tensors import index_sum, indexed

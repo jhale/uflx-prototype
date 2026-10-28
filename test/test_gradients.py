@@ -5,7 +5,8 @@ import numpy as np
 from test_integrals import K
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter import oracle
+import uflx_oracle as oracle
+from uflx_oracle import evaluate
 from uflx_spec_interpreter.arithmetic import (
     absolute,
     add,
@@ -27,7 +28,6 @@ from uflx_spec_interpreter.nodes import (
     Normal,
     PullBack,
 )
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients
 from uflx_spec_interpreter.static import free, shape
 from uflx_spec_interpreter.tensors import component_tensor, index_sum, indexed, inverse, tensor

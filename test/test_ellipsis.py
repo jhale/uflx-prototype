@@ -1,11 +1,11 @@
 import numpy as np
 
+from uflx_oracle import evaluate
 from uflx_spec_interpreter.arithmetic import conjugate, multiply
 from uflx_spec_interpreter.calculus import directional_derivative
 from uflx_spec_interpreter.forms import function, space
 from uflx_spec_interpreter.indices import ellipsis_index, index
 from uflx_spec_interpreter.literals import num
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import derivatives
 from uflx_spec_interpreter.substitution import substitute
 from uflx_spec_interpreter.tensors import component_tensor, index_sum, indexed, tensor

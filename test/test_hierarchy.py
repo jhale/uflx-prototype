@@ -1,6 +1,7 @@
 import pytest
 from test_integrals import D, c
 
+from uflx_oracle import evaluate
 from uflx_spec_interpreter import nodes
 from uflx_spec_interpreter.domains import cell_domain
 from uflx_spec_interpreter.forms import space
@@ -16,10 +17,10 @@ from uflx_spec_interpreter.nodes import (
     PullBack,
     RealPart,
 )
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import pullbacks
 from uflx_spec_interpreter.static import free
 from uflx_spec_interpreter.substitution import rebuild
+from uflx_toy.nodes import IndexTable
 
 EXPRESSIONS = (
     "Integer Float ImaginaryUnit Zero Sum Product Division Power Absolute Conjugate RealPart "
@@ -58,7 +59,7 @@ def test_the_static_type_is_computed_once():
 
 
 def test_a_pull_back_leaves_a_gathered_entry_unchanged():
-    g = GatheredIndex(nodes.IndexTable((1, 0), 2), (c,))
+    g = GatheredIndex(IndexTable((1, 0), 2), (c,))
     out = pullbacks.pb(Indexed(Coordinate(D), (g,)), cell_domain(D, 0))
     assert isinstance(out, Indexed) and out.indices == (g,) and out.indices[0] is g
     assert not isinstance(out.expression, PullBack) and not isinstance(out.expression, Function)
@@ -126,12 +127,12 @@ def test_nodes_are_immutable_and_take_their_arguments():
 
 def test_a_gathered_index_reads_an_index_value_and_gathers_nest():
     i, j = nodes.Index("i"), nodes.Index("j")
-    table = nodes.IndexTable(((0, 1), (1, 0)), 2)
+    table = IndexTable(((0, 1), (1, 0)), 2)
     assert table.shape == (2, 2) and table.extent == 2
     assert not isinstance(table, AbstractExpression)
     with pytest.raises(TypeError):
         nodes.AbstractIndexValue()
-    inner = nodes.GatheredIndex(nodes.IndexTable((1, 0), 2), (j,))
+    inner = nodes.GatheredIndex(IndexTable((1, 0), 2), (j,))
     g = nodes.GatheredIndex(table, (i, inner))
     assert g.extent == 2 and g.free_indices == ((i, 2), (j, 2))
     a = nodes.Indexed(nodes.Tensor((nodes.Float(10.0), nodes.Float(20.0))), (g,))

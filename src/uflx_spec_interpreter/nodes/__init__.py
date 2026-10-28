@@ -20,7 +20,6 @@ from .indices import (
     EllipsisIndex,
     GatheredIndex,
     Index,
-    IndexTable,
 )
 from .literals import Float, ImaginaryUnit, Integer, Zero
 from .tensors import ComponentTensor, Indexed, IndexSum, Inverse, Tensor
@@ -53,7 +52,6 @@ __all__ = [
     "ImaginaryUnit",
     "Index",
     "IndexSum",
-    "IndexTable",
     "Indexed",
     "Integer",
     "Integral",

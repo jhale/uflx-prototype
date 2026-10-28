@@ -41,23 +41,6 @@ class AbstractIndexValue(Base):
 
 
 @final
-class IndexTable(AbstractIndexValue):
-    identifier = "toy.IndexTable"
-    # The toy knows the values, which the specification leaves to a library.
-    values: tuple
-    extent: int
-    opaque = ("values", "extent")
-
-    @cached_property
-    def shape(self):
-        shape, x = [], self.values
-        while isinstance(x, tuple):
-            shape.append(len(x))
-            x = x[0]
-        return tuple(shape)
-
-
-@final
 class GatheredIndex(Base):
     identifier = "uflx.GatheredIndex"
     # An index read from a table at the given entries, an int or an Index for each axis.

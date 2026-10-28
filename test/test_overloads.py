@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
+from uflx_oracle import evaluate
 from uflx_spec_interpreter.arithmetic import imaginary_part, real_part
 from uflx_spec_interpreter.indices import ellipsis_index, index
 from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.nodes import ComponentTensor, Indexed, Integer, Power, Product, Sum
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.tensors import tensor
 
 RNG = np.random.default_rng(1)

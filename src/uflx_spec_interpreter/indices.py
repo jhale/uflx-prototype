@@ -1,4 +1,4 @@
-from .nodes import EllipsisIndex, GatheredIndex, Index, IndexTable
+from .nodes import EllipsisIndex, GatheredIndex, Index
 
 
 def index(label):
@@ -7,10 +7,6 @@ def index(label):
 
 def ellipsis_index(label):
     return EllipsisIndex(label)
-
-
-def index_table(values, extent):
-    return IndexTable(values, extent)
 
 
 def gathered_index(table, indices):

@@ -6,11 +6,12 @@ from test_facets import table
 from test_integrals import K
 from testutil import assert_clean, contains
 
+from uflx_oracle import evaluate
 from uflx_spec_interpreter.arithmetic import add, multiply
 from uflx_spec_interpreter.calculus import coordinate, gradient, integral
 from uflx_spec_interpreter.domains import coordinate_domain, decomposed_domain, normal, side_map
 from uflx_spec_interpreter.forms import function, space
-from uflx_spec_interpreter.indices import index, index_table
+from uflx_spec_interpreter.indices import index
 from uflx_spec_interpreter.literals import num
 from uflx_spec_interpreter.maps import domain_map, pull_back
 from uflx_spec_interpreter.nodes import (
@@ -22,10 +23,10 @@ from uflx_spec_interpreter.nodes import (
     PullBack,
     SideMap,
 )
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import gradients, integrals, pullbacks
 from uflx_spec_interpreter.static import free, shape
 from uflx_spec_interpreter.tensors import component_tensor, index_sum, indexed, tensor
+from uflx_toy.indices import index_table
 
 R3 = coordinate_domain("R3", 3)
 I = coordinate_domain("I", 1)

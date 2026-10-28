@@ -4,6 +4,7 @@ import sys
 import numpy as np
 from testutil import assert_clean, contains
 
+from uflx_oracle import evaluate
 from uflx_spec_interpreter.arithmetic import add, conjugate, divide, multiply
 from uflx_spec_interpreter.calculus import directional_derivative
 from uflx_spec_interpreter.forms import action, form, function, space
@@ -13,7 +14,6 @@ from uflx_spec_interpreter.nodes import (
     Action,
     Function,
 )
-from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.passes import actions
 from uflx_spec_interpreter.static import arity
 from uflx_spec_interpreter.tensors import index_sum, indexed, tensor
