@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 from test_integrals import R2, D
-from testutil import assert_clean, check_types, contains, static_type
+from testutil import assert_clean, check_types, contains, keeps_static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -150,7 +150,7 @@ def main(trials):
             lazy += 1
             rejected += not pullbacks.in_n5(out3)
         check_types(bad, e_int, out)
-        if static_type(e_int) != static_type(out):
+        if not keeps_static_type(e_int, out):
             bad["static"] += 1
         bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
         before, after = evaluate(e_int, env)(()), evaluate(out, env)(())

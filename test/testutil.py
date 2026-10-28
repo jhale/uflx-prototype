@@ -45,9 +45,16 @@ def pairing(action):
     return isinstance(action.form, Function) and isinstance(action.form.space, DualSpace)
 
 
-def static_type(e):
+def keeps_static_type(e, out):
     # The free indices compare as a dict, since a pass may reorder them.
-    return e.value_shape, dict(e.free_indices), e.argument_spaces, e.scalar_type
+    same = (e.value_shape, dict(e.free_indices), e.argument_spaces) == (
+        out.value_shape,
+        dict(out.free_indices),
+        out.argument_spaces,
+    )
+    # A Zero is real with no support, so the scalar type may become real and the support none.
+    scalar = out.scalar_type in (e.scalar_type, "real")
+    return same and scalar and out.support in (e.support, None)
 
 
 # The operands whose argument spaces a node passes on, by the static type table.
@@ -99,6 +106,8 @@ def node_error(n):
                 return f"Action at {p} of {f.argument_spaces}"
             if spaces_of_value(f.argument_spaces[p]) != spaces_of(g):
                 return f"Action at {p} of {f.argument_spaces} on {spaces_of(g)}"
+            if complex_for_real(f.argument_spaces[p], g):
+                return f"Action at {p} of {f.argument_spaces} on a complex argument"
     return None
 
 
@@ -107,6 +116,13 @@ def spaces_of_value(V):
     if isinstance(V, tuple):
         return tuple(map(spaces_of_value, V))
     return (V.space if isinstance(V, ConjugateSpace) else V).argument_spaces
+
+
+def complex_for_real(V, g):
+    # A complex argument for a real space, which only a real argument may fill.
+    if isinstance(V, tuple):
+        return any(complex_for_real(W, h) for W, h in zip(V, g, strict=True))
+    return g.scalar_type == "complex" and V.scalar_type == "real"
 
 
 def spaces_of(g):

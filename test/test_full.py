@@ -3,7 +3,7 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, check_types, contains, pairing, static_type
+from testutil import assert_clean, check_types, contains, keeps_static_type, pairing
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -250,7 +250,7 @@ def main(trials):
         e = random_form(rnd, specs, 3)
         out = derivatives.apply_derivatives(actions.apply_actions(e))
         check_types(bad, e, out)
-        if static_type(e) != static_type(out):
+        if not keeps_static_type(e, out):
             bad["static"] += 1
             if bad["static"] <= 2:
                 print(

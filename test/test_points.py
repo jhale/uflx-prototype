@@ -5,7 +5,7 @@ import numpy as np
 from test_facets import table
 from test_integrals import R2, D, u
 from test_surface import R3, M
-from testutil import assert_clean, check_types, contains, static_type
+from testutil import assert_clean, check_types, contains, keeps_static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -144,7 +144,7 @@ def main(trials):
             bad["lazy"] += 1
             bad["rejected"] += not gradients.in_n6(out4)
         check_types(bad, e, out)
-        if static_type(e) != static_type(out):
+        if not keeps_static_type(e, out):
             bad["static"] += 1
         bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
         if restricted:
