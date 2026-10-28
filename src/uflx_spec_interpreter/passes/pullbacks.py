@@ -1,4 +1,4 @@
-from ..algebra import dot, matvec, minus, scale, transpose, unit
+from ..algebra import dot, matvec, minus, scale, total, transpose, unit
 from ..domains import (
     CellMap,
     CoordDomain,
@@ -88,9 +88,11 @@ def side_maps(sm, m):
     B = CellMap(sm.D, 0, Gathered(sm.cells, (e,)))
     I = sm.E.pieces[0].P
     k = Index(("uflx.inclusion", sm, e))
-    p0, p1 = (Indexed(sm.positions, (e, v, k)) for v in range(2))
-    psi = CT(Sum(p0, Prod(minus(p1, p0), Indexed(Coordinate(I), (0,)))), (k,))
-    return B, DomainMap(I, psi, B.P)
+    # The affine map through the positions of the vertices of the cell of E, a constant for a point.
+    p = [Indexed(sm.positions, (e, v, k)) for v in range(topdim(I) + 1)]
+    X = Coordinate(I)
+    edges = [Prod(minus(p[v], p[0]), Indexed(X, (v - 1,))) for v in range(1, len(p))]
+    return B, DomainMap(I, CT(total([p[0], *edges]), (k,)), B.P)
 
 
 def normal(f, m):

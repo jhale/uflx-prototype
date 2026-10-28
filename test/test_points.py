@@ -3,11 +3,11 @@ import sys
 
 import numpy as np
 from test_facets import table
-from test_integrals import D, u
-from test_surface import M
+from test_integrals import R2, D, u
+from test_surface import R3, M
 from testutil import assert_clean, contains
 
-from uflx_spec_interpreter.domains import CoordDomain, Decomposed, DomainMap
+from uflx_spec_interpreter.domains import CoordDomain, Decomposed, DomainMap, SideMap
 from uflx_spec_interpreter.nodes import (
     CT,
     Coordinate,
@@ -42,8 +42,32 @@ def on_surface(cell, X):
     return tuple(v0 + (v1 - v0) * X[0] + (v2 - v0) * X[1])
 
 
-SQUARE_POINTS = points([(0.2, 0.3), (0.7, 0.4), (0.35, 0.8), (0.9, 0.95)], D)
-SURFACE_POINTS = points([on_surface(0, (0.3, 0.2)), on_surface(1, (0.25, 0.5))], M)
+SQUARE = [(0.2, 0.3), (0.7, 0.4), (0.35, 0.8), (0.9, 0.95)]
+SURFACE = [(0, (0.3, 0.2)), (1, (0.25, 0.5))]
+SQUARE_POINTS = points(SQUARE, D)
+SURFACE_POINTS = points([on_surface(c, X) for c, X in SURFACE], M)
+
+
+def in_square(x):
+    # The cell of the square that contains x, and the reference point, as a mesh library finds them.
+    for cell, (v0, v1, v2) in enumerate([[(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]]):
+        T = np.array([np.subtract(v1, v0), np.subtract(v2, v0)]).T
+        X = np.linalg.solve(T, np.subtract(x, v0))
+        if np.all(X > -1e-12) and X.sum() < 1 + 1e-12:
+            return cell, tuple(X)
+    raise ValueError(x)
+
+
+def topology_of_points(Q, coordinates, located):
+    # The points as a topology with the side "inside", and the restriction to them.
+    E = points(coordinates, R2 if Q == D else R3)
+    cells = table([cell for cell, _ in located])
+    positions = table([[X] for _, X in located])
+    return E, SideMap(Q, E, cells, positions)
+
+
+SQUARE_SIDE = topology_of_points(D, SQUARE, [in_square(x) for x in SQUARE])
+SURFACE_SIDE = topology_of_points(M, [on_surface(c, X) for c, X in SURFACE], SURFACE)
 w = Fn(Space("W", domain=M), "w")
 ENV = {u: lambda x: 1 + x[0] + 2 * x[0] * x[1], w: lambda x: 1 + x[0] * x[1] + x[2] * x[2]}
 
@@ -77,38 +101,49 @@ def needs_pass(n):
     return isinstance(n, Gradient) and not isinstance(n.b, (Fn, Coordinate, Gradient, PullBack))
 
 
+def by_the_points(n):
+    return isinstance(n, PullBack) and isinstance(n.m, DomainMap) and n.m.Q in (D, M)
+
+
 def main(trials):
-    bad = dict(value=0, static=0, grammar=0, lazy=0, rejected=0, unlocated=0)
+    bad = dict(value=0, static=0, grammar=0, lazy=0, rejected=0)
+    bad |= dict(unlocated=0, unlowered=0, restricted=0)
     for seed in range(trials):
         rnd = random.Random(seed)
-        Q, family, f = rnd.choice([(D, SQUARE_POINTS, u), (M, SURFACE_POINTS, w)])
-        e = Integral(integrand(rnd, Q, f), family)
+        Q, family, side, f = rnd.choice(
+            [(D, SQUARE_POINTS, SQUARE_SIDE, u), (M, SURFACE_POINTS, SURFACE_SIDE, w)]
+        )
+        restricted = rnd.random() < 0.5
+        if restricted:
+            E, sm = side
+            e = Integral(PullBack(integrand(rnd, Q, f), sm), E)
+        else:
+            e = Integral(integrand(rnd, Q, f), family)
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
         out = gradients.apply_gradients(out4)
-        if contains(
-            out4,
-            lambda n: (
-                isinstance(n, Gradient)
-                and not isinstance(n.b, (Fn, Coordinate, Gradient, PullBack))
-            ),
-        ):
+        if contains(out4, needs_pass):
             bad["lazy"] += 1
             bad["rejected"] += not gradients.in_n6(out4)
         if (shape(e), free(e)) != (shape(out), free(out)):
             bad["static"] += 1
         bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
-        bad["unlocated"] += contains(e, lambda n: isinstance(n, Fn)) and not contains(
-            out, stays_for_the_mesh_library
-        )
+        if restricted:
+            # Through the restriction, every pull-back reads a library value on a cell.
+            bad["restricted"] += 1
+            bad["unlowered"] += contains(out, by_the_points)
+        else:
+            has_function = contains(e, lambda n: isinstance(n, Fn))
+            bad["unlocated"] += has_function and not contains(out, stays_for_the_mesh_library)
         before, after = evaluate(e, ENV)(()), evaluate(out, ENV)(())
         if not np.allclose(before, after, rtol=1e-4, atol=1e-5):
             bad["value"] += 1
             if bad["value"] <= 3:
-                print("value changed, seed", seed, before, after)
+                print("value changed, seed", seed, restricted, before, after)
     print(
         f"{trials} integrals over points: {bad['value']} values changed, "
         f"{bad['static']} static types changed, {bad['grammar']} outside N5 or N6, "
-        f"{bad['unlocated']} with no pull-back left for the mesh library; "
+        f"{bad['unlocated']} with no pull-back left for the mesh library, "
+        f"{bad['unlowered']} of {bad['restricted']} restrictions left unlowered; "
         f"N6 rejected {bad['rejected']} of {bad['lazy']} inputs with a gradient to evaluate"
     )
     return bad
@@ -120,5 +155,6 @@ if __name__ == "__main__":
 
 def test_points():
     counts = main(60)
-    assert counts["unlocated"] == 0
+    assert counts["unlocated"] == counts["unlowered"] == 0
+    assert counts["restricted"] > 0
     assert_clean(counts)
