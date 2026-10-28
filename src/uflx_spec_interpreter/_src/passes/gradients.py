@@ -1,12 +1,34 @@
 from ..nodes import (
+    Absolute,
+    Action,
     ComponentTensor,
+    Conjugate,
     Coordinate,
+    DecomposedDomain,
+    Division,
+    DualSpace,
+    Float,
+    Form,
     Function,
     Gradient,
+    ImaginaryPart,
+    ImaginaryUnit,
     Index,
     Indexed,
+    IndexSum,
+    Integer,
+    Integral,
+    Inverse,
+    Logarithm,
     Normal,
+    Power,
+    Product,
     PullBack,
+    RealPart,
+    SideMap,
+    SquareRoot,
+    Sum,
+    Tensor,
     Zero,
 )
 from ..static import free_indices, shape, support
@@ -68,8 +90,70 @@ def rewrite(e):
             return e
 
 
-def in_n6(e):
+# The node classes that the core normal form allows always.
+ALWAYS = (
+    Integer,
+    Float,
+    ImaginaryUnit,
+    Zero,
+    Sum,
+    Product,
+    Division,
+    Power,
+    Absolute,
+    Conjugate,
+    RealPart,
+    ImaginaryPart,
+    SquareRoot,
+    Logarithm,
+    Tensor,
+    Indexed,
+    ComponentTensor,
+    IndexSum,
+    Inverse,
+    Coordinate,
+    Normal,
+    Function,
+    Form,
+)
+
+
+def downstream(e):
+    # A terminal of a downstream library, whose class is not a class of the core.
+    return not type(e).identifier.startswith("uflx.")
+
+
+def terminal(e):
+    return isinstance(e, (Coordinate, Function, Normal)) or downstream(e)
+
+
+def allowed(e):
+    # The table of the core normal form, the output grammar N6.
     match e:
-        case Gradient(f, P) if evaluated(f, P):
-            return False
-    return all(in_n6(c) for c in expressions(e))
+        case _ if isinstance(e, ALWAYS) or downstream(e):
+            return True
+        case Gradient(f, P):
+            return (terminal(f) or isinstance(f, (PullBack, Gradient))) and not evaluated(f, P)
+        case Integral(_, P):
+            return not isinstance(P, DecomposedDomain)
+        case PullBack(f, m):
+            return (
+                isinstance(m, SideMap)
+                or terminal(f)
+                or isinstance(f, PullBack)
+                or (isinstance(f, Gradient) and m.parameter_domain.dimension < f.domain.dimension)
+            )
+        case Action(Function(space, _), _, _):
+            return isinstance(space, DualSpace)
+    return False
+
+
+def in_n6(e):
+    seen = {}
+
+    def walk(n):
+        if n not in seen:
+            seen[n] = allowed(n) and all(map(walk, expressions(n)))
+        return seen[n]
+
+    return walk(e)
