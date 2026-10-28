@@ -1,18 +1,34 @@
-import itertools
 import random
 import sys
 
 import numpy as np
+from test_integrals import R2, D
+from testutil import assert_clean, contains
 
-from uflx_spec_interpreter import integrals
-from uflx_spec_interpreter import pullbacks
-from uflx_spec_interpreter.core import CT, Coordinate, CoordDomain, Decomposed, DomainMap, Fn, Gradient, Index, Indexed, Integral, Normal, Num, Prod, PullBack, SideMap, Space, Sum, Tensor
-from uflx_spec_interpreter.core import CellMap
+from uflx_spec_interpreter import integrals, pullbacks
+from uflx_spec_interpreter.core import (
+    CT,
+    CellMap,
+    CoordDomain,
+    Coordinate,
+    Decomposed,
+    DomainMap,
+    Fn,
+    Gradient,
+    Index,
+    Indexed,
+    Integral,
+    Normal,
+    Num,
+    Prod,
+    PullBack,
+    SideMap,
+    Space,
+    Sum,
+    Tensor,
+)
 from uflx_spec_interpreter.oracle import evaluate
-from testutil import contains
 from uflx_spec_interpreter.static import free, shape
-from testutil import assert_clean
-from test_integrals import D, R2
 
 I = CoordDomain("I", 1)
 k, e = Index("k"), Index("e")
@@ -22,13 +38,23 @@ num = Num
 def table(rows):
     def build(x):
         return Tensor(tuple(build(y) for y in x)) if isinstance(x, (list, tuple)) else num(x)
+
     return build(rows)
 
 
 def facets(vertices):
     # A family of straight facets with the free index e.
     fv = table(vertices)
-    psi = CT(Sum(Indexed(fv, (e, 0, k)), Prod(Sum(Indexed(fv, (e, 1, k)), Prod(num(-1), Indexed(fv, (e, 0, k)))), Indexed(Coordinate(I), (0,)))), (k,))
+    psi = CT(
+        Sum(
+            Indexed(fv, (e, 0, k)),
+            Prod(
+                Sum(Indexed(fv, (e, 1, k)), Prod(num(-1), Indexed(fv, (e, 0, k)))),
+                Indexed(Coordinate(I), (0,)),
+            ),
+        ),
+        (k,),
+    )
     return Decomposed((DomainMap(I, psi, R2),))
 
 
@@ -40,15 +66,30 @@ sides_int = {
 }
 # The four boundary edges, each with its one cell on the side "inside".
 E_bnd = facets([[(0, 0), (1, 0)], [(1, 0), (1, 1)], [(1, 1), (0, 1)], [(0, 1), (0, 0)]])
-sides_bnd = {"inside": SideMap(D, E_bnd, table([0, 0, 1, 1]), table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]))}
+sides_bnd = {
+    "inside": SideMap(
+        D,
+        E_bnd,
+        table([0, 0, 1, 1]),
+        table([[(0, 0), (1, 0)], [(1, 0), (0, 1)], [(1, 0), (0, 1)], [(0, 1), (0, 0)]]),
+    )
+}
 
 V = Space("V", domain=D)
 u, w = Fn(V, "u"), Fn(V, "w")
 
 
 def restricted(rnd, sm):
-    f = rnd.choice([u, w, Indexed(Gradient(u, D), (rnd.randrange(2),)), Indexed(Coordinate(D), (rnd.randrange(2),)),
-                    Prod(u, w), Indexed(Gradient(Prod(u, w), D), (rnd.randrange(2),))])
+    f = rnd.choice(
+        [
+            u,
+            w,
+            Indexed(Gradient(u, D), (rnd.randrange(2),)),
+            Indexed(Coordinate(D), (rnd.randrange(2),)),
+            Prod(u, w),
+            Indexed(Gradient(Prod(u, w), D), (rnd.randrange(2),)),
+        ]
+    )
     return PullBack(f, sm)
 
 
@@ -62,7 +103,7 @@ def integrand(rnd, E, sides):
         elif pick == 1:
             terms.append(Prod(restricted(rnd, sm), Indexed(Normal(D, E, sm), (rnd.randrange(2),))))
         elif pick == 2:
-            a, b = sides[list(sides)[0]], sides[list(sides)[-1]]
+            a, b = sides[next(iter(sides))], sides[list(sides)[-1]]
             terms.append(Sum(restricted(rnd, a), Prod(num(-1), restricted(rnd, b))))
         else:
             terms.append(num(rnd.choice([1, 2])))
@@ -70,12 +111,15 @@ def integrand(rnd, E, sides):
     for t in terms[1:]:
         f = Sum(f, t)
     if rnd.random() < 0.2:
-        f = Normal(D, E, sides[list(sides)[0]])
+        f = Normal(D, E, sides[next(iter(sides))])
     return f
 
 
 def main(trials):
-    env = {u: {0: lambda x: 1 + x[0] + 2 * x[1], 1: lambda x: 3 - x[0] * x[1]}, w: lambda x: 2 + x[0] * x[1]}
+    env = {
+        u: {0: lambda x: 1 + x[0] + 2 * x[1], 1: lambda x: 3 - x[0] * x[1]},
+        w: lambda x: 2 + x[0] * x[1],
+    }
     bad = dict(value=0, static=0, grammar=0)
     lazy, rejected = 0, 0
     for seed in range(trials):
@@ -84,7 +128,14 @@ def main(trials):
         e_int = Integral(integrand(rnd, E, sides), E)
         out3 = integrals.expand_integrals(e_int)
         out = pullbacks.expand_pull_backs(out3)
-        if contains(out3, lambda n: isinstance(n, PullBack) and isinstance(n.m, (CellMap, DomainMap)) and not isinstance(n.b, (Fn, Normal, PullBack, Gradient, SideMap))):
+        if contains(
+            out3,
+            lambda n: (
+                isinstance(n, PullBack)
+                and isinstance(n.m, (CellMap, DomainMap))
+                and not isinstance(n.b, (Fn, Normal, PullBack, Gradient, SideMap))
+            ),
+        ):
             lazy += 1
             rejected += not pullbacks.in_n5(out3)
         if (shape(e_int), free(e_int)) != (shape(out), free(out)):
@@ -95,7 +146,12 @@ def main(trials):
             bad["value"] += 1
             if bad["value"] <= 3:
                 print("value changed, seed", seed, before, after)
-    print(f"{trials} facet integrals: {bad['value']} values changed, {bad['static']} static types changed, {bad['grammar']} outside N5; N5 rejected {rejected} of {lazy} inputs with a pull-back to expand")
+    print(
+        f"{trials} facet integrals: {bad['value']} values changed, "
+        f"{bad['static']} static types changed, "
+        f"{bad['grammar']} outside N5; "
+        f"N5 rejected {rejected} of {lazy} inputs with a pull-back to expand"
+    )
     return bad | dict(lazy=lazy, rejected=rejected)
 
 

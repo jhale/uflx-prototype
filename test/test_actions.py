@@ -1,7 +1,21 @@
 import numpy as np
 
 from uflx_spec_interpreter import actions
-from uflx_spec_interpreter.core import CT, D, Action, Conj, Fn, Form, Index, Indexed, Num, Prod, Space, Sum, Tensor
+from uflx_spec_interpreter.core import (
+    CT,
+    Action,
+    Conj,
+    D,
+    Fn,
+    Form,
+    Index,
+    Indexed,
+    Num,
+    Prod,
+    Space,
+    Sum,
+    Tensor,
+)
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.static import arity
 
@@ -33,7 +47,10 @@ def test_cases():
     check("bilinear form, action at 1 then 0", Action(Action(F, 1, w), 0, z))
     check("action at 0 leaves a linear form", Action(F, 0, z))
     check("sum and product of forms", Action(Sum(Prod(Num(3), F), F), 1, w))
-    check("product of two linear forms", Action(Prod(Form(Prod(v, Num(2)), (v,)), Form(Conj(u), (Conj(u),))), 1, w))
+    check(
+        "product of two linear forms",
+        Action(Prod(Form(Prod(v, Num(2)), (v,)), Form(Conj(u), (Conj(u),))), 1, w),
+    )
     check("conjugate of a form", Action(Conj(F), 0, z))
     check("pairing remains", Action(Form(Prod(Action(l, 0, v), u), (v, u)), 0, w))
 

@@ -2,9 +2,44 @@ import itertools
 
 import numpy as np
 
-from .core import CellMap, Gathered, Normal, SideMap, Gateaux, Inv, CT, D, Abs, Action, Conj, Div, Im, Log, Power, Re, Sqrt, Fn, Form, Index, Indexed, ISum, Num, Prod, Sum, Tensor, Zero, entry_fns, members
+from .core import (
+    CT,
+    Abs,
+    Action,
+    CellMap,
+    Conj,
+    CoordDomain,
+    Coordinate,
+    D,
+    Decomposed,
+    Div,
+    Fn,
+    Form,
+    Gateaux,
+    Gathered,
+    Gradient,
+    Im,
+    Index,
+    Indexed,
+    Integral,
+    Inv,
+    ISum,
+    Log,
+    Normal,
+    Num,
+    Power,
+    Prod,
+    PullBack,
+    Re,
+    SideMap,
+    Sqrt,
+    Sum,
+    Tensor,
+    Zero,
+    ambient,
+    entry_fns,
+)
 from .static import arity, free, support
-from .core import CoordDomain, Coordinate, Decomposed, Gradient, Integral, PullBack, ambient
 
 EPS = 1e-4
 H = 1e-5
@@ -16,7 +51,11 @@ def quadrature(n=5):
     # A collapsed Gauss rule on the unit triangle, exact for polynomials of high degree.
     x, w = np.polynomial.legendre.leggauss(n)
     x, w = (x + 1) / 2, w / 2
-    return [(np.array([a, b * (1 - a)]), wa * wb * (1 - a)) for a, wa in zip(x, w) for b, wb in zip(x, w)]
+    return [
+        (np.array([a, b * (1 - a)]), wa * wb * (1 - a))
+        for a, wa in zip(x, w)
+        for b, wb in zip(x, w)
+    ]
 
 
 QUAD = quadrature()
@@ -32,7 +71,7 @@ def at(P, point, fn):
             POINTS.pop(P, None)
         else:
             POINTS[P] = saved
-    
+
 
 def jacobian_of(chart, X):
     return np.array([(chart(X + H * e) - chart(X - H * e)) / (2 * H) for e in np.eye(len(X))]).T
@@ -49,8 +88,19 @@ def tangent_projector(P):
     else:
         piece = P.pieces[0]
         cell = POINTS[("cell", P)]
-        index = list(free(piece.psi))[0]
-        verts = [np.real(np.asarray(at(piece.P, np.array(v, dtype=float), lambda: evaluate(piece.psi, {}, {index: cell})(())))) for v in ((0, 0), (1, 0), (0, 1))]
+        index = next(iter(free(piece.psi)))
+        verts = [
+            np.real(
+                np.asarray(
+                    at(
+                        piece.P,
+                        np.array(v, dtype=float),
+                        lambda: evaluate(piece.psi, {}, {index: cell})(()),
+                    )
+                )
+            )
+            for v in ((0, 0), (1, 0), (0, 1))
+        ]
         T = np.array([verts[1] - verts[0], verts[2] - verts[0]]).T
     return T @ np.linalg.pinv(T)
 
@@ -89,7 +139,14 @@ def integrate(P, fn):
                     scale = np.sqrt(abs(np.linalg.det(Je.T @ Je)) / abs(np.linalg.det(T.T @ T)))
                 cell = next(iter(members.values()), None)
                 inside = lambda: at(P, y, lambda: at(ambient(P), y, lambda: fn(members)))
-                return at(("ref", P), ref, lambda: at(("chart", P), chart, lambda: at(("cell", P), cell, inside))) * scale
+                return (
+                    at(
+                        ("ref", P),
+                        ref,
+                        lambda: at(("chart", P), chart, lambda: at(("cell", P), cell, inside)),
+                    )
+                    * scale
+                )
 
             total += integrate(piece.P, mapped)
     return total
@@ -110,7 +167,13 @@ def evaluate(e, env, ienv=None, over=None):
         def shared(vals):
             if vals != ():
                 return f(vals)
-            at_points = (id(f), tuple((id(k), v.tobytes() if isinstance(v, np.ndarray) else v) for k, v in POINTS.items()))
+            at_points = (
+                id(f),
+                tuple(
+                    (id(k), v.tobytes() if isinstance(v, np.ndarray) else v)
+                    for k, v in POINTS.items()
+                ),
+            )
             if at_points not in VALUES:
                 if len(VALUES) > 10**6:
                     VALUES.clear()
@@ -176,6 +239,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: np.array([f(vals) for f in fs])
         case Indexed(x, idx):
             fx = ev(x)
+
             def entry(i):
                 if isinstance(i, Index):
                     return ienv[i]
@@ -188,7 +252,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: np.asarray(fx(vals))[key]
         case CT(x, idx) | ISum(x, idx):
             extents = [free(x)[i] for i in idx]
-            fs = {combo: ev(x, ienv | dict(zip(idx, combo))) for combo in itertools.product(*(range(n) for n in extents))}
+            fs = {
+                combo: ev(x, ienv | dict(zip(idx, combo)))
+                for combo in itertools.product(*(range(n) for n in extents))
+            }
 
             def value(vals):
                 out = {combo: f(vals) for combo, f in fs.items()}
@@ -201,7 +268,6 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return value
         case Form(x, args):
-
             n = arity(x)
 
             def value(vals):
@@ -224,7 +290,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return (lambda *point: fx(())) if support(x) is not None else fx(())
 
             gv = tuple(value_of(x) for x in g) if isinstance(g, tuple) else value_of(g)
-            return lambda vals: ff(tuple(vals[:p]) + (gv,) + tuple(vals[p:]))
+            return lambda vals: ff((*tuple(vals[:p]), gv, *tuple(vals[p:])))
         case Gateaux(F, x, a, entry):
             # The definition: the real derivative, split into its linear and antilinear parts.
             fa = ev(a)
@@ -264,8 +330,15 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def pulled(vals):
                 y = np.real(np.asarray(psi(())))
                 if isinstance(m, CellMap):
-                    cell = evaluate(Indexed(Tensor((Num(0), Num(1), Num(2), Num(3))), (m.entry,)), env, ienv, over)(())
-                    return at(("cell", m.Q), int(np.real(cell)), lambda: at(m.Q, y, lambda: fb(vals)))
+                    cell = evaluate(
+                        Indexed(Tensor((Num(0), Num(1), Num(2), Num(3))), (m.entry,)),
+                        env,
+                        ienv,
+                        over,
+                    )(())
+                    return at(
+                        ("cell", m.Q), int(np.real(cell)), lambda: at(m.Q, y, lambda: fb(vals))
+                    )
                 return at(m.Q, y, lambda: fb(vals))
 
             return pulled
@@ -277,12 +350,35 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
                 cell = int(np.real(np.asarray(evaluate(cells, env)(()))[e]))
                 piece = Ed.pieces[0]
-                ends = [np.real(np.asarray(at(piece.P, np.array([s]), lambda: evaluate(piece.psi, env, {list(free(piece.psi))[0]: e})(())))) for s in (0.0, 1.0)]
+                index = next(iter(free(piece.psi)))
+                ends = [
+                    np.real(
+                        np.asarray(
+                            at(
+                                piece.P,
+                                np.array([s]),
+                                lambda: evaluate(piece.psi, env, {index: e})(()),
+                            )
+                        )
+                    )
+                    for s in (0.0, 1.0)
+                ]
                 tangent = (ends[1] - ends[0]) / np.linalg.norm(ends[1] - ends[0])
                 cpiece = Dd.pieces[0]
-                cidx = list(free(cpiece.psi))[0]
-                verts = [np.real(np.asarray(at(cpiece.P, np.array(v, dtype=float), lambda: evaluate(cpiece.psi, env, {cidx: cell})(())))) for v in ((0, 0), (1, 0), (0, 1))]
-                # In the plane of the cell, orthogonal to the edge, away from the centroid of the cell.
+                cidx = next(iter(free(cpiece.psi)))
+                verts = [
+                    np.real(
+                        np.asarray(
+                            at(
+                                cpiece.P,
+                                np.array(v, dtype=float),
+                                lambda: evaluate(cpiece.psi, env, {cidx: cell})(()),
+                            )
+                        )
+                    )
+                    for v in ((0, 0), (1, 0), (0, 1))
+                ]
+                # In the plane of the cell, orthogonal to the edge, away from its centroid.
                 d = np.real(x) - sum(verts) / 3
                 n = d - (d @ tangent) * tangent
                 return n / np.linalg.norm(n)
@@ -293,7 +389,14 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def gradient(vals):
                 p = POINTS[P]
-                cols = [(at(P, p + H * k, lambda: np.asarray(fb(vals))) - at(P, p - H * k, lambda: np.asarray(fb(vals)))) / (2 * H) for k in np.eye(len(p))]
+                cols = [
+                    (
+                        at(P, p + H * k, lambda: np.asarray(fb(vals)))
+                        - at(P, p - H * k, lambda: np.asarray(fb(vals)))
+                    )
+                    / (2 * H)
+                    for k in np.eye(len(p))
+                ]
                 g = np.stack(cols, axis=-1)
                 if isinstance(P, Decomposed) and topdim(P) < len(p):
                     # The tangential gradient on a domain of lower dimension.

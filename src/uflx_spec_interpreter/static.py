@@ -1,4 +1,37 @@
-from .core import Space, CellMap, Gathered, Normal, SideMap, Gateaux, Coordinate, Gradient, Integral, PullBack, ambient_dim, Inv, CT, D, Abs, Action, Conj, Div, Fn, Form, Im, Indexed, ISum, Log, Num, Power, Prod, Re, Sqrt, Sum, Tensor, Zero, operands
+from .core import (
+    CT,
+    Abs,
+    Action,
+    Conj,
+    Coordinate,
+    D,
+    Div,
+    Fn,
+    Form,
+    Gateaux,
+    Gathered,
+    Gradient,
+    Im,
+    Indexed,
+    Integral,
+    Inv,
+    ISum,
+    Log,
+    Normal,
+    Num,
+    Power,
+    Prod,
+    PullBack,
+    Re,
+    SideMap,
+    Space,
+    Sqrt,
+    Sum,
+    Tensor,
+    Zero,
+    ambient_dim,
+    operands,
+)
 
 
 def shape(e):
@@ -10,19 +43,31 @@ def shape(e):
         case Normal(Dn, _, _):
             return (ambient_dim(Dn),)
         case Gradient(b, P):
-            return shape(b) + (ambient_dim(P),)
+            return (*shape(b), ambient_dim(P))
         case PullBack(b, _) | Integral(b, _):
             return shape(b)
         case Fn(space, _):
             return () if space.dual else space.shape
-        case Num() | Prod() | Div() | Indexed() | ISum() | Re() | Im() | Abs() | Sqrt() | Log() | Power():
+        case (
+            Num()
+            | Prod()
+            | Div()
+            | Indexed()
+            | ISum()
+            | Re()
+            | Im()
+            | Abs()
+            | Sqrt()
+            | Log()
+            | Power()
+        ):
             return ()
         case Zero(s, _, _):
             return s
         case Inv(a):
             return tuple(reversed(shape(a)))
         case Tensor(es):
-            return (len(es),) + shape(es[0])
+            return (len(es), *shape(es[0]))
         case CT(x, idx):
             return tuple(free(x)[i] for i in idx)
         case Sum(a, _) | Conj(a) | D(a, _, _, _) | Action(a, _, _) | Form(a, _):
@@ -89,7 +134,9 @@ def arity(e):
             return 0
         case Tensor(es):
             return arity(es[0])
-        case Sum(a, _) | Div(a, _) | Conj(a) | Indexed(a, _) | CT(a, _) | ISum(a, _) | D(a, _, _, _):
+        case (
+            Sum(a, _) | Div(a, _) | Conj(a) | Indexed(a, _) | CT(a, _) | ISum(a, _) | D(a, _, _, _)
+        ):
             return arity(a)
     raise TypeError(e)
 

@@ -11,6 +11,7 @@ dependencies = ["numpy"]
 
 [project.optional-dependencies]
 test = ["pytest", "coverage"]
+lint = ["ruff"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -25,3 +26,15 @@ source = ["uflx_spec_interpreter"]
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "RUF", "UP", "ICN", "NPY", "FLY", "LOG", "ISC"]
+# Rule tables bind small local lambdas, and I and l follow the notation of the specification.
+ignore = ["E731", "E741"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["uflx_spec_interpreter"]

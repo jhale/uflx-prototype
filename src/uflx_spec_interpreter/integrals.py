@@ -1,5 +1,24 @@
 from .algebra import determinant, gram, tangent_gram, total
-from .core import CT, Abs, Decomposed, Gradient, Index, Indexed, Integral, ISum, Num, Prod, PullBack, Sqrt, ambient, ambient_dim, cell_domain, map_fields, operands, topdim
+from .core import (
+    CT,
+    Abs,
+    Decomposed,
+    Gradient,
+    Index,
+    Indexed,
+    Integral,
+    ISum,
+    Num,
+    Prod,
+    PullBack,
+    Sqrt,
+    ambient,
+    ambient_dim,
+    cell_domain,
+    map_fields,
+    operands,
+    topdim,
+)
 from .static import free, shape, support
 
 
@@ -15,7 +34,7 @@ def rule(e):
 
 
 def piece_integral(f, D, j):
-    # The integrand is pulled back by the cells of D, or by the map of the piece if its support is the ambient domain.
+    # Pulled back by the cells of D, or by the piece if the support is the ambient domain.
     piece, cells = D.pieces[j], cell_domain(D, j)
     g = PullBack(f, piece if support(f) == ambient(D) else cells)
     term = rule(Integral(Prod(g, density(cells)), piece.P))

@@ -1,6 +1,20 @@
 from dataclasses import replace
 
-from .core import COMMUTING, Action, Fn, Form, Prod, Zero, commute, entry_fns, freshen, map_fields, members, operands, substitute
+from .core import (
+    COMMUTING,
+    Action,
+    Fn,
+    Form,
+    Prod,
+    Zero,
+    commute,
+    entry_fns,
+    freshen,
+    map_fields,
+    members,
+    operands,
+    substitute,
+)
 from .static import arity, free_indices
 
 

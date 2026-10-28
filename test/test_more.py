@@ -1,9 +1,25 @@
 import numpy as np
 
 from uflx_spec_interpreter import actions
-from uflx_spec_interpreter.core import CT, Action, Conj, Div, Fn, Form, Index, Indexed, ISum, Num, Prod, Space, Sum, Tensor, Zero
-from uflx_spec_interpreter.static import arity
+from uflx_spec_interpreter.core import (
+    CT,
+    Action,
+    Conj,
+    Div,
+    Fn,
+    Form,
+    Index,
+    Indexed,
+    ISum,
+    Num,
+    Prod,
+    Space,
+    Sum,
+    Tensor,
+    Zero,
+)
 from uflx_spec_interpreter.oracle import evaluate
+from uflx_spec_interpreter.static import arity
 
 rng = np.random.default_rng(2)
 V, Vd, Q = Space("V"), Space("V", dual=True), Space("Q")
@@ -13,7 +29,9 @@ q, r = Fn(Q, "q"), Fn(Q, "r")
 U, Y, T, U2 = (Fn(W, n) for n in ("U", "Y", "T", "U2"))
 lW = Fn(Wd, "lW")
 i, j, k = Index("i"), Index("j"), Index("k")
-cplx = lambda *s: rng.normal(size=s) + 1j * rng.normal(size=s) if s else complex(*rng.normal(size=2))
+cplx = lambda *s: (
+    rng.normal(size=s) + 1j * rng.normal(size=s) if s else complex(*rng.normal(size=2))
+)
 q2 = Fn(V, "q2")
 env = {f: cplx() for f in (u, v, w, z, h, q, r, q2)}
 env |= {f: cplx(2) for f in (U, Y, T, U2)}
@@ -38,23 +56,41 @@ def test_cases():
 
     print("-- rows not tested before")
     for kk in range(2):
-        check(f"zero form, argument with family index i = {kk}", Action(Zero((), (), (V, V)), 1, Prod(Indexed(c, (i,)), w)), {i: kk})
+        check(
+            f"zero form, argument with family index i = {kk}",
+            Action(Zero((), (), (V, V)), 1, Prod(Indexed(c, (i,)), w)),
+            {i: kk},
+        )
     check("form divided by a scalar", Action(Div(F, Num(3)), 0, z))
     check("entry of a tensor of forms", Action(Indexed(Tensor((L1, L2)), (1,)), 0, z))
     check("index sum of forms", Action(ISum(Prod(Indexed(c, (i,)), L1), (i,)), 0, z))
     S = Form(Sum(Prod(v, u), Prod(q, w)), ((v, q),))
     check("tuple argument (v, q) := (w, r)", Action(S, 0, (w, r)))
-    check("tuple argument swapped (v, q2) := (q2, v)", Action(Form(Sum(Prod(v, u), Prod(q2, w)), ((v, q2),)), 0, (q2, v)))
+    check(
+        "tuple argument swapped (v, q2) := (q2, v)",
+        Action(Form(Sum(Prod(v, u), Prod(q2, w)), ((v, q2),)), 0, (q2, v)),
+    )
     B = Form(ISum(Prod(Indexed(c, (i,)), v), (i,)), (v,))
     for kk in range(2):
-        check(f"capture inside the form body, i = {kk}", Action(B, 0, Prod(Indexed(c2, (i,)), w)), {i: kk})
+        check(
+            f"capture inside the form body, i = {kk}",
+            Action(B, 0, Prod(Indexed(c2, (i,)), w)),
+            {i: kk},
+        )
 
     print("-- vector-valued spaces")
     M = Form(ISum(Prod(Indexed(U, (i,)), Conj(Indexed(T, (i,)))), (i,)), (Conj(T), U))
     check("vector mass form, actions at 1 and 0", Action(Action(M, 1, Tensor((w, z))), 0, U2))
-    check("vector form, argument a component tensor", Action(M, 1, CT(Prod(Indexed(c, (k,)), w), (k,))), vals=(cplx(2),))
+    check(
+        "vector form, argument a component tensor",
+        Action(M, 1, CT(Prod(Indexed(c, (k,)), w), (k,))),
+        vals=(cplx(2),),
+    )
     check("vector pairing remains", Action(Form(Prod(Action(lW, 0, Y), u), (Y,)), 0, U2))
     G = Form(ISum(Prod(Indexed(Y, (j,)), Indexed(U, (j,))), (j,)), (Y,))
     for kk in range(2):
-        check(f"vector argument with family index j, body binds j, j = {kk}",
-              Action(G, 0, CT(Prod(Indexed(c, (j,)), Indexed(U2, (k,))), (k,))), {j: kk})
+        check(
+            f"vector argument with family index j, body binds j, j = {kk}",
+            Action(G, 0, CT(Prod(Indexed(c, (j,)), Indexed(U2, (k,))), (k,))),
+            {j: kk},
+        )

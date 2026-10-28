@@ -1,11 +1,33 @@
+import os
 import random
 import sys
 
 import numpy as np
+from testutil import assert_clean
 
-from uflx_spec_interpreter import derivatives
-from uflx_spec_interpreter import actions
-from uflx_spec_interpreter.core import CT, D, Abs, Action, Conj, Div, Fn, Form, Im, Index, Indexed, ISum, Log, Num, Power, Prod, Re, Space, Sqrt, Sum, Tensor
+from uflx_spec_interpreter import actions, derivatives
+from uflx_spec_interpreter.core import (
+    Abs,
+    Action,
+    Conj,
+    D,
+    Div,
+    Fn,
+    Form,
+    Im,
+    Index,
+    Indexed,
+    ISum,
+    Log,
+    Num,
+    Power,
+    Prod,
+    Re,
+    Space,
+    Sqrt,
+    Sum,
+    Tensor,
+)
 from uflx_spec_interpreter.oracle import evaluate
 from uflx_spec_interpreter.static import arity
 
@@ -13,8 +35,7 @@ V, Vd = Space("V"), Space("V", dual=True)
 u, v, w, z, h, q = (Fn(V, n) for n in "uvwzhq")
 l = Fn(Vd, "l")
 C = Prod(u, w)
-import os
-from testutil import assert_clean
+
 VARIABLES = [u, w, C] if os.environ.get("COMPOUND") else [u, w]
 POOL = [u, v, w, z, h, q, C]
 BOUND = [v, q] + [Fn(V, f"y{k}") for k in range(6)]
@@ -81,7 +102,9 @@ def form(rnd, n, depth):
     if op == 4:
         return ISum(Prod(Indexed(c, (i,)), form(rnd, n, depth - 1)), (i,))
     if op == 5:
-        return Indexed(Tensor((form(rnd, n, depth - 1), form(rnd, n, depth - 1))), (rnd.randrange(2),))
+        return Indexed(
+            Tensor((form(rnd, n, depth - 1), form(rnd, n, depth - 1))), (rnd.randrange(2),)
+        )
     return Action(form(rnd, n + 1, depth - 1), rnd.randrange(n + 1), scalar(rnd, 2, 0))
 
 
@@ -107,9 +130,11 @@ def main(trials):
                 print("value changed, seed", seed, before, after)
         counts["not_n1"] += not actions.in_n2(out1)
         counts["not_n2"] += not (actions.in_n2(out2) and derivatives.in_n3(out2))
-    print(f"{trials} expressions, {counts['actions']} actions, {counts['derivatives']} derivatives:",
-          f"{counts['changed']} values changed, {counts['not_n1']} not in N2 after pass 1,",
-          f"{counts['not_n2']} not in N3 after pass 2")
+    print(
+        f"{trials} expressions, {counts['actions']} actions, {counts['derivatives']} derivatives:",
+        f"{counts['changed']} values changed, {counts['not_n1']} not in N2 after pass 1,",
+        f"{counts['not_n2']} not in N3 after pass 2",
+    )
     return dict(value=counts["changed"], grammar=counts["not_n1"] + counts["not_n2"])
 
 

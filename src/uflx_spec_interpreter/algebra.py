@@ -1,7 +1,19 @@
 from functools import reduce
 from itertools import combinations, permutations
 
-from .core import CT, Coordinate, Gradient, Index, Indexed, ISum, Num, Prod, Sum, Tensor, ambient_dim
+from .core import (
+    CT,
+    Coordinate,
+    Gradient,
+    Index,
+    Indexed,
+    ISum,
+    Num,
+    Prod,
+    Sum,
+    Tensor,
+    ambient_dim,
+)
 
 
 def total(es):
@@ -48,7 +60,10 @@ def tangent_gram(J, P):
 
 def determinant(M, n):
     # The Leibniz formula.
-    return total(reduce(Prod, (Indexed(M, (r, p[r])) for r in range(n)), Num(sign(p))) for p in permutations(range(n)))
+    return total(
+        reduce(Prod, (Indexed(M, (r, p[r])) for r in range(n)), Num(sign(p)))
+        for p in permutations(range(n))
+    )
 
 
 def sign(p):

@@ -28,8 +28,9 @@ that the tests notice. Each random test also runs as a script, with the number
 of trials as its argument, and prints its counts.
 
 ```
-pip install -e ".[test]"
+pip install -e ".[test,lint]"
 pytest
+ruff check . && ruff format --check .
 coverage run -m pytest && coverage report
 python test/test_full.py 100
 ```

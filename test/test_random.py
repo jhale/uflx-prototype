@@ -2,13 +2,27 @@ import random
 import sys
 
 import numpy as np
+from testutil import assert_clean, contains
 
 from uflx_spec_interpreter import actions
-from uflx_spec_interpreter.core import CT, D, Action, Conj, Div, Fn, Form, Index, Indexed, ISum, Num, Prod, Space, Sum, Tensor
-from uflx_spec_interpreter.static import arity
+from uflx_spec_interpreter.core import (
+    Action,
+    Conj,
+    D,
+    Div,
+    Fn,
+    Form,
+    Index,
+    Indexed,
+    ISum,
+    Num,
+    Prod,
+    Space,
+    Sum,
+    Tensor,
+)
 from uflx_spec_interpreter.oracle import evaluate
-from testutil import contains
-from testutil import assert_clean
+from uflx_spec_interpreter.static import arity
 
 V = Space("V")
 u, v, w, z, h, q = (Fn(V, n) for n in "uvwzhq")
@@ -65,7 +79,9 @@ def form(rnd, n, depth):
     if op == 4:
         return D(form(rnd, n, depth - 1), u, u, h)
     if op == 5:
-        return Indexed(Tensor((form(rnd, n, depth - 1), form(rnd, n, depth - 1))), (rnd.randrange(2),))
+        return Indexed(
+            Tensor((form(rnd, n, depth - 1), form(rnd, n, depth - 1))), (rnd.randrange(2),)
+        )
     if op == 6:
         return ISum(Prod(Indexed(c, (i,)), form(rnd, n, depth - 1)), (i,))
     return Action(form(rnd, n + 1, depth - 1), rnd.randrange(n + 1), scalar(rnd, 2))
@@ -88,12 +104,18 @@ def main(trials):
             failures += 1
             if failures == 1:
                 print("first failure, seed", seed, before, after)
-        if contains(e, lambda n: isinstance(n, Action) and not (isinstance(n.f, Fn) and n.f.space.dual)):
+        if contains(
+            e, lambda n: isinstance(n, Action) and not (isinstance(n.f, Fn) and n.f.space.dual)
+        ):
             lazy += 1
             rejected += not actions.in_n2(e)
         if not actions.in_n2(out):
             not_n1 += 1
-    print(f"{trials} expressions with {n_actions} actions: {failures} values changed, {not_n1} not in N2; N2 rejected {rejected} of {lazy} inputs with an action to apply")
+    print(
+        f"{trials} expressions with {n_actions} actions: {failures} values changed, "
+        f"{not_n1} not in N2; "
+        f"N2 rejected {rejected} of {lazy} inputs with an action to apply"
+    )
     return dict(value=failures, grammar=not_n1, lazy=lazy, rejected=rejected)
 
 

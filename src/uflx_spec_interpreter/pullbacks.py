@@ -1,9 +1,40 @@
 from .core import (
-    CT, Abs, Conj, Coordinate, CoordDomain, CellMap, Decomposed, Div, DomainMap, Fn, Gathered, Gradient,
-    Index, Indexed, Integral, Inv, ISum, Log, Normal, Num, Power, Prod, PullBack, Re, Im, SideMap, Sqrt,
-    Sum, Tensor, Zero, ambient_dim, topdim, freshen, map_fields, operands, Space,
+    CT,
+    Abs,
+    CellMap,
+    Conj,
+    Coordinate,
+    Div,
+    DomainMap,
+    Fn,
+    Gathered,
+    Gradient,
+    Im,
+    Index,
+    Indexed,
+    Inv,
+    ISum,
+    Log,
+    Normal,
+    Num,
+    Power,
+    Prod,
+    PullBack,
+    Re,
+    SideMap,
+    Space,
+    Sqrt,
+    Sum,
+    Tensor,
+    Zero,
+    ambient_dim,
+    freshen,
+    map_fields,
+    operands,
+    topdim,
 )
 from .static import arity, free, shape, support
+
 
 def fresh(f, m, n):
     return Index(("uflx.expand_pull_backs", f, m, n))
@@ -13,7 +44,7 @@ def contract_gradient(gradP, K, f, m):
     # Entry j of the last axis is the sum over r of gradP[..., r] * K[r, j].
     axes = tuple(fresh(f, m, n) for n in range(len(shape(gradP)) - 1))
     r, j = fresh(f, m, "r"), fresh(f, m, "j")
-    return CT(ISum(Prod(Indexed(gradP, axes + (r,)), Indexed(K, (r, j))), (r,)), axes + (j,))
+    return CT(ISum(Prod(Indexed(gradP, (*axes, r)), Indexed(K, (r, j))), (r,)), (*axes, j))
 
 
 def side_maps(sm, m):
@@ -23,7 +54,9 @@ def side_maps(sm, m):
     I = sm.E.pieces[0].P
     k = Index(("uflx.inclusion", sm, e))
     pos = lambda v: Indexed(sm.positions, (e, v, k))
-    psi = CT(Sum(pos(0), Prod(Sum(pos(1), Prod(Num(-1), pos(0))), Indexed(Coordinate(I), (0,)))), (k,))
+    psi = CT(
+        Sum(pos(0), Prod(Sum(pos(1), Prod(Num(-1), pos(0))), Indexed(Coordinate(I), (0,)))), (k,)
+    )
     A = DomainMap(I, psi, B.P)
     return B, A
 
@@ -57,7 +90,9 @@ def pb(f, m):
         missing = {i: n for i, n in free(PullBack(f, m)).items() if i not in free(f)}
         if not missing:
             return f
-        return Sum(f, Zero(shape(f), tuple(missing.items()), tuple(Space("arg") for _ in range(arity(f)))))
+        return Sum(
+            f, Zero(shape(f), tuple(missing.items()), tuple(Space("arg") for _ in range(arity(f))))
+        )
     match f:
         case Coordinate(Q) if Q == m.Q:
             return m.psi
@@ -74,8 +109,9 @@ def pb(f, m):
         case Gradient(g, Q):
             # A parameter domain of lower dimension than its ambient: K = (J^T J + I - Pi)^-1 J^T.
             from .algebra import tangent_gram
+
             J = Gradient(m.psi, m.P)
-            a, b, c, l = (fresh(f, m, ("K", n)) for n in range(4))
+            a, c, l = (fresh(f, m, ("K", n)) for n in (0, 2, 3))
             G = tangent_gram(J, m.P)
             K = CT(ISum(Prod(Indexed(Inv(G), (a, c)), Indexed(J, (l, c))), (c,)), (a, l))
             return contract_gradient(Gradient(pb(g, m), m.P), K, f, m)
@@ -90,7 +126,9 @@ def pb(f, m):
             return type(fr)(pb(fr.e, m), fr.idx)
         case Tensor(es):
             return Tensor(tuple(pb(x, m) for x in es))
-        case Sum() | Prod() | Div() | Conj() | Re() | Im() | Abs() | Sqrt() | Log() | Power() | Inv():
+        case (
+            Sum() | Prod() | Div() | Conj() | Re() | Im() | Abs() | Sqrt() | Log() | Power() | Inv()
+        ):
             return map_fields(f, lambda x: pb(x, m))
     raise TypeError(f"no row: {type(f).__name__}")
 
@@ -103,7 +141,9 @@ def expand_pull_backs(e):
 def in_n5(e):
     if isinstance(e, PullBack):
         b, m = e.b, e.m
-        ok = isinstance(b, (Fn, Normal, PullBack)) or (isinstance(b, Gradient) and topdim(m.P) < topdim(b.P))
+        ok = isinstance(b, (Fn, Normal, PullBack)) or (
+            isinstance(b, Gradient) and topdim(m.P) < topdim(b.P)
+        )
         if not ok:
             return False
     return all(in_n5(c) for c in operands(e))

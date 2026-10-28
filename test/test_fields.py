@@ -2,17 +2,33 @@ import random
 import sys
 
 import numpy as np
-
-from uflx_spec_interpreter import derivatives
-from uflx_spec_interpreter import integrals
-from uflx_spec_interpreter import actions
-from uflx_spec_interpreter.core import CT, D, Action, Conj, Coordinate, Div, Fn, Form, Gradient, Index, Indexed, Integral, ISum, Num, Prod, PullBack, Space, Sum, cell_domain
-from uflx_spec_interpreter.oracle import evaluate
-from uflx_spec_interpreter.static import arity
-from testutil import assert_clean
-
 from test_integrals import D as MESH
 from test_integrals import K
+from testutil import assert_clean
+
+from uflx_spec_interpreter import actions, derivatives, integrals
+from uflx_spec_interpreter.core import (
+    Action,
+    Conj,
+    Coordinate,
+    D,
+    Div,
+    Fn,
+    Form,
+    Gradient,
+    Index,
+    Indexed,
+    Integral,
+    ISum,
+    Num,
+    Prod,
+    PullBack,
+    Space,
+    Sum,
+    cell_domain,
+)
+from uflx_spec_interpreter.oracle import evaluate
+from uflx_spec_interpreter.static import arity
 
 VD = Space("VD", domain=MESH)
 u, w, h = (Fn(VD, n) for n in "uwh")
@@ -24,18 +40,20 @@ X = Coordinate(MESH)
 def field(rnd, names, depth):
     # A scalar field on the mesh, built from the names, u, w and the coordinates.
     if depth == 0 or rnd.random() < 0.35:
-        base = rnd.choice(names + [u, w, Indexed(X, (rnd.randrange(2),)), Num(2)])
+        base = rnd.choice([*names, u, w, Indexed(X, (rnd.randrange(2),)), Num(2)])
         if rnd.random() < 0.3 and isinstance(base, Fn):
             return Indexed(Gradient(base, MESH), (rnd.randrange(2),))
         return base
     a, b = field(rnd, names, depth - 1), field(rnd, names, depth - 1)
-    return rnd.choice([
-        Sum(a, b),
-        Prod(a, b),
-        Conj(a),
-        Div(a, Sum(Num(3), Prod(Num(0.2), b))),
-        ISum(Prod(Indexed(Gradient(a, MESH), (i,)), Indexed(Gradient(b, MESH), (i,))), (i,)),
-    ])
+    return rnd.choice(
+        [
+            Sum(a, b),
+            Prod(a, b),
+            Conj(a),
+            Div(a, Sum(Num(3), Prod(Num(0.2), b))),
+            ISum(Prod(Indexed(Gradient(a, MESH), (i,)), Indexed(Gradient(b, MESH), (i,))), (i,)),
+        ]
+    )
 
 
 def integral_of(rnd, body):
@@ -69,13 +87,15 @@ def main(trials):
         n = rnd.randrange(2)
         e = form(rnd, n, 2)
         out = integrals.expand_integrals(derivatives.apply_derivatives(actions.apply_actions(e)))
-        vals = tuple(args[:arity(e)])
+        vals = tuple(args[: arity(e)])
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
             bad["value"] += 1
             if bad["value"] <= 3:
                 print("value changed, seed", seed, before, after)
-        bad["grammar"] += not (actions.in_n2(out) and derivatives.in_n3(out) and integrals.in_n4(out))
+        bad["grammar"] += not (
+            actions.in_n2(out) and derivatives.in_n3(out) and integrals.in_n4(out)
+        )
     print(f"{trials} forms on a mesh: {bad['value']} values changed, {bad['grammar']} outside N4")
     return bad
 

@@ -1,5 +1,25 @@
 from .algebra import matmul, minus, negate, transpose
-from .core import COMMUTING, D, Abs, Action, Conj, Div, Fn, Inv, Log, Num, Power, Prod, Sqrt, Sum, commute, map_fields, occurs, operands, substitute
+from .core import (
+    COMMUTING,
+    Abs,
+    Action,
+    Conj,
+    D,
+    Div,
+    Fn,
+    Inv,
+    Log,
+    Num,
+    Power,
+    Prod,
+    Sqrt,
+    Sum,
+    commute,
+    map_fields,
+    occurs,
+    operands,
+    substitute,
+)
 from .static import arity, zero_like
 
 
@@ -47,7 +67,9 @@ def abs_derivative(b, db):
 def inverse_derivative(A, dA):
     # The identity-free form -A⁺ dA A⁺ + A⁺ (A⁺)ᵀ (dAᵀ - dAᵀ A A⁺).
     Ai, dAt = Inv(A), transpose(dA)
-    return Sum(negate(matmul(Ai, dA, Ai)), matmul(Ai, transpose(Ai), Sum(dAt, negate(matmul(dAt, A, Ai)))))
+    return Sum(
+        negate(matmul(Ai, dA, Ai)), matmul(Ai, transpose(Ai), Sum(dAt, negate(matmul(dAt, A, Ai))))
+    )
 
 
 def apply_derivatives(e):

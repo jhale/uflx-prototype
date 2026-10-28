@@ -1,5 +1,5 @@
 from dataclasses import dataclass, fields, replace
-from functools import lru_cache
+from functools import cache
 
 
 class Node:
@@ -246,13 +246,13 @@ def substitute(e, mapping):
     return _substitute(e, tuple(mapping.items()))
 
 
-@lru_cache(maxsize=None)
+@cache
 def _substitute(e, items):
     mapping = dict(items)
     if e in mapping:
         return mapping[e]
     if e.labels:
-        # A derived name whose label contains a replaced object is rebuilt, and a renamed name is not.
+        # A derived name with a replaced object in its label is rebuilt, and a renamed name is not.
         renamed = isinstance(e.label, tuple) and e.label[:1] == ("uflx.rename",)
         return e if renamed else map_fields(e, lambda x: _substitute(x, items), e.labels)
     if not e.scope:
@@ -354,7 +354,11 @@ class CellMap(Node):
     def psi(self):
         piece = self.D.pieces[self.j]
         family = [i for i in operands_free(piece.psi)]
-        return substitute(piece.psi, {family[0]: self.entry}) if family and family[0] != self.entry else piece.psi
+        return (
+            substitute(piece.psi, {family[0]: self.entry})
+            if family and family[0] != self.entry
+            else piece.psi
+        )
 
 
 @dataclass(frozen=True)
@@ -375,20 +379,33 @@ class Normal(Node):
 
 def operands_free(psi):
     from .static import free
+
     return list(free(psi))
 
 
 def cell_domain(D, j):
     from .static import free
+
     family = list(free(D.pieces[j].psi))
     return CellMap(D, j, family[0]) if family else DomainMap(D.pieces[j].P, D.pieces[j].psi, D)
 
 
 # The commuting node classes and the operands into which an evaluated node moves.
 COMMUTING = {
-    Sum: ("a", "b"), Tensor: ("entries",), Indexed: ("e",), CT: ("e",), ISum: ("e",),
-    Form: ("e",), D: ("f",), Conj: ("a",), Re: ("a",), Im: ("a",), Div: ("a",),
-    Gradient: ("b",), PullBack: ("b",), Integral: ("b",),
+    Sum: ("a", "b"),
+    Tensor: ("entries",),
+    Indexed: ("e",),
+    CT: ("e",),
+    ISum: ("e",),
+    Form: ("e",),
+    D: ("f",),
+    Conj: ("a",),
+    Re: ("a",),
+    Im: ("a",),
+    Div: ("a",),
+    Gradient: ("b",),
+    PullBack: ("b",),
+    Integral: ("b",),
 }
 
 
