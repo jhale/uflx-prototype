@@ -16,11 +16,15 @@ The passes, in `src/uflx_spec_interpreter/`, in the order of the specification:
 
 The language itself is split by concern:
 
-- `nodes.py`: `Base`, which interns every object with a seed-free hash so that
-  equal objects are the same object (see `INTERNING_PLAN.md`), and
-  `AbstractExpression`, whose static type is computed once for each node (see
-  `ABSTRACT_EXPRESSION_PLAN.md`), with the node classes from the expressions to
-  the form layer
+- `nodes/`: the node classes, by chapter of the specification:
+  - `base.py`: `Base`, which interns every object with a seed-free hash so that
+    equal objects are the same object (see `INTERNING_PLAN.md`),
+    `AbstractExpression`, whose static type is computed once for each node (see
+    `ABSTRACT_EXPRESSION_PLAN.md`), and `Index`
+  - `algebra.py`: numbers, arithmetic, index notation and `Inverse`
+  - `calculus.py`: coordinates, gradients, directional derivatives, integrals,
+    pull-backs and normals
+  - `forms.py`: spaces, functions, forms, actions and Gateaux derivatives
 - `domains.py`: domains, domain maps and their cells
 - `substitution.py`: traversal, freshening and simultaneous substitution
 - `commuting.py`: the commuting node classes, into which an evaluated node moves
