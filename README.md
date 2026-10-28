@@ -64,7 +64,12 @@ and the white-box tests import:
 
 `oracle.py` evaluates an expression from the definitions of its nodes, with
 finite differences for derivatives, quadrature for integrals and numeric maps
-for pull-backs, so it does not use the passes.
+for pull-backs, so it does not use the passes. The value of an
+`AbstractExtent` is bound in the environment, as a solver gives it to a kernel.
+
+`extensions/runtime.py` is a language extension outside the core, the kernel
+inputs `RuntimeExtent` and `RuntimeArray` of the cut cell example. It adds the
+evaluation of its classes to `oracle.RULES`.
 
 The tests in `test/` check on random expressions that a pass keeps the value
 and the static type, that its output is in its grammar, and that the grammar

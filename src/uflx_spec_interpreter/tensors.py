@@ -69,10 +69,11 @@ def unit(u):
     return divide(u, norm(u))
 
 
-def determinant(M, n):
-    # The Leibniz formula.
+def determinant(A):
+    # The Leibniz formula, for the int extent n of the square matrix A.
+    n = A.value_shape[0]
     return total(
-        reduce(Product, (Indexed(M, (r, p[r])) for r in range(n)), Integer(sign(p)))
+        reduce(Product, (Indexed(A, (r, p[r])) for r in range(n)), Integer(sign(p)))
         for p in permutations(range(n))
     )
 

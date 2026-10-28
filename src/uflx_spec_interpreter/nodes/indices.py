@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import cached_property
-from typing import TYPE_CHECKING, final
+from typing import final
 
 from .base import Base
 
-if TYPE_CHECKING:
+
+class AbstractExtent(Base):
+    # An extent known only after construction, which the core compares only by equality.
     pass
 
 

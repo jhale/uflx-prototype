@@ -4,6 +4,7 @@ import numpy as np
 
 from .nodes import (
     Absolute,
+    AbstractExtent,
     Action,
     CellMap,
     ComponentTensor,
@@ -302,7 +303,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
             # An EllipsisIndex ranges over the tuples of values of the axes that it covers.
-            extents = [free(x)[i] for i in idx]
+            extents = [size(free(x)[i], env) for i in idx]
             ranges = [
                 list(itertools.product(*map(range, n))) if isinstance(n, tuple) else range(n)
                 for n in extents
@@ -450,4 +451,17 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return fs[key](vals)
 
             return lambda vals: integrate(P, lambda members: piece_value(members, vals))
+        case _ if type(e) in RULES:
+            return RULES[type(e)](e, env)
     raise TypeError(e)
+
+
+# A language extension adds the evaluation of its node classes here.
+RULES = {}
+
+
+def size(n, env):
+    # The value of an AbstractExtent is bound in env, as a solver gives it to a kernel.
+    if isinstance(n, tuple):
+        return tuple(size(m, env) for m in n)
+    return env[n] if isinstance(n, AbstractExtent) else n

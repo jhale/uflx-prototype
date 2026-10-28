@@ -33,10 +33,8 @@ def density(m):
     if k == 0:
         return Integer(1)
     if k == m.parameter_domain.ambient_coordinate_domain.dimension == n:
-        return Absolute(determinant(jacobian(m), k))
-    return SquareRoot(
-        determinant(metric(m), m.parameter_domain.ambient_coordinate_domain.dimension)
-    )
+        return Absolute(determinant(jacobian(m)))
+    return SquareRoot(determinant(metric(m)))
 
 
 def inverse_jacobian(m):
