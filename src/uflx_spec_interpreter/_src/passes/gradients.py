@@ -1,3 +1,5 @@
+from functools import cache
+
 from ..nodes import (
     Absolute,
     Action,
@@ -41,6 +43,7 @@ from .pullbacks import expand_pull_backs
 LEAVES = (Function, Normal, PullBack, Gradient, Coordinate)
 
 
+@cache
 def partial(f, P, j):
     # Entry j of the last axis of Gradient(f, P), with the leaf rows of apply_gradients first.
     match f:
@@ -81,6 +84,7 @@ def apply_gradients(f):
     return expand_pull_backs(rewrite(f))
 
 
+@cache
 def rewrite(e):
     # Inner gradients first, then the rule for the expression of each gradient.
     match map_fields(e, rewrite):

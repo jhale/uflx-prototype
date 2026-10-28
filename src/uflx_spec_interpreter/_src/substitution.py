@@ -58,6 +58,7 @@ def map_fields(e, fn, names=None):
     return rebuild(e, **{n: walk(getattr(e, n)) for n in names})
 
 
+@cache
 def occurs(r, e):
     # Whether r is free in e.
     if e == r:

@@ -1,3 +1,5 @@
+from functools import cache
+
 from ..nodes import Action, Conjugate, DualSpace, Form, Function, Product, Zero
 from ..static import arity, free_indices
 from ..substitution import expressions, freshen, map_fields, rebuild, substitute
@@ -5,6 +7,7 @@ from ..tuples import members
 from .commuting import COMMUTING, commute
 
 
+@cache
 def act(f, p, g):
     # The rule table of apply_actions, keyed on the form f.
     match f:
@@ -42,6 +45,7 @@ def without(xs, i):
     return xs[:i] + xs[i + 1 :]
 
 
+@cache
 def apply_actions(f):
     # Inner actions first, then the rule for the form of each action.
     match map_fields(f, apply_actions):
@@ -51,6 +55,7 @@ def apply_actions(f):
             return e
 
 
+@cache
 def in_n2(e):
     match e:
         case Action(Function(space, _), _, _) if isinstance(space, DualSpace):

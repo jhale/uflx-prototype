@@ -1,3 +1,5 @@
+from functools import cache
+
 from ..arithmetic import total
 from ..domains import cell_domain
 from ..geometry import density
@@ -35,11 +37,13 @@ def piece_integral(f, D, j):
     return IndexSum(term, family) if family else term
 
 
+@cache
 def expand_integrals(f):
     # Inner integrals first.
     return rule(map_fields(f, expand_integrals))
 
 
+@cache
 def in_n4(e):
     match e:
         case Integral(_, DecomposedDomain()):

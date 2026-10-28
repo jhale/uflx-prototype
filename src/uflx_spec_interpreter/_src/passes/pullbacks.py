@@ -1,3 +1,5 @@
+from functools import cache
+
 from ..arithmetic import divide, square_root
 from ..domains import cell_of, inclusion
 from ..geometry import inverse_jacobian
@@ -21,6 +23,7 @@ from ..substitution import expressions, freshen, map_fields
 from ..tensors import transpose
 
 
+@cache
 def pb(f, m):
     # The rule table of expand_pull_backs, for PullBack(f, m).
     match f:
@@ -91,6 +94,7 @@ def normal(f, m):
     return divide(w, square_root(w @ w))
 
 
+@cache
 def expand_pull_backs(f):
     # Inner pull-backs first, then the rule for the expression of each pull-back.
     match map_fields(f, expand_pull_backs):
@@ -100,6 +104,7 @@ def expand_pull_backs(f):
             return e
 
 
+@cache
 def in_n5(e):
     match e:
         case PullBack(_, SideMap()) | PullBack(

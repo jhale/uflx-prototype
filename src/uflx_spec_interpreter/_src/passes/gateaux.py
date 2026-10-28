@@ -1,3 +1,5 @@
+from functools import cache
+
 from ..nodes import (
     Absolute,
     Conjugate,
@@ -52,6 +54,7 @@ def direction(entry):
     return entry.operand if isinstance(entry, Conjugate) else entry
 
 
+@cache
 def holomorphic(F, x, inside=False):
     # Syntactic, so a member of x under Conj, Abs, Re or Im makes F non-holomorphic.
     if inside and any(occurs(m, F) for m in members(x)):
@@ -75,10 +78,12 @@ def half_sum(F, x, a, w, sign):
     )
 
 
+@cache
 def apply_gateaux_derivatives(f):
     # Inner derivatives first, then the rule for each Gateaux derivative.
     return rule(map_fields(f, apply_gateaux_derivatives))
 
 
+@cache
 def in_n1(e):
     return not isinstance(e, GateauxDerivative) and all(in_n1(c) for c in expressions(e))
