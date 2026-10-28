@@ -42,10 +42,8 @@ class RD(AbstractCoordinateDomain):
 
 
 class AbstractReferenceCell(AbstractCoordinateDomain, AbstractCellType):
-    # A cell type whose vertices have coordinates, row v of value shape (m, n) for vertex v.
-    @property
-    @abstractmethod
-    def vertices(self) -> AbstractExpression: ...
+    # A cell type that is also a coordinate domain, whose vertices the core does not read.
+    pass
 
 
 @final

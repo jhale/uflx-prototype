@@ -11,11 +11,12 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractIndexValue,
     AbstractReferenceCell,
     AbstractTopology,
-    Indexed,
     Integer,
     Tensor,
     Zero,
 )
+
+from .inclusions import side_tables, vertex_rows
 
 
 @final
@@ -111,25 +112,22 @@ class StaticTopology(AbstractTopology):
         named = next(s for s in self.sides[i] if s[0] == side)
         (_, T, j) = named
         rank = [s for s in self.sides[i] if s[1:] == (T, j)].index(named)
-        K = T.cell_types[j]
         chosen, positions = [], []
         for vertices in self.cells[i]:
             around = [c for c, cell in enumerate(T.cells[j]) if set(vertices) <= set(cell)]
             c = around[min(rank, len(around) - 1)]
-            local = [T.cells[j][c].index(v) for v in vertices]
             chosen.append(c)
-            positions.append(Tensor(tuple(row(K, n) for n in local)))
-        return IndexTable(tuple(chosen), T.num_cells[j]), Tensor(tuple(positions))
-
-
-def row(K, n):
-    return Tensor(tuple(Indexed(K.vertices, (n, k)) for k in range(K.dimension)))
+            positions.append(
+                vertex_rows(T.cell_types[j], [T.cells[j][c].index(v) for v in vertices])
+            )
+        cells = IndexTable(tuple(chosen), T.num_cells[j])
+        return side_tables(self, i, side, cells, Tensor(tuple(positions)))
 
 
 @final
 class TabulatedTopology(AbstractTopology):
     identifier = "toy.TabulatedTopology"
-    # The side tables as a mesh library computes them, such as for located points.
+    # The cells and vertex positions of each side as a mesh library computes them.
     label: str
     cell_types: tuple
     num_cells: tuple
@@ -139,4 +137,5 @@ class TabulatedTopology(AbstractTopology):
 
     def side_tables(self, i, side):
         names = [s[0] for s in self.sides[i]]
-        return self.tables[i][names.index(side)]
+        cells, positions = self.tables[i][names.index(side)]
+        return side_tables(self, i, side, cells, positions)

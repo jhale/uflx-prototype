@@ -1,7 +1,6 @@
-from ..arithmetic import absolute, divide, square_root, subtract
-from ..cells import centroid
-from ..domains import cell_of, inclusion, inclusion_points
-from ..geometry import inverse_jacobian, jacobian
+from ..arithmetic import divide, square_root
+from ..domains import cell_of, inclusion
+from ..geometry import inverse_jacobian
 from ..nodes import (
     AbstractExpression,
     ComponentTensor,
@@ -11,17 +10,15 @@ from ..nodes import (
     Index,
     Indexed,
     IndexSum,
-    Integer,
     Normal,
     Product,
     PullBack,
     SideMap,
     Sum,
-    Tensor,
 )
 from ..static import free, shape, support, zero_like
 from ..substitution import expressions, freshen, map_fields
-from ..tensors import component, determinant, transpose
+from ..tensors import transpose
 
 
 def pb(f, m):
@@ -36,7 +33,7 @@ def pb(f, m):
         case PullBack(g, SideMap() as sm) if (
             cell_of(m) is not None and m.ambient_domain == sm.parameter_domain
         ):
-            B, A, _ = side_maps(f, m, sm)
+            B, A, _ = side_maps(sm, m)
             return pb(pb(g, B), A)
         case PullBack():
             return PullBack(f, m)
@@ -80,35 +77,18 @@ def contract_gradient(gradP, K, f, m):
     )
 
 
-def side_maps(f, m, sm):
-    # B and A of the group of the cells m, for the rewrite of the pull-back of f by m.
-    owner = ("uflx.expand_pull_backs", f, m)
+def side_maps(sm, m):
+    # B and A of the group of the cells m, and the reference normal of the side tables.
     S, i = sm.parameter_domain.topology, cell_of(m)
-    B, A = inclusion(sm.ambient_domain, S, i, sm.side, owner)
-    return B, A, inclusion_points(S, i, sm.side, owner)
+    B, A = inclusion(sm.ambient_domain, S, i, sm.side)
+    return B, A, S.side_tables(i, sm.side)[2]
 
 
 def normal(f, m):
-    # The composition of the pull-back of Normal, with the normal m_hat of the cell of E in K_j.
-    B, A, points = side_maps(f, m, f.side_map)
-    K_j = B.parameter_domain
-    m0 = cofactor_normal(jacobian(A), K_j.dimension)
-    away = m0 @ subtract(component(points, (0,)), centroid(K_j))
-    m_hat = divide(away, absolute(away)) * m0
+    # K^T m_hat / |K^T m_hat|, with m_hat the reference normal of the side tables.
+    B, A, m_hat = side_maps(f.side_map, m)
     w = transpose(pb(inverse_jacobian(B), A)) @ m_hat
     return divide(w, square_root(w @ w))
-
-
-def cofactor_normal(J, n):
-    # Entry i is det of [e_i, the columns of J], orthogonal to the n - 1 columns of J.
-    def column_matrix(i):
-        rows = (
-            Tensor((Integer(1 if r == i else 0), *(Indexed(J, (r, c)) for c in range(n - 1))))
-            for r in range(n)
-        )
-        return Tensor(tuple(rows))
-
-    return Tensor(tuple(determinant(column_matrix(i)) for i in range(n)))
 
 
 def expand_pull_backs(f):
