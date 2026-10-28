@@ -27,6 +27,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import Coordinate, DomainMap, Function, Gradient, PullBack
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
+from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
 
@@ -34,10 +35,10 @@ i, k = index("i"), index("k")
 POINT = RD(0)
 
 
-def points(coordinates, Q):
-    # A family of points in Q, with the free index i.
+def points(coordinates, Q, P=POINT):
+    # A family of points in Q, with the free index i, each a domain map from P.
     return decomposed_domain(
-        (domain_map(POINT, component_tensor(indexed(table(coordinates), (i, k)), (k,)), Q),)
+        (domain_map(P, component_tensor(indexed(table(coordinates), (i, k)), (k,)), Q),)
     )
 
 
@@ -66,7 +67,8 @@ def in_square(x):
 
 def topology_of_points(Q, coordinates, located):
     # The points as a topology with the side "inside", and the restriction to them.
-    E = points(coordinates, R2 if Q == D else R3)
+    # The cells of the topology of the points are of a reference cell type of dimension 0.
+    E = points(coordinates, R2 if Q == D else R3, reference_simplex(0))
     cells = index_table(tuple(cell for cell, _ in located), 2)
     positions = table([[X] for _, X in located])
     return E, side_map(Q, E, cells, positions)

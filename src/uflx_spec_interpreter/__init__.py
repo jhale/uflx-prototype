@@ -13,6 +13,7 @@ from ._src.arithmetic import (
     subtract,
 )
 from ._src.calculus import coordinate, directional_derivative, gradient, integral
+from ._src.cells import affine_map
 from ._src.domains import (
     cell_domain,
     decomposed_domain,
@@ -51,6 +52,7 @@ __all__ = [
     "absolute",
     "action",
     "add",
+    "affine_map",
     "apply_actions",
     "apply_derivatives",
     "apply_gateaux_derivatives",

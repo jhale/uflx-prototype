@@ -1,4 +1,5 @@
-from ..arithmetic import subtract, total
+from ..arithmetic import divide, subtract
+from ..cells import affine_jacobian, affine_map, centroid
 from ..domains import cell_of, gathered_cell_domain
 from ..geometry import inverse_jacobian
 from ..nodes import (
@@ -6,7 +7,6 @@ from ..nodes import (
     AbstractExpression,
     ComponentTensor,
     Coordinate,
-    Division,
     DomainMap,
     Function,
     GatheredIndex,
@@ -24,7 +24,7 @@ from ..nodes import (
 )
 from ..static import free, shape, support, zero_like
 from ..substitution import expressions, freshen, map_fields
-from ..tensors import transpose, unit
+from ..tensors import component, determinant, transpose, unit
 
 
 def pb(f, m):
@@ -93,26 +93,38 @@ def side_maps(sm, m):
     # The cell on the side and the inclusion of the cell of E into it, for the cells of m.
     e = cell_index_of(m)
     B = gathered_cell_domain(sm.ambient_domain, 0, GatheredIndex(sm.cells, (e,)))
-    I = m.parameter_domain
-    k = Index(("uflx.inclusion", sm, e))
-    # The affine map through the positions of the vertices of the cell of E, a constant for a point.
-    p = [Indexed(sm.positions, (e, v, k)) for v in range(I.dimension + 1)]
-    X = Coordinate(I)
-    edges = [Product(subtract(p[v], p[0]), Indexed(X, (v - 1,))) for v in range(1, len(p))]
-    return B, DomainMap(I, ComponentTensor(total([p[0], *edges]), (k,)), B.parameter_domain)
+    F = m.parameter_domain
+    return B, DomainMap(F, affine_map(F, side_points(sm, e)), B.parameter_domain)
+
+
+def side_points(sm, e):
+    # The position in the cell on the side of each vertex v of the cell e.
+    v, k = (Index(("uflx.inclusion", sm, e, n)) for n in range(2))
+    return ComponentTensor(Indexed(sm.positions, (e, v, k)), (v, k))
 
 
 def normal(f, m):
-    # Kᵀm̂ / |Kᵀm̂|, with m̂ the normal of the edge in the reference triangle, away from its centroid.
+    # K^T m / |K^T m|, with m orthogonal to the cell of E in K_j and away from its centroid.
     B, A = side_maps(f.side, m)
-    e = cell_index_of(m)
-    p0, p1 = ([Indexed(f.side.positions, (e, v, k)) for k in range(2)] for v in range(2))
-    t = [subtract(b, a) for a, b in zip(p0, p1, strict=True)]
-    m0 = Tensor((t[1], Product(Integer(-1), t[0])))
-    away = m0 @ Tensor(tuple(subtract(a, Division(Integer(1), Integer(3))) for a in p0))
-    mhat = Division(away, Absolute(away)) * m0
+    K_j, F = B.parameter_domain, m.parameter_domain
+    points = side_points(f.side, cell_index_of(m))
+    m0 = cofactor_normal(affine_jacobian(F, points), K_j.dimension)
+    away = m0 @ subtract(component(points, (0,)), centroid(K_j))
+    mhat = divide(away, Absolute(away)) * m0
     K = pb(inverse_jacobian(B), A)
     return unit(transpose(K) @ mhat)
+
+
+def cofactor_normal(J, n):
+    # Entry i is det of [e_i, the columns of J], orthogonal to the n - 1 columns of J.
+    def column_matrix(i):
+        rows = (
+            Tensor((Integer(1 if r == i else 0), *(Indexed(J, (r, c)) for c in range(n - 1))))
+            for r in range(n)
+        )
+        return Tensor(tuple(rows))
+
+    return Tensor(tuple(determinant(column_matrix(i)) for i in range(n)))
 
 
 def expand_pull_backs(f):

@@ -52,7 +52,9 @@ modules of `_src`:
   `integral`
 - `maps.py`: `domain_map` and `pull_back`
 - `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
-- `domains.py`: `coordinate_domain`, `decomposed_domain`, `cell_domain`,
+- `cells.py`: `affine_map`, and the edges, the Jacobian and the centroid that the
+  pull-back of a normal composes
+- `domains.py`: `decomposed_domain`, `cell_domain`,
   `gathered_cell_domain`, `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`
 - `forms.py`: `function`, `form`, `action` and `gateaux_derivative`
