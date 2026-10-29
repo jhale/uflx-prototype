@@ -1,7 +1,6 @@
 import basix
 import numpy as np
 from test_basix import CELLS
-from test_compiler import functionals
 from testutil import vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
@@ -44,18 +43,6 @@ def lowered(e):
     found = []
     everywhere(compile_form(e, 2), lambda n: not isinstance(n, PushForward) or not found.append(n))
     return not found
-
-
-def test_a_lagrange_function_on_the_topology_pushed_forward_is_the_function_on_the_mesh():
-    D = vertex_mesh(T, VERTICES)
-    uT = function(basix_space("V", T, P, 2), "u")
-    uD = function(basix_space("V", D, P, 2), "u")
-    U = np.random.default_rng(0).normal(size=uT.space.num_dofs)
-    for f, g in zip(functionals(D, push_forward(uT, D)), functionals(D, uD), strict=True):
-        assert lowered(f)
-        expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
-        assert np.isclose(evaluate(compile_form(f, 4), {"coefficients:u": U}), expected)
-        assert np.isclose(oracle(f, {uT: U})(()), expected)
 
 
 def raviart_thomas_forms(D, v):

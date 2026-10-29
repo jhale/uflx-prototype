@@ -12,7 +12,6 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractFunctionSpace,
     AbstractReferenceCell,
     AbstractTopology,
-    DecomposedDomain,
     Float,
     Law,
     ScalarType,
@@ -59,9 +58,10 @@ class BasixCell(AbstractReferenceCell):
 @final
 class BasixSpace(AbstractFunctionSpace):
     identifier = "toy.BasixSpace"
-    # A Basix element on each cell type of a mesh, with the global dofs of each cell.
+    # A Basix element on each cell type of a topology, with the global dofs of each cell. Every
+    # element of Basix that the toy builds is Piola equivalent, so the space is on a topology.
     label: str
-    domain: DecomposedDomain | AbstractTopology
+    domain: AbstractTopology
     family: basix.ElementFamily
     degree: int
     discontinuous: bool
@@ -78,21 +78,13 @@ class BasixSpace(AbstractFunctionSpace):
 
     @property
     def topology(self):
-        # A space on a topology has its cells, and a space on a mesh the cells of the mesh.
-        D = self.domain
-        return D if isinstance(D, AbstractTopology) else D.topology
+        return self.domain
 
     @cached_property
     def elements(self):
         # The dofs of an element that factors are in the order of its factors, the last fastest.
         out = []
-        D = self.domain
-        cells = (
-            D.cell_types
-            if isinstance(D, AbstractTopology)
-            else [p.parameter_domain for p in D.pieces]
-        )
-        for K in cells:
+        for K in self.domain.cell_types:
             args = (self.family, K.cell_type, self.degree, EQUISPACED)
             try:
                 order = tp_dof_ordering(*args, discontinuous=self.discontinuous)

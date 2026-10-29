@@ -142,20 +142,13 @@ def on_cell(D, piece, cell, fn):
     return at(("piece", D), piece, lambda: at(("cell", D), cell, fn))
 
 
-def basix_function(space, coefficients, env):
-    # The value at the point of the current cell, from the reference point of the point.
-    D = space.domain
-    if isinstance(D, AbstractTopology):
-        j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
-        phi = space.element(j).tabulate(0, np.array([POINTS[D]], dtype=float))[0, 0]
-        value = np.asarray(coefficients)[list(space.dofmap[j][cell])] @ phi
-        return value.reshape(space.value_shape)
-    j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
-    piece = D.pieces[j]
-    chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell}, env)
-    X = reference_point(chart, POINTS[D], D.dimension)
-    phi = space.element(j).tabulate(0, np.array([X], dtype=float))[0, 0, :, 0]
-    return np.asarray(coefficients)[list(space.dofmap[j][cell])] @ phi
+def basix_function(space, coefficients):
+    # The value at the reference point of the current cell of the topology of the space.
+    T = space.domain
+    j, cell = POINTS.get(("piece", T), 0), POINTS[("cell", T)]
+    phi = space.element(j).tabulate(0, np.array([POINTS[T]], dtype=float))[0, 0]
+    value = np.asarray(coefficients)[list(space.dofmap[j][cell])] @ phi
+    return value.reshape(space.value_shape)
 
 
 def piece_map(piece, members, env):
@@ -365,7 +358,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def basix_value(vals):
                 # The coefficients of the dofs of the cell times the basis, as the library of V.
-                return basix_function(space, lookup(env, e, f"coefficients:{e.label}"), env)
+                return basix_function(space, lookup(env, e, f"coefficients:{e.label}"))
 
             return basix_value
         case Function(space, _) if space.domain is not None:

@@ -13,6 +13,7 @@ from uflx_spec_interpreter import (
     gradient,
     integral,
 )
+from uflx_spec_interpreter._draft import push_forward
 from uflx_spec_interpreter._src.nodes import GatheredIndex
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
@@ -34,14 +35,15 @@ def factored(compiled, dimension):
 )
 def test_quadrilateral_kernels_factor_and_agree_with_the_oracle(degree, discontinuous):
     D = quadrilaterals()[0]
-    V = basix_space("V", D, P, degree, discontinuous)
-    u = function(V, "u")
+    V = basix_space("V", D.topology, P, degree, discontinuous)
+    uT = function(V, "u")
+    u = push_forward(uT, D)
     U = np.random.default_rng(degree).normal(size=V.num_dofs)
     for e in functionals(D, u)[1:]:
         compiled = compile_form(e, 2 * degree + 2)
         assert factored(compiled, 2), e
         value = evaluate(compiled, {"coefficients:u": U}, np, fold(compiled))
-        assert np.isclose(value, oracle(e, {u: U})(()), rtol=1e-8), e
+        assert np.isclose(value, oracle(e, {uT: U})(()), rtol=1e-8), e
 
 
 def test_a_hexahedron_kernel_factors_and_agrees_with_the_oracle():
@@ -49,15 +51,16 @@ def test_a_hexahedron_kernel_factors_and_agrees_with_the_oracle():
     T = static_topology((H,), ((tuple(range(8)),),), ())
     # The unit cube shifted by (1, 2, 3), with vertex v at the bits of v, as Basix numbers them.
     D = vertex_mesh(T, [(1 + (v & 1), 2 + (v >> 1 & 1), 3 + (v >> 2 & 1)) for v in range(8)])
-    V = basix_space("V", D, P, 2, True)
-    u = function(V, "u")
+    V = basix_space("V", D.topology, P, 2, True)
+    uT = function(V, "u")
+    u = push_forward(uT, D)
     g = gradient(u, D)
     e = integral(u * u + g[0] * g[1] + g[2] * g[2], D)
     U = np.random.default_rng(0).normal(size=V.num_dofs)
     compiled = compile_form(e, 6)
     assert factored(compiled, 3)
     value = evaluate(compiled, {"coefficients:u": U}, np, fold(compiled))
-    assert np.isclose(value, oracle(e, {u: U})(()), rtol=1e-8)
+    assert np.isclose(value, oracle(e, {uT: U})(()), rtol=1e-8)
 
 
 def flops(e, U):
@@ -70,8 +73,8 @@ def flops(e, U):
 
 def test_factored_tables_take_fewer_operations(monkeypatch):
     D = quadrilaterals()[0]
-    V = basix_space("V", D, P, 6, True)
-    u = function(V, "u")
+    V = basix_space("V", D.topology, P, 6, True)
+    u = push_forward(function(V, "u"), D)
     g = gradient(u, D)
     e = integral(u * u + g[0] * g[0] + g[1] * g[1], D)
     U = np.random.default_rng(0).normal(size=V.num_dofs)

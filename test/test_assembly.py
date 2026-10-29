@@ -17,6 +17,7 @@ from uflx_spec_interpreter import (
     pull_back,
     side_map,
 )
+from uflx_spec_interpreter._draft import push_forward
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -31,10 +32,11 @@ def dot(a, b, D):
 
 def test_the_mass_and_stiffness_matrices_of_two_triangles():
     D = square(basix_cell(CELLS[2]))[0]
-    V = basix_space("V", D, P, 1)
-    u, v = function(V, "u"), function(V, "v")
-    M = assemble(form(integral(u * v, D), (v, u)), 2)({})
-    K = assemble(form(integral(dot(u, v, D), D), (v, u)), 2)({})
+    V = basix_space("V", D.topology, P, 1)
+    uT, vT = function(V, "u"), function(V, "v")
+    u, v = push_forward(uT, D), push_forward(vT, D)
+    M = assemble(form(integral(u * v, D), (vT, uT)), 2)({})
+    K = assemble(form(integral(dot(u, v, D), D), (vT, uT)), 2)({})
     expected = np.array([[4, 1, 2, 1], [1, 2, 1, 0], [2, 1, 4, 1], [1, 0, 1, 2]]) / 24
     assert np.allclose(M, expected) and np.isclose(M.sum(), 1)
     stiffness = [[1, -0.5, 0, -0.5], [-0.5, 1, -0.5, 0], [0, -0.5, 1, -0.5], [-0.5, 0, -0.5, 1]]
@@ -64,25 +66,27 @@ def interior_penalty(u, v, D, E):
 
 def test_an_assembled_bilinear_form_with_facet_terms_on_a_mixed_mesh():
     D, E, _ = mixed()
-    V = basix_space("V", D, P, 1, discontinuous=True)
-    u, v, w, z = (function(V, n) for n in "uvwz")
-    A = assemble(form(interior_penalty(u, v, D, E), (v, u)), 3)({})
+    V = basix_space("V", D.topology, P, 1, discontinuous=True)
+    uT, vT, wT, zT = (function(V, n) for n in "uvwz")
+    u, v, w, z = (push_forward(f, D) for f in (uT, vT, wT, zT))
+    A = assemble(form(interior_penalty(u, v, D, E), (vT, uT)), 3)({})
     rng = np.random.default_rng(9)
     W, Z = rng.normal(size=V.num_dofs), rng.normal(size=V.num_dofs)
-    expected = oracle(interior_penalty(z, w, D, E), {w: W, z: Z})(())
+    expected = oracle(interior_penalty(z, w, D, E), {wT: W, zT: Z})(())
     assert np.isclose(W @ A @ Z, expected, rtol=1e-8)
     assert np.allclose(A, A.T)
-    assert np.allclose(assemble(form(interior_penalty(u, v, D, E), (v, u)), 3)({}, jnp), A)
+    assert np.allclose(assemble(form(interior_penalty(u, v, D, E), (vT, uT)), 3)({}, jnp), A)
 
 
 def test_the_gateaux_derivatives_assemble_to_the_derivatives_of_the_energy():
     # The residual and the tangent of the core are the gradient and the Hessian of the energy.
     D = mixed()[0]
-    V = basix_space("V", D, P, 2)
-    u, v, w = (function(V, n) for n in "uvw")
+    V = basix_space("V", D.topology, P, 2)
+    uT, vT, wT = (function(V, n) for n in "uvw")
+    u = push_forward(uT, D)
     energy = integral(num(0.5) * dot(u, u, D) + num(0.25) * u * u * u * u, D)
-    residual = gateaux_derivative(energy, u, u, v)
-    tangent = gateaux_derivative(residual, u, u, w)
+    residual = gateaux_derivative(energy, uT, uT, vT)
+    tangent = gateaux_derivative(residual, uT, uT, wT)
     key = "coefficients:u"
     U = np.random.default_rng(10).normal(size=V.num_dofs) * 0.5
     compiled = compile_form(energy, 8)

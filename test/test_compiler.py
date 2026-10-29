@@ -37,7 +37,7 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
-from uflx_spec_interpreter._draft import coordinate_function, mesh
+from uflx_spec_interpreter._draft import coordinate_function, mesh, push_forward
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     Division,
@@ -74,8 +74,8 @@ def functionals(D, u):
 )
 def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
     D = square(basix_cell(CELLS[2]))[0] if mesh == "triangles" else mixed()[0]
-    V = basix_space("V", D, P, degree)
-    u = function(V, "u")
+    V = basix_space("V", D.topology, P, degree)
+    u = push_forward(function(V, "u"), D)
     U = np.random.default_rng(degree).normal(size=V.num_dofs)
     for e in functionals(D, u):
         compiled = compile_form(e, 3 * degree + 2)
@@ -83,15 +83,15 @@ def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
         lazy = (Integral, PullBack, Gradient, Coordinate)
         assert not contains(compiled, lambda n, lazy=lazy: isinstance(n, lazy))
         env = {"coefficients:u": U}
-        expected = oracle(e, {u: U})(())
+        expected = oracle(e, env)(())
         assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8), e
         assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8), e
 
 
 def test_the_same_graph_runs_on_jax():
     D = mixed()[0]
-    V = basix_space("V", D, P, 2)
-    u = function(V, "u")
+    V = basix_space("V", D.topology, P, 2)
+    u = push_forward(function(V, "u"), D)
     U = np.random.default_rng(5).normal(size=V.num_dofs)
     compiled = compile_form(functionals(D, u)[3], 8)
     key = "coefficients:u"
@@ -112,8 +112,8 @@ def instructions(compiled, key, n, folded=None):
 def test_folding_the_geometry_shrinks_the_kernel():
     # The geometry of a mesh with constant coordinates reads no kernel input, so it is folded.
     D = mixed()[0]
-    V = basix_space("V", D, P, 2)
-    u = function(V, "u")
+    V = basix_space("V", D.topology, P, 2)
+    u = push_forward(function(V, "u"), D)
     compiled = compile_form(functionals(D, u)[3], 4)
     key = "coefficients:u"
     folded = fold(compiled)
@@ -149,15 +149,15 @@ def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
         "quadrilaterals": quadrilaterals,
         "mixed": mixed,
     }[mesh]()
-    V = basix_space("V", D, P, 1, discontinuous)
-    u = function(V, "u")
+    V = basix_space("V", D.topology, P, 1, discontinuous)
+    u = push_forward(function(V, "u"), D)
     U = np.random.default_rng(8).normal(size=V.num_dofs)
     env = {"coefficients:u": U}
     for e in facet_functionals(D, E, B, u):
         compiled = compile_form(e, 4)
         lazy = (Integral, PullBack, Gradient, Coordinate)
         assert not contains(compiled, lambda n, lazy=lazy: isinstance(n, lazy))
-        expected = oracle(e, {u: U})(())
+        expected = oracle(e, env)(())
         assert np.isclose(
             evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8, atol=1e-12
         ), e
@@ -166,8 +166,8 @@ def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
 def test_a_function_at_points_known_only_at_assembly():
     # The cut cell example on a mesh: each cell has its own points, which the solver gives.
     D = square(basix_cell(CELLS[2]))[0]
-    V = basix_space("V", D, P, 2)
-    u = function(V, "u")
+    V = basix_space("V", D.topology, P, 2)
+    u = push_forward(function(V, "u"), D)
     K = D.pieces[0].parameter_domain
     ((c, cells),) = D.pieces[0].parameterisation.free_indices
     q, i = runtime_extent("q"), index("i")
@@ -224,8 +224,9 @@ def runtime_mesh():
 
 def test_geometry_from_coordinates_given_at_assembly():
     geometry, _, D = runtime_mesh()
-    V = basix_space("V", D, P, 2)
-    u, v = function(V, "u"), function(V, "v")
+    V = basix_space("V", D.topology, P, 2)
+    uT, vT = function(V, "u"), function(V, "v")
+    u, v = push_forward(uT, D), push_forward(vT, D)
     rng = np.random.default_rng(12)
     # The square with its vertices moved, so the cells are not right triangles.
     corners = np.array([(0, 0), (1, 0), (1.2, 1.1), (-0.1, 0.9)]) + rng.normal(size=(4, 2)) * 0.05
@@ -237,15 +238,15 @@ def test_geometry_from_coordinates_given_at_assembly():
     env = geometry(coordinates) | {"coefficients:u": U}
     expected = oracle(energy, env)(())
     assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8)
-    M = assemble(form(integral(u * v, D), (v, u)), 4)(geometry(coordinates))
-    expected = oracle(integral(u * v, D), geometry(coordinates) | {u: U, v: W})(())
+    M = assemble(form(integral(u * v, D), (vT, uT)), 4)(geometry(coordinates))
+    expected = oracle(integral(u * v, D), geometry(coordinates) | {uT: U, vT: W})(())
     assert np.isclose(W @ M @ U, expected)
 
 
 def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form():
     _, c, D = runtime_mesh()
-    V = basix_space("V", D, P, 2)
-    u, w = function(V, "u"), function(V, "w")
+    V = basix_space("V", D.topology, P, 2)
+    u, w = push_forward(function(V, "u"), D), push_forward(function(V, "w"), D)
     gu, gw = gradient(u, D), gradient(w, D)
     forms = [integral(gu[0] * gu[0], D), integral(gu[1] * gw[0], D)]
     found = [set() for _ in forms]
@@ -277,8 +278,8 @@ def mesh_only(e, D):
 
 def test_the_geometry_at_the_points_of_a_rule_is_one_node_in_every_form():
     _, _, D = runtime_mesh()
-    V = basix_space("V", D, P, 2)
-    u, w = function(V, "u"), function(V, "w")
+    V = basix_space("V", D.topology, P, 2)
+    u, w = push_forward(function(V, "u"), D), push_forward(function(V, "w"), D)
     X = coordinate(D)
     parts = [mesh_only(compile_form(integral(X[0] * f, D), 4), D) for f in (u, w)]
     at_points = {n for n in parts[0] & parts[1] if quadrature_indices(n)}
@@ -292,7 +293,7 @@ def quadrature_indices(n):
 def test_the_simplification_reduces_the_gradient_of_a_coordinate_to_arithmetic():
     # The gradient of x0 squared is 2 x0 times a row of the identity, read at one component.
     geometry, _, D = runtime_mesh()
-    u = function(basix_space("V", D, P, 2), "u")
+    u = push_forward(function(basix_space("V", D.topology, P, 2), "u"), D)
     X, g = coordinate(D), gradient(u, D)
     f = integral(gradient(X[0] ** num(2), D)[0] * g[0] + gradient(X[0] ** num(2), D)[1] * g[1], D)
     compiled = compile_form(f, 4)
@@ -301,6 +302,6 @@ def test_the_simplification_reduces_the_gradient_of_a_coordinate_to_arithmetic()
     coordinates = np.array(
         [[(0.1, 0.0), (1.0, 0.2), (0.3, 0.9)], [(0.1, 0.0), (0.3, 0.9), (-0.2, 0.7)]]
     )
-    U = rng.normal(size=u.space.num_dofs)
+    U = rng.normal(size=u.expression.space.num_dofs)
     env = geometry(coordinates) | {"coefficients:u": U}
     assert np.isclose(evaluate(compiled, env), oracle(f, env)(()))

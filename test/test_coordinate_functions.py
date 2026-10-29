@@ -20,9 +20,16 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
-from uflx_spec_interpreter._draft import cell_domain, cell_map, coordinate_function, mesh, side_map
+from uflx_spec_interpreter._draft import (
+    cell_domain,
+    cell_map,
+    coordinate_function,
+    mesh,
+    push_forward,
+    side_map,
+)
 from uflx_spec_interpreter._src.domains import is_cell
-from uflx_spec_interpreter._src.nodes import CellMap, Division, PullBack
+from uflx_spec_interpreter._src.nodes import CellMap, Division, Gradient, PullBack
 from uflx_spec_interpreter._src.passes import gradients
 from uflx_spec_interpreter._src.substitution import everywhere
 from uflx_toy.basix_cells import basix_cell
@@ -73,22 +80,32 @@ def test_a_mesh_from_a_coordinate_function_has_the_topology_and_the_cells_of_the
 def test_a_p1_coordinate_function_gives_the_values_of_the_explicit_mesh():
     D, geometry = p1_mesh()
     E = square(K)[0]
-    U = np.random.default_rng(0).normal(size=basix_space("V", D, P, 2).num_dofs)
-    u, w = function(basix_space("V", D, P, 2), "u"), function(basix_space("V", E, P, 2), "u")
+    U = np.random.default_rng(0).normal(size=basix_space("V", T, P, 2).num_dofs)
+    u, w = (
+        push_forward(function(basix_space("V", T, P, 2), "u"), D),
+        push_forward(function(basix_space("V", E.topology, P, 2), "u"), E),
+    )
     for f, g in zip(functionals(D, u), functionals(E, w), strict=True):
         compiled = compile_form(f, 4)
         expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
         assert np.isclose(evaluate(compiled, labelled(geometry) | {"coefficients:u": U}), expected)
-        assert np.isclose(oracle(f, geometry | {u: U})(()), expected)
+        assert np.isclose(oracle(f, geometry | {u.expression: U})(()), expected)
 
 
 def test_the_jacobian_of_a_mesh_is_the_reference_gradient_of_the_coordinate_function():
     D, _ = p1_mesh()
-    u = function(basix_space("V", D, P, 2), "u")
+    u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
     out = gradients.lower(expand_integrals(functionals(D, u)[3]))
     assert gradients.in_n6(out)
-    reads = [n for n in nodes(out) if isinstance(n, PullBack) and isinstance(n.domain, CellMap)]
-    assert {n.expression.label for n in reads} == {"x0", "x1"}
+    # The Jacobian is the reference gradient of the reads of x0 and x1 through the cell maps.
+    gradients_of_reads = [
+        n.expression.expression.label
+        for n in nodes(out)
+        if isinstance(n, Gradient)
+        and isinstance(n.expression, PullBack)
+        and isinstance(n.expression.domain, CellMap)
+    ]
+    assert {"x0", "x1"} <= set(gradients_of_reads)
 
 
 def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
@@ -103,13 +120,13 @@ def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
     midpoint = next(d for d in X.dofmap[0][0] if np.allclose(values[d], (0.5, 0.5)))
     values[midpoint] += (0.08, -0.05)
     geometry = {x0: values[:, 0], x1: values[:, 1]}
-    u = function(basix_space("V", D, P, 2), "u")
-    U = np.random.default_rng(1).normal(size=u.space.num_dofs)
+    u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
+    U = np.random.default_rng(1).normal(size=u.expression.space.num_dofs)
     # The integrands are rational on a curved cell, so the rule has a high degree.
     for f in functionals(D, u):
         compiled = compile_form(f, 16)
         value = evaluate(compiled, labelled(geometry) | {"coefficients:u": U})
-        assert np.isclose(value, oracle(f, geometry | {u: U})(()), rtol=1e-9), f
+        assert np.isclose(value, oracle(f, geometry | {u.expression: U})(()), rtol=1e-9), f
 
 
 def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
@@ -122,8 +139,11 @@ def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
     cells = corners[[[0, 1, 2], [0, 2, 3]]]
     flat = cells.reshape(-1, 2)[np.argsort(np.ravel(X.dofmap[0]))]
     geometry = {"coefficients:x0": flat[:, 0], "coefficients:x1": flat[:, 1]}
-    U = rng.normal(size=basix_space("V", D, P, 2).num_dofs)
-    u, w = function(basix_space("V", D, P, 2), "u"), function(basix_space("V", E, P, 2), "u")
+    U = rng.normal(size=basix_space("V", T, P, 2).num_dofs)
+    u, w = (
+        push_forward(function(basix_space("V", T, P, 2), "u"), D),
+        push_forward(function(basix_space("V", E.topology, P, 2), "u"), E),
+    )
     for f, g in zip(functionals(D, u), functionals(E, w), strict=True):
         value = evaluate(compile_form(f, 4), geometry | {"coefficients:u": U})
         expected = evaluate(compile_form(g, 4), geometry_of(cells) | {"coefficients:u": U})
@@ -132,8 +152,8 @@ def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
 
 def test_a_gathered_cell_of_a_mesh_reads_the_cells_that_the_entry_selects():
     D, geometry = p1_mesh()
-    u = function(basix_space("V", D, P, 2), "u")
-    U = np.random.default_rng(2).normal(size=u.space.num_dofs)
+    u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
+    U = np.random.default_rng(2).normal(size=u.expression.space.num_dofs)
     i, c = index("i"), cell_index(T, 0)
     g = gathered_index(index_table((1, 0), 2), (i,))
     gathered = index_sum(integral(pull_back(u, cell_domain(D, 0, g)), K), (i,))
@@ -141,7 +161,7 @@ def test_a_gathered_cell_of_a_mesh_reads_the_cells_that_the_entry_selects():
     env = labelled(geometry) | {"coefficients:u": U}
     value = evaluate(compile_form(gathered, 4), env)
     assert np.isclose(value, evaluate(compile_form(plain, 4), env))
-    assert np.isclose(value, oracle(gathered, geometry | {u: U})(()))
+    assert np.isclose(value, oracle(gathered, geometry | {u.expression: U})(()))
     assert gradients.in_n6(apply_gradients(gathered))
 
 
@@ -149,16 +169,17 @@ def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
     # A lowering pass does not enter domains, domain maps or spaces, so the cells of the lowered
     # form are cells of the mesh of the user, and its function is the function of the user.
     D, _ = p1_mesh()
-    u = function(basix_space("V", D, P, 2), "u")
-    out = gradients.lower(expand_integrals(functionals(D, u)[3]))
-    reads = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == u]
-    assert reads and all(n.domain.ambient_domain == D for n in reads)
+    uT = function(basix_space("V", T, P, 2), "u")
+    out = gradients.lower(expand_integrals(functionals(D, push_forward(uT, D))[3]))
+    # The function of the user is read through the cell maps of the topology of the user.
+    reads = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == uT]
+    assert reads and all(n.domain.ambient_domain == T for n in reads)
 
 
 def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
     # The derivative table of P1 does not vary over the points, so det J has no index of them.
     D, _ = p1_mesh()
-    u = function(basix_space("V", D, P, 2), "u")
+    u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
     compiled = compile_form(functionals(D, u)[3], 4)
     dets = {n.second for n in nodes(compiled) if isinstance(n, Division)}
     assert dets and all([i for i, _ in d.free_indices] == [cell_index(T, 0)] for d in dets)
@@ -166,12 +187,15 @@ def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
 
 def test_a_mesh_from_the_coordinates_of_the_vertices_gives_the_values_of_the_explicit_mesh():
     D, E = vertex_mesh(T, VERTICES), square(K)[0]
-    U = np.random.default_rng(4).normal(size=basix_space("V", D, P, 2).num_dofs)
-    u, w = function(basix_space("V", D, P, 2), "u"), function(basix_space("V", E, P, 2), "u")
+    U = np.random.default_rng(4).normal(size=basix_space("V", T, P, 2).num_dofs)
+    u, w = (
+        push_forward(function(basix_space("V", T, P, 2), "u"), D),
+        push_forward(function(basix_space("V", E.topology, P, 2), "u"), E),
+    )
     for f, g in zip(functionals(D, u), functionals(E, w), strict=True):
         expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
         assert np.isclose(evaluate(compile_form(f, 4), {"coefficients:u": U}), expected)
-        assert np.isclose(oracle(f, {u: U})(()), expected)
+        assert np.isclose(oracle(f, {u.expression: U})(()), expected)
 
 
 def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():

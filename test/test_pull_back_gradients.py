@@ -18,6 +18,7 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
+from uflx_spec_interpreter._draft import push_forward
 from uflx_spec_interpreter._src.nodes import Gradient, Inverse, PullBack
 from uflx_spec_interpreter._src.passes import gradients
 from uflx_spec_interpreter._src.substitution import everywhere
@@ -63,7 +64,7 @@ def test_a_gradient_on_another_mesh_remains_for_the_points_of_the_mesh():
     # The other diagonal of the square, read through the coordinates of the first mesh.
     T2 = static_topology((K,), (((0, 1, 3), (1, 2, 3)),), ())
     D2 = vertex_mesh(T2, [(0, 0), (1, 0), (1, 1), (0, 1)])
-    u = function(basix_space("U", D2, basix.ElementFamily.P, 1), "u")
+    u = push_forward(function(basix_space("U", T2, basix.ElementFamily.P, 1), "u"), D2)
     chi = domain_map(D, X, D2)
     out = core(integral(pull_back(gradient(u, D2), chi)[0], D))
     assert gradients.in_n6(out)

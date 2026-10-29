@@ -14,6 +14,7 @@ from uflx_spec_interpreter import (
     side_domain,
     side_map,
 )
+from uflx_spec_interpreter._draft import push_forward
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
@@ -30,7 +31,7 @@ M = static_topology((I,), (INTERVALS,), ())
 D, DM = vertex_mesh(T, VERTICES), vertex_mesh(M, VERTICES)
 S = static_topology((I,), (INTERVALS,), ((("mesh", T, 0), ("submesh", M, 0)),))
 E = side_domain(D, S)
-V, L = basix_space("V", D, P, 2), basix_space("L", DM, P, 1, discontinuous=True)
+V, L = basix_space("V", T, P, 2), basix_space("L", M, P, 1, discontinuous=True)
 
 
 def on(f, domain, side):
@@ -50,7 +51,7 @@ def coupling(u, lam):
     ],
 )
 def test_a_function_on_a_submesh_couples_to_a_function_on_the_mesh(integrand):
-    u, lam = function(V, "u"), function(L, "lam")
+    u, lam = push_forward(function(V, "u"), D), push_forward(function(L, "lam"), DM)
     f = integral(integrand(u, lam), E)
     rng = np.random.default_rng(0)
     given = {
@@ -62,10 +63,11 @@ def test_a_function_on_a_submesh_couples_to_a_function_on_the_mesh(integrand):
 
 
 def test_the_block_of_a_lagrange_multiplier_on_a_submesh():
-    u, lam = function(V, "u"), function(L, "lam")
-    B = assemble(form(coupling(u, lam), (lam, u)), 3)({})
+    uT, lamT = function(V, "u"), function(L, "lam")
+    B = assemble(form(coupling(push_forward(uT, D), push_forward(lamT, DM)), (lamT, uT)), 3)({})
     assert B.shape == (L.num_dofs, V.num_dofs)
     rng = np.random.default_rng(1)
     U, Lam = rng.normal(size=V.num_dofs), rng.normal(size=L.num_dofs)
     w, z = function(V, "w"), function(L, "z")
-    assert np.isclose(Lam @ B @ U, oracle(coupling(w, z), {w: U, z: Lam})(()))
+    expected = oracle(coupling(push_forward(w, D), push_forward(z, DM)), {w: U, z: Lam})(())
+    assert np.isclose(Lam @ B @ U, expected)
