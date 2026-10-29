@@ -40,6 +40,20 @@ def cell_of(m):
     return None
 
 
+def is_cell(m):
+    # Whether m is a cell domain or a gathered cell domain.
+    if cell_of(m) is not None:
+        return True
+    match m:
+        case DomainMap(
+            _, ComponentTensor(Indexed(ComponentTensor(), (GatheredIndex() as g, _)), _)
+        ):
+            E = m.ambient_domain
+            pieces = range(len(E.pieces)) if isinstance(E, DecomposedDomain) else ()
+            return any(m == gathered_cell_domain(E, j, g) for j in pieces)
+    return False
+
+
 def side_map(D, E, s):
     return SideMap(D, E, s)
 

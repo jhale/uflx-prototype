@@ -1,3 +1,4 @@
+from ..domains import is_cell
 from ..nodes import (
     Absolute,
     Action,
@@ -141,7 +142,7 @@ def allowed(e):
                 isinstance(m, SideMap)
                 or terminal(f)
                 or isinstance(f, PullBack)
-                or (isinstance(f, Gradient) and m.parameter_domain.dimension < f.domain.dimension)
+                or (isinstance(f, Gradient) and not is_cell(m))
             )
         case Action(Function(space, _), _, _):
             return isinstance(space, DualSpace)

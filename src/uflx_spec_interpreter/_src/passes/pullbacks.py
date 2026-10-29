@@ -1,5 +1,5 @@
 from ..arithmetic import divide, square_root
-from ..domains import cell_of, inclusion
+from ..domains import cell_of, inclusion, is_cell
 from ..geometry import inverse_jacobian
 from ..nodes import (
     AbstractExpression,
@@ -37,12 +37,12 @@ def rule(pb, f, m):
             return pb(pb(g, B), A)
         case PullBack():
             return PullBack(f, m)
-        case Gradient(_, Q) if m.parameter_domain.dimension < Q.dimension:
-            return PullBack(f, m)
-        case Gradient(g, _):
+        case Gradient(g, _) if is_cell(m):
             return contract_gradient(
                 Gradient(pb(g, m), m.parameter_domain), inverse_jacobian(m), f, m
             )
+        case Gradient():
+            return PullBack(f, m)
         case Normal(sm) if cell_of(m) is not None and m.ambient_domain == sm.parameter_domain:
             return normal(f, m, pb)
         case Function() | Normal() | Coordinate():
@@ -111,8 +111,8 @@ def in_n5(e):
                 Function() | Normal() | Coordinate() | PullBack(), _
             ):
                 return True
-            case PullBack(Gradient(_, Q), m):
-                return m.parameter_domain.dimension < Q.dimension
+            case PullBack(Gradient(), m):
+                return not is_cell(m)
         return not isinstance(n, PullBack)
 
     return everywhere(e, holds)

@@ -2,9 +2,6 @@ import numpy as np
 
 from uflx_spec_interpreter import (
     RD,
-    apply_gradients,
-    component_tensor,
-    gradient,
     index,
     index_sum,
     pull_back,
@@ -36,22 +33,10 @@ def tabulate(f):
     # A function of a Basix space read on a cell at the points of a rule, possibly through the
     # inclusion of a facet, becomes its gathered coefficients times the tabulated basis.
     def rewrite(e):
-        match e:
-            case PullBack(
-                Gradient(PullBack(x, DomainMap(BasixCell(), _, BasixCell() as K) as A), F), M
-            ) if read(Gradient(x, K), M):
-                return chained(e, rewrite(pull_back(pull_back(Gradient(x, K), A), M)), A, F, M)
         found = leaf(e)
         return values(*found) if found else e
 
     return bottom_up(f, rewrite)
-
-
-def chained(e, g, A, F, M):
-    # The gradient through an inclusion, such as of a cell of a submesh, by the chain rule.
-    i, j = (index(("compiler.tabulation", e, n)) for n in range(2))
-    J = expand_pull_backs(pull_back(apply_gradients(gradient(A.parameterisation, F)), M))
-    return component_tensor(index_sum(g[i] * J[i, j], (i,)), (j,))
 
 
 def coefficients(u):
