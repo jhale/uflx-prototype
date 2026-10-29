@@ -26,6 +26,7 @@ from ..nodes import (
     Power,
     Product,
     PullBack,
+    PushForward,
     RealPart,
     SquareRoot,
     Sum,
@@ -85,7 +86,7 @@ def remains(f, P):
     # The gradient of a terminal, a pull-back or a gradient remains for the library, except the
     # gradient of the coordinates, which is the identity, and the chain rule.
     identity = isinstance(f, Coordinate) and P.dimension == P.ambient_coordinate_domain.dimension
-    leaf = terminal(f) or isinstance(f, PullBack | Gradient)
+    leaf = terminal(f) or isinstance(f, PullBack | Gradient | PushForward)
     return leaf and not identity and not chained(f)
 
 
@@ -127,6 +128,7 @@ ALWAYS = (
     Normal,
     Function,
     Form,
+    PushForward,
 )
 
 

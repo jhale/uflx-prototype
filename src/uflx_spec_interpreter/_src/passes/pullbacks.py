@@ -1,11 +1,12 @@
 from ..arithmetic import divide, square_root
 from ..domains import cell_of, inclusion, is_cell
-from ..geometry import inverse_jacobian
+from ..geometry import density, inverse_jacobian, jacobian
 from ..nodes import (
     AbstractExpression,
     CellMap,
     ComponentTensor,
     Coordinate,
+    Division,
     DomainMap,
     Gradient,
     Index,
@@ -14,12 +15,13 @@ from ..nodes import (
     Normal,
     Product,
     PullBack,
+    PushForward,
     SideMap,
     Sum,
 )
 from ..static import free, shape, support, terminal, zero_like
 from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized, substitute
-from ..tensors import transpose
+from ..tensors import determinant, transpose
 from ..topology import cell_index
 
 
@@ -46,7 +48,9 @@ def rule(pb, f, m):
             return PullBack(f, m)
         case Normal(sm) if side_cell(sm, m) is not None:
             return normal(f, m, pb)
-        case _ if terminal(f):
+        case PushForward(g, D, law) if m.ambient_domain == D and is_cell(m):
+            return pushed_forward(g, law, m, pb)
+        case _ if terminal(f) or isinstance(f, PushForward):
             return PullBack(f, m)
         case _:
             return pointwise(f, m, pb)
@@ -96,6 +100,30 @@ def contract_gradient(gradP, K, f, m):
     )
 
 
+def pushed_forward(g, law, C, pb):
+    # The law applied to the value of g on the cell C, read through its cell map: K^T on each
+    # covariant axis and J on each contravariant axis, divided by det J, or by the density on a
+    # cell of lower dimension, to the weight.
+    j, e = cell_of(C)
+    ghat = pb(g, CellMap(C.ambient_domain.topology, j, e))
+    J, K = (lowered_copy(pb, M(C)) for M in (jacobian, inverse_jacobian))
+    r, p = len(shape(ghat)), len(law.kinds)
+    lead = tuple(fresh(g, C, ("lead", n)) for n in range(r - p))
+    out = tuple(fresh(g, C, ("out", n)) for n in range(p))
+    summed = tuple(fresh(g, C, ("sum", n)) for n in range(p))
+    value = Indexed(ghat, (*lead, *summed))
+    for kind, i, s in zip(law.kinds, out, summed, strict=True):
+        value = Product(value, Indexed(K, (s, i)) if kind == "covariant" else Indexed(J, (i, s)))
+    if summed:
+        value = IndexSum(value, summed)
+    k, n = C.parameter_domain.dimension, C.ambient_domain.ambient_coordinate_domain.dimension
+    scale = lowered_copy(pb, determinant(jacobian(C)) if k == n else density(C))
+    for _ in range(law.weight):
+        value = Division(value, scale)
+    axes = (*lead, *out)
+    return ComponentTensor(value, axes) if axes else value
+
+
 def side_cell(sm, m):
     # The group and the entry of m as a cell of the parameter domain of the side map: a cell
     # map of the side topology, or a cell of the side domain.
@@ -137,6 +165,7 @@ def remains(f, m):
     return (
         isinstance(m, SideMap)
         or terminal(f)
+        or isinstance(f, PushForward)
         or (isinstance(f, PullBack) and kept(f.domain))
         or (isinstance(f, Gradient) and not is_cell(m))
     )

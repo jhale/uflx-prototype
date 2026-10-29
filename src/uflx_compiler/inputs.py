@@ -11,6 +11,7 @@ class Basis(NamedTuple):
     piece: int
     points: object
     direction: int | None
+    component: int
 
 
 def arrays(arrays, e):

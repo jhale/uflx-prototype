@@ -3,7 +3,6 @@ import numpy as np
 
 from uflx_spec_interpreter import (
     RD,
-    component_tensor,
     index,
     index_sum,
     tensor,
@@ -55,15 +54,13 @@ def leaf(e):
 
 
 def read(x, points):
+    # The order of the derivative is the number of reference gradients around the read.
+    order = 0
+    while isinstance(x, Gradient) and isinstance(x.domain, BasixCell):
+        x, order = x.expression, order + 1
     match x:
-        case PullBack(VertexCoordinates() as v, C) if cell(C) is not None:
-            return v, cell(C), 0, points
-        case Gradient(PullBack(VertexCoordinates() as v, C), BasixCell()) if cell(C) is not None:
-            return v, cell(C), 1, points
-        case PullBack(Function(BasixSpace()) as u, C) if cell(C) is not None:
-            return u, cell(C), 0, points
-        case Gradient(PullBack(Function(BasixSpace()) as u, C), BasixCell()) if cell(C) is not None:
-            return u, cell(C), 1, points
+        case PullBack(VertexCoordinates() | Function(BasixSpace()) as u, C) if cell(C) is not None:
+            return u, cell(C), order, points
     return None
 
 
@@ -72,7 +69,7 @@ def cell(C):
     return (C.group, C.entry) if isinstance(C, CellMap) else cell_of(C)
 
 
-def values(u, found_cell, derivative, points):
+def values(u, found_cell, order, points):
     # The gathered coefficients of the cell times a table for each factor of the element, summed
     # over a dof index for each factor. An element that does not factor is its one factor.
     V, (j, entry) = u.space, found_cell
@@ -85,19 +82,26 @@ def values(u, found_cell, derivative, points):
     rows = np.asarray(V.dofmap[j]).reshape(-1, *(F.dim for F, _, _ in factors))
     coefficient = coefficients(u)[GatheredIndex(IndexTable(nested(rows), V.num_dofs), (entry, *i))]
 
-    def term(direction):
+    def term(idx):
+        # Component c of Basix and the directions of the derivative, for each factor its own.
+        rank = len(V.value_shape)
+        c, directions = int(np.ravel_multi_index(idx[:rank], V.value_shape)), idx[rank:]
         out = coefficient
         for k, (F, X, covered) in enumerate(factors):
-            d = covered.index(direction) if direction in covered else None
-            out = out * table_read(V, j, F, X, d, i[k])
+            own = tuple(covered.index(m) for m in directions if m in covered)
+            out = out * table_read(V, j, F, X, own, i[k], c)
         return index_sum(out, i)
 
-    if derivative == 0:
-        return term(None)
-    return tensor(tuple(term(m) for m in range(dimension)))
+    return arrayed((*V.value_shape, *(dimension,) * order), term)
 
 
-def vertex_values(x, found_cell, derivative, points):
+def arrayed(shape, entry, idx=()):
+    if len(idx) == len(shape):
+        return entry(idx)
+    return tensor(tuple(arrayed(shape, entry, (*idx, m)) for m in range(shape[len(idx)])))
+
+
+def vertex_values(x, found_cell, order, points):
     # The coordinates of the vertices of the cell times the shape functions of the vertices, which
     # are the basis of degree 1 of Basix, in the order of the vertices.
     T, (j, entry) = x.topology, found_cell
@@ -105,23 +109,17 @@ def vertex_values(x, found_cell, derivative, points):
     # at points known only at assembly.
     V = basix_space("vertices", T, basix.ElementFamily.P, 1)
     F = V.element(j)
-    a, k = (index(("compiler.tabulation", x, entry, points, n)) for n in ("a", "k"))
+    a = index(("compiler.tabulation", x, entry, points, "a"))
     # The element may order its dofs for sum factorisation, so each dof reads its own vertex.
     vertex_of = {d: v for v, dofs in enumerate(F.entity_dofs[0]) for d in dofs}
     rows = [[cell[vertex_of[d]] for d in range(F.dim)] for cell in T.cells[j]]
     cells = IndexTable(nested(np.asarray(rows)), len(x.vertices))
-    vertex = constant(x.vertices)[GatheredIndex(cells, (entry, a)), k]
+    vertex = constant(x.vertices)[GatheredIndex(cells, (entry, a))]
 
-    def term(direction):
-        return component_tensor(
-            index_sum(vertex * table_read(V, j, F, points, direction, a), (a,)), (k,)
-        )
+    def term(idx):
+        return index_sum(vertex[idx[0]] * table_read(V, j, F, points, idx[1:], a, 0), (a,))
 
-    if derivative == 0:
-        return term(None)
-    d, kk = (index(("compiler.tabulation", x, entry, points, n)) for n in ("d", "kk"))
-    directions = tensor(tuple(term(m) for m in range(points.value_shape[0])))
-    return component_tensor(directions[d, kk], (kk, d))
+    return arrayed((len(x.vertices[0]), *(points.value_shape[0],) * order), term)
 
 
 def separable(points):
@@ -137,13 +135,13 @@ def nested(values):
     return tuple(map(nested, values)) if isinstance(values, np.ndarray) else int(values)
 
 
-def table_read(V, j, F, X, d, i):
+def table_read(V, j, F, X, d, i, c):
     # A table that does not vary along an axis of the points, such as the derivative of an
     # affine element, is read without that axis, so the read is the same at every point.
     axes = [n for n, _ in X.free_indices]
     if runtime_arrays(X):
-        return basis_table(V, j, F, X, d)[(*axes, i)]
-    values, kept = basis(F, d, coordinates(X, {})), []
+        return basis_table(V, j, F, X, d, c)[(*axes, i)]
+    values, kept = basis(F, d, coordinates(X, {}), c), []
     for a in axes:
         p = len(kept)
         first = np.take(values, [0], axis=p)
@@ -154,13 +152,13 @@ def table_read(V, j, F, X, d, i):
     return constant(values)[(*kept, i)]
 
 
-def basis_table(V, j, F, X, d):
+def basis_table(V, j, F, X, d, c):
     # An axis for each free index of the points X, such as the point and the facet, then the dof.
     # Points known only at assembly give a table that runtime_tables fills.
     if not runtime_arrays(X):
-        return constant(basis(F, d, coordinates(X, {})))
+        return constant(basis(F, d, coordinates(X, {}), c))
     extents = [m for _, m in X.free_indices]
-    return runtime_array(Basis(V, j, X, d), (*extents, F.dim))
+    return runtime_array(Basis(V, j, X, d, c), (*extents, F.dim))
 
 
 def coordinates(X, env):
@@ -169,10 +167,12 @@ def coordinates(X, env):
     return values if X.value_shape else values[..., None]
 
 
-def basis(F, d, X):
-    # The basis, or its reference derivative in direction d, at points of any leading shape.
-    tables = F.tabulate(0 if d is None else 1, X.reshape(-1, X.shape[-1]))[..., 0]
-    return tables[0 if d is None else 1 + d].reshape(*X.shape[:-1], -1)
+def basis(F, directions, X, c=0):
+    # Component c of the basis, or of its reference derivative in the directions, at points of
+    # any leading shape.
+    counts = [directions.count(m) for m in range(X.shape[-1])]
+    tables = F.tabulate(len(directions), X.reshape(-1, X.shape[-1]))[..., c]
+    return tables[basix.index(*counts)].reshape(*X.shape[:-1], -1)
 
 
 def runtime_tables(e, env):
@@ -180,6 +180,6 @@ def runtime_tables(e, env):
     found = {}
     for n in runtime_arrays(e):
         match n:
-            case RuntimeArray(Basis(V, j, points, d) as label, _):
-                found[label] = basis(V.element(j), d, coordinates(points, env))
+            case RuntimeArray(Basis(V, j, points, d, c) as label, _):
+                found[label] = basis(V.element(j), d, coordinates(points, env), c)
     return env | found

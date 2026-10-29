@@ -14,6 +14,7 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractTopology,
     DecomposedDomain,
     Float,
+    Law,
     ScalarType,
     Zero,
 )
@@ -105,6 +106,11 @@ class BasixSpace(AbstractFunctionSpace):
     def value_shape(self):
         return tuple(self.element(0).value_shape)
 
+    @property
+    def law(self):
+        # The transformation law of the map type of the element, as Basix names the six maps.
+        return LAWS[self.element(0).map_type]
+
     @cached_property
     def dofmap(self):
         # Cells share the dofs of their shared vertices, edges and faces, so the space is
@@ -140,6 +146,15 @@ class BasixSpace(AbstractFunctionSpace):
 
 
 EQUISPACED = basix.LagrangeVariant.equispaced
+
+LAWS = {
+    basix.MapType.identity: Law((), 0),
+    basix.MapType.covariantPiola: Law(("covariant",), 0),
+    basix.MapType.contravariantPiola: Law(("contravariant",), 1),
+    basix.MapType.doubleCovariantPiola: Law(("covariant", "covariant"), 0),
+    basix.MapType.doubleContravariantPiola: Law(("contravariant", "contravariant"), 2),
+    basix.MapType.L2Piola: Law((), 1),
+}
 
 
 def table(values):

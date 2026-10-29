@@ -10,6 +10,7 @@ from ..nodes import (
     IndexSum,
     Integral,
     PullBack,
+    PushForward,
     RealPart,
     Sum,
     Tensor,
@@ -31,6 +32,7 @@ COMMUTING = {
     Division: ("first",),
     Gradient: ("expression",),
     PullBack: ("expression",),
+    PushForward: ("expression",),
     Integral: ("expression",),
 }
 

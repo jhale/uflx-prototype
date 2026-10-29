@@ -11,7 +11,16 @@ from .arithmetic import (
     Sum,
 )
 from .base import AbstractExpression, Base
-from .calculus import Coordinate, DirectionalDerivative, Gradient, Integral, Normal, PullBack
+from .calculus import (
+    Coordinate,
+    DirectionalDerivative,
+    Gradient,
+    Integral,
+    Law,
+    Normal,
+    PullBack,
+    PushForward,
+)
 from .domains import (
     RD,
     AbstractCoordinateDomain,
@@ -75,11 +84,13 @@ __all__ = [
     "Integer",
     "Integral",
     "Inverse",
+    "Law",
     "Logarithm",
     "Normal",
     "Power",
     "Product",
     "PullBack",
+    "PushForward",
     "RealPart",
     "ScalarType",
     "SideMap",

@@ -4,11 +4,11 @@ from functools import cached_property
 from typing import TYPE_CHECKING, final
 
 from ..tuples import members
-from .base import AbstractExpression
+from .base import AbstractExpression, Base
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
-    from .domains import AbstractDomain, CellMap, DomainMap, SideMap
+    from .domains import AbstractDomain, CellMap, DecomposedDomain, DomainMap, SideMap
     from .forms import Function
 
 
@@ -125,6 +125,49 @@ class PullBack(AbstractExpression):
     @cached_property
     def support(self):
         return self.domain.parameter_domain
+
+    @cached_property
+    def argument_spaces(self):
+        return self.expression.argument_spaces
+
+
+@final
+class Law(Base):
+    identifier = "uflx.Law"
+    # The transformation law of a tensor density: a kind, covariant or contravariant, for each of
+    # the last axes, the others unchanged, and a weight.
+    kinds: tuple
+    weight: int
+    opaque = ("kinds", "weight")
+
+
+@final
+class PushForward(AbstractExpression):
+    identifier = "uflx.PushForward"
+    # The field on a mesh of a function on its topology, carried by a transformation law.
+    expression: AbstractExpression
+    domain: DecomposedDomain
+    law: Law
+    objects = ("domain",)
+
+    @cached_property
+    def value_shape(self):
+        # A covariant or a contravariant axis has the extent k on the reference cell and n on D.
+        shape, p = self.expression.value_shape, len(self.law.kinds)
+        n = self.domain.ambient_domain.ambient_coordinate_domain.dimension
+        return (*shape[: len(shape) - p], *(n for _ in range(p)))
+
+    @cached_property
+    def free_indices(self):
+        return self.expression.free_indices
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
+
+    @cached_property
+    def support(self):
+        return self.domain
 
     @cached_property
     def argument_spaces(self):

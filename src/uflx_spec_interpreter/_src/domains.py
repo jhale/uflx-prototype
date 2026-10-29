@@ -1,11 +1,14 @@
 from .nodes import (
     AbstractTopology,
     CellMap,
+    Coordinate,
     DecomposedDomain,
     DomainMap,
     GatheredIndex,
+    Law,
     Normal,
     PullBack,
+    PushForward,
     SideMap,
 )
 from .substitution import substitute
@@ -40,6 +43,18 @@ def mesh(x, Q):
 def coordinate_function(D):
     # The expression on a topology that a mesh is built from.
     return D.pieces[0].parameterisation.expression
+
+
+IDENTITY = Law((), 0)
+
+
+def push_forward(f, D, m=None):
+    # By the law of the space of a function, or by the law m. The coordinate function of D by
+    # the identity is coordinate(D), equal in value, which the gradient of a coordinate reads.
+    m = f.space.law if m is None else m
+    if m == IDENTITY and f == coordinate_function(D):
+        return Coordinate(D)
+    return PushForward(f, D, m)
 
 
 def decomposed_domain(pieces):

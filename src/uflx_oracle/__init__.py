@@ -39,6 +39,7 @@ from uflx_spec_interpreter._src.nodes import (
     Power,
     Product,
     PullBack,
+    PushForward,
     RealPart,
     ScalarType,
     SideMap,
@@ -107,6 +108,22 @@ def cell_value(m, ienv):
     return None if found is None else (found[0], index_value(found[1], ienv))
 
 
+def transformed(ghat, law, J):
+    # K^T on each covariant axis and J on each contravariant axis of the last axes, divided by
+    # det J, or by the density for a cell of lower dimension, to the weight.
+    K = np.linalg.pinv(J)
+    value = np.asarray(ghat, dtype=complex)
+    p = len(law.kinds)
+    for a, kind in enumerate(law.kinds):
+        M = K.T if kind == "covariant" else J
+        value = np.moveaxis(
+            np.tensordot(value, M, axes=([value.ndim - p + a], [1])), -1, value.ndim - p + a
+        )
+    k, n = J.shape[1], J.shape[0]
+    scale = np.linalg.det(J) if k == n else np.sqrt(np.linalg.det(J.T @ J))
+    return value / scale**law.weight
+
+
 def lookup(env, node, label):
     # An input by its node, or by the label that a consumer of a kernel passes.
     return env[node] if node in env else env[label]
@@ -130,8 +147,9 @@ def basix_function(space, coefficients, env):
     D = space.domain
     if isinstance(D, AbstractTopology):
         j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
-        phi = space.element(j).tabulate(0, np.array([POINTS[D]], dtype=float))[0, 0, :, 0]
-        return np.asarray(coefficients)[list(space.dofmap[j][cell])] @ phi
+        phi = space.element(j).tabulate(0, np.array([POINTS[D]], dtype=float))[0, 0]
+        value = np.asarray(coefficients)[list(space.dofmap[j][cell])] @ phi
+        return value.reshape(space.value_shape)
     j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
     piece = D.pieces[j]
     chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell}, env)
@@ -320,6 +338,20 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: v
         case ImaginaryUnit():
             return lambda vals: 1j
+        case PushForward(g, D, law):
+            fg = ev(g)
+
+            def pushed(vals):
+                # The value of g on the topology at the reference point of the point, by the law.
+                j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
+                piece = D.pieces[j]
+                chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell}, env)
+                X = reference_point(chart, POINTS[D], D.dimension)
+                T = D.topology
+                ghat = on_cell(T, j, cell, lambda: at(T, X, lambda: np.asarray(fg(vals))))
+                return transformed(ghat, law, jacobian_of(chart, X))
+
+            return pushed
         case VertexCoordinates(T, V):
 
             def vertex_value(vals):
