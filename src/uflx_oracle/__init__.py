@@ -3,12 +3,14 @@ import itertools
 import basix
 import numpy as np
 
-from uflx_spec_interpreter._src.domains import cell_of
+from uflx_spec_interpreter._src.domains import cell_of, mesh_cell
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
     AbstractExtent,
+    AbstractTopology,
     Action,
+    CellMap,
     ComponentTensor,
     Conjugate,
     Coordinate,
@@ -99,6 +101,9 @@ def index_value(i, ienv):
 
 def cell_value(m, ienv):
     # The piece and the cell that a cell domain or a gathered cell domain reads, as a library.
+    if mesh_cell(m) is not None:
+        j, e = mesh_cell(m)
+        return j, index_value(e, ienv)
     i = cell_of(m)
     if i is not None:
         ((c, _),) = m.parameterisation.free_indices
@@ -131,6 +136,10 @@ def on_cell(D, piece, cell, fn):
 def basix_function(space, coefficients, env):
     # The value at the point of the current cell, from the reference point of the point.
     D = space.domain
+    if isinstance(D, AbstractTopology):
+        j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
+        phi = space.element(j).tabulate(0, np.array([POINTS[D]], dtype=float))[0, 0, :, 0]
+        return np.asarray(coefficients)[list(space.dofmap[j][cell])] @ phi
     j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
     piece = D.pieces[j]
     chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell}, env)
@@ -486,6 +495,16 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return on_cell(Dd, j, cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
 
             return restricted
+        case PullBack(b, CellMap(T, j, entry) as m):
+            fb = ev(b)
+
+            def read(vals):
+                # A point of a topology is a cell and a point of the reference cell of the cell.
+                X = POINTS[m.parameter_domain]
+                cell = index_value(entry, ienv)
+                return on_cell(T, j, cell, lambda: at(T, X, lambda: fb(vals)))
+
+            return read
         case PullBack(b, m):
             fb, psi = ev(b), ev(m.parameterisation)
 

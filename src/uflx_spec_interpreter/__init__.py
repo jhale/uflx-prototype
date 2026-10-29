@@ -14,7 +14,9 @@ from ._src.arithmetic import (
 )
 from ._src.calculus import coordinate, directional_derivative, gradient, integral
 from ._src.domains import (
-    cell_domain,
+    cell_domain_of_specification as cell_domain,
+)
+from ._src.domains import (
     decomposed_domain,
     gathered_cell_domain,
     normal,

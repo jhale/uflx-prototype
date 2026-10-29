@@ -5,8 +5,8 @@ from functools import cached_property
 from typing import final
 
 from .base import AbstractExpression, Base
-from .indices import Index
-from .topology import AbstractCellType
+from .indices import GatheredIndex, Index
+from .topology import AbstractCellType, AbstractTopology
 
 
 class AbstractDomain(Base):
@@ -82,6 +82,30 @@ class DecomposedDomain(AbstractDomain):
                 case _:
                     return None
         return found.pop() if len(found) == 1 else None
+
+
+@final
+class CellMap(Base):
+    identifier = "uflx.CellMap"
+    # The characteristic map of the cells of group j of a topology that the entry selects.
+    topology: AbstractTopology
+    group: int
+    entry: Index | GatheredIndex
+    opaque = ("group",)
+
+    @property
+    def parameter_domain(self):
+        return self.topology.cell_types[self.group]
+
+    @property
+    def ambient_domain(self):
+        return self.topology
+
+    @cached_property
+    def free_indices(self):
+        if isinstance(self.entry, GatheredIndex):
+            return self.entry.free_indices
+        return ((self.entry, self.topology.num_cells[self.group]),)
 
 
 @final

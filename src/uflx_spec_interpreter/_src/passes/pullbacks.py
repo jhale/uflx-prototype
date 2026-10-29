@@ -3,6 +3,7 @@ from ..domains import cell_of, inclusion, is_cell
 from ..geometry import inverse_jacobian
 from ..nodes import (
     AbstractExpression,
+    CellMap,
     ComponentTensor,
     Coordinate,
     DomainMap,
@@ -55,8 +56,8 @@ def rule(pb, f, m):
 
 
 def kept(m):
-    # A pull-back stays inside another only by a cell or a side map.
-    return isinstance(m, SideMap) or is_cell(m)
+    # A pull-back stays inside another only by a cell, a cell map or a side map.
+    return isinstance(m, SideMap | CellMap) or is_cell(m)
 
 
 def composed(phi, m, pb):
@@ -73,7 +74,9 @@ def broadcast(f, m):
 
 
 def pointwise(f, m, pb):
-    fresh = freshen(f, [m.parameterisation]) if f.scope else f
+    # A cell map has no parameterisation, and its entry carries its free indices.
+    names = m.entry if isinstance(m, CellMap) else m.parameterisation
+    fresh = freshen(f, [names]) if f.scope else f
     return map_fields(fresh, lambda x: pb(x, m) if isinstance(x, AbstractExpression) else x)
 
 

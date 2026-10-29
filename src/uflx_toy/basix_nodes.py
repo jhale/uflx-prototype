@@ -11,6 +11,7 @@ from uflx_spec_interpreter import tensor
 from uflx_spec_interpreter._src.nodes import (
     AbstractFunctionSpace,
     AbstractReferenceCell,
+    AbstractTopology,
     DecomposedDomain,
     Float,
     ScalarType,
@@ -59,7 +60,7 @@ class BasixSpace(AbstractFunctionSpace):
     identifier = "toy.BasixSpace"
     # A Basix element on each cell type of a mesh, with the global dofs of each cell.
     label: str
-    domain: DecomposedDomain
+    domain: DecomposedDomain | AbstractTopology
     family: basix.ElementFamily
     degree: int
     discontinuous: bool
@@ -74,12 +75,24 @@ class BasixSpace(AbstractFunctionSpace):
         # The interval elements whose product is the element of piece j, or None.
         return self.elements[j][1]
 
+    @property
+    def topology(self):
+        # A space on a topology has its cells, and a space on a mesh the cells of the mesh.
+        D = self.domain
+        return D if isinstance(D, AbstractTopology) else D.topology
+
     @cached_property
     def elements(self):
         # The dofs of an element that factors are in the order of its factors, the last fastest.
         out = []
-        for piece in self.domain.pieces:
-            args = (self.family, piece.parameter_domain.cell_type, self.degree, EQUISPACED)
+        D = self.domain
+        cells = (
+            D.cell_types
+            if isinstance(D, AbstractTopology)
+            else [p.parameter_domain for p in D.pieces]
+        )
+        for K in cells:
+            args = (self.family, K.cell_type, self.degree, EQUISPACED)
             try:
                 order = tp_dof_ordering(*args, discontinuous=self.discontinuous)
             except RuntimeError:
@@ -96,7 +109,7 @@ class BasixSpace(AbstractFunctionSpace):
     def dofmap(self):
         # Cells share the dofs of their shared vertices, edges and faces, so the space is
         # continuous. A discontinuous element has all of its dofs inside the cell.
-        T, first, count = self.domain.topology, {}, 0
+        T, first, count = self.topology, {}, 0
         dofmap = []
         for j, cells in enumerate(T.cells):
             E = self.element(j)
