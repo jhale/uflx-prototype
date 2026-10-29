@@ -78,8 +78,7 @@ def evaluated(f, P):
 
 
 def apply_gradients(f):
-    # Inner gradients first, then the rule for the expression of each gradient. A pull-back over
-    # an evaluated gradient is pointwise again, so expand_pull_backs finishes.
+    # Inner gradients first, then the rule for the expression of each gradient.
     partial = memoized(rule)
 
     def evaluate(e):
@@ -88,7 +87,7 @@ def apply_gradients(f):
                 return gradient(g, P, partial)
         return e
 
-    return expand_pull_backs(bottom_up(f, evaluate))
+    return bottom_up(f, evaluate)
 
 
 # The node classes that the core normal form allows always.
@@ -147,6 +146,12 @@ def allowed(e):
         case Action(Function(space, _), _, _):
             return isinstance(space, DualSpace)
     return False
+
+
+def lower(f):
+    # The passes of the core after expand_integrals. Gradients on the domains of the forms come
+    # first, so a gradient of the coordinates is the identity, not K times J.
+    return expand_pull_backs(apply_gradients(expand_pull_backs(apply_gradients(f))))
 
 
 def in_n6(e):

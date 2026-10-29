@@ -5,7 +5,7 @@ from test_basix import CELLS, mixed, square
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import function, gradient, integral, pull_back, side_map
-from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
+from uflx_spec_interpreter._src.passes import gradients, integrals
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -29,7 +29,7 @@ def interpolate(V, f, coordinates):
 
 
 def value(e, env):
-    out = gradients.apply_gradients(pullbacks.expand_pull_backs(integrals.expand_integrals(e)))
+    out = gradients.lower(integrals.expand_integrals(e))
     assert gradients.in_n6(out)
     before, after = evaluate(e, env)(()), evaluate(out, env)(())
     assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)

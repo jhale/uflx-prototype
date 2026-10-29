@@ -148,7 +148,7 @@ def main(trials):
         else:
             e = integral(integrand(rnd, Q, f), family)
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
-        out = gradients.apply_gradients(out4)
+        out = gradients.lower(integrals.expand_integrals(e))
         if contains(out4, needs_pass):
             bad["lazy"] += 1
             bad["rejected"] += not gradients.in_n6(out4)

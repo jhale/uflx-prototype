@@ -53,8 +53,10 @@ def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():
         actions.apply_actions,
         derivatives.apply_derivatives,
         integrals.expand_integrals,
+        gradients.apply_gradients,
         pullbacks.expand_pull_backs,
         gradients.apply_gradients,
+        pullbacks.expand_pull_backs,
     ):
         out = apply(out)
     assert gradients.in_n6(out)

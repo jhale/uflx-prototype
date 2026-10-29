@@ -100,7 +100,7 @@ def main(trials):
         E, sides = rnd.choice([(E_int, sides_int), (E_bnd, sides_bnd)])
         e_int = integral(integrand(rnd, E, sides), E)
         out3 = integrals.expand_integrals(e_int)
-        out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
+        out = gradients.lower(out3)
         if contains(
             out3,
             lambda n: (

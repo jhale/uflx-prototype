@@ -146,7 +146,7 @@ def main(trials):
         kind = rnd.choice(["domain", "ambient", "none"])
         e = integral(integrand(rnd, dom, kind), dom)
         out3 = integrals.expand_integrals(e)
-        out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
+        out = gradients.lower(out3)
         rejected += not integrals.in_n4(e)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):

@@ -18,8 +18,10 @@ def compile_form(f, degree):
         apply_actions,
         apply_derivatives,
         expand_integrals,
+        apply_gradients,
         expand_pull_backs,
         apply_gradients,
+        expand_pull_backs,
     ):
         f = apply(f)
     return tabulate(apply_quadrature(f, degree))

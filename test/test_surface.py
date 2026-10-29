@@ -140,7 +140,7 @@ def edge_integrand(rnd, D, E, sides):
 
 def check(name, e, env, bad, rows):
     out3 = integrals.expand_integrals(e)
-    out = gradients.apply_gradients(pullbacks.expand_pull_backs(out3))
+    out = gradients.lower(out3)
     if contains(
         out3,
         lambda n: (

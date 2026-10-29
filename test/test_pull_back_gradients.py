@@ -5,14 +5,12 @@ from test_basix import CELLS, square, table
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
-    apply_gradients,
     cell_index,
     component_tensor,
     coordinate,
     decomposed_domain,
     domain_map,
     expand_integrals,
-    expand_pull_backs,
     function,
     gradient,
     index,
@@ -34,7 +32,7 @@ X, k = coordinate(D), index("k")
 
 
 def core(e):
-    return apply_gradients(expand_pull_backs(expand_integrals(e)))
+    return gradients.lower(expand_integrals(e))
 
 
 def nodes(e):
@@ -49,6 +47,14 @@ def test_a_gradient_pulled_back_by_a_map_that_is_not_a_cell_needs_no_inverse():
     shift = num(0.1) * X[0] * X[1] * indexed(table([1.0, 2.0]), (k,))
     phi = domain_map(D, component_tensor(X[k] + shift, (k,)), RD(2))
     f = integral(pull_back(gradient(x[0] * x[0] * x[1], RD(2)), phi)[0], D)
+    out = core(f)
+    assert gradients.in_n6(out) and not any(isinstance(n, Inverse) for n in nodes(out))
+    assert np.isclose(oracle(out, {})(()), oracle(f, {})(()))
+
+
+def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
+    # Gradients on the mesh come before the pull-backs by its cells, so K never meets J.
+    f = integral(gradient(X[0] * X[0] * X[1], D)[0], D)
     out = core(f)
     assert gradients.in_n6(out) and not any(isinstance(n, Inverse) for n in nodes(out))
     assert np.isclose(oracle(out, {})(()), oracle(f, {})(()))
