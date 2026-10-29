@@ -73,15 +73,14 @@ class DecomposedDomain(AbstractDomain):
 
     @cached_property
     def topology(self):
-        # T if the free indices of piece j are (cell_index(T, j),) for every j, and otherwise None.
-        found = set()
-        for j, piece in enumerate(self.pieces):
-            match piece.parameterisation.free_indices:
-                case ((Index(("uflx.cell_index", T, jj, 0)), _),) if jj == j:
-                    found.add(T)
-                case _:
-                    return None
-        return found.pop() if len(found) == 1 else None
+        # The topology of a mesh, the domain built from its coordinate function, and otherwise None.
+        from ..domains import mesh
+        from .calculus import PullBack
+
+        psi = self.pieces[0].parameterisation
+        if not (isinstance(psi, PullBack) and isinstance(psi.domain, CellMap)):
+            return None
+        return psi.domain.topology if self == mesh(psi.expression, self.ambient_domain) else None
 
 
 @final
