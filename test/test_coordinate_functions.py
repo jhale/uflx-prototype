@@ -115,7 +115,7 @@ def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
     # The coordinates of the vertices of each cell are the dofs of a discontinuous P1 space.
     X, _, _, x = coordinates(1, discontinuous=True)
     D = mesh(x, RD(2))
-    a, _, E = runtime_mesh()
+    geometry_of, _, E = runtime_mesh()
     rng = np.random.default_rng(12)
     corners = np.array([(0, 0), (1, 0), (1.2, 1.1), (-0.1, 0.9)]) + rng.normal(size=(4, 2)) * 0.05
     cells = corners[[[0, 1, 2], [0, 2, 3]]]
@@ -125,7 +125,7 @@ def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
     u, w = function(basix_space("V", D, P, 2), "u"), function(basix_space("V", E, P, 2), "u")
     for f, g in zip(functionals(D, u), functionals(E, w), strict=True):
         value = evaluate(compile_form(f, 4), geometry | {"coefficients:u": U})
-        expected = evaluate(compile_form(g, 4), {a.label: cells, "coefficients:u": U})
+        expected = evaluate(compile_form(g, 4), geometry_of(cells) | {"coefficients:u": U})
         assert np.isclose(value, expected)
 
 

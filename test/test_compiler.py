@@ -10,6 +10,7 @@ from testutil import contains
 
 from uflx_compiler import (
     assemble,
+    coefficients,
     compile_form,
     evaluate,
     fold,
@@ -22,9 +23,7 @@ from uflx_spec_interpreter import (
     RD,
     cell_domain,
     cell_index,
-    component_tensor,
     coordinate,
-    decomposed_domain,
     domain_map,
     form,
     function,
@@ -36,7 +35,9 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
     side_map,
+    tensor,
 )
+from uflx_spec_interpreter._draft import coordinate_function, mesh
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     Division,
@@ -207,21 +208,22 @@ def test_a_function_at_points_known_only_at_assembly():
 
 
 def runtime_mesh():
-    # A solver gives the vertex coordinates of each cell to the kernel, as for any mesh.
+    # A solver gives the coordinates of the vertices of each cell to the kernel, as for any mesh,
+    # as the dofs of a discontinuous coordinate function of degree 1.
     K = basix_cell(CELLS[2])
     T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
-    c, k = cell_index(T, 0), index("k")
-    x = runtime_array("x", (2, 3, 2))
-    X = coordinate(K)
-    vertex = lambda n: x[c, n, k]
-    psi = component_tensor(
-        vertex(0) + (vertex(1) - vertex(0)) * X[0] + (vertex(2) - vertex(0)) * X[1], (k,)
-    )
-    return x, c, decomposed_domain((domain_map(K, psi, RD(2)),))
+    X = basix_space("X", T, P, 1, discontinuous=True)
+    x0, x1 = function(X, "x0"), function(X, "x1")
+
+    def geometry(cells):
+        cells = np.asarray(cells, dtype=float)
+        return {"coefficients:x0": cells[..., 0].ravel(), "coefficients:x1": cells[..., 1].ravel()}
+
+    return geometry, cell_index(T, 0), mesh(tensor((x0, x1)), RD(2))
 
 
 def test_geometry_from_coordinates_given_at_assembly():
-    x, _, D = runtime_mesh()
+    geometry, _, D = runtime_mesh()
     V = basix_space("V", D, P, 2)
     u, v = function(V, "u"), function(V, "v")
     rng = np.random.default_rng(12)
@@ -232,11 +234,12 @@ def test_geometry_from_coordinates_given_at_assembly():
     g = gradient(u, D)
     energy = integral(g[0] * g[0] + g[1] * g[1], D)
     compiled = compile_form(energy, 4)
-    env = {"x": coordinates, "coefficients:u": U}
-    expected = oracle(energy, {x: coordinates, u: U})(())
+    env = geometry(coordinates) | {"coefficients:u": U}
+    expected = oracle(energy, env)(())
     assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8)
-    M = assemble(form(integral(u * v, D), (v, u)), 4)({"x": coordinates})
-    assert np.isclose(W @ M @ U, oracle(integral(u * v, D), {x: coordinates, u: U, v: W})(()))
+    M = assemble(form(integral(u * v, D), (v, u)), 4)(geometry(coordinates))
+    expected = oracle(integral(u * v, D), geometry(coordinates) | {u: U, v: W})(())
+    assert np.isclose(W @ M @ U, expected)
 
 
 def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form():
@@ -256,12 +259,13 @@ def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form(
     assert [i for i, _ in next(iter(found[0])).free_indices] == [c]
 
 
-def mesh_only(e, x):
+def mesh_only(e, D):
     # The largest subexpressions that read the coordinates and no other input.
+    geometry = {coefficients(f) for f in coordinate_function(D).entries}
     reads, found = memoized(arrays), set()
 
     def walk(walk, n):
-        if list(reads(n)) == [x]:
+        if reads(n) and set(reads(n)) <= geometry:
             found.add(n)
         else:
             for m in expressions(n):
@@ -272,11 +276,11 @@ def mesh_only(e, x):
 
 
 def test_the_geometry_at_the_points_of_a_rule_is_one_node_in_every_form():
-    x, _, D = runtime_mesh()
+    _, _, D = runtime_mesh()
     V = basix_space("V", D, P, 2)
     u, w = function(V, "u"), function(V, "w")
     X = coordinate(D)
-    parts = [mesh_only(compile_form(integral(X[0] * f, D), 4), x) for f in (u, w)]
+    parts = [mesh_only(compile_form(integral(X[0] * f, D), 4), D) for f in (u, w)]
     at_points = {n for n in parts[0] & parts[1] if quadrature_indices(n)}
     assert at_points
 
@@ -287,7 +291,7 @@ def quadrature_indices(n):
 
 def test_the_simplification_reduces_the_gradient_of_a_coordinate_to_arithmetic():
     # The gradient of x0 squared is 2 x0 times a row of the identity, read at one component.
-    x, _, D = runtime_mesh()
+    geometry, _, D = runtime_mesh()
     u = function(basix_space("V", D, P, 2), "u")
     X, g = coordinate(D), gradient(u, D)
     f = integral(gradient(X[0] ** num(2), D)[0] * g[0] + gradient(X[0] ** num(2), D)[1] * g[1], D)
@@ -298,5 +302,5 @@ def test_the_simplification_reduces_the_gradient_of_a_coordinate_to_arithmetic()
         [[(0.1, 0.0), (1.0, 0.2), (0.3, 0.9)], [(0.1, 0.0), (0.3, 0.9), (-0.2, 0.7)]]
     )
     U = rng.normal(size=u.space.num_dofs)
-    env = {"x": coordinates, "coefficients:u": U}
-    assert np.isclose(evaluate(compiled, env), oracle(f, {x: coordinates, u: U})(()))
+    env = geometry(coordinates) | {"coefficients:u": U}
+    assert np.isclose(evaluate(compiled, env), oracle(f, env)(()))

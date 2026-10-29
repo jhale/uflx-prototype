@@ -1,14 +1,13 @@
 import basix
 import numpy as np
 from test_basix import CELLS, square, table
+from testutil import vertex_mesh
 
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
-    cell_index,
     component_tensor,
     coordinate,
-    decomposed_domain,
     domain_map,
     expand_integrals,
     function,
@@ -63,11 +62,7 @@ def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
 def test_a_gradient_on_another_mesh_remains_for_the_points_of_the_mesh():
     # The other diagonal of the square, read through the coordinates of the first mesh.
     T2 = static_topology((K,), (((0, 1, 3), (1, 2, 3)),), ())
-    p = table([[(0, 0), (1, 0), (0, 1)], [(1, 0), (1, 1), (0, 1)]])
-    v = lambda n: indexed(p, (cell_index(T2, 0), n, k))
-    Y = coordinate(K)
-    psi = component_tensor(v(0) + (v(1) - v(0)) * Y[0] + (v(2) - v(0)) * Y[1], (k,))
-    D2 = decomposed_domain((domain_map(K, psi, RD(2)),))
+    D2 = vertex_mesh(T2, [(0, 0), (1, 0), (1, 1), (0, 1)])
     u = function(basix_space("U", D2, basix.ElementFamily.P, 1), "u")
     chi = domain_map(D, X, D2)
     out = core(integral(pull_back(gradient(u, D2), chi)[0], D))

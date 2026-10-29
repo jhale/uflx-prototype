@@ -8,15 +8,13 @@ from uflx_spec_interpreter import (
     index_sum,
     tensor,
 )
-from uflx_spec_interpreter._src.domains import cell_of, mesh_cell
+from uflx_spec_interpreter._src.domains import cell_of
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
-    ComponentTensor,
     DomainMap,
     Function,
     GatheredIndex,
     Gradient,
-    Indexed,
     PullBack,
     Tensor,
 )
@@ -70,23 +68,8 @@ def read(x, points):
 
 
 def cell(C):
-    # The piece and the cell entry of a cell map, of a cell of a mesh, or of a cell domain or a
-    # gathered cell domain of a decomposed domain with explicit pieces.
-    if isinstance(C, CellMap):
-        return C.group, C.entry
-    if mesh_cell(C) is not None:
-        return mesh_cell(C)
-    j = cell_of(C)
-    if j is not None:
-        ((c, _),) = C.parameterisation.free_indices
-        return j, c
-    match C.parameterisation:
-        case ComponentTensor(
-            Indexed(ComponentTensor(Indexed(psi, _), (_, _)), (GatheredIndex() as g, _)), _
-        ):
-            pieces = [piece.parameterisation for piece in C.ambient_domain.pieces]
-            return pieces.index(psi), g
-    return None
+    # The group and the entry of a cell map, or of a cell of a mesh.
+    return (C.group, C.entry) if isinstance(C, CellMap) else cell_of(C)
 
 
 def values(u, found_cell, derivative, points):

@@ -3,7 +3,7 @@ import itertools
 import basix
 import numpy as np
 
-from uflx_spec_interpreter._src.domains import cell_of, mesh_cell
+from uflx_spec_interpreter._src.domains import cell_of
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
@@ -101,21 +101,9 @@ def index_value(i, ienv):
 
 
 def cell_value(m, ienv):
-    # The piece and the cell that a cell domain or a gathered cell domain reads, as a library.
-    if mesh_cell(m) is not None:
-        j, e = mesh_cell(m)
-        return j, index_value(e, ienv)
-    i = cell_of(m)
-    if i is not None:
-        ((c, _),) = m.parameterisation.free_indices
-        return i, ienv[c]
-    match m.parameterisation:
-        case ComponentTensor(
-            Indexed(ComponentTensor(Indexed(psi, _), (_, _)), (GatheredIndex() as g, _)), _
-        ):
-            pieces = [piece.parameterisation for piece in m.ambient_domain.pieces]
-            return pieces.index(psi), index_value(g, ienv)
-    return None
+    # The group and the cell that a cell reads, as a library.
+    found = cell_of(m)
+    return None if found is None else (found[0], index_value(found[1], ienv))
 
 
 def lookup(env, node, label):

@@ -100,7 +100,7 @@ def contract_gradient(gradP, K, f, m):
 
 def side_maps(sm, m):
     # B and A of the group of the cells m, and the reference normal of the side tables.
-    S, i = sm.parameter_domain.topology, cell_of(m)
+    S, (i, _) = sm.parameter_domain.topology, cell_of(m)
     B, A = inclusion(sm.ambient_domain, S, i, sm.side)
     return B, A, S.side_tables(i, sm.side)[2]
 

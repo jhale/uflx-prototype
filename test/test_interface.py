@@ -1,22 +1,14 @@
 import basix
 import numpy as np
 import pytest
-from test_basix import table
+from testutil import vertex_mesh
 
 from uflx_compiler import assemble, compile_form, evaluate, runtime_tables
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
-    RD,
-    cell_index,
-    component_tensor,
-    coordinate,
-    decomposed_domain,
-    domain_map,
     form,
     function,
     gradient,
-    index,
-    indexed,
     integral,
     pull_back,
     side_domain,
@@ -32,20 +24,10 @@ VERTICES = [(0, 0), (1, 0), (1, 1), (0, 1)]
 TRIANGLES, INTERVALS = ((0, 1, 2), (0, 2, 3)), ((0, 1), (1, 2))
 
 
-def affine(cell, cells, T):
-    c, k = cell_index(T, 0), index("k")
-    p = table([[VERTICES[v] for v in vs] for vs in cells])
-    v = lambda n: indexed(p, (c, n, k))
-    psi = v(0)
-    for d in range(cell.dimension):
-        psi = psi + (v(d + 1) - v(0)) * coordinate(cell)[d]
-    return decomposed_domain((domain_map(cell, component_tensor(psi, (k,)), RD(2)),))
-
-
 # Triangles, and a submesh of intervals on the bottom and right of the boundary.
 T = static_topology((K,), (TRIANGLES,), ())
 M = static_topology((I,), (INTERVALS,), ())
-D, DM = affine(K, TRIANGLES, T), affine(I, INTERVALS, M)
+D, DM = vertex_mesh(T, VERTICES), vertex_mesh(M, VERTICES)
 S = static_topology((I,), (INTERVALS,), ((("mesh", T, 0), ("submesh", M, 0)),))
 E = side_domain(D, S)
 V, L = basix_space("V", D, P, 2), basix_space("L", DM, P, 1, discontinuous=True)
