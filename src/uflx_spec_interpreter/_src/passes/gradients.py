@@ -149,9 +149,12 @@ def allowed(e):
 
 
 def lower(f):
-    # The passes of the core after expand_integrals. Gradients on the domains of the forms come
-    # first, so a gradient of the coordinates is the identity, not K times J.
-    return expand_pull_backs(apply_gradients(expand_pull_backs(apply_gradients(f))))
+    # apply_gradients and expand_pull_backs until neither rewrites, the stage of the core after
+    # expand_integrals. A graph that the passes leave unchanged is the same object. Gradients on
+    # the domains of the forms come first, so a gradient of the coordinates is the identity.
+    while (g := expand_pull_backs(apply_gradients(f))) is not f:
+        f = g
+    return f
 
 
 def in_n6(e):

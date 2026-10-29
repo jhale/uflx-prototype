@@ -2,11 +2,10 @@ from uflx_spec_interpreter import (
     apply_actions,
     apply_derivatives,
     apply_gateaux_derivatives,
-    apply_gradients,
     expand_integrals,
-    expand_pull_backs,
 )
 from uflx_spec_interpreter._draft import apply_shape_derivatives
+from uflx_spec_interpreter._src.passes.gradients import lower
 
 from .quadrature import apply_quadrature
 from .simplification import simplify
@@ -20,11 +19,9 @@ def compile_form(f, degree):
         apply_actions,
         apply_derivatives,
         expand_integrals,
-        apply_gradients,
-        expand_pull_backs,
+        lower,
         apply_shape_derivatives,
-        apply_gradients,
-        expand_pull_backs,
+        lower,
     ):
         f = apply(f)
     return simplify(tabulate(apply_quadrature(f, degree)))

@@ -6,7 +6,6 @@ from typing import final
 from ..nodes import AbstractExpression, Function
 from ..passes.commuting import COMMUTING
 from ..passes.derivatives import deriv
-from ..passes.pullbacks import expand_pull_backs
 from ..substitution import bottom_up
 from ..tuples import members
 
@@ -58,12 +57,10 @@ def apply_shape_derivatives(f):
     # After the pull-backs are expanded, the coordinate function occurs in the expression itself,
     # in the coordinates, the Jacobians and the densities, so the derivative is a directional
     # derivative with the domains fixed.
-    # The rows of the derivative pull the direction back by the cells, so the pass expands the
-    # pull-backs that the derivative creates, as expand_pull_backs does for its own rows.
     def lower(e):
         match e:
             case ShapeDerivative(g, x, h):
                 return deriv(g, x, x, h)
         return e
 
-    return expand_pull_backs(bottom_up(f, lower))
+    return bottom_up(f, lower)

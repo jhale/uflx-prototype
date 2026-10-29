@@ -33,7 +33,7 @@ def rule(pb, f, m):
         case _ if support(f) is None:
             return broadcast(f, m)
         case Coordinate():
-            return lowered_copy(pb, m.parameterisation)
+            return m.parameterisation
         case PullBack(g, SideMap() as sm) if side_cell(sm, m) is not None:
             B, A, _ = side_maps(sm, *side_cell(sm, m))
             return pb(pb(g, B), A)
@@ -42,7 +42,7 @@ def rule(pb, f, m):
         case PullBack(g, phi):
             return pb(g, composed(phi, m, pb))
         case Gradient(g, _) if is_cell(m):
-            K = lowered_copy(pb, inverse_jacobian(m))
+            K = inverse_jacobian(m)
             return contract_gradient(Gradient(pb(g, m), m.parameter_domain), K, f, m)
         case Gradient():
             return PullBack(f, m)
@@ -68,8 +68,8 @@ def composed(phi, m, pb):
 
 
 def lowered_copy(pb, e):
-    # An expression read out of a domain map, which a lowering pass does not enter, is lowered
-    # where the rows bring it into the expression.
+    # The parameterisation of a map that a row builds is lowered as the row builds it, because
+    # a lowering pass does not enter maps.
     return bottom_up(e, lambda n: pb(n.expression, n.domain) if isinstance(n, PullBack) else n)
 
 
@@ -106,7 +106,7 @@ def pushed_forward(g, law, C, pb):
     # cell of lower dimension, to the weight.
     j, e = cell_of(C)
     ghat = pb(g, CellMap(C.ambient_domain.topology, j, e))
-    J, K = (lowered_copy(pb, M(C)) for M in (jacobian, inverse_jacobian))
+    J, K = jacobian(C), inverse_jacobian(C)
     r, p = len(shape(ghat)), len(law.kinds)
     lead = tuple(fresh(g, C, ("lead", n)) for n in range(r - p))
     out = tuple(fresh(g, C, ("out", n)) for n in range(p))
@@ -117,7 +117,7 @@ def pushed_forward(g, law, C, pb):
     if summed:
         value = IndexSum(value, summed)
     k, n = C.parameter_domain.dimension, C.ambient_domain.ambient_coordinate_domain.dimension
-    scale = lowered_copy(pb, determinant(jacobian(C)) if k == n else density(C))
+    scale = determinant(jacobian(C)) if k == n else density(C)
     for _ in range(law.weight):
         value = Division(value, scale)
     axes = (*lead, *out)
@@ -143,7 +143,7 @@ def side_maps(sm, i, e):
 def normal(f, m, pb):
     # K^T m_hat / |K^T m_hat|, with m_hat the reference normal of the side tables.
     B, A, m_hat = side_maps(f.side_map, *side_cell(f.side_map, m))
-    w = transpose(pb(lowered_copy(pb, inverse_jacobian(B)), A)) @ m_hat
+    w = transpose(pb(inverse_jacobian(B), A)) @ m_hat
     return divide(w, square_root(w @ w))
 
 
