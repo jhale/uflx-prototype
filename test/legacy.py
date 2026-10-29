@@ -1,5 +1,7 @@
 # The classic FEniCS layer of EXAMPLES.md, for functions on a topology. A function of the layer
 # is the push-forward of a function on the topology, so a user script has one name for each.
+import basix
+
 from uflx_spec_interpreter import (
     ScalarType,
     conjugate,
@@ -19,8 +21,6 @@ from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, Function
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.spaces import space
 
-FAMILIES = {"Lagrange": "P", "P": "P"}
-
 
 class Mesh:
     def __init__(self, domain, boundary):
@@ -30,11 +30,9 @@ class Mesh:
 class FunctionSpace:
     # A space on the topology of the mesh, with the mesh that its functions are pushed to.
     def __init__(self, mesh, family, degree, shape=()):
-        import basix
-
-        family = getattr(basix.ElementFamily, FAMILIES[family])
+        # The layer offers the Lagrange elements only, which the family names.
         self.mesh, self.shape = mesh, shape
-        self.space = basix_space("V", mesh.domain.topology, family, degree)
+        self.space = basix_space("V", mesh.domain.topology, basix.ElementFamily.P, degree)
 
     def function(self, label):
         # The toy has no blocked spaces, so a vector function is a tensor of its components.
