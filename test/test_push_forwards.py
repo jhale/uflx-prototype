@@ -1,6 +1,5 @@
 import basix
 import numpy as np
-from test_basix import CELLS
 from testutil import vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
@@ -26,7 +25,7 @@ from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
 
 P, RT, N1 = basix.ElementFamily.P, basix.ElementFamily.RT, basix.ElementFamily.N1E
-K = basix_cell(CELLS[2])
+K = basix_cell(basix.CellType.triangle)
 # The vertices of each cell are in increasing order, so the facets of Basix need no signs.
 T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 VERTICES = [(0, 0), (1, 0), (1.1, 0.9), (-0.1, 1)]
@@ -36,7 +35,9 @@ def curved():
     # A P2 coordinate function with the shared diagonal bent.
     X = basix_space("X", T, P, 2)
     x0, x1 = function(X, "x0"), function(X, "x1")
-    points = basix.create_element(P, CELLS[2], 2, basix.LagrangeVariant.equispaced).points
+    points = basix.create_element(
+        P, basix.CellType.triangle, 2, basix.LagrangeVariant.equispaced
+    ).points
     values = np.zeros((X.num_dofs, 2))
     for c, rows in enumerate(X.dofmap[0]):
         a, b, d = np.asarray(VERTICES, dtype=float)[list(T.cells[0][c])]

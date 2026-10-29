@@ -1,6 +1,6 @@
 import basix
 import numpy as np
-from test_basix import CELLS, square, table
+from test_basix import square, table
 from testutil import vertex_mesh
 
 from uflx_oracle import evaluate as oracle
@@ -26,7 +26,7 @@ from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
 
-K = basix_cell(CELLS[2])
+K = basix_cell(basix.CellType.triangle)
 D = square(K)[0]
 X, k = coordinate(D), index("k")
 

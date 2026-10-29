@@ -23,25 +23,32 @@ from uflx_toy.inclusions import affine_map, reference_normal
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology
 
-CELLS = {1: basix.CellType.interval, 2: basix.CellType.triangle, 3: basix.CellType.tetrahedron}
-
 
 def value(e, P=None, X=()):
     return np.real(at(P, np.asarray(X, dtype=float), lambda: evaluate(e, {})(())))
 
 
-@pytest.mark.parametrize("n", [1, 2, 3])
-def test_a_basix_simplex_is_the_unit_simplex(n):
-    K = basix_cell(CELLS[n])
+@pytest.mark.parametrize(
+    ("n", "cell"),
+    [
+        (1, basix.CellType.interval),
+        (2, basix.CellType.triangle),
+        (3, basix.CellType.tetrahedron),
+    ],
+)
+def test_a_basix_simplex_is_the_unit_simplex(n, cell):
+    K = basix_cell(cell)
     assert (K.dimension, K.num_vertices) == (n, n + 1)
     assert np.allclose(value(K.vertices), value(reference_simplex(n).vertices))
 
 
-@pytest.mark.parametrize("n", [2, 3])
-def test_the_tabulated_facet_normals_are_the_cofactor_normals(n):
-    K, F = basix_cell(CELLS[n]), reference_simplex(n - 1)
+@pytest.mark.parametrize(
+    ("n", "cell"), [(2, basix.CellType.triangle), (3, basix.CellType.tetrahedron)]
+)
+def test_the_tabulated_facet_normals_are_the_cofactor_normals(n, cell):
+    K, F = basix_cell(cell), reference_simplex(n - 1)
     V = value(K.vertices)
-    for f, facet in enumerate(basix.cell.topology(CELLS[n])[n - 1]):
+    for f, facet in enumerate(basix.cell.topology(cell)[n - 1]):
         points = table([[float(x) for x in V[v]] for v in facet])
         A = domain_map(F, affine_map(F, points), K)
         m = value(reference_normal(A, points, K), F, np.full(n - 1, 0.2))
@@ -51,7 +58,11 @@ def test_the_tabulated_facet_normals_are_the_cofactor_normals(n):
 
 def square(K):
     # The square of two triangles on the reference cell K, with its diagonal and boundary.
-    I = basix_cell(basix.CellType.interval) if K == basix_cell(CELLS[2]) else reference_simplex(1)
+    I = (
+        basix_cell(basix.CellType.interval)
+        if K == basix_cell(basix.CellType.triangle)
+        else reference_simplex(1)
+    )
     T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
     D = vertex_mesh(T, [(0, 0), (1, 0), (1, 1), (0, 1)])
     diagonal = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
@@ -80,12 +91,14 @@ def facet_integrals(K):
 
 
 def test_a_mesh_of_basix_triangles_integrates_as_one_of_unit_simplices():
-    assert np.allclose(facet_integrals(basix_cell(CELLS[2])), facet_integrals(reference_simplex(2)))
+    assert np.allclose(
+        facet_integrals(basix_cell(basix.CellType.triangle)), facet_integrals(reference_simplex(2))
+    )
 
 
 def test_a_basix_cell_gives_its_facet_normals_as_a_table():
     # A table read through the local facet has no support, a cofactor normal the support F.
-    for K, constant in ((basix_cell(CELLS[2]), True), (reference_simplex(2), False)):
+    for K, constant in ((basix_cell(basix.CellType.triangle), True), (reference_simplex(2), False)):
         _, E, _ = square(K)
         _, _, m = E.topology.side_tables(0, "+")
         assert (m.support is None) == constant and m.value_shape == (2,)
@@ -93,7 +106,7 @@ def test_a_basix_cell_gives_its_facet_normals_as_a_table():
 
 def quadrilaterals():
     # The unit square as two quadrilaterals split at x = 1/2, with bilinear cell maps.
-    Q, I = basix_cell(basix.CellType.quadrilateral), basix_cell(CELLS[1])
+    Q, I = basix_cell(basix.CellType.quadrilateral), basix_cell(basix.CellType.interval)
     T = static_topology((Q,), (((0, 1, 3, 4), (1, 2, 4, 5)),), ())
     D = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
     interior = static_topology((I,), (((1, 4),),), ((("+", T, 0), ("-", T, 0)),))
@@ -129,7 +142,10 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
 
 def mixed():
     # The unit square as two triangles left of x = 1/2 and one quadrilateral right of it.
-    Tri, Q, I = (basix_cell(t) for t in (CELLS[2], basix.CellType.quadrilateral, CELLS[1]))
+    Tri, Q, I = (
+        basix_cell(t)
+        for t in (basix.CellType.triangle, basix.CellType.quadrilateral, basix.CellType.interval)
+    )
     T = static_topology((Tri, Q), (((0, 1, 4), (0, 4, 3)), ((1, 2, 4, 5),)), ())
     D = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
     # A group of facets between two triangles, and one between a triangle and a quadrilateral.

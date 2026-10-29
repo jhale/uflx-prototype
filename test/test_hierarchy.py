@@ -41,27 +41,24 @@ EXPRESSIONS = (
     "GateauxDerivative"
 ).split()
 STATIC_TYPE = {"value_shape", "free_indices", "argument_spaces", "support", "scalar_type"}
-OTHERS = {
-    nodes: [
-        "Index",
-        "ConjugateSpace",
-        "DualSpace",
-        "GatheredIndex",
-        "RD",
-        "DecomposedDomain",
-        "DomainMap",
-        "SideMap",
-    ],
-}
+OTHERS = [
+    "Index",
+    "ConjugateSpace",
+    "DualSpace",
+    "GatheredIndex",
+    "RD",
+    "DecomposedDomain",
+    "DomainMap",
+    "SideMap",
+]
 
 
 def test_the_classes_follow_the_hierarchy_of_the_specification():
     for name in EXPRESSIONS:
         assert issubclass(getattr(nodes, name), AbstractExpression), name
-    for module, names in OTHERS.items():
-        for name in names:
-            cls = getattr(module, name)
-            assert issubclass(cls, Base) and not issubclass(cls, AbstractExpression), name
+    for name in OTHERS:
+        cls = getattr(nodes, name)
+        assert issubclass(cls, Base) and not issubclass(cls, AbstractExpression), name
 
 
 def test_the_static_type_is_computed_once():

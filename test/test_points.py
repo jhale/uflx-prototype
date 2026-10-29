@@ -2,7 +2,7 @@ import random
 import sys
 
 import numpy as np
-from test_integrals import SQUARE as CELLS
+from test_integrals import SQUARE as SQUARE_TOPOLOGY
 from test_integrals import D, u
 from test_surface import M
 from testutil import assert_clean, check_types, contains, keeps_static_type, table
@@ -76,7 +76,7 @@ def topology_of_points(Q, label, located):
         label,
         (reference_simplex(0),),
         (len(located),),
-        ((("inside", CELLS, 0),),),
+        ((("inside", SQUARE_TOPOLOGY, 0),),),
         (((cells, positions),),),
     )
     E = side_domain(Q, S)

@@ -24,11 +24,13 @@ from uflx_spec_interpreter._src.static import arity
 from uflx_toy.spaces import space
 
 C, R = space("C"), space("R", scalar_type=ScalarType.real)
+
+
 # A load in each dual space, linear in its argument like every action.
-LOADS = {
-    C: function(dual_space(space("C")), "l"),
-    R: function(dual_space(space("R", scalar_type=ScalarType.real)), "l"),
-}
+def load(V):
+    return function(dual_space(V), "l")
+
+
 LOAD_VALUE = 0.7 - 0.4j
 
 
@@ -36,7 +38,7 @@ def body(rnd, u, names, holomorphic, depth):
     if depth == 0 or rnd.random() < 0.3:
         return rnd.choice([u, num(2), *names])
     a, b = body(rnd, u, names, holomorphic, depth - 1), body(rnd, u, names, holomorphic, depth - 1)
-    l = LOADS[u.space]
+    l = load(u.space)
     ops = [lambda: add(a, b), lambda: multiply(a, b), lambda: action(l, 0, a)]
     if not holomorphic:
         ops += [
@@ -80,8 +82,8 @@ def main(trials):
             (lambda: complex(*rng.normal(size=2))) if space is C else (lambda: float(rng.normal()))
         )
         env = {f: 0.5 * scalar() for f in (u, v, w, z)}
-        load = LOAD_VALUE if space is C else LOAD_VALUE.real
-        env[LOADS[space]] = lambda x, load=load: load * x
+        value = LOAD_VALUE if space is C else LOAD_VALUE.real
+        env[load(space)] = lambda x, value=value: value * x
         vals = tuple(0.5 * scalar() for _ in range(arity(e)))
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-5, atol=1e-6):
@@ -107,7 +109,7 @@ def test_gateaux():
 def test_pairing_with_the_conjugate():
     # <l, u> u is written with conjugate(u), so it is not holomorphic in u, and J- is not zero.
     u, w = function(C, "u"), function(C, "w")
-    l = LOADS[C]
+    l = load(C)
     F = multiply(action(l, 0, conjugate(u)), u)
     env = {u: 0.3 + 0.2j, w: 0.1 - 0.5j, l: lambda x: LOAD_VALUE * x}
     assert not gateaux.holomorphic(F, u)

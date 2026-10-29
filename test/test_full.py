@@ -42,10 +42,15 @@ W, Wd = space("W", value_shape=(2,)), dual_space(space("W", value_shape=(2,)))
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
 U, U2, U3 = (function(W, n) for n in ("U", "U2", "U3"))
 lV, lW = function(Vd, "lV"), function(Wd, "lW")
-BOUND = {
-    "V": [u, v, q] + [function(V, f"y{k}") for k in range(4)],
-    "W": [U2] + [function(W, f"Y{k}") for k in range(3)],
-}
+
+
+def bound(base):
+    # The functions that a random form binds, for the base name of a space.
+    if base == "V":
+        return [u, v, q] + [function(V, f"y{k}") for k in range(4)]
+    return [U2] + [function(W, f"Y{k}") for k in range(3)]
+
+
 kf, m = index("kf"), index("m")
 c = tensor((num(1), num(2)))
 
@@ -185,7 +190,7 @@ def leaf_form(rnd, specs):
     for spec in specs:
         members = []
         for s in spec if isinstance(spec, tuple) else (spec,):
-            fn = rnd.choice([b for b in BOUND[base(s)] if b not in used])
+            fn = rnd.choice([b for b in bound(base(s)) if b not in used])
             used.add(fn)
             entry = conjugate(fn) if s.endswith("*") else fn
             body = multiply(entry if base(s) == "V" else dot(entry, U), body)
@@ -235,9 +240,9 @@ def random_form(rnd, specs, depth):
 
 def main(trials):
     rng = np.random.default_rng(0)
-    env = {f: 0.3 * complex(*rng.normal(size=2)) for f in [u, v, w, z, h, q] + BOUND["V"]}
+    env = {f: 0.3 * complex(*rng.normal(size=2)) for f in [u, v, w, z, h, q, *bound("V")]}
     env |= {
-        f: 0.3 * (rng.normal(size=2) + 1j * rng.normal(size=2)) for f in [U, U2, U3] + BOUND["W"]
+        f: 0.3 * (rng.normal(size=2) + 1j * rng.normal(size=2)) for f in [U, U2, U3, *bound("W")]
     }
     cv, cw = complex(*rng.normal(size=2)), rng.normal(size=2) + 1j * rng.normal(size=2)
     env[lV] = lambda x: cv * x

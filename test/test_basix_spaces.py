@@ -1,7 +1,7 @@
 import basix
 import numpy as np
 import pytest
-from test_basix import CELLS, mixed, square
+from test_basix import mixed, square
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import function, gradient, integral, pull_back, side_map
@@ -45,7 +45,7 @@ def jump_squared(u, D, E):
 
 @pytest.mark.parametrize("degree", [1, 2])
 def test_an_interpolated_polynomial_integrates_exactly(degree):
-    D, _, _ = square(basix_cell(CELLS[2]))
+    D, _, _ = square(basix_cell(basix.CellType.triangle))
     V = basix_space("V", D.topology, P, degree)
     uT = function(V, "u")
     u = push_forward(uT, D)
@@ -58,7 +58,7 @@ def test_an_interpolated_polynomial_integrates_exactly(degree):
 
 def test_a_continuous_space_has_no_jump_for_any_coefficients():
     # The two cells share the dofs of the diagonal, whatever the values of the dofs.
-    D, E, _ = square(basix_cell(CELLS[2]))
+    D, E, _ = square(basix_cell(basix.CellType.triangle))
     rng = np.random.default_rng(3)
     for degree in (1, 2):
         V = basix_space("V", D.topology, P, degree)

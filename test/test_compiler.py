@@ -5,7 +5,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from test_basix import CELLS, mixed, quadrilaterals, square
+from test_basix import mixed, quadrilaterals, square
 from testutil import contains
 
 from uflx_compiler import (
@@ -73,7 +73,7 @@ def functionals(D, u):
     [("triangles", 1), ("triangles", 2), ("mixed", 1), ("mixed", 2)],
 )
 def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
-    D = square(basix_cell(CELLS[2]))[0] if mesh == "triangles" else mixed()[0]
+    D = square(basix_cell(basix.CellType.triangle))[0] if mesh == "triangles" else mixed()[0]
     V = basix_space("V", D.topology, P, degree)
     u = push_forward(function(V, "u"), D)
     U = np.random.default_rng(degree).normal(size=V.num_dofs)
@@ -143,7 +143,7 @@ def facet_functionals(D, E, B, u):
 
 @pytest.mark.parametrize(
     "mesh",
-    [lambda: square(basix_cell(CELLS[2])), quadrilaterals, mixed],
+    [lambda: square(basix_cell(basix.CellType.triangle)), quadrilaterals, mixed],
     ids=["triangles", "quadrilaterals", "mixed"],
 )
 @pytest.mark.parametrize("discontinuous", [False, True])
@@ -165,7 +165,7 @@ def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
 
 def test_a_function_at_points_known_only_at_assembly():
     # The cut cell example on a mesh: each cell has its own points, which the solver gives.
-    D = square(basix_cell(CELLS[2]))[0]
+    D = square(basix_cell(basix.CellType.triangle))[0]
     V = basix_space("V", D.topology, P, 2)
     u = push_forward(function(V, "u"), D)
     K = D.pieces[0].parameter_domain
@@ -210,7 +210,7 @@ def test_a_function_at_points_known_only_at_assembly():
 def runtime_mesh():
     # A solver gives the coordinates of the vertices of each cell to the kernel, as for any mesh,
     # as the dofs of a discontinuous coordinate function of degree 1.
-    K = basix_cell(CELLS[2])
+    K = basix_cell(basix.CellType.triangle)
     T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
     X = basix_space("X", T, P, 1, discontinuous=True)
     x0, x1 = function(X, "x0"), function(X, "x1")

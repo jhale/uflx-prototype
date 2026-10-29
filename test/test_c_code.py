@@ -5,7 +5,6 @@ import subprocess
 import basix
 import numpy as np
 import pytest
-from test_basix import CELLS
 
 from uflx_compiler import compile_form, evaluate
 from uflx_compiler.c_code import c_kernel
@@ -16,14 +15,18 @@ from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
 
 P, RT = basix.ElementFamily.P, basix.ElementFamily.RT
-T = static_topology((basix_cell(CELLS[2]),), (((0, 1, 2),),), ())
+T = static_topology((basix_cell(basix.CellType.triangle),), (((0, 1, 2),),), ())
 NODES = np.array([(0.1, 0.0), (1.0, 0.2), (0.3, 0.9), (0.7, 0.6), (0.2, 0.45), (0.55, 0.1)])
-INPUTS = {
-    "coefficients:x0": lambda k: f"coordinate_dofs[{3 * k}]",
-    "coefficients:x1": lambda k: f"coordinate_dofs[{3 * k + 1}]",
-    "coefficients:v": lambda k: f"w[{k}]",
-    "coefficients:u": lambda k: f"w[{k}]",
-}
+
+
+def read(label, k):
+    # The coordinates are the interleaved coordinate_dofs of FFCx, and a coefficient is w.
+    match label:
+        case "coefficients:x0":
+            return f"coordinate_dofs[{3 * k}]"
+        case "coefficients:x1":
+            return f"coordinate_dofs[{3 * k + 1}]"
+    return f"w[{k}]"
 
 
 def forms():
@@ -45,7 +48,7 @@ def test_the_c_kernels_give_the_values_of_the_evaluator(tmp_path):
     for name, (f, n) in forms().items():
         compiled = compile_form(f, 4)
         source, library = tmp_path / f"{name}.c", tmp_path / f"{name}.so"
-        source.write_text("#include <math.h>\n" + c_kernel(compiled, name, INPUTS))
+        source.write_text("#include <math.h>\n" + c_kernel(compiled, name, read))
         subprocess.run(["cc", "-O2", "-shared", "-fPIC", source, "-o", library], check=True)
         w = rng.normal(size=n)
         A = np.zeros(1)

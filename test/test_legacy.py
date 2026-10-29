@@ -14,7 +14,6 @@ from legacy import (
     grad,
     inner,
 )
-from test_basix import CELLS
 from testutil import vertex_mesh
 
 from uflx_compiler import assemble
@@ -36,7 +35,7 @@ from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
 
-K, I = basix_cell(CELLS[2]), basix_cell(CELLS[1])
+K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
 T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 BOUNDARY = static_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("inside", T, 0),),))
 LOWER = static_topology((K,), (((0, 1, 2),),), ((("inside", T, 0),),))

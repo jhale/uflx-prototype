@@ -1,6 +1,6 @@
 import basix
 import numpy as np
-from test_basix import CELLS, square
+from test_basix import square
 from test_compiler import functionals, runtime_mesh
 from testutil import vertex_mesh
 
@@ -38,7 +38,7 @@ from uflx_toy.indices import index_table
 from uflx_toy.topology import static_topology
 
 P = basix.ElementFamily.P
-K = basix_cell(CELLS[2])
+K = basix_cell(basix.CellType.triangle)
 # The unit square as two triangles, with the vertices of square(K) of test_basix.
 T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 VERTICES = np.array([(0, 0), (1, 0), (1, 1), (0, 1)], dtype=float)
@@ -112,7 +112,9 @@ def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
     X, x0, x1, x = coordinates(2)
     D = image(x, RD(2))
     # Interpolate the square, then bend the shared diagonal.
-    points = basix.create_element(P, CELLS[2], 2, basix.LagrangeVariant.equispaced).points
+    points = basix.create_element(
+        P, basix.CellType.triangle, 2, basix.LagrangeVariant.equispaced
+    ).points
     values = np.zeros((X.num_dofs, 2))
     for c, rows in enumerate(X.dofmap[0]):
         a, b, d = VERTICES[list(T.cells[0][c])]
@@ -200,7 +202,7 @@ def test_a_mesh_from_the_coordinates_of_the_vertices_gives_the_values_of_the_exp
 
 def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():
     D, _ = p1_mesh()
-    I = basix_cell(CELLS[1])
+    I = basix_cell(basix.CellType.interval)
     S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     E = side_domain(D, S)
     assert E.topology == S
@@ -210,7 +212,7 @@ def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():
 def test_the_jump_of_a_function_on_a_topology_across_a_facet():
     # A discontinuous function on T, restricted to the diagonal from both triangles, read on the
     # reference interval of each cell of the side topology.
-    I = basix_cell(CELLS[1])
+    I = basix_cell(basix.CellType.interval)
     S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     d = function(basix_space("W", T, P, 1, discontinuous=True), "d")
     jump = pull_back(d, side_map(T, S, "+")) - pull_back(d, side_map(T, S, "-"))

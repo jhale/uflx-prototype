@@ -6,14 +6,6 @@ import uflx_oracle
 import uflx_spec_interpreter
 import uflx_toy
 
-# Imports go from the oracle and the compiler to the toy extension to the core, never back,
-# and the compiler never reads the oracle.
-FORBIDDEN = {
-    uflx_spec_interpreter: {"uflx_toy", "uflx_oracle", "uflx_compiler"},
-    uflx_toy: {"uflx_oracle", "uflx_compiler"},
-    uflx_compiler: {"uflx_oracle"},
-}
-
 
 def imported(path):
     for node in ast.walk(ast.parse(path.read_text())):
@@ -27,10 +19,17 @@ def files(package):
     return Path(package.__file__).parent.rglob("*.py")
 
 
+def assert_imports_none_of(package, forbidden):
+    for path in files(package):
+        assert not forbidden & {m.split(".")[0] for m in imported(path)}, path
+
+
 def test_the_core_imports_neither_the_extension_nor_the_oracle():
-    for package, forbidden in FORBIDDEN.items():
-        for path in files(package):
-            assert not forbidden & {m.split(".")[0] for m in imported(path)}, path
+    # Imports go from the oracle and the compiler to the toy extension to the core, never back,
+    # and the compiler never reads the oracle.
+    assert_imports_none_of(uflx_spec_interpreter, {"uflx_toy", "uflx_oracle", "uflx_compiler"})
+    assert_imports_none_of(uflx_toy, {"uflx_oracle", "uflx_compiler"})
+    assert_imports_none_of(uflx_compiler, {"uflx_oracle"})
 
 
 def test_the_extension_reads_only_the_public_api_and_the_node_classes_of_the_core():

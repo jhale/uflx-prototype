@@ -25,10 +25,10 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_toy.nodes import RuntimeArray
 
 
-def c_kernel(e, name, inputs):
+def c_kernel(e, name, read):
     # A compiled expression as straight-line C for one cell, with every index unrolled and each
-    # entry computed once. inputs maps the label of each runtime array to a function from the
-    # flat position of an entry to a C expression that reads it.
+    # entry computed once. read(label, k) is the C expression that reads entry k of the runtime
+    # array with the label.
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 100000))
     lines, memo = [], {}
 
@@ -49,7 +49,7 @@ def c_kernel(e, name, inputs):
             case Zero():
                 return 0.0
             case RuntimeArray(label, shape):
-                return inputs[label](int(np.ravel_multi_index(comp, shape)) if shape else 0)
+                return read(label, int(np.ravel_multi_index(comp, shape)) if shape else 0)
             case Sum(a, b):
                 return add(entry(a, bound, comp), entry(b, bound, comp))
             case Product(a, b) if a.value_shape:
@@ -158,15 +158,12 @@ def c_kernel(e, name, inputs):
     bound = {i: 0 for i, _ in e.free_indices}
     result = entry(e, bound, ())
     body = "\n".join(lines)
-    return SIGNATURE.format(name=name) + f"{{\n{body}\n  A[0] += {render(result)};\n}}\n"
-
-
-# The signature of a kernel of FFCx, so that an assembler of FFCx can call the kernel.
-SIGNATURE = (
-    "void {name}(double* restrict A, const double* restrict w, const double* restrict c,\n"
-    "    const double* restrict coordinate_dofs, const int* restrict entity_local_index,\n"
-    "    const unsigned char* restrict quadrature_permutation, void* custom_data)\n"
-)
+    return (
+        f"void {name}(double* restrict A, const double* restrict w, const double* restrict c,\n"
+        "    const double* restrict coordinate_dofs, const int* restrict entity_local_index,\n"
+        "    const unsigned char* restrict quadrature_permutation, void* custom_data)\n"
+        f"{{\n{body}\n  A[0] += {render(result)};\n}}\n"
+    )
 
 
 def render(x):

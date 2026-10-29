@@ -2,7 +2,7 @@ import basix
 import jax
 import jax.numpy as jnp
 import numpy as np
-from test_basix import CELLS, mixed, square
+from test_basix import mixed, square
 
 from uflx_compiler import assemble, compile_form, evaluate, fold
 from uflx_oracle import evaluate as oracle
@@ -31,7 +31,7 @@ def dot(a, b, D):
 
 
 def test_the_mass_and_stiffness_matrices_of_two_triangles():
-    D = square(basix_cell(CELLS[2]))[0]
+    D = square(basix_cell(basix.CellType.triangle))[0]
     V = basix_space("V", D.topology, P, 1)
     uT, vT = function(V, "u"), function(V, "v")
     u, v = push_forward(uT, D), push_forward(vT, D)
