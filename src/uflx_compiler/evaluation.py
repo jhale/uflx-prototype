@@ -109,8 +109,13 @@ def node(n, value, env, xp):
             return xp.imag(value(a))
         case Coordinate(P) if P.dimension == 0:
             return xp.zeros((0,))
-        case Inverse(a):
+        case Inverse(a) if a.value_shape[0] == a.value_shape[1]:
             return xp.linalg.inv(value(a))
+        case Inverse(a):
+            # A matrix with more rows than columns has the pseudo-inverse of the spec.
+            A = value(a)
+            At = xp.swapaxes(A, -1, -2)
+            return xp.linalg.inv(At @ A) @ At
         case Tensor(entries):
             # The entries, each over every free index of n, stacked as the first axis of the value.
             lengths = [extents(n, env)[i] for i in order]
