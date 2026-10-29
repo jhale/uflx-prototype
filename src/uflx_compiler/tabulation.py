@@ -97,8 +97,7 @@ def values(u, found_cell, derivative, points):
         out = coefficient
         for k, (F, X, covered) in enumerate(factors):
             d = covered.index(direction) if direction in covered else None
-            axes = [n for n, _ in X.free_indices]
-            out = out * basis_table(V, j, F, X, d)[(*axes, i[k])]
+            out = out * table_read(V, j, F, X, d, i[k])
         return index_sum(out, i)
 
     if derivative == 0:
@@ -117,6 +116,23 @@ def separable(points):
 
 def nested(values):
     return tuple(map(nested, values)) if isinstance(values, np.ndarray) else int(values)
+
+
+def table_read(V, j, F, X, d, i):
+    # A table that does not vary along an axis of the points, such as the derivative of an
+    # affine element, is read without that axis, so the read is the same at every point.
+    axes = [n for n, _ in X.free_indices]
+    if runtime_arrays(X):
+        return basis_table(V, j, F, X, d)[(*axes, i)]
+    values, kept = basis(F, d, coordinates(X, {})), []
+    for a in axes:
+        p = len(kept)
+        first = np.take(values, [0], axis=p)
+        if np.allclose(values, first, rtol=0, atol=1e-13 * max(1.0, np.abs(values).max())):
+            values = np.squeeze(first, axis=p)
+        else:
+            kept.append(a)
+    return constant(values)[(*kept, i)]
 
 
 def basis_table(V, j, F, X, d):
