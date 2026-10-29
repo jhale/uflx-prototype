@@ -104,6 +104,64 @@ class Gradient(AbstractExpression):
 
 
 @final
+class Divergence(AbstractExpression):
+    identifier = "uflx.Divergence"
+    # The trace of the gradient over the last axis of the value shape and the axis of the gradient.
+    expression: AbstractExpression
+    domain: AbstractDomain
+    opaque = ("domain",)
+
+    @cached_property
+    def value_shape(self):
+        return self.expression.value_shape[:-1]
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
+
+    @cached_property
+    def support(self):
+        return self.domain
+
+    @cached_property
+    def free_indices(self):
+        return self.expression.free_indices
+
+    @cached_property
+    def argument_spaces(self):
+        return self.expression.argument_spaces
+
+
+@final
+class Curl(AbstractExpression):
+    identifier = "uflx.Curl"
+    # The curl of a vector field, a vector for n = 3 and a scalar for n = 2.
+    expression: AbstractExpression
+    domain: AbstractDomain
+    opaque = ("domain",)
+
+    @cached_property
+    def value_shape(self):
+        return (3,) if self.domain.ambient_coordinate_domain.dimension == 3 else ()
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.expression)
+
+    @cached_property
+    def support(self):
+        return self.domain
+
+    @cached_property
+    def free_indices(self):
+        return self.expression.free_indices
+
+    @cached_property
+    def argument_spaces(self):
+        return self.expression.argument_spaces
+
+
+@final
 class PullBack(AbstractExpression):
     identifier = "uflx.PullBack"
     expression: AbstractExpression

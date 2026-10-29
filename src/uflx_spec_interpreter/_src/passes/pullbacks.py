@@ -1,4 +1,5 @@
 from ..arithmetic import divide, square_root
+from ..calculus import CONTRAVARIANT, piola, rotation_of_gradient, trace_of_gradient
 from ..domains import cell_of, inclusion, is_cell
 from ..geometry import density, inverse_jacobian, jacobian
 from ..nodes import (
@@ -6,6 +7,8 @@ from ..nodes import (
     CellMap,
     ComponentTensor,
     Coordinate,
+    Curl,
+    Divergence,
     Division,
     DomainMap,
     Gradient,
@@ -18,6 +21,7 @@ from ..nodes import (
     PushForward,
     SideMap,
     Sum,
+    TransformationLaw,
 )
 from ..static import free, shape, support, terminal, zero_like
 from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized, substitute
@@ -45,6 +49,12 @@ def rule(pb, f, m):
             K = inverse_jacobian(m)
             return contract_gradient(Gradient(pb(g, m), m.parameter_domain), K, f, m)
         case Gradient():
+            return PullBack(f, m)
+        case Divergence(PushForward(g, D, _), _) | Curl(PushForward(g, D, _), _) if (
+            piola(f) and m.ambient_domain == D and is_cell(m)
+        ):
+            return on_the_reference_cell(f, g, m, pb)
+        case Divergence() | Curl():
             return PullBack(f, m)
         case Normal(sm) if side_cell(sm, m) is not None:
             return normal(f, m, pb)
@@ -101,16 +111,31 @@ def contract_gradient(gradP, K, f, m):
 
 
 def pushed_forward(g, law, C, pb):
-    # The law applied to the value of g on the cell C, read through its cell map: K^T on each
-    # covariant axis and J on each contravariant axis, divided by det J, or by the density on a
-    # cell of lower dimension, to the weight.
+    # The law applied to the value of g on the cell C, read through its cell map.
+    j, e = cell_of(C)
+    return transformed(pb(g, CellMap(C.ambient_domain.topology, j, e)), law, C)
+
+
+def on_the_reference_cell(f, g, C, pb):
+    # The identity of Piola: the divergence or the curl of a push-forward is the operator on the
+    # reference cell, carried by the law of the result, with no derivative of the Jacobian.
     j, e = cell_of(C)
     ghat = pb(g, CellMap(C.ambient_domain.topology, j, e))
+    K = C.parameter_domain
+    if isinstance(f, Divergence):
+        return transformed(trace_of_gradient(ghat, K), TransformationLaw((), 1), C)
+    law = CONTRAVARIANT if f.value_shape == (3,) else TransformationLaw((), 1)
+    return transformed(rotation_of_gradient(ghat, K), law, C)
+
+
+def transformed(ghat, law, C):
+    # K^T on each covariant axis and J on each contravariant axis of ghat, divided by det J, or
+    # by the density on a cell of lower dimension, to the weight.
     J, K = jacobian(C), inverse_jacobian(C)
     r, p = len(shape(ghat)), len(law.variances)
-    lead = tuple(fresh(g, C, ("lead", n)) for n in range(r - p))
-    out = tuple(fresh(g, C, ("out", n)) for n in range(p))
-    summed = tuple(fresh(g, C, ("sum", n)) for n in range(p))
+    lead = tuple(fresh(ghat, C, ("lead", n)) for n in range(r - p))
+    out = tuple(fresh(ghat, C, ("out", n)) for n in range(p))
+    summed = tuple(fresh(ghat, C, ("sum", n)) for n in range(p))
     value = Indexed(ghat, (*lead, *summed))
     for variance, i, s in zip(law.variances, out, summed, strict=True):
         M = Indexed(K, (s, i)) if variance == "covariant" else Indexed(J, (i, s))
@@ -169,6 +194,7 @@ def remains(f, m):
         or isinstance(f, PushForward)
         or (isinstance(f, PullBack) and kept(f.domain))
         or (isinstance(f, Gradient) and not is_cell(m))
+        or (isinstance(f, Divergence | Curl) and not (piola(f) and is_cell(m)))
     )
 
 

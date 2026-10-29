@@ -14,7 +14,7 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
-from uflx_spec_interpreter._draft import push_forward, side_map
+from uflx_spec_interpreter._draft import divergence, push_forward, side_map
 from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, Function
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.spaces import space
@@ -81,8 +81,7 @@ def grad(f):
 
 
 def div(w):
-    i = index("div")
-    return index_sum(grad(w)[i, i], (i,))
+    return divergence(w, w.support)
 
 
 def inner(a, b):

@@ -13,7 +13,9 @@ from .arithmetic import (
 from .base import AbstractExpression, Base
 from .calculus import (
     Coordinate,
+    Curl,
     DirectionalDerivative,
+    Divergence,
     Gradient,
     Integral,
     Normal,
@@ -64,8 +66,10 @@ __all__ = [
     "Conjugate",
     "ConjugateSpace",
     "Coordinate",
+    "Curl",
     "DecomposedDomain",
     "DirectionalDerivative",
+    "Divergence",
     "Division",
     "DomainMap",
     "DualSpace",

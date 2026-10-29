@@ -12,7 +12,12 @@ from ._src.arithmetic import (
     square_root,
     subtract,
 )
-from ._src.calculus import coordinate, directional_derivative, gradient, integral
+from ._src.calculus import (
+    coordinate,
+    directional_derivative,
+    gradient,
+    integral,
+)
 from ._src.domains import (
     cell_domain_of_specification as cell_domain,
 )

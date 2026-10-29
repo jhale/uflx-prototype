@@ -1,7 +1,9 @@
 from ..nodes import (
     ComponentTensor,
     Conjugate,
+    Curl,
     DirectionalDerivative,
+    Divergence,
     Division,
     Form,
     Gradient,
@@ -31,6 +33,8 @@ COMMUTING = {
     ImaginaryPart: ("operand",),
     Division: ("first",),
     Gradient: ("expression",),
+    Divergence: ("expression",),
+    Curl: ("expression",),
     PullBack: ("expression",),
     PushForward: ("expression",),
     Integral: ("expression",),

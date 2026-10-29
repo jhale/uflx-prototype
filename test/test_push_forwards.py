@@ -5,15 +5,27 @@ from testutil import vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import RD, function, gradient, index, index_sum, integral, tensor
-from uflx_spec_interpreter._draft import image, push_forward
-from uflx_spec_interpreter._src.nodes import PushForward
+from uflx_spec_interpreter import (
+    RD,
+    coordinate,
+    expand_integrals,
+    function,
+    gradient,
+    index,
+    index_sum,
+    integral,
+    num,
+    tensor,
+)
+from uflx_spec_interpreter._draft import curl, divergence, image, push_forward
+from uflx_spec_interpreter._src.nodes import Gradient, PushForward
+from uflx_spec_interpreter._src.passes import gradients
 from uflx_spec_interpreter._src.substitution import everywhere
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
 
-P, RT = basix.ElementFamily.P, basix.ElementFamily.RT
+P, RT, N1 = basix.ElementFamily.P, basix.ElementFamily.RT, basix.ElementFamily.N1E
 K = basix_cell(CELLS[2])
 # The vertices of each cell are in increasing order, so the facets of Basix need no signs.
 T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
@@ -73,3 +85,75 @@ def test_a_raviart_thomas_function_pushed_forward_agrees_with_the_oracle():
         fluxes.append(values[1])
     # Bending the shared diagonal leaves the boundary, so the divergence has the same integral.
     assert np.isclose(fluxes[0], fluxes[1], rtol=1e-12)
+
+
+def second_derivatives(e):
+    # The gradients of gradients in the lowered form, such as the derivative of the Jacobian.
+    found = []
+    everywhere(
+        gradients.lower(expand_integrals(e)),
+        lambda n: (
+            not (isinstance(n, Gradient) and isinstance(n.expression, Gradient))
+            or not found.append(n)
+        ),
+    )
+    return found
+
+
+def test_the_divergence_of_a_raviart_thomas_function_is_the_reference_divergence():
+    i = index("i")
+    for D, geometry in ((vertex_mesh(T, VERTICES), {}), curved()):
+        vT = function(basix_space("R", T, RT, 1), "v")
+        v = push_forward(vT, D)
+        W = np.random.default_rng(2).normal(size=vT.space.num_dofs)
+        data = by_label(geometry) | {"coefficients:v": W}
+        by_hand = index_sum(gradient(v, D)[i, i], (i,))
+        for f, g in (
+            (divergence(v, D), by_hand),
+            (divergence(v, D) * divergence(v, D), by_hand * by_hand),
+        ):
+            value = evaluate(compile_form(integral(f, D), 12), data)
+            assert np.isclose(value, evaluate(compile_form(integral(g, D), 12), data))
+            assert np.isclose(value, oracle(integral(f, D), geometry | {vT: W})(()), rtol=1e-6)
+        # The identity needs no derivative of the Jacobian, so no second derivative is read.
+        assert not second_derivatives(integral(divergence(v, D), D))
+
+
+def test_the_curl_of_a_nedelec_function_is_the_reference_curl():
+    for D, geometry in ((vertex_mesh(T, VERTICES), {}), curved()):
+        uT = function(basix_space("N", T, N1, 1), "u")
+        u = push_forward(uT, D)
+        W = np.random.default_rng(3).normal(size=uT.space.num_dofs)
+        data = by_label(geometry) | {"coefficients:u": W}
+        g = gradient(u, D)
+        f, by_hand = (
+            integral(curl(u, D) * curl(u, D), D),
+            integral((g[1, 0] - g[0, 1]) * (g[1, 0] - g[0, 1]), D),
+        )
+        value = evaluate(compile_form(f, 12), data)
+        assert np.isclose(value, evaluate(compile_form(by_hand, 12), data))
+        assert np.isclose(value, oracle(f, geometry | {uT: W})(()), rtol=1e-6)
+        assert not second_derivatives(f)
+
+
+def test_the_curl_of_a_nedelec_function_on_a_tetrahedron_is_the_reference_curl():
+    K3 = basix_cell(basix.CellType.tetrahedron)
+    T3 = static_topology((K3,), (((0, 1, 2, 3),),), ())
+    D = vertex_mesh(T3, [(0, 0, 0), (1, 0.1, 0), (0.2, 1, 0.1), (0.1, 0.2, 0.9)])
+    uT = function(basix_space("N", T3, N1, 1), "u")
+    u = push_forward(uT, D)
+    W = np.random.default_rng(4).normal(size=uT.space.num_dofs)
+    i, c, g = index("i"), curl(u, D), gradient(u, D)
+    by_hand = tensor((g[2, 1] - g[1, 2], g[0, 2] - g[2, 0], g[1, 0] - g[0, 1]))
+    f = integral(index_sum(c[i] * c[i], (i,)), D)
+    value = evaluate(compile_form(f, 4), {"coefficients:u": W})
+    expected = integral(index_sum(by_hand[i] * by_hand[i], (i,)), D)
+    assert np.isclose(value, evaluate(compile_form(expected, 4), {"coefficients:u": W}))
+    assert np.isclose(value, oracle(f, {uT: W})(()), rtol=1e-6)
+
+
+def test_the_divergence_of_a_field_with_no_piola_map_is_the_trace_of_its_gradient():
+    D, geometry = curved()
+    data = by_label(geometry)
+    trace = evaluate(compile_form(integral(divergence(coordinate(D), D), D), 4), data)
+    assert np.isclose(trace, 2 * evaluate(compile_form(integral(num(1), D), 4), data))

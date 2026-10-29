@@ -1,3 +1,4 @@
+from ..calculus import piola, rotation_of_gradient, trace_of_gradient
 from ..domains import is_cell
 from ..nodes import (
     Absolute,
@@ -5,7 +6,9 @@ from ..nodes import (
     ComponentTensor,
     Conjugate,
     Coordinate,
+    Curl,
     DecomposedDomain,
+    Divergence,
     Division,
     DomainMap,
     DualSpace,
@@ -83,10 +86,11 @@ def chained(f):
 
 
 def remains(f, P):
-    # The gradient of a terminal, a pull-back or a gradient remains for the library, except the
-    # gradient of the coordinates, which is the identity, and the chain rule.
+    # The gradient of a terminal, a pull-back, a gradient, a push-forward, or a divergence or a
+    # curl of Piola remains, except the gradient of the coordinates, which is the identity, and
+    # the chain rule.
     identity = isinstance(f, Coordinate) and P.dimension == P.ambient_coordinate_domain.dimension
-    leaf = terminal(f) or isinstance(f, PullBack | Gradient | PushForward)
+    leaf = terminal(f) or isinstance(f, PullBack | Gradient | PushForward | Divergence | Curl)
     return leaf and not identity and not chained(f)
 
 
@@ -98,6 +102,10 @@ def apply_gradients(f):
         match e:
             case Gradient(g, P) if not remains(g, P):
                 return gradient(g, P, partial)
+            case Divergence(g, P) if not piola(e):
+                return trace_of_gradient(g, P)
+            case Curl(g, P) if not piola(e):
+                return rotation_of_gradient(g, P)
         return e
 
     return bottom_up(f, evaluate)
@@ -139,6 +147,8 @@ def allowed(e):
             return True
         case Gradient(f, P):
             return remains(f, P)
+        case Divergence() | Curl():
+            return piola(e)
         case Integral(_, P):
             return not isinstance(P, DecomposedDomain)
         case PullBack(f, m):
