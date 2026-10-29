@@ -197,7 +197,7 @@ def leaf_form(rnd, specs):
 def spaces(spec):
     if isinstance(spec, tuple):
         return tuple(map(spaces, spec))
-    space = {"V": V, "W": W}[base(spec)]
+    space = V if base(spec) == "V" else W
     return conjugate_space(space) if spec.endswith("*") else space
 
 

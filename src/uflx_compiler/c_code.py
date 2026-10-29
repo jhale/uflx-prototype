@@ -65,9 +65,9 @@ def c_kernel(e, name, inputs):
                     out = multiply(out, x)
                 return out
             case Absolute(a):
-                return call("fabs", entry(a, bound, comp))
+                return call("fabs", np.abs, entry(a, bound, comp))
             case SquareRoot(a):
-                return call("sqrt", entry(a, bound, comp))
+                return call("sqrt", np.sqrt, entry(a, bound, comp))
             case Conjugate(a) | RealPart(a):
                 return entry(a, bound, comp)
             case Tensor(entries):
@@ -152,10 +152,8 @@ def c_kernel(e, name, inputs):
     def negate(a):
         return -a if isinstance(a, float) else temp(f"-{a}")
 
-    def call(f, a):
-        if isinstance(a, float):
-            return float({"fabs": np.abs, "sqrt": np.sqrt}[f](a))
-        return temp(f"{f}({a})")
+    def call(name, f, a):
+        return float(f(a)) if isinstance(a, float) else temp(f"{name}({a})")
 
     bound = {i: 0 for i, _ in e.free_indices}
     result = entry(e, bound, ())

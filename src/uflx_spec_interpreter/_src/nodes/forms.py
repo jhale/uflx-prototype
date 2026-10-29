@@ -57,6 +57,7 @@ class Function(AbstractExpression):
 @final
 class Form(AbstractExpression):
     identifier = "uflx.Form"
+    commuting = ("expression",)
     expression: AbstractExpression
     arguments: tuple
     scope = ("expression", "arguments")

@@ -20,6 +20,8 @@ class Base(ABC):
     objects: ClassVar[tuple] = ()
     # Arguments whose nodes identify the node, which a substitution rebuilds.
     labels: ClassVar[tuple] = ()
+    # The operands into which a linear evaluation, such as a derivative or an action, moves.
+    commuting: ClassVar[tuple] = ()
     # A binding node names the arguments where its bound names are in scope.
     scope: ClassVar[tuple] = ()
 

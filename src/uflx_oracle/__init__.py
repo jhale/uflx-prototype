@@ -322,6 +322,10 @@ def entry_value(member, value):
     return member.operand, np.conj(value)
 
 
+def complex_operation(op, fa):
+    return lambda vals: op(np.asarray(fa(vals), dtype=complex))
+
+
 # The value of an expression is a function of the values of its arguments.
 def evaluate_uncached(e, env, ienv=None, over=None):
     ienv, over = ienv or {}, over or {}
@@ -397,16 +401,16 @@ def evaluate_uncached(e, env, ienv=None, over=None):
         case Conjugate(a):
             fa = ev(a)
             return lambda vals: np.conj(fa(vals))
-        case RealPart(a) | ImaginaryPart(a) | Absolute(a) | SquareRoot(a) | Logarithm(a):
-            fa = ev(a)
-            op = {
-                RealPart: np.real,
-                ImaginaryPart: np.imag,
-                Absolute: np.abs,
-                SquareRoot: np.sqrt,
-                Logarithm: np.log,
-            }[type(e)]
-            return lambda vals: op(np.asarray(fa(vals), dtype=complex))
+        case RealPart(a):
+            return complex_operation(np.real, ev(a))
+        case ImaginaryPart(a):
+            return complex_operation(np.imag, ev(a))
+        case Absolute(a):
+            return complex_operation(np.abs, ev(a))
+        case SquareRoot(a):
+            return complex_operation(np.sqrt, ev(a))
+        case Logarithm(a):
+            return complex_operation(np.log, ev(a))
         case Inverse(a):
             fa = ev(a)
             return lambda vals: np.linalg.pinv(np.asarray(fa(vals), dtype=complex))

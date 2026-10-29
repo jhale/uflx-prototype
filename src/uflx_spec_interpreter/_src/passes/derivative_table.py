@@ -16,7 +16,7 @@ from ..nodes import (
     Sum,
 )
 from ..tensors import transpose
-from .commuting import COMMUTING, commute
+from .commuting import commute
 
 
 def derivative_of_node(f, d, constant, avoid):
@@ -40,7 +40,7 @@ def derivative_of_node(f, d, constant, avoid):
             return inverse_derivative(A, d(A))
         case Action(Function(space, _) as l, 0, w) if isinstance(space, DualSpace):
             return Action(l, 0, d(w))
-        case _ if type(f) in COMMUTING:
+        case _ if f.commuting:
             return commute(f, d, avoid)
     raise TypeError(f"cannot occur: {f}")
 

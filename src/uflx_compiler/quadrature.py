@@ -23,7 +23,7 @@ def apply_quadrature(f, degree):
 
 
 def rule(g, K, degree):
-    if K.cell_type in PRODUCTS:
+    if K.cell_type in (basix.CellType.quadrilateral, basix.CellType.hexahedron):
         return product_rule(g, K, degree)
     X, w = basix.make_quadrature(K.cell_type, degree)
     points, weights = constant(X), constant(w)
@@ -43,9 +43,6 @@ def product_rule(g, K, degree):
     for i in q[1:]:
         weight = weight * w[i]
     return index_sum(weight * pull_back(g, domain_map(RD(0), points, K)), q)
-
-
-PRODUCTS = (basix.CellType.quadrilateral, basix.CellType.hexahedron)
 
 
 def constant(values):

@@ -63,24 +63,32 @@ def keeps_static_type(e, out):
     return same and scalar and out.support in (e.support, None)
 
 
-# The operands whose argument spaces a node passes on, by the static type table.
-PASSED = {
-    Sum: ("first", "second"),
-    Product: ("first", "second"),
-    Division: ("first",),
-    Conjugate: ("operand",),
-    Tensor: ("entries",),
-    Indexed: ("expression",),
-    ComponentTensor: ("expression",),
-    IndexSum: ("expression",),
-    Gradient: ("expression",),
-    DirectionalDerivative: ("expression",),
-    GateauxDerivative: ("expression",),
-    Integral: ("expression",),
-    PullBack: ("expression",),
-    Form: ("expression",),
-    Action: ("form", "argument"),
-}
+def passed(n):
+    # The operands whose argument spaces a node passes on, by the static type table.
+    match n:
+        case Sum() | Product():
+            return ("first", "second")
+        case Division():
+            return ("first",)
+        case Conjugate():
+            return ("operand",)
+        case Tensor():
+            return ("entries",)
+        case (
+            Indexed()
+            | ComponentTensor()
+            | IndexSum()
+            | Gradient()
+            | DirectionalDerivative()
+            | GateauxDerivative()
+            | Integral()
+            | PullBack()
+            | Form()
+        ):
+            return ("expression",)
+        case Action():
+            return ("form", "argument")
+    return ()
 
 
 def ill_typed(e):
@@ -97,8 +105,7 @@ def ill_typed(e):
 
 
 def node_error(n):
-    passed = PASSED.get(type(n), ())
-    others = [m for name in traversed(n) if name not in passed for m in nodes_in(n, [name])]
+    others = [m for name in traversed(n) if name not in passed(n) for m in nodes_in(n, [name])]
     for m in others:
         if isinstance(m, AbstractExpression) and m.argument_spaces:
             return f"{type(n).__name__} has an operand with argument spaces {m.argument_spaces}"

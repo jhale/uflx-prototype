@@ -105,39 +105,37 @@ def apply_gradients(f):
     return bottom_up(f, evaluate)
 
 
-# The node classes that the core normal form allows always.
-ALWAYS = (
-    Integer,
-    Float,
-    ImaginaryUnit,
-    Zero,
-    Sum,
-    Product,
-    Division,
-    Power,
-    Absolute,
-    Conjugate,
-    RealPart,
-    ImaginaryPart,
-    SquareRoot,
-    Logarithm,
-    Tensor,
-    Indexed,
-    ComponentTensor,
-    IndexSum,
-    Inverse,
-    Coordinate,
-    Normal,
-    Function,
-    Form,
-    PushForward,
-)
-
-
 def allowed(e):
-    # The table of the core normal form, the output grammar N6.
+    # The core normal form, the output grammar N6.
     match e:
-        case _ if isinstance(e, ALWAYS) or downstream(e):
+        case (
+            Integer()
+            | Float()
+            | ImaginaryUnit()
+            | Zero()
+            | Sum()
+            | Product()
+            | Division()
+            | Power()
+            | Absolute()
+            | Conjugate()
+            | RealPart()
+            | ImaginaryPart()
+            | SquareRoot()
+            | Logarithm()
+            | Tensor()
+            | Indexed()
+            | ComponentTensor()
+            | IndexSum()
+            | Inverse()
+            | Coordinate()
+            | Normal()
+            | Function()
+            | Form()
+            | PushForward()
+        ):
+            return True
+        case _ if downstream(e):
             return True
         case Gradient(f, P):
             return remains(f, P)

@@ -2,7 +2,7 @@ from ..nodes import Action, Conjugate, DualSpace, Form, Function, Product, Zero
 from ..static import arity, free_indices
 from ..substitution import bottom_up, everywhere, freshen, memoized, rebuild, substitute
 from ..tuples import members
-from .commuting import COMMUTING, commute
+from .commuting import commute
 
 
 def rule(act, f, p, g):
@@ -14,7 +14,7 @@ def rule(act, f, p, g):
             return Product(act(a, p, g), b)
         case Product(a, b):
             return Product(a, act(b, p - arity(a), g))
-        case _ if type(f) in COMMUTING:
+        case _ if f.commuting:
             return commute(f, lambda b: act(b, p, g), members(g))
         case Zero(s, _, args):
             return Zero(s, free_indices(f, *members(g)), without(args, p))

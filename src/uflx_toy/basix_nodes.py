@@ -101,7 +101,20 @@ class BasixSpace(AbstractFunctionSpace):
     @property
     def law(self):
         # The transformation law of the map type of the element, as Basix names the six maps.
-        return LAWS[self.element(0).map_type]
+        match self.element(0).map_type:
+            case basix.MapType.identity:
+                return TransformationLaw((), 0)
+            case basix.MapType.covariantPiola:
+                return TransformationLaw(("covariant",), 0)
+            case basix.MapType.contravariantPiola:
+                return TransformationLaw(("contravariant",), 1)
+            case basix.MapType.doubleCovariantPiola:
+                return TransformationLaw(("covariant", "covariant"), 0)
+            case basix.MapType.doubleContravariantPiola:
+                return TransformationLaw(("contravariant", "contravariant"), 2)
+            case basix.MapType.L2Piola:
+                return TransformationLaw((), 1)
+        raise ValueError(f"no transformation law for {self.element(0).map_type}")
 
     @cached_property
     def dofmap(self):
@@ -138,17 +151,6 @@ class BasixSpace(AbstractFunctionSpace):
 
 
 EQUISPACED = basix.LagrangeVariant.equispaced
-
-LAWS = {
-    basix.MapType.identity: TransformationLaw((), 0),
-    basix.MapType.covariantPiola: TransformationLaw(("covariant",), 0),
-    basix.MapType.contravariantPiola: TransformationLaw(("contravariant",), 1),
-    basix.MapType.doubleCovariantPiola: TransformationLaw(("covariant", "covariant"), 0),
-    basix.MapType.doubleContravariantPiola: TransformationLaw(
-        ("contravariant", "contravariant"), 2
-    ),
-    basix.MapType.L2Piola: TransformationLaw((), 1),
-}
 
 
 def table(values):

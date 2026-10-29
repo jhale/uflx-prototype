@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 @final
 class DirectionalDerivative(AbstractExpression):
     identifier = "uflx.DirectionalDerivative"
+    commuting = ("expression",)
     # The variable, the point and the direction are a function and two expressions, or tuples.
     expression: AbstractExpression
     variable: Function | tuple[Function, ...]
@@ -78,6 +79,7 @@ class Coordinate(AbstractExpression):
 @final
 class Gradient(AbstractExpression):
     identifier = "uflx.Gradient"
+    commuting = ("expression",)
     expression: AbstractExpression
     domain: AbstractDomain
     opaque = ("domain",)
@@ -106,6 +108,7 @@ class Gradient(AbstractExpression):
 @final
 class Divergence(AbstractExpression):
     identifier = "uflx.Divergence"
+    commuting = ("expression",)
     # The trace of the gradient over the last axis of the value shape and the axis of the gradient.
     expression: AbstractExpression
     domain: AbstractDomain
@@ -135,6 +138,7 @@ class Divergence(AbstractExpression):
 @final
 class Curl(AbstractExpression):
     identifier = "uflx.Curl"
+    commuting = ("expression",)
     # The curl of a vector field, contracted with the permutation tensor of rank n.
     expression: AbstractExpression
     domain: AbstractDomain
@@ -166,6 +170,7 @@ class Curl(AbstractExpression):
 @final
 class PullBack(AbstractExpression):
     identifier = "uflx.PullBack"
+    commuting = ("expression",)
     expression: AbstractExpression
     domain: DomainMap | SideMap | CellMap
     objects = ("domain",)
@@ -207,6 +212,7 @@ class TransformationLaw(Base):
 @final
 class PushForward(AbstractExpression):
     identifier = "uflx.PushForward"
+    commuting = ("expression",)
     # The field on a mesh of a function on its topology, carried by a transformation law.
     expression: AbstractExpression
     domain: DecomposedDomain
@@ -240,6 +246,7 @@ class PushForward(AbstractExpression):
 @final
 class Integral(AbstractExpression):
     identifier = "uflx.Integral"
+    commuting = ("expression",)
     expression: AbstractExpression
     domain: AbstractDomain
     opaque = ("domain",)

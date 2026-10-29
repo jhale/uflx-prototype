@@ -1,5 +1,3 @@
-import operator
-
 import numpy as np
 
 from uflx_spec_interpreter._src.nodes import (
@@ -52,9 +50,6 @@ def is_zero(e):
     return isinstance(e, Zero) or literal(e) == 0
 
 
-OPERATIONS = {Sum: operator.add, Product: operator.mul, Division: operator.truediv}
-
-
 def rewritten(e):
     match e:
         case Sum(a, b) if is_zero(a):
@@ -77,8 +72,12 @@ def rewritten(e):
             return a
         case Division(a, b) | Power(a, b) if literal(b) == 1:
             return a
-        case Sum(a, b) | Product(a, b) | Division(a, b) if None not in (literal(a), literal(b)):
-            return folded(OPERATIONS[type(e)](literal(a), literal(b)), a, b)
+        case Sum(a, b) if None not in (literal(a), literal(b)):
+            return folded(literal(a) + literal(b), a, b)
+        case Product(a, b) if None not in (literal(a), literal(b)):
+            return folded(literal(a) * literal(b), a, b)
+        case Division(a, b) if None not in (literal(a), literal(b)):
+            return folded(literal(a) / literal(b), a, b)
         case Indexed(ComponentTensor(x, bound), indices) if reducible(bound, indices):
             return instantiated(x, dict(zip(bound, indices, strict=True)))
         case Indexed(Tensor(entries), (int() as k, *rest)):

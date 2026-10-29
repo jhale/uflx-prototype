@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 @final
 class Tensor(AbstractExpression):
     identifier = "uflx.Tensor"
+    commuting = ("entries",)
     entries: tuple[AbstractExpression, ...]
 
     @cached_property
@@ -39,6 +40,7 @@ class Tensor(AbstractExpression):
 @final
 class Indexed(AbstractExpression):
     identifier = "uflx.Indexed"
+    commuting = ("expression",)
     expression: AbstractExpression
     indices: tuple[int | Index | GatheredIndex | EllipsisIndex, ...]
 
@@ -82,6 +84,7 @@ class Indexed(AbstractExpression):
 @final
 class ComponentTensor(AbstractExpression):
     identifier = "uflx.ComponentTensor"
+    commuting = ("expression",)
     expression: AbstractExpression
     indices: tuple[Index | EllipsisIndex, ...]
     scope = ("expression", "indices")
@@ -119,6 +122,7 @@ class ComponentTensor(AbstractExpression):
 @final
 class IndexSum(AbstractExpression):
     identifier = "uflx.IndexSum"
+    commuting = ("expression",)
     expression: AbstractExpression
     indices: tuple[Index | EllipsisIndex, ...]
     scope = ("expression", "indices")

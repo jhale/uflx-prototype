@@ -4,7 +4,6 @@ from functools import cached_property
 from typing import final
 
 from ..nodes import AbstractExpression, Function
-from ..passes.commuting import COMMUTING
 from ..passes.derivatives import deriv
 from ..substitution import bottom_up
 from ..tuples import members
@@ -13,6 +12,8 @@ from ..tuples import members
 @final
 class ShapeDerivative(AbstractExpression):
     identifier = "uflx.shape.ShapeDerivative"
+    # A derivative in a function that the coordinates do not depend on commutes with the node.
+    commuting = ("expression",)
     # The derivative of the expression when the coordinate function x of its meshes moves in the
     # direction h, a node of the language extension for shape derivatives.
     expression: AbstractExpression
@@ -43,10 +44,6 @@ class ShapeDerivative(AbstractExpression):
     @cached_property
     def support(self):
         return self.expression.support
-
-
-# A derivative in a function that the coordinates do not depend on commutes with the node.
-COMMUTING[ShapeDerivative] = ("expression",)
 
 
 def shape_derivative(f, x, h):

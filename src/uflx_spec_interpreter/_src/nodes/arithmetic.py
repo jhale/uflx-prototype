@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 @final
 class Sum(AbstractExpression):
     identifier = "uflx.Sum"
+    commuting = ("first", "second")
     first: AbstractExpression
     second: AbstractExpression
 
@@ -67,6 +68,7 @@ class Product(AbstractExpression):
 @final
 class Division(AbstractExpression):
     identifier = "uflx.Division"
+    commuting = ("first",)
     first: AbstractExpression
     second: AbstractExpression
 
@@ -121,6 +123,7 @@ class Power(AbstractExpression):
 @final
 class Conjugate(AbstractExpression):
     identifier = "uflx.Conjugate"
+    commuting = ("operand",)
     operand: AbstractExpression
 
     @cached_property
@@ -150,6 +153,7 @@ class Conjugate(AbstractExpression):
 @final
 class RealPart(AbstractExpression):
     identifier = "uflx.RealPart"
+    commuting = ("operand",)
     operand: AbstractExpression
 
     @cached_property
@@ -176,6 +180,7 @@ class RealPart(AbstractExpression):
 @final
 class ImaginaryPart(AbstractExpression):
     identifier = "uflx.ImaginaryPart"
+    commuting = ("operand",)
     operand: AbstractExpression
 
     @cached_property

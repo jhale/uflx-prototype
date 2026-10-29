@@ -141,14 +141,14 @@ def facet_functionals(D, E, B, u):
     ]
 
 
-@pytest.mark.parametrize("mesh", ["triangles", "quadrilaterals", "mixed"])
+@pytest.mark.parametrize(
+    "mesh",
+    [lambda: square(basix_cell(CELLS[2])), quadrilaterals, mixed],
+    ids=["triangles", "quadrilaterals", "mixed"],
+)
 @pytest.mark.parametrize("discontinuous", [False, True])
 def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
-    D, E, B = {
-        "triangles": lambda: square(basix_cell(CELLS[2])),
-        "quadrilaterals": quadrilaterals,
-        "mixed": mixed,
-    }[mesh]()
+    D, E, B = mesh()
     V = basix_space("V", D.topology, P, 1, discontinuous)
     u = push_forward(function(V, "u"), D)
     U = np.random.default_rng(8).normal(size=V.num_dofs)

@@ -92,16 +92,22 @@ r = function(space("R"), "r")
 d = tensor((num(3), num(5)))
 
 
+def leaves(rnd, dom, kind):
+    match kind:
+        case "domain":
+            return [indexed(coordinate(dom), (0,)), indexed(coordinate(dom), (1,))] + (
+                [u, indexed(gradient(u, D), (rnd.randrange(2),))] if dom == D else []
+            )
+        case "ambient":
+            return [indexed(coordinate(R2), (0,)), indexed(coordinate(R2), (1,))] + (
+                [indexed(d, (c,))] if dom == D else []
+            )
+    return [num(rnd.choice([1, 2, -0.5])), r]
+
+
 def scalar(rnd, dom, kind, depth):
     if depth == 0 or rnd.random() < 0.35:
-        leaves = {
-            "domain": [indexed(coordinate(dom), (0,)), indexed(coordinate(dom), (1,))]
-            + ([u, indexed(gradient(u, D), (rnd.randrange(2),))] if dom == D else []),
-            "ambient": [indexed(coordinate(R2), (0,)), indexed(coordinate(R2), (1,))]
-            + ([indexed(d, (c,))] if dom == D else []),
-            "none": [num(rnd.choice([1, 2, -0.5])), r],
-        }[kind]
-        return rnd.choice([*leaves, num(2)])
+        return rnd.choice([*leaves(rnd, dom, kind), num(2)])
     a, b = scalar(rnd, dom, kind, depth - 1), scalar(rnd, dom, kind, depth - 1)
     return rnd.choice([add(a, b), multiply(a, b)])
 

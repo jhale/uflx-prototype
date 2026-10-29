@@ -18,8 +18,6 @@ from ..static import zero_like
 from ..substitution import bottom_up, everywhere, memoized, occurs, operands
 from ..tuples import each, members
 
-NONHOLOMORPHIC = (Conjugate, Absolute, RealPart, ImaginaryPart)
-
 
 def rule(g):
     # The rule table of apply_gateaux_derivatives, keyed on the space of x and the entry.
@@ -56,7 +54,10 @@ def holomorphic(F, x):
     def walk(walk, G, inside):
         if inside and any(occurs(m, G) for m in members(x)):
             return False
-        return all(walk(y, inside or isinstance(G, NONHOLOMORPHIC)) for y in operands(G))
+        return all(
+            walk(y, inside or isinstance(G, Conjugate | Absolute | RealPart | ImaginaryPart))
+            for y in operands(G)
+        )
 
     return memoized(walk)(F, False)
 
