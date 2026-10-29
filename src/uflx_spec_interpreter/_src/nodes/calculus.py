@@ -8,7 +8,7 @@ from .base import AbstractExpression
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
-    from .domains import AbstractDomain, DomainMap, SideMap
+    from .domains import AbstractDomain, CellMap, DomainMap, SideMap
     from .forms import Function
 
 
@@ -107,7 +107,8 @@ class Gradient(AbstractExpression):
 class PullBack(AbstractExpression):
     identifier = "uflx.PullBack"
     expression: AbstractExpression
-    domain: DomainMap | SideMap
+    domain: DomainMap | SideMap | CellMap
+    objects = ("domain",)
 
     @cached_property
     def value_shape(self):
@@ -164,6 +165,7 @@ class Integral(AbstractExpression):
 class Normal(AbstractExpression):
     identifier = "uflx.Normal"
     side_map: SideMap
+    objects = ("side_map",)
 
     @cached_property
     def value_shape(self):

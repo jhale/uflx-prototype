@@ -20,7 +20,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._draft import cell_domain, cell_map, coordinate_function, mesh
 from uflx_spec_interpreter._src.domains import is_cell
-from uflx_spec_interpreter._src.nodes import CellMap, PullBack
+from uflx_spec_interpreter._src.nodes import CellMap, Division, PullBack
 from uflx_spec_interpreter._src.passes import gradients
 from uflx_spec_interpreter._src.substitution import everywhere
 from uflx_toy.basix_cells import basix_cell
@@ -141,3 +141,22 @@ def test_a_gathered_cell_of_a_mesh_reads_the_cells_that_the_entry_selects():
     assert np.isclose(value, evaluate(compile_form(plain, 4), env))
     assert np.isclose(value, oracle(gathered, geometry | {u: U})(()))
     assert gradients.in_n6(apply_gradients(gathered))
+
+
+def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
+    # A lowering pass does not enter domains, domain maps or spaces, so the cells of the lowered
+    # form are cells of the mesh of the user, and its function is the function of the user.
+    D, _ = p1_mesh()
+    u = function(basix_space("V", D, P, 2), "u")
+    out = gradients.lower(expand_integrals(functionals(D, u)[3]))
+    reads = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == u]
+    assert reads and all(n.domain.ambient_domain == D for n in reads)
+
+
+def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
+    # The derivative table of P1 does not vary over the points, so det J has no index of them.
+    D, _ = p1_mesh()
+    u = function(basix_space("V", D, P, 2), "u")
+    compiled = compile_form(functionals(D, u)[3], 4)
+    dets = {n.second for n in nodes(compiled) if isinstance(n, Division)}
+    assert dets and all([i for i, _ in d.free_indices] == [cell_index(T, 0)] for d in dets)

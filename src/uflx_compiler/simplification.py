@@ -22,7 +22,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.substitution import map_fields, memoized
+from uflx_spec_interpreter._src.substitution import lowered, map_fields, memoized
 from uflx_spec_interpreter._src.tensors import determinant
 
 
@@ -31,7 +31,7 @@ def simplify(f):
     # that its value needs. A term that is zero is dropped, a component of a component tensor
     # is the expression at that component, and arithmetic of literals is folded.
     def walk(walk, e):
-        new = map_fields(e, walk)
+        new = map_fields(e, walk, lowered(e))
         if isinstance(e, ComponentTensor | IndexSum):
             new = restored(e, new)
         out = rewritten(new)

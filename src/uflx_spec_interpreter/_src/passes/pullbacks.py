@@ -31,7 +31,7 @@ def rule(pb, f, m):
         case _ if support(f) is None:
             return broadcast(f, m)
         case Coordinate(Q) if Q == m.ambient_domain:
-            return m.parameterisation
+            return lowered_copy(pb, m.parameterisation)
         case PullBack(g, SideMap() as sm) if (
             cell_of(m) is not None and m.ambient_domain == sm.parameter_domain
         ):
@@ -42,9 +42,8 @@ def rule(pb, f, m):
         case PullBack(g, phi):
             return pb(g, composed(phi, m, pb))
         case Gradient(g, _) if is_cell(m):
-            return contract_gradient(
-                Gradient(pb(g, m), m.parameter_domain), inverse_jacobian(m), f, m
-            )
+            K = lowered_copy(pb, inverse_jacobian(m))
+            return contract_gradient(Gradient(pb(g, m), m.parameter_domain), K, f, m)
         case Gradient():
             return PullBack(f, m)
         case Normal(sm) if cell_of(m) is not None and m.ambient_domain == sm.parameter_domain:
@@ -62,7 +61,14 @@ def kept(m):
 
 def composed(phi, m, pb):
     # The map phi after m, so that only a pull-back by a cell keeps a pull-back inside it.
-    return DomainMap(m.parameter_domain, pb(phi.parameterisation, m), phi.ambient_domain)
+    psi = pb(lowered_copy(pb, phi.parameterisation), m)
+    return DomainMap(m.parameter_domain, psi, phi.ambient_domain)
+
+
+def lowered_copy(pb, e):
+    # An expression read out of a domain map, which a lowering pass does not enter, is lowered
+    # where the rows bring it into the expression.
+    return bottom_up(e, lambda n: pb(n.expression, n.domain) if isinstance(n, PullBack) else n)
 
 
 def broadcast(f, m):
@@ -103,7 +109,7 @@ def side_maps(sm, m):
 def normal(f, m, pb):
     # K^T m_hat / |K^T m_hat|, with m_hat the reference normal of the side tables.
     B, A, m_hat = side_maps(f.side_map, m)
-    w = transpose(pb(inverse_jacobian(B), A)) @ m_hat
+    w = transpose(pb(lowered_copy(pb, inverse_jacobian(B)), A)) @ m_hat
     return divide(w, square_root(w @ w))
 
 

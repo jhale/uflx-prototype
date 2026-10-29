@@ -133,9 +133,14 @@ def memoized(rule):
     return recurse
 
 
+def lowered(e):
+    # The arguments that a lowering pass rewrites, without the domains, maps and spaces.
+    return [n for n in traversed(e) if n not in e.objects]
+
+
 def bottom_up(f, rewrite):
     # Rewrite each node after its operands, once for each node of the graph of f.
-    return memoized(lambda walk, e: rewrite(map_fields(e, walk)))(f)
+    return memoized(lambda walk, e: rewrite(map_fields(e, walk, lowered(e))))(f)
 
 
 def everywhere(e, holds):

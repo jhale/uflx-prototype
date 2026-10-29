@@ -15,6 +15,9 @@ class Base(ABC):
     argument_names: ClassVar[tuple] = ()
     # Arguments that are data, not operands, so traversal skips them.
     opaque: ClassVar[tuple] = ()
+    # Domains, domain maps and spaces, which a substitution of indices enters and a lowering
+    # pass does not rewrite.
+    objects: ClassVar[tuple] = ()
     # Arguments whose nodes identify the node, which a substitution rebuilds.
     labels: ClassVar[tuple] = ()
     # A binding node names the arguments where its bound names are in scope.
