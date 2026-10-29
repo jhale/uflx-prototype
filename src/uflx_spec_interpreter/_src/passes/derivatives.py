@@ -9,7 +9,7 @@ def deriv(f, x, a, h):
     # The rules give the derivative at x, so the point is substituted for x afterwards.
     xs, at, hs = members(x), members(a), members(h)
     out = memoized(lambda d, g: rules(d, g, xs, at, hs))(f)
-    return out if a == x else substitute(out, dict(zip(members(x), members(a), strict=True)))
+    return substitute(out, dict(zip(xs, at, strict=True)))
 
 
 def rules(d, f, xs, a, h):

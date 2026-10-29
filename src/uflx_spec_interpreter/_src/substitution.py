@@ -112,10 +112,7 @@ def substituted(walk, e, items):
     if not e.scope:
         return map_fields(e, lambda x: walk(x, items))
     inner = {r: s for r, s in mapping.items() if not any(occurs(n, r) for n in e.bound())}
-    fresh = freshen(e, list(inner.values()))
-    if not fresh.scope:
-        return walk(fresh, items)
-    e = fresh
+    e = freshen(e, list(inner.values()))
     outside = [n for n in traversed(e) if n not in e.scope]
     e = map_fields(e, lambda x: walk(x, items), outside)
     return map_fields(e, lambda x: walk(x, tuple(inner.items())), e.scope)

@@ -27,7 +27,6 @@ from ..nodes import (
     Product,
     PullBack,
     RealPart,
-    SideMap,
     SquareRoot,
     Sum,
     Tensor,
@@ -37,10 +36,8 @@ from ..static import downstream, free_indices, shape, support, terminal
 from ..substitution import bottom_up, everywhere, memoized
 from ..tensors import identity
 from .derivative_table import derivative_of_node
-from .pullbacks import expand_pull_backs, kept
-
-# Expressions whose gradient a library provides, so the gradient remains.
-LEAVES = (Function, Normal, PullBack, Gradient, Coordinate)
+from .pullbacks import expand_pull_backs
+from .pullbacks import remains as pulled_back_remains
 
 
 def rule(partial, f, P, j):
@@ -52,7 +49,7 @@ def rule(partial, f, P, j):
                 (*free_indices(f), (j, P.ambient_coordinate_domain.dimension)),
                 f.argument_spaces,
             )
-        case Coordinate(Q) if Q == P and P.dimension == P.ambient_coordinate_domain.dimension:
+        case Coordinate() if P.dimension == P.ambient_coordinate_domain.dimension:
             i = Index(("uflx.apply_gradients", f, P))
             return ComponentTensor(
                 Indexed(identity(P.ambient_coordinate_domain.dimension), (i, j)), (i,)
@@ -65,7 +62,7 @@ def rule(partial, f, P, j):
             inner = Indexed(partial(phi.parameterisation, P, j), (r,))
             entry = IndexSum(Product(outer, inner), (r,))
             return ComponentTensor(entry, axes) if axes else entry
-        case _ if isinstance(f, LEAVES):
+        case _ if remains(f, P):
             axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
             entry = Indexed(Gradient(f, P), (*axes, j))
             return ComponentTensor(entry, axes) if axes else entry
@@ -84,14 +81,12 @@ def chained(f):
     return isinstance(f, PullBack) and isinstance(f.domain, DomainMap) and not is_cell(f.domain)
 
 
-def evaluated(f, P):
-    # A gradient remains on a leaf, except the gradient of the coordinates, which is the identity,
-    # and the gradient of a pull-back by a map that is not a cell.
-    if chained(f):
-        return True
-    if isinstance(f, Coordinate):
-        return f == Coordinate(P) and P.dimension == P.ambient_coordinate_domain.dimension
-    return not isinstance(f, LEAVES)
+def remains(f, P):
+    # The gradient of a terminal, a pull-back or a gradient remains for the library, except the
+    # gradient of the coordinates, which is the identity, and the chain rule.
+    identity = isinstance(f, Coordinate) and P.dimension == P.ambient_coordinate_domain.dimension
+    leaf = terminal(f) or isinstance(f, PullBack | Gradient)
+    return leaf and not identity and not chained(f)
 
 
 def apply_gradients(f):
@@ -100,7 +95,7 @@ def apply_gradients(f):
 
     def evaluate(e):
         match e:
-            case Gradient(g, P) if evaluated(g, P):
+            case Gradient(g, P) if not remains(g, P):
                 return gradient(g, P, partial)
         return e
 
@@ -141,16 +136,11 @@ def allowed(e):
         case _ if isinstance(e, ALWAYS) or downstream(e):
             return True
         case Gradient(f, P):
-            return (terminal(f) or isinstance(f, (PullBack, Gradient))) and not evaluated(f, P)
+            return remains(f, P)
         case Integral(_, P):
             return not isinstance(P, DecomposedDomain)
         case PullBack(f, m):
-            return (
-                isinstance(m, SideMap)
-                or terminal(f)
-                or (isinstance(f, PullBack) and kept(f.domain))
-                or (isinstance(f, Gradient) and not is_cell(m))
-            )
+            return pulled_back_remains(f, m)
         case Action(Function(space, _), _, _):
             return isinstance(space, DualSpace)
     return False

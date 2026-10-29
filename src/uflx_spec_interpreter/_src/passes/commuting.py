@@ -37,5 +37,5 @@ COMMUTING = {
 
 def commute(f, evaluate, avoid):
     # Move an evaluated node into the listed operands, after making a binding node fresh.
-    fresh = freshen(f, avoid) if f.scope else f
+    fresh = freshen(f, avoid)
     return map_fields(fresh, evaluate, COMMUTING[type(fresh)])

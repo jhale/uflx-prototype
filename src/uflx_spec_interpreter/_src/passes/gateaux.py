@@ -13,9 +13,10 @@ from ..nodes import (
     ScalarType,
     Sum,
 )
+from ..nodes.forms import entry_function
 from ..static import zero_like
 from ..substitution import bottom_up, everywhere, memoized, occurs, operands
-from ..tuples import members
+from ..tuples import each, members
 
 NONHOLOMORPHIC = (Conjugate, Absolute, RealPart, ImaginaryPart)
 
@@ -47,9 +48,7 @@ def antilinear(entry):
 
 def direction(entry):
     # The function of an entry, member by member for a tuple.
-    if isinstance(entry, tuple):
-        return tuple(map(direction, entry))
-    return entry.operand if isinstance(entry, Conjugate) else entry
+    return each(entry_function, entry)
 
 
 def holomorphic(F, x):
@@ -63,9 +62,7 @@ def holomorphic(F, x):
 
 
 def times_i(w):
-    if isinstance(w, tuple):
-        return tuple(map(times_i, w))
-    return Product(ImaginaryUnit(), w)
+    return each(lambda m: Product(ImaginaryUnit(), m), w)
 
 
 def half_sum(F, x, a, w, sign):

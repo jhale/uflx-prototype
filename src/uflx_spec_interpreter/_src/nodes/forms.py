@@ -3,20 +3,26 @@ from __future__ import annotations
 from functools import cached_property
 from typing import final
 
-from ..tuples import members
+from ..tuples import each, members
 from .arithmetic import Conjugate
 from .base import AbstractExpression
 from .scalar_types import ScalarType
 from .spaces import AbstractFunctionSpace
 
 
+def entry_function(m):
+    # The function v of an entry v or conjugate(v).
+    return m.operand if isinstance(m, Conjugate) else m
+
+
 def entry_space(entry):
     # The space of v, the conjugate of the space for conjugate(v), and a tuple for a tuple entry.
     from ..spaces import conjugated
 
-    if isinstance(entry, tuple):
-        return tuple(map(entry_space, entry))
-    return conjugated(entry.operand.space) if isinstance(entry, Conjugate) else entry.space
+    def space(m):
+        return conjugated(m.operand.space) if isinstance(m, Conjugate) else m.space
+
+    return each(space, entry)
 
 
 @final
@@ -57,8 +63,7 @@ class Form(AbstractExpression):
 
     def bound(self):
         # The functions of the entries, without the conjugate of an entry conjugate(v).
-        entries = [m for a in self.arguments for m in members(a)]
-        return [m.operand if isinstance(m, Conjugate) else m for m in entries]
+        return [entry_function(m) for a in self.arguments for m in members(a)]
 
     @cached_property
     def value_shape(self):
@@ -123,11 +128,7 @@ class GateauxDerivative(AbstractExpression):
     scope = ("expression", "variable", "argument")
 
     def bound(self):
-        entries = members(self.argument)
-        return [
-            *members(self.variable),
-            *(m.operand if isinstance(m, Conjugate) else m for m in entries),
-        ]
+        return [*members(self.variable), *map(entry_function, members(self.argument))]
 
     @cached_property
     def value_shape(self):

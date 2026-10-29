@@ -29,7 +29,7 @@ def rule(pb, f, m):
             return PullBack(f, m)
         case _ if support(f) is None:
             return broadcast(f, m)
-        case Coordinate(Q) if Q == m.ambient_domain:
+        case Coordinate():
             return lowered_copy(pb, m.parameterisation)
         case PullBack(g, SideMap() as sm) if (
             cell_of(m) is not None and m.ambient_domain == sm.parameter_domain
@@ -79,9 +79,8 @@ def broadcast(f, m):
 
 
 def pointwise(f, m, pb):
-    # A cell map has no parameterisation, and its entry carries its free indices.
-    names = m.entry if isinstance(m, CellMap) else m.parameterisation
-    fresh = freshen(f, [names]) if f.scope else f
+    # A binding node is made fresh for the free indices of the map, which occur in the map.
+    fresh = freshen(f, [m])
     return map_fields(fresh, lambda x: pb(x, m) if isinstance(x, AbstractExpression) else x)
 
 
@@ -125,17 +124,15 @@ def expand_pull_backs(f):
     return bottom_up(f, expand)
 
 
-def in_n5(e):
-    def holds(n):
-        match n:
-            case PullBack(_, SideMap()):
-                return True
-            case PullBack(f, _) if terminal(f):
-                return True
-            case PullBack(PullBack(_, phi), _):
-                return kept(phi)
-            case PullBack(Gradient(), m):
-                return not is_cell(m)
-        return not isinstance(n, PullBack)
+def remains(f, m):
+    # The pull-backs that no row of expand_pull_backs rewrites, which a library reads.
+    return (
+        isinstance(m, SideMap)
+        or terminal(f)
+        or (isinstance(f, PullBack) and kept(f.domain))
+        or (isinstance(f, Gradient) and not is_cell(m))
+    )
 
-    return everywhere(e, holds)
+
+def in_n5(e):
+    return everywhere(e, lambda n: not isinstance(n, PullBack) or remains(n.expression, n.domain))
