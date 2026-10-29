@@ -1,4 +1,3 @@
-from ..calculus import VALUE, piola
 from ..domains import is_cell
 from ..nodes import (
     Absolute,
@@ -86,9 +85,8 @@ def chained(f):
 
 
 def remains(f, P):
-    # The gradient of a terminal, a pull-back, a gradient, a push-forward, or a divergence or a
-    # curl of Piola remains, except the gradient of the coordinates, which is the identity, and
-    # the chain rule.
+    # The gradient of a terminal, a pull-back, a gradient, a push-forward, a divergence or a curl
+    # remains, except the gradient of the coordinates, which is the identity, and the chain rule.
     identity = isinstance(f, Coordinate) and P.dimension == P.ambient_coordinate_domain.dimension
     leaf = terminal(f) or isinstance(f, PullBack | Gradient | PushForward | Divergence | Curl)
     return leaf and not identity and not chained(f)
@@ -102,8 +100,6 @@ def apply_gradients(f):
         match e:
             case Gradient(g, P) if not remains(g, P):
                 return gradient(g, P, partial)
-            case Divergence(g, P) | Curl(g, P) if not piola(e):
-                return VALUE[type(e)](g, P)
         return e
 
     return bottom_up(f, evaluate)
@@ -145,8 +141,6 @@ def allowed(e):
             return True
         case Gradient(f, P):
             return remains(f, P)
-        case Divergence() | Curl():
-            return piola(e)
         case Integral(_, P):
             return not isinstance(P, DecomposedDomain)
         case PullBack(f, m):

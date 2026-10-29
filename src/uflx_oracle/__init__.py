@@ -4,7 +4,7 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import cell_index
-from uflx_spec_interpreter._src.calculus import VALUE
+from uflx_spec_interpreter._src.calculus import rotation_of_gradient, trace_of_gradient
 from uflx_spec_interpreter._src.domains import cell_of
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
@@ -578,8 +578,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return n / np.linalg.norm(n)
 
             return normal
-        case Divergence(b, P) | Curl(b, P):
-            return ev(VALUE[type(e)](b, P))
+        case Divergence(b, P):
+            return ev(trace_of_gradient(b, P))
+        case Curl(b, P):
+            return ev(rotation_of_gradient(b, P))
         case Gradient(b, P):
             fb = ev(b)
 

@@ -10,8 +10,6 @@ from .nodes import (
     IndexSum,
     Integral,
     Product,
-    PushForward,
-    TransformationLaw,
 )
 from .tensors import permutation_tensor
 
@@ -57,32 +55,3 @@ def rotation_of_gradient(f, P):
         (j, k),
     )
     return ComponentTensor(entry, tuple(out)) if out else entry
-
-
-# The value of each operator as a composition of the gradient.
-VALUE = {Divergence: trace_of_gradient, Curl: rotation_of_gradient}
-
-# The law of a push-forward whose divergence or curl is the operator on the reference cell.
-PIOLA = {
-    Divergence: TransformationLaw(("contravariant",), 1),
-    Curl: TransformationLaw(("covariant",), 0),
-}
-
-
-def piola(e):
-    # The identity of the divergence holds on every mesh, and that of the curl for k = n only.
-    f, P = e.expression, e.domain
-    return (
-        isinstance(f, PushForward)
-        and f.domain == P
-        and f.law == PIOLA[type(e)]
-        and (isinstance(e, Divergence) or P.dimension == P.ambient_coordinate_domain.dimension)
-    )
-
-
-def result_law(e):
-    # The divergence or the curl of a push-forward of Piola is a density of weight 1, with a
-    # contravariant axis for each axis that the operator makes and the leading axes unchanged.
-    f = e.expression
-    lead = len(f.value_shape) - len(f.law.variances)
-    return TransformationLaw(("contravariant",) * (len(e.value_shape) - lead), 1)

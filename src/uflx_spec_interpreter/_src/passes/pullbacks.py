@@ -1,5 +1,5 @@
 from ..arithmetic import divide, square_root
-from ..calculus import VALUE, piola, result_law
+from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..domains import cell_of, inclusion, is_cell
 from ..geometry import density, inverse_jacobian, jacobian
 from ..nodes import (
@@ -21,6 +21,7 @@ from ..nodes import (
     PushForward,
     SideMap,
     Sum,
+    TransformationLaw,
 )
 from ..static import free, shape, support, terminal, zero_like
 from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized, substitute
@@ -49,12 +50,25 @@ def rule(pb, f, m):
             return contract_gradient(Gradient(pb(g, m), m.parameter_domain), K, f, m)
         case Gradient():
             return PullBack(f, m)
-        case Divergence(PushForward(g, D, _), _) | Curl(PushForward(g, D, _), _) if (
-            piola(f) and m.ambient_domain == D and is_cell(m)
+        case Divergence(PushForward(g, D, TransformationLaw(("contravariant",), 1)), P) if (
+            P == D == m.ambient_domain and is_cell(m)
         ):
-            return on_the_reference_cell(f, g, m, pb)
-        case Divergence() | Curl():
-            return PullBack(f, m)
+            # The divergence on the reference cell, a density, with no derivative of J.
+            div = trace_of_gradient(on_the_reference_cell(g, m, pb), m.parameter_domain)
+            return transformed(div, TransformationLaw((), 1), m)
+        case Curl(PushForward(g, D, TransformationLaw(("covariant",), 0)), P) if (
+            P == D == m.ambient_domain and is_cell(m) and k_is_n(m)
+        ):
+            # The curl on the reference cell, contravariant with the weight 1, with no derivative
+            # of J. The identity needs cells of the dimension of the mesh.
+            rot = rotation_of_gradient(on_the_reference_cell(g, m, pb), m.parameter_domain)
+            return transformed(
+                rot, TransformationLaw(("contravariant",) * len(f.value_shape), 1), m
+            )
+        case Divergence(g, P):
+            return pb(trace_of_gradient(g, P), m)
+        case Curl(g, P):
+            return pb(rotation_of_gradient(g, P), m)
         case Normal(sm) if side_cell(sm, m) is not None:
             return normal(f, m, pb)
         case PushForward(g, D, law) if m.ambient_domain == D and is_cell(m):
@@ -110,17 +124,18 @@ def contract_gradient(gradP, K, f, m):
 
 
 def pushed_forward(g, law, C, pb):
-    # The law applied to the value of g on the cell C, read through its cell map.
-    j, e = cell_of(C)
-    return transformed(pb(g, CellMap(C.ambient_domain.topology, j, e)), law, C)
+    # The law applied to the value of g on the cell C.
+    return transformed(on_the_reference_cell(g, C, pb), law, C)
 
 
-def on_the_reference_cell(f, g, C, pb):
-    # The identity of Piola: the divergence or the curl of a push-forward is the operator on the
-    # reference cell, carried by the law of the result, with no derivative of the Jacobian.
+def on_the_reference_cell(g, C, pb):
+    # The value of g on the topology, read on the cell C through its cell map.
     j, e = cell_of(C)
-    ghat = pb(g, CellMap(C.ambient_domain.topology, j, e))
-    return transformed(VALUE[type(f)](ghat, C.parameter_domain), result_law(f), C)
+    return pb(g, CellMap(C.ambient_domain.topology, j, e))
+
+
+def k_is_n(C):
+    return C.parameter_domain.dimension == C.ambient_domain.ambient_coordinate_domain.dimension
 
 
 def transformed(ghat, law, C):
@@ -189,7 +204,6 @@ def remains(f, m):
         or isinstance(f, PushForward)
         or (isinstance(f, PullBack) and kept(f.domain))
         or (isinstance(f, Gradient) and not is_cell(m))
-        or (isinstance(f, Divergence | Curl) and not (piola(f) and is_cell(m)))
     )
 
 
