@@ -8,6 +8,7 @@ from uflx_spec_interpreter import (
 )
 
 from .quadrature import apply_quadrature
+from .simplification import simplify
 from .tabulation import tabulate
 
 
@@ -24,4 +25,4 @@ def compile_form(f, degree):
         expand_pull_backs,
     ):
         f = apply(f)
-    return tabulate(apply_quadrature(f, degree))
+    return simplify(tabulate(apply_quadrature(f, degree)))

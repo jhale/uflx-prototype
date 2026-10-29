@@ -27,7 +27,9 @@ def rule(g, K, degree):
         return product_rule(g, K, degree)
     X, w = basix.make_quadrature(K.cell_type, degree)
     points, weights = constant(X), constant(w)
-    q = index(("compiler.quadrature", g, K, degree))
+    # The index is named by the rule alone, so the geometry at the points is one node in every
+    # integral, and the pull-back makes an inner sum over the same rule fresh.
+    q = index(("compiler.quadrature", K, degree))
     return index_sum(weights[q] * pull_back(g, domain_map(RD(0), points[q], K)), (q,))
 
 
@@ -35,7 +37,7 @@ def product_rule(g, K, degree):
     # Coordinate k of the points reads only its own index, which tabulation reads as separable.
     X, w = basix.make_quadrature(basix.CellType.interval, degree)
     X, w = constant(X[:, 0]), constant(w)
-    q = tuple(index(("compiler.quadrature", g, K, degree, k)) for k in range(K.dimension))
+    q = tuple(index(("compiler.quadrature", K, degree, k)) for k in range(K.dimension))
     points = tensor(tuple(X[i] for i in q))
     weight = w[q[0]]
     for i in q[1:]:

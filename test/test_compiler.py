@@ -16,6 +16,7 @@ from uflx_compiler import (
     kernel_inputs,
     runtime_tables,
 )
+from uflx_compiler.inputs import arrays
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
@@ -36,7 +37,16 @@ from uflx_spec_interpreter import (
     pull_back,
     side_map,
 )
-from uflx_spec_interpreter._src.nodes import Coordinate, Gradient, Integral, PullBack
+from uflx_spec_interpreter._src.nodes import (
+    Coordinate,
+    Division,
+    Gradient,
+    Integral,
+    Inverse,
+    Power,
+    PullBack,
+)
+from uflx_spec_interpreter._src.substitution import everywhere, expressions, memoized
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.runtime import runtime_array, runtime_extent
@@ -111,7 +121,8 @@ def test_folding_the_geometry_shrinks_the_kernel():
         instructions(compiled, key, V.num_dofs),
         instructions(compiled, key, V.num_dofs, folded),
     )
-    assert small < plain / 3, (plain, small)
+    # The simplification already removes most of the work that folding would.
+    assert small < plain / 1.5, (plain, small)
     U = np.random.default_rng(7).normal(size=V.num_dofs)
     f = jax.jit(lambda U: evaluate(compiled, {key: U}, jnp, folded))
     assert np.isclose(f(jnp.asarray(U)), evaluate(compiled, {key: U}))
@@ -195,7 +206,7 @@ def test_a_function_at_points_known_only_at_assembly():
             assert np.isclose(jax.jit(run)(arrays), expected)
 
 
-def test_geometry_from_coordinates_given_at_assembly():
+def runtime_mesh():
     # A solver gives the vertex coordinates of each cell to the kernel, as for any mesh.
     K = basix_cell(CELLS[2])
     T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
@@ -206,7 +217,11 @@ def test_geometry_from_coordinates_given_at_assembly():
     psi = component_tensor(
         vertex(0) + (vertex(1) - vertex(0)) * X[0] + (vertex(2) - vertex(0)) * X[1], (k,)
     )
-    D = decomposed_domain((domain_map(K, psi, RD(2)),))
+    return x, c, decomposed_domain((domain_map(K, psi, RD(2)),))
+
+
+def test_geometry_from_coordinates_given_at_assembly():
+    x, _, D = runtime_mesh()
     V = basix_space("V", D, P, 2)
     u, v = function(V, "u"), function(V, "v")
     rng = np.random.default_rng(12)
@@ -222,3 +237,66 @@ def test_geometry_from_coordinates_given_at_assembly():
     assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8)
     M = assemble(form(integral(u * v, D), (v, u)), 4)({"x": coordinates})
     assert np.isclose(W @ M @ U, oracle(integral(u * v, D), {x: coordinates, u: U, v: W})(()))
+
+
+def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form():
+    _, c, D = runtime_mesh()
+    V = basix_space("V", D, P, 2)
+    u, w = function(V, "u"), function(V, "w")
+    gu, gw = gradient(u, D), gradient(w, D)
+    forms = [integral(gu[0] * gu[0], D), integral(gu[1] * gw[0], D)]
+    found = [set() for _ in forms]
+    for dets, f in zip(found, forms, strict=True):
+        everywhere(
+            compile_form(f, 4),
+            lambda n: not isinstance(n, Division) or not dets.add(n.second),
+        )
+    # K is the adjugate over det J, and no zero term adds the index of the points to det J.
+    assert found[0] == found[1] and len(found[0]) == 1
+    assert [i for i, _ in next(iter(found[0])).free_indices] == [c]
+
+
+def mesh_only(e, x):
+    # The largest subexpressions that read the coordinates and no other input.
+    reads, found = memoized(arrays), set()
+
+    def walk(walk, n):
+        if list(reads(n)) == [x]:
+            found.add(n)
+        else:
+            for m in expressions(n):
+                walk(m)
+
+    memoized(walk)(e)
+    return found
+
+
+def test_the_geometry_at_the_points_of_a_rule_is_one_node_in_every_form():
+    x, _, D = runtime_mesh()
+    V = basix_space("V", D, P, 2)
+    u, w = function(V, "u"), function(V, "w")
+    X = coordinate(D)
+    parts = [mesh_only(compile_form(integral(X[0] * f, D), 4), x) for f in (u, w)]
+    at_points = {n for n in parts[0] & parts[1] if quadrature_indices(n)}
+    assert at_points
+
+
+def quadrature_indices(n):
+    return [i for i, _ in n.free_indices if i.label[0] == "compiler.quadrature"]
+
+
+def test_the_simplification_reduces_the_gradient_of_a_coordinate_to_arithmetic():
+    # The gradient of x0 squared is 2 x0 times a row of the identity, read at one component.
+    x, _, D = runtime_mesh()
+    u = function(basix_space("V", D, P, 2), "u")
+    X, g = coordinate(D), gradient(u, D)
+    f = integral(gradient(X[0] ** num(2), D)[0] * g[0] + gradient(X[0] ** num(2), D)[1] * g[1], D)
+    compiled = compile_form(f, 4)
+    assert not contains(compiled, lambda n: isinstance(n, Power | Inverse))
+    rng = np.random.default_rng(3)
+    coordinates = np.array(
+        [[(0.1, 0.0), (1.0, 0.2), (0.3, 0.9)], [(0.1, 0.0), (0.3, 0.9), (-0.2, 0.7)]]
+    )
+    U = rng.normal(size=u.space.num_dofs)
+    env = {"x": coordinates, "coefficients:u": U}
+    assert np.isclose(evaluate(compiled, env), oracle(f, {x: coordinates, u: U})(()))
