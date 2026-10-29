@@ -22,6 +22,7 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_spec_interpreter._src.substitution import bottom_up
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
+from uflx_toy.basix_spaces import basix_space
 from uflx_toy.nodes import IndexTable, RuntimeArray, VertexCoordinates
 from uflx_toy.runtime import runtime_array
 
@@ -117,14 +118,20 @@ def vertex_values(x, found_cell, derivative, points):
     # The coordinates of the vertices of the cell times the shape functions of the vertices, which
     # are the basis of degree 1 of Basix, in the order of the vertices.
     T, (j, entry) = x.topology, found_cell
-    F = basix.create_element(basix.ElementFamily.P, T.cell_types[j].cell_type, 1)
+    # The shape functions are the basis of a space of degree 1 on T, which also labels a table
+    # at points known only at assembly.
+    V = basix_space("vertices", T, basix.ElementFamily.P, 1)
+    F = V.element(j)
     a, k = (index(("compiler.tabulation", x, entry, points, n)) for n in ("a", "k"))
-    cells = IndexTable(nested(np.asarray(T.cells[j])), len(x.vertices))
+    # The element may order its dofs for sum factorisation, so each dof reads its own vertex.
+    vertex_of = {d: v for v, dofs in enumerate(F.entity_dofs[0]) for d in dofs}
+    rows = [[cell[vertex_of[d]] for d in range(F.dim)] for cell in T.cells[j]]
+    cells = IndexTable(nested(np.asarray(rows)), len(x.vertices))
     vertex = constant(x.vertices)[GatheredIndex(cells, (entry, a)), k]
 
     def term(direction):
         return component_tensor(
-            index_sum(vertex * table_read(None, j, F, points, direction, a), (a,)), (k,)
+            index_sum(vertex * table_read(V, j, F, points, direction, a), (a,)), (k,)
         )
 
     if derivative == 0:

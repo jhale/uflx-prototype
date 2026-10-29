@@ -5,16 +5,15 @@ from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     ScalarType,
     cell_domain,
-    component_tensor,
     conjugate_space,
     dual_space,
     gathered_cell_domain,
-    indexed,
 )
 from uflx_spec_interpreter._src import nodes
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Base,
+    CellMap,
     Conjugate,
     ConjugateSpace,
     Coordinate,
@@ -76,7 +75,8 @@ def test_a_pull_back_leaves_a_gathered_entry_unchanged():
     g = GatheredIndex(IndexTable((1, 0), 2), (c,))
     out = pullbacks.expand_pull_backs(PullBack(Indexed(Coordinate(D), (g,)), cell_domain(D, 0)))
     assert isinstance(out, Indexed) and out.indices == (g,) and out.indices[0] is g
-    assert not isinstance(out.expression, PullBack) and not isinstance(out.expression, Function)
+    # The coordinates of a cell of a mesh are the read of its coordinate function on the cell.
+    assert out.expression == cell_domain(D, 0).parameterisation
 
 
 def test_a_curried_form_has_the_argument_spaces_of_its_expression_first():
@@ -183,7 +183,7 @@ def test_cell_domains_are_domain_maps_into_the_decomposed_domain():
     assert cells == DomainMap(piece.parameter_domain, piece.parameterisation, D)
     assert dict(cells.free_indices) == dict(piece.parameterisation.free_indices)
     g = GatheredIndex(IndexTable((1, 0), 2), (Index("e"),))
-    k = Index(("uflx.gathered_cell_domain", D, 0, g, 0))
-    # The composition of the specification, with the partial indexing [g].
-    chi = component_tensor(indexed(piece.parameterisation, (k,)), (c, k))[g]
-    assert gathered_cell_domain(D, 0, g) == DomainMap(piece.parameter_domain, chi, D)
+    # A cell of a mesh is piece j with the entry of its cell map in place of the cell index.
+    x = piece.parameterisation.expression
+    cell = PullBack(x, CellMap(x.support, 0, g))
+    assert gathered_cell_domain(D, 0, g) == DomainMap(piece.parameter_domain, cell, D)

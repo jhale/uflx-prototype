@@ -7,6 +7,7 @@ from ..nodes import (
     Coordinate,
     DecomposedDomain,
     Division,
+    DomainMap,
     DualSpace,
     Float,
     Form,
@@ -56,6 +57,14 @@ def rule(partial, f, P, j):
             return ComponentTensor(
                 Indexed(identity(P.ambient_coordinate_domain.dimension), (i, j)), (i,)
             )
+        case PullBack(g, phi) if chained(f):
+            # The chain rule, because a library gives the gradient of a function on a cell only.
+            axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
+            r = Index(("uflx.apply_gradients", f, P, "r"))
+            outer = Indexed(PullBack(Gradient(g, phi.ambient_domain), phi), (*axes, r))
+            inner = Indexed(partial(phi.parameterisation, P, j), (r,))
+            entry = IndexSum(Product(outer, inner), (r,))
+            return ComponentTensor(entry, axes) if axes else entry
         case _ if isinstance(f, LEAVES):
             axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
             entry = Indexed(Gradient(f, P), (*axes, j))
@@ -70,8 +79,16 @@ def gradient(f, P, partial):
     return ComponentTensor(Indexed(df, axes) if axes else df, (*axes, j))
 
 
+def chained(f):
+    # A pull-back by a domain map that is not a cell, whose gradient is the chain rule.
+    return isinstance(f, PullBack) and isinstance(f.domain, DomainMap) and not is_cell(f.domain)
+
+
 def evaluated(f, P):
-    # A gradient remains on a leaf, except the gradient of the coordinates, which is the identity.
+    # A gradient remains on a leaf, except the gradient of the coordinates, which is the identity,
+    # and the gradient of a pull-back by a map that is not a cell.
+    if chained(f):
+        return True
     if isinstance(f, Coordinate):
         return f == Coordinate(P) and P.dimension == P.ambient_coordinate_domain.dimension
     return not isinstance(f, LEAVES)

@@ -1,20 +1,14 @@
 import basix
 import numpy as np
 import pytest
-from testutil import table
+from testutil import table, vertex_mesh
 
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
-    RD,
-    cell_index,
-    component_tensor,
     coordinate,
-    decomposed_domain,
     domain_map,
     function,
     gradient,
-    index,
-    indexed,
     integral,
     normal,
     num,
@@ -59,14 +53,7 @@ def square(K):
     # The square of two triangles on the reference cell K, with its diagonal and boundary.
     I = basix_cell(basix.CellType.interval) if K == basix_cell(CELLS[2]) else reference_simplex(1)
     T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
-    c, k = cell_index(T, 0), index("k")
-    p = table([[(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]])
-    X = coordinate(K)
-    vertex = lambda v: indexed(p, (c, v, k))
-    edge = lambda v, d: (vertex(v) - vertex(0)) * indexed(X, (d,))
-    D = decomposed_domain(
-        (domain_map(K, component_tensor(vertex(0) + edge(1, 0) + edge(2, 1), (k,)), RD(2)),)
-    )
+    D = vertex_mesh(T, [(0, 0), (1, 0), (1, 1), (0, 1)])
     diagonal = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     boundary = static_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", T, 0),),))
     return D, side_domain(D, diagonal), side_domain(D, boundary)
@@ -108,15 +95,7 @@ def quadrilaterals():
     # The unit square as two quadrilaterals split at x = 1/2, with bilinear cell maps.
     Q, I = basix_cell(basix.CellType.quadrilateral), basix_cell(CELLS[1])
     T = static_topology((Q,), (((0, 1, 3, 4), (1, 2, 4, 5)),), ())
-    c, k = cell_index(T, 0), index("k")
-    p = table([[(0, 0), (0.5, 0), (0, 1), (0.5, 1)], [(0.5, 0), (1, 0), (0.5, 1), (1, 1)]])
-    X = coordinate(Q)
-    x, y, one = X[0], X[1], num(1)
-    shapes = [(one - x) * (one - y), x * (one - y), (one - x) * y, x * y]
-    psi = shapes[0] * indexed(p, (c, 0, k))
-    for v in range(1, 4):
-        psi = psi + shapes[v] * indexed(p, (c, v, k))
-    D = decomposed_domain((domain_map(Q, component_tensor(psi, (k,)), RD(2)),))
+    D = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
     interior = static_topology((I,), (((1, 4),),), ((("+", T, 0), ("-", T, 0)),))
     boundary = static_topology(
         (I,), (((0, 1), (1, 2), (2, 5), (5, 4), (4, 3), (3, 0)),), ((("inside", T, 0),),)
@@ -152,24 +131,7 @@ def mixed():
     # The unit square as two triangles left of x = 1/2 and one quadrilateral right of it.
     Tri, Q, I = (basix_cell(t) for t in (CELLS[2], basix.CellType.quadrilateral, CELLS[1]))
     T = static_topology((Tri, Q), (((0, 1, 4), (0, 4, 3)), ((1, 2, 4, 5),)), ())
-    k = index("k")
-    tri = table([[(0, 0), (0.5, 0), (0.5, 1)], [(0, 0), (0.5, 1), (0, 1)]])
-    quad = table([[(0.5, 0), (1, 0), (0.5, 1), (1, 1)]])
-    c0, c1 = cell_index(T, 0), cell_index(T, 1)
-    X, Y = coordinate(Tri), coordinate(Q)
-    v = lambda n: indexed(tri, (c0, n, k))
-    psi_tri = v(0) + (v(1) - v(0)) * X[0] + (v(2) - v(0)) * X[1]
-    one, x, y = num(1), Y[0], Y[1]
-    shapes = [(one - x) * (one - y), x * (one - y), (one - x) * y, x * y]
-    psi_quad = shapes[0] * indexed(quad, (c1, 0, k))
-    for n in range(1, 4):
-        psi_quad = psi_quad + shapes[n] * indexed(quad, (c1, n, k))
-    D = decomposed_domain(
-        (
-            domain_map(Tri, component_tensor(psi_tri, (k,)), RD(2)),
-            domain_map(Q, component_tensor(psi_quad, (k,)), RD(2)),
-        )
-    )
+    D = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
     # A group of facets between two triangles, and one between a triangle and a quadrilateral.
     interior = static_topology(
         (I, I),

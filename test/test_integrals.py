@@ -3,7 +3,7 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, check_types, keeps_static_type
+from testutil import assert_clean, check_types, keeps_static_type, vertex_mesh
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -71,7 +71,7 @@ psi_c = component_tensor(
     ),
     (k,),
 )
-D = decomposed_domain((domain_map(K, psi_c, R2),))
+D = vertex_mesh(SQUARE, [(0, 0), (1, 0), (1, 1), (0, 1)])
 
 # A family of three points in the square.
 Dp = decomposed_domain(

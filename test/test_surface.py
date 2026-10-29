@@ -2,7 +2,7 @@ import random
 import sys
 
 import numpy as np
-from test_integrals import BOUNDARY, DIAGONAL, K, c
+from test_integrals import BOUNDARY, DIAGONAL, SQUARE, K, c
 from testutil import assert_clean, check_types, contains, keeps_static_type, table
 
 from uflx_oracle import evaluate
@@ -27,6 +27,7 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
+from uflx_spec_interpreter._draft import mesh
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     DomainMap,
@@ -37,6 +38,7 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
 from uflx_toy.cells import reference_simplex
+from uflx_toy.nodes import VertexCoordinates
 from uflx_toy.spaces import space
 
 R3 = RD(3)
@@ -57,7 +59,10 @@ psi = component_tensor(
     ),
     (k,),
 )
-M = decomposed_domain((domain_map(K, psi, R3),))
+FOLD = VertexCoordinates(
+    SQUARE, ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.5), (0.0, 1.0, 1.0))
+)
+M = mesh(FOLD, R3)
 
 bump = tensor((num(1), num(-1), num(2)))
 kk = index("kk")
@@ -81,7 +86,7 @@ def deform(z):
 Ms = decomposed_domain((domain_map(M, deform(coordinate(M)), R3),))
 
 # The same curved surface written as a mesh, with the cells of M deformed, so it has sides.
-C = decomposed_domain((domain_map(K, deform(psi), R3),))
+C = mesh(deform(FOLD), R3)
 
 
 def sides(D):
