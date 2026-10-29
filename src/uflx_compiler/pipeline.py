@@ -6,6 +6,7 @@ from uflx_spec_interpreter import (
     expand_integrals,
     expand_pull_backs,
 )
+from uflx_spec_interpreter._draft import apply_shape_derivatives
 
 from .quadrature import apply_quadrature
 from .simplification import simplify
@@ -21,6 +22,7 @@ def compile_form(f, degree):
         expand_integrals,
         apply_gradients,
         expand_pull_backs,
+        apply_shape_derivatives,
         apply_gradients,
         expand_pull_backs,
     ):
