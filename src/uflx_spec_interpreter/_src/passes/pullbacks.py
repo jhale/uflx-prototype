@@ -1,5 +1,5 @@
 from ..arithmetic import divide, square_root
-from ..calculus import CONTRAVARIANT, piola, rotation_of_gradient, trace_of_gradient
+from ..calculus import VALUE, piola, result_law
 from ..domains import cell_of, inclusion, is_cell
 from ..geometry import density, inverse_jacobian, jacobian
 from ..nodes import (
@@ -21,7 +21,6 @@ from ..nodes import (
     PushForward,
     SideMap,
     Sum,
-    TransformationLaw,
 )
 from ..static import free, shape, support, terminal, zero_like
 from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized, substitute
@@ -121,11 +120,7 @@ def on_the_reference_cell(f, g, C, pb):
     # reference cell, carried by the law of the result, with no derivative of the Jacobian.
     j, e = cell_of(C)
     ghat = pb(g, CellMap(C.ambient_domain.topology, j, e))
-    K = C.parameter_domain
-    if isinstance(f, Divergence):
-        return transformed(trace_of_gradient(ghat, K), TransformationLaw((), 1), C)
-    law = CONTRAVARIANT if f.value_shape == (3,) else TransformationLaw((), 1)
-    return transformed(rotation_of_gradient(ghat, K), law, C)
+    return transformed(VALUE[type(f)](ghat, C.parameter_domain), result_law(f), C)
 
 
 def transformed(ghat, law, C):

@@ -41,6 +41,16 @@ def identity(n):
     )
 
 
+def permutation_tensor(n):
+    # The Levi-Civita symbol of rank n, the sign of each permutation and 0 elsewhere.
+    def entries(prefix):
+        if len(prefix) == n:
+            return Integer(sign(prefix) if len(set(prefix)) == n else 0)
+        return Tensor(tuple(entries((*prefix, k)) for k in range(n)))
+
+    return entries(())
+
+
 def transpose(A):
     k, l = derived("uflx.transpose", (A,), 2)
     return ComponentTensor(Indexed(A, (k, l)), (l, k))

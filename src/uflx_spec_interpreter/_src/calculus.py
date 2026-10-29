@@ -1,3 +1,4 @@
+from .arithmetic import derived
 from .nodes import (
     ComponentTensor,
     Coordinate,
@@ -5,14 +6,14 @@ from .nodes import (
     DirectionalDerivative,
     Divergence,
     Gradient,
-    Index,
     Indexed,
     IndexSum,
     Integral,
+    Product,
     PushForward,
     TransformationLaw,
 )
-from .tensors import tensor
+from .tensors import permutation_tensor
 
 
 def coordinate(P):
@@ -41,33 +42,47 @@ def integral(f, P):
 
 def trace_of_gradient(f, P):
     # The value of Divergence(f, P), the last axis of f contracted with the axis of the gradient.
-    lead = tuple(Index(("uflx.divergence", f, P, n)) for n in range(len(f.value_shape) - 1))
-    k = Index(("uflx.divergence", f, P, "k"))
+    *lead, k = derived("uflx.divergence", (f, P), len(f.value_shape))
     entry = IndexSum(Indexed(Gradient(f, P), (*lead, k, k)), (k,))
-    return ComponentTensor(entry, lead) if lead else entry
+    return ComponentTensor(entry, tuple(lead)) if lead else entry
 
 
 def rotation_of_gradient(f, P):
-    # The value of Curl(f, P), from the entries of the gradient.
-    G = Gradient(f, P)
-    if f.value_shape == (3,):
-        return tensor((G[2, 1] - G[1, 2], G[0, 2] - G[2, 0], G[1, 0] - G[0, 1]))
-    return G[1, 0] - G[0, 1]
+    # The value of Curl(f, P), the sum of epsilon[..., j, k] * grad(f)[k, j] over j and k, with
+    # the permutation tensor of rank n, so a vector for n = 3 and a scalar for n = 2.
+    n = P.ambient_coordinate_domain.dimension
+    *out, j, k = derived("uflx.curl", (f, P), n)
+    entry = IndexSum(
+        Product(Indexed(permutation_tensor(n), (*out, j, k)), Indexed(Gradient(f, P), (k, j))),
+        (j, k),
+    )
+    return ComponentTensor(entry, tuple(out)) if out else entry
 
 
-CONTRAVARIANT = TransformationLaw(("contravariant",), 1)
-COVARIANT = TransformationLaw(("covariant",), 0)
+# The value of each operator as a composition of the gradient.
+VALUE = {Divergence: trace_of_gradient, Curl: rotation_of_gradient}
+
+# The law of a push-forward whose divergence or curl is the operator on the reference cell.
+PIOLA = {
+    Divergence: TransformationLaw(("contravariant",), 1),
+    Curl: TransformationLaw(("covariant",), 0),
+}
 
 
 def piola(e):
-    # Whether the divergence or the curl of a push-forward to P is the operator on the reference
-    # cell carried by a law, with no derivative of the Jacobian.
+    # The identity of the divergence holds on every mesh, and that of the curl for k = n only.
     f, P = e.expression, e.domain
-    if not isinstance(f, PushForward) or f.domain != P:
-        return False
-    if isinstance(e, Divergence):
-        return f.law == CONTRAVARIANT
-    n = P.ambient_coordinate_domain.dimension
     return (
-        f.law == COVARIANT and f.value_shape == (n,) and P.pieces[0].parameter_domain.dimension == n
+        isinstance(f, PushForward)
+        and f.domain == P
+        and f.law == PIOLA[type(e)]
+        and (isinstance(e, Divergence) or P.dimension == P.ambient_coordinate_domain.dimension)
     )
+
+
+def result_law(e):
+    # The divergence or the curl of a push-forward of Piola is a density of weight 1, with a
+    # contravariant axis for each axis that the operator makes and the leading axes unchanged.
+    f = e.expression
+    lead = len(f.value_shape) - len(f.law.variances)
+    return TransformationLaw(("contravariant",) * (len(e.value_shape) - lead), 1)

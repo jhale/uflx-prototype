@@ -1,4 +1,4 @@
-from ..calculus import piola, rotation_of_gradient, trace_of_gradient
+from ..calculus import VALUE, piola
 from ..domains import is_cell
 from ..nodes import (
     Absolute,
@@ -102,10 +102,8 @@ def apply_gradients(f):
         match e:
             case Gradient(g, P) if not remains(g, P):
                 return gradient(g, P, partial)
-            case Divergence(g, P) if not piola(e):
-                return trace_of_gradient(g, P)
-            case Curl(g, P) if not piola(e):
-                return rotation_of_gradient(g, P)
+            case Divergence(g, P) | Curl(g, P) if not piola(e):
+                return VALUE[type(e)](g, P)
         return e
 
     return bottom_up(f, evaluate)
