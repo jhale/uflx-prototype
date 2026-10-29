@@ -33,6 +33,9 @@ def tabulate(f):
     # A function of a Basix space read on a cell at the points of a rule, possibly through the
     # inclusion of a facet, becomes its gathered coefficients times the tabulated basis.
     def rewrite(e):
+        # A function with no domain is a constant, which a consumer passes by its label.
+        if isinstance(e, Function) and e.support is None:
+            return runtime_array(f"coefficients:{e.label}", e.value_shape)
         found = leaf(e)
         if found and isinstance(found[0], VertexCoordinates):
             return vertex_values(*found)
