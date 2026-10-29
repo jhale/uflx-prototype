@@ -99,3 +99,22 @@ def test_the_shape_gradient_assembles_to_the_derivative_in_each_dof():
         e[dof, 0] = step
         central = (value(f, COORDINATES + e) - value(f, COORDINATES - e)) / (2 * step)
         assert np.isclose(gradient_x0[dof], central, rtol=1e-6, atol=1e-8), dof
+
+
+def test_a_mesh_moved_by_a_displacement_is_the_mesh_of_the_moved_coordinates():
+    # The coordinate function of an arbitrary Lagrangian-Eulerian mesh is x + d on the topology.
+    d0, d1 = function(X, "d0"), function(X, "d1")
+    moved = mesh(tensor((x0 + d0, x1 + d1)), RD(2))
+    displacement = RNG.normal(size=(4, 2)) * 0.05
+    data = env(COORDINATES) | {
+        "coefficients:d0": displacement[:, 0],
+        "coefficients:d1": displacement[:, 1],
+    }
+    for f, g in zip(area_and_energy(moved), area_and_energy(D), strict=True):
+        assert np.isclose(evaluate(compile_form(f, 8), data), value(g, COORDINATES + displacement))
+
+
+def area_and_energy(M):
+    u = push_forward(function(basix_space("V", T, P, 2), "u"), M)
+    g = gradient(u, M)
+    return integral(num(1), M), integral(g[0] * g[0] + g[1] * g[1], M)
