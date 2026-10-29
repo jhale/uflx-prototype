@@ -51,16 +51,10 @@ def gathered_cell_domain(D, j, g):
 
 
 def cell_of(m):
-    # The group and the entry of a cell: of a mesh by its cell map, and of a decomposed domain
-    # with explicit pieces, such as a side domain, by its piece.
+    # The group and the entry of a cell of a mesh, read from its cell map.
     match m:
         case DomainMap(_, PullBack(_, CellMap(_, j, e)), D) if m == cell_domain(D, j, e):
             return j, e
-        case DomainMap(_, psi, DecomposedDomain(pieces) as D):
-            for j in range(len(pieces)):
-                if m == cell_domain(D, j):
-                    # A piece with no free index is the one member of its family.
-                    return j, next((i for i, _ in psi.free_indices), None)
     return None
 
 

@@ -1,16 +1,5 @@
-from .arithmetic import add, subtract
-from .nodes import Absolute, Coordinate, Gradient, Integer, Inverse, SquareRoot
-from .tensors import determinant, identity, matrix_product, transpose
-
-
-def gram(J):
-    return matrix_product(transpose(J), J)
-
-
-def tangent_gram(J, P):
-    # JᵀJ + I - Π is invertible on a parameter domain of lower dimension, where JᵀJ is not.
-    identity_matrix = identity(P.ambient_coordinate_domain.dimension)
-    return subtract(add(gram(J), identity_matrix), Gradient(Coordinate(P), P))
+from .nodes import Absolute, Gradient, Integer, Inverse, SquareRoot
+from .tensors import determinant, matrix_product, transpose
 
 
 def jacobian(D):
@@ -18,13 +7,9 @@ def jacobian(D):
 
 
 def metric(D):
-    # JᵀJ + I - Π, which is JᵀJ when the parameter domain has the dimension of its ambient.
+    # JᵀJ, the metric that the parameterisation induces on its parameter domain.
     J = jacobian(D)
-    return (
-        gram(J)
-        if D.parameter_domain.dimension == D.parameter_domain.ambient_coordinate_domain.dimension
-        else tangent_gram(J, D.parameter_domain)
-    )
+    return matrix_product(transpose(J), J)
 
 
 def density(D):
@@ -32,13 +17,11 @@ def density(D):
     k, n = D.parameter_domain.dimension, D.ambient_domain.ambient_coordinate_domain.dimension
     if k == 0:
         return Integer(1)
-    if k == D.parameter_domain.ambient_coordinate_domain.dimension == n:
+    if k == n:
         return Absolute(determinant(jacobian(D)))
     return SquareRoot(determinant(metric(D)))
 
 
 def inverse_jacobian(D):
-    # G⁻¹Jᵀ, with the closed form inverse(J) when the parameter domain has the ambient dimension.
-    if D.parameter_domain.dimension == D.parameter_domain.ambient_coordinate_domain.dimension:
-        return Inverse(jacobian(D))
-    return matrix_product(Inverse(metric(D)), transpose(jacobian(D)))
+    # The pseudo-inverse of J, which is the inverse for a cell of the ambient dimension.
+    return Inverse(jacobian(D))

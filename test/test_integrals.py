@@ -58,19 +58,7 @@ def affine(vertices, at):
 
 T0, T1 = [(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]
 
-# The square as one family of two triangles, with the cell index c of SQUARE.
-p = tensor(tuple(tensor(tuple(tensor((num(a), num(b))) for a, b in tri)) for tri in (T0, T1)))
-fam = lambda i: indexed(p, (c, i, k))
-psi_c = component_tensor(
-    add(
-        fam(0),
-        add(
-            multiply(add(fam(1), multiply(num(-1), fam(0))), indexed(X, (0,))),
-            multiply(add(fam(2), multiply(num(-1), fam(0))), indexed(X, (1,))),
-        ),
-    ),
-    (k,),
-)
+# The square as a mesh of the coordinates of its vertices, with the cell index c of SQUARE.
 D = vertex_mesh(SQUARE, [(0, 0), (1, 0), (1, 1), (0, 1)])
 
 # A family of three points in the square.
@@ -97,15 +85,6 @@ Dp = decomposed_domain(
 
 # The square as two pieces with no free index.
 D2 = decomposed_domain((domain_map(K, affine(T0, X), R2), domain_map(K, affine(T1, X), R2)))
-
-# A macro triangle: T0 as the image of the unit triangle split into two sub-triangles.
-Kdec = decomposed_domain(
-    (
-        domain_map(K, affine([(0, 0), (1, 0), (0.5, 0.5)], X), K),
-        domain_map(K, affine([(0, 0), (0.5, 0.5), (0, 1)], X), K),
-    )
-)
-Dm = decomposed_domain((domain_map(Kdec, affine(T0, coordinate(Kdec)), R2),))
 
 V = space("V", domain=D)
 u = function(V, "u")
@@ -142,7 +121,7 @@ def main(trials):
     rejected = 0
     for seed in range(trials):
         rnd = random.Random(seed)
-        dom = rnd.choice([D, D2, Dm, Dp])
+        dom = rnd.choice([D, D2, Dp])
         kind = rnd.choice(["domain", "ambient", "none"])
         e = integral(integrand(rnd, dom, kind), dom)
         out3 = integrals.expand_integrals(e)

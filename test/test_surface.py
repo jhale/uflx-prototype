@@ -2,8 +2,8 @@ import random
 import sys
 
 import numpy as np
-from test_integrals import BOUNDARY, DIAGONAL, SQUARE, K, c
-from testutil import assert_clean, check_types, contains, keeps_static_type, table
+from test_integrals import BOUNDARY, DIAGONAL, SQUARE
+from testutil import assert_clean, check_types, contains, keeps_static_type
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -11,8 +11,6 @@ from uflx_spec_interpreter import (
     add,
     component_tensor,
     coordinate,
-    decomposed_domain,
-    domain_map,
     function,
     gradient,
     index,
@@ -46,19 +44,6 @@ I = reference_simplex(1)
 k, i = index("k"), index("i")
 
 # A surface folded along its diagonal: two triangles that are not coplanar.
-p = table([[(0, 0, 0), (1, 0, 0), (1, 1, 0.5)], [(0, 0, 0), (1, 1, 0.5), (0, 1, 1)]])
-fam = lambda v: indexed(p, (c, v, k))
-X = coordinate(K)
-psi = component_tensor(
-    add(
-        fam(0),
-        add(
-            multiply(add(fam(1), multiply(num(-1), fam(0))), indexed(X, (0,))),
-            multiply(add(fam(2), multiply(num(-1), fam(0))), indexed(X, (1,))),
-        ),
-    ),
-    (k,),
-)
 FOLD = VertexCoordinates(
     SQUARE, ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.5), (0.0, 1.0, 1.0))
 )
@@ -81,9 +66,6 @@ def deform(z):
         (kk,),
     )
 
-
-# The deformed surface on the parameter domain M, which has no topology and so no sides.
-Ms = decomposed_domain((domain_map(M, deform(coordinate(M)), R3),))
 
 # The same curved surface written as a mesh, with the cells of M deformed, so it has sides.
 C = mesh(deform(FOLD), R3)
@@ -171,13 +153,9 @@ def main(trials):
     bad = dict(value=0, static=0, grammar=0, lazy=0, rejected=0)
     for seed in range(trials):
         rnd = random.Random(seed)
-        kind = rnd.choice(
-            ["surface", "deformed surface", "curved surface", "edges", "curved edges"]
-        )
+        kind = rnd.choice(["surface", "curved surface", "edges", "curved edges"])
         if kind == "surface":
             e_int = integral(field(rnd, M), M)
-        elif kind == "deformed surface":
-            e_int = integral(field(rnd, Ms), Ms)
         elif kind == "curved surface":
             e_int = integral(field(rnd, C), C)
         else:

@@ -7,11 +7,11 @@ import sys
 import weakref
 
 import pytest
-from test_surface import Ms
+from test_surface import M
 from testutil import contains
 
 from uflx_spec_interpreter import cell_domain, density, inverse_jacobian
-from uflx_spec_interpreter._src.geometry import metric
+from uflx_spec_interpreter._src.geometry import jacobian
 from uflx_spec_interpreter._src.interning import digest_of
 from uflx_spec_interpreter._src.nodes import (
     Base,
@@ -99,11 +99,11 @@ def test_a_class_with_no_identifier_raises():
         Anonymous(1)
 
 
-def test_density_and_inverse_jacobian_share_the_metric():
-    m = cell_domain(Ms, 0)
-    G = metric(m)
-    assert contains(density(m), lambda n: n is G)
-    assert contains(inverse_jacobian(m), lambda n: n is G)
+def test_density_and_inverse_jacobian_share_the_jacobian():
+    m = cell_domain(M, 0)
+    J = jacobian(m)
+    assert contains(density(m), lambda n: n is J)
+    assert contains(inverse_jacobian(m), lambda n: n is J)
 
 
 def test_indexed_expressions_are_interned():
