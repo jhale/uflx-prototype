@@ -4,7 +4,6 @@ from uflx_spec_interpreter import (
     RD,
     index,
     index_sum,
-    pull_back,
     tensor,
 )
 from uflx_spec_interpreter._src.domains import cell_of
@@ -18,7 +17,6 @@ from uflx_spec_interpreter._src.nodes import (
     PullBack,
     Tensor,
 )
-from uflx_spec_interpreter._src.passes.pullbacks import expand_pull_backs
 from uflx_spec_interpreter._src.substitution import bottom_up
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.nodes import IndexTable, RuntimeArray
@@ -47,11 +45,6 @@ def coefficients(u):
 def leaf(e):
     # The function, its cell, the order of the derivative and the points in the reference cell.
     match e:
-        case PullBack(
-            PullBack(x, DomainMap(BasixCell(), _, BasixCell()) as A),
-            DomainMap(RD(0), _, BasixCell()) as M,
-        ):
-            return read(x, expand_pull_backs(pull_back(A.parameterisation, M)))
         case PullBack(x, DomainMap(RD(0), X, BasixCell())):
             return read(x, X)
     return None

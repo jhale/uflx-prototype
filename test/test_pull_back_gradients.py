@@ -66,4 +66,6 @@ def test_a_gradient_on_another_mesh_remains_for_the_points_of_the_mesh():
     chi = domain_map(D, X, D2)
     out = core(integral(pull_back(gradient(u, D2), chi)[0], D))
     assert gradients.in_n6(out)
-    assert PullBack(Gradient(u, D2), chi) in nodes(out)
+    # One map from the reference triangle of the first mesh into the second, for the location.
+    leaves = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == Gradient(u, D2)]
+    assert [(m.parameter_domain, m.ambient_domain) for m in (n.domain for n in leaves)] == [(K, D2)]

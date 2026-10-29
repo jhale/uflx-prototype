@@ -36,7 +36,7 @@ from ..static import free_indices, shape, support
 from ..substitution import bottom_up, everywhere, memoized
 from ..tensors import identity
 from .derivative_table import derivative_of_node
-from .pullbacks import expand_pull_backs
+from .pullbacks import expand_pull_backs, kept
 
 # Expressions whose gradient a library provides, so the gradient remains.
 LEAVES = (Function, Normal, PullBack, Gradient, Coordinate)
@@ -141,7 +141,7 @@ def allowed(e):
             return (
                 isinstance(m, SideMap)
                 or terminal(f)
-                or isinstance(f, PullBack)
+                or (isinstance(f, PullBack) and kept(f.domain))
                 or (isinstance(f, Gradient) and not is_cell(m))
             )
         case Action(Function(space, _), _, _):

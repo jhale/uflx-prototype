@@ -5,6 +5,7 @@ from ..nodes import (
     AbstractExpression,
     ComponentTensor,
     Coordinate,
+    DomainMap,
     Function,
     Gradient,
     Index,
@@ -35,8 +36,10 @@ def rule(pb, f, m):
         ):
             B, A, _ = side_maps(sm, m)
             return pb(pb(g, B), A)
-        case PullBack():
+        case PullBack(_, phi) if kept(phi):
             return PullBack(f, m)
+        case PullBack(g, phi):
+            return pb(g, composed(phi, m, pb))
         case Gradient(g, _) if is_cell(m):
             return contract_gradient(
                 Gradient(pb(g, m), m.parameter_domain), inverse_jacobian(m), f, m
@@ -49,6 +52,16 @@ def rule(pb, f, m):
             return PullBack(f, m)
         case _:
             return pointwise(f, m, pb)
+
+
+def kept(m):
+    # A pull-back stays inside another only by a cell or a side map.
+    return isinstance(m, SideMap) or is_cell(m)
+
+
+def composed(phi, m, pb):
+    # The map phi after m, so that only a pull-back by a cell keeps a pull-back inside it.
+    return DomainMap(m.parameter_domain, pb(phi.parameterisation, m), phi.ambient_domain)
 
 
 def broadcast(f, m):
@@ -107,10 +120,10 @@ def expand_pull_backs(f):
 def in_n5(e):
     def holds(n):
         match n:
-            case PullBack(_, SideMap()) | PullBack(
-                Function() | Normal() | Coordinate() | PullBack(), _
-            ):
+            case PullBack(_, SideMap()) | PullBack(Function() | Normal() | Coordinate(), _):
                 return True
+            case PullBack(PullBack(_, phi), _):
+                return kept(phi)
             case PullBack(Gradient(), m):
                 return not is_cell(m)
         return not isinstance(n, PullBack)
