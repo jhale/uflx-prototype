@@ -6,7 +6,7 @@ from testutil import vertex_mesh
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import RD, function, gradient, index, index_sum, integral, tensor
-from uflx_spec_interpreter._draft import mesh, push_forward
+from uflx_spec_interpreter._draft import image, push_forward
 from uflx_spec_interpreter._src.nodes import PushForward
 from uflx_spec_interpreter._src.substitution import everywhere
 from uflx_toy.basix_cells import basix_cell
@@ -32,7 +32,7 @@ def curved():
     middle = next(d for d in X.dofmap[0][0] if np.allclose(values[d], (0.55, 0.45)))
     values[middle] += (0.06, -0.04)
     geometry = {x0: values[:, 0], x1: values[:, 1]}
-    return mesh(tensor((x0, x1)), RD(2)), geometry
+    return image(tensor((x0, x1)), RD(2)), geometry
 
 
 def by_label(env):

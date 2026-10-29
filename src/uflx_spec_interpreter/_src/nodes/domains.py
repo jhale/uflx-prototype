@@ -74,13 +74,13 @@ class DecomposedDomain(AbstractDomain):
     @cached_property
     def topology(self):
         # The topology of a mesh, the domain built from its coordinate function, and otherwise None.
-        from ..domains import mesh
+        from ..domains import image
         from .calculus import PullBack
 
         psi = self.pieces[0].parameterisation
         if not (isinstance(psi, PullBack) and isinstance(psi.domain, CellMap)):
             return None
-        return psi.domain.topology if self == mesh(psi.expression, self.ambient_domain) else None
+        return psi.domain.topology if self == image(psi.expression, self.ambient_domain) else None
 
 
 @final

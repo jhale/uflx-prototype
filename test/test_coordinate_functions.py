@@ -24,7 +24,7 @@ from uflx_spec_interpreter._draft import (
     cell_domain,
     cell_map,
     coordinate_function,
-    mesh,
+    image,
     push_forward,
     side_map,
 )
@@ -54,7 +54,7 @@ def p1_mesh():
     # The dofs of a P1 space on T are numbered by the vertices, in the order of their first cell.
     X, x0, x1, x = coordinates(1)
     assert X.dofmap == (((0, 1, 2), (0, 2, 3)),)
-    return mesh(x, RD(2)), {x0: VERTICES[:, 0], x1: VERTICES[:, 1]}
+    return image(x, RD(2)), {x0: VERTICES[:, 0], x1: VERTICES[:, 1]}
 
 
 def labelled(env):
@@ -110,7 +110,7 @@ def test_the_jacobian_of_a_mesh_is_the_reference_gradient_of_the_coordinate_func
 
 def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
     X, x0, x1, x = coordinates(2)
-    D = mesh(x, RD(2))
+    D = image(x, RD(2))
     # Interpolate the square, then bend the shared diagonal.
     points = basix.create_element(P, CELLS[2], 2, basix.LagrangeVariant.equispaced).points
     values = np.zeros((X.num_dofs, 2))
@@ -132,7 +132,7 @@ def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
 def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
     # The coordinates of the vertices of each cell are the dofs of a discontinuous P1 space.
     X, _, _, x = coordinates(1, discontinuous=True)
-    D = mesh(x, RD(2))
+    D = image(x, RD(2))
     geometry_of, _, E = runtime_mesh()
     rng = np.random.default_rng(12)
     corners = np.array([(0, 0), (1, 0), (1.2, 1.1), (-0.1, 0.9)]) + rng.normal(size=(4, 2)) * 0.05

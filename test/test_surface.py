@@ -25,7 +25,7 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
-from uflx_spec_interpreter._draft import mesh
+from uflx_spec_interpreter._draft import image
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     DomainMap,
@@ -47,7 +47,7 @@ k, i = index("k"), index("i")
 FOLD = VertexCoordinates(
     SQUARE, ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.5), (0.0, 1.0, 1.0))
 )
-M = mesh(FOLD, R3)
+M = image(FOLD, R3)
 
 bump = tensor((num(1), num(-1), num(2)))
 kk = index("kk")
@@ -68,7 +68,7 @@ def deform(z):
 
 
 # The same curved surface written as a mesh, with the cells of M deformed, so it has sides.
-C = mesh(deform(FOLD), R3)
+C = image(deform(FOLD), R3)
 
 
 def sides(D):

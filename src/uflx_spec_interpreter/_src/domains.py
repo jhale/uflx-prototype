@@ -34,7 +34,7 @@ def cell_map(T, j, e=None):
     return CellMap(T, j, cell_index(T, j) if e is None else e)
 
 
-def mesh(x, Q):
+def image(x, Q):
     T = x.support
     pieces = (DomainMap(K, PullBack(x, cell_map(T, j)), Q) for j, K in enumerate(T.cell_types))
     return DecomposedDomain(tuple(pieces))
@@ -98,7 +98,7 @@ def side_map_of_specification(D, E, s):
 def side_domain(D, S):
     # The mesh of the trace of the coordinate function of D through the first side of each group.
     x = coordinate_function(D)
-    return mesh(PullBack(x, side_map(x.support, S)), D.ambient_domain)
+    return image(PullBack(x, side_map(x.support, S)), D.ambient_domain)
 
 
 def inclusion(X, S, i, s, e):

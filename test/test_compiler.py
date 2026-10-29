@@ -37,7 +37,7 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
-from uflx_spec_interpreter._draft import coordinate_function, mesh, push_forward
+from uflx_spec_interpreter._draft import coordinate_function, image, push_forward
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     Division,
@@ -219,7 +219,7 @@ def runtime_mesh():
         cells = np.asarray(cells, dtype=float)
         return {"coefficients:x0": cells[..., 0].ravel(), "coefficients:x1": cells[..., 1].ravel()}
 
-    return geometry, cell_index(T, 0), mesh(tensor((x0, x1)), RD(2))
+    return geometry, cell_index(T, 0), image(tensor((x0, x1)), RD(2))
 
 
 def test_geometry_from_coordinates_given_at_assembly():
