@@ -135,14 +135,16 @@ class Divergence(AbstractExpression):
 @final
 class Curl(AbstractExpression):
     identifier = "uflx.Curl"
-    # The curl of a vector field, a vector for n = 3 and a scalar for n = 2.
+    # The curl of a vector field, contracted with the permutation tensor of rank n.
     expression: AbstractExpression
     domain: AbstractDomain
     opaque = ("domain",)
 
     @cached_property
     def value_shape(self):
-        return (3,) if self.domain.ambient_coordinate_domain.dimension == 3 else ()
+        # The axes of the permutation tensor that the curl leaves, n - 2 of them.
+        n = self.domain.ambient_coordinate_domain.dimension
+        return (n,) * (n - 2)
 
     @cached_property
     def scalar_type(self):
