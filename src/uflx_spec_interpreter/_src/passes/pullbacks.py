@@ -18,8 +18,9 @@ from ..nodes import (
     Sum,
 )
 from ..static import free, shape, support, terminal, zero_like
-from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized
+from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized, substitute
 from ..tensors import transpose
+from ..topology import cell_index
 
 
 def rule(pb, f, m):
@@ -31,10 +32,8 @@ def rule(pb, f, m):
             return broadcast(f, m)
         case Coordinate():
             return lowered_copy(pb, m.parameterisation)
-        case PullBack(g, SideMap() as sm) if (
-            cell_of(m) is not None and m.ambient_domain == sm.parameter_domain
-        ):
-            B, A, _ = side_maps(sm, m)
+        case PullBack(g, SideMap() as sm) if side_cell(sm, m) is not None:
+            B, A, _ = side_maps(sm, *side_cell(sm, m))
             return pb(pb(g, B), A)
         case PullBack(_, phi) if kept(phi):
             return PullBack(f, m)
@@ -45,7 +44,7 @@ def rule(pb, f, m):
             return contract_gradient(Gradient(pb(g, m), m.parameter_domain), K, f, m)
         case Gradient():
             return PullBack(f, m)
-        case Normal(sm) if cell_of(m) is not None and m.ambient_domain == sm.parameter_domain:
+        case Normal(sm) if side_cell(sm, m) is not None:
             return normal(f, m, pb)
         case _ if terminal(f):
             return PullBack(f, m)
@@ -97,16 +96,25 @@ def contract_gradient(gradP, K, f, m):
     )
 
 
-def side_maps(sm, m):
-    # B and A of the group of the cells m, and the reference normal of the side tables.
-    S, (i, _) = sm.parameter_domain.topology, cell_of(m)
-    B, A = inclusion(sm.ambient_domain, S, i, sm.side)
-    return B, A, S.side_tables(i, sm.side)[2]
+def side_cell(sm, m):
+    # The group and the entry of m as a cell of the parameter domain of the side map: a cell
+    # map of the side topology, or a cell of the side domain.
+    if isinstance(m, CellMap):
+        return (m.group, m.entry) if m.topology == sm.side_topology else None
+    return cell_of(m) if m.ambient_domain == sm.parameter_domain else None
+
+
+def side_maps(sm, i, e):
+    # B and A of cell e of group i, and the reference normal of the side tables.
+    S, s = sm.side_topology, sm.sides[i]
+    B, A = inclusion(sm.ambient_domain, S, i, s, e)
+    m_hat = S.side_tables(i, s)[2]
+    return B, A, None if m_hat is None else substitute(m_hat, {cell_index(S, i): e})
 
 
 def normal(f, m, pb):
     # K^T m_hat / |K^T m_hat|, with m_hat the reference normal of the side tables.
-    B, A, m_hat = side_maps(f.side_map, m)
+    B, A, m_hat = side_maps(f.side_map, *side_cell(f.side_map, m))
     w = transpose(pb(lowered_copy(pb, inverse_jacobian(B)), A)) @ m_hat
     return divide(w, square_root(w @ w))
 

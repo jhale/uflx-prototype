@@ -17,9 +17,10 @@ from uflx_spec_interpreter import (
     index_sum,
     integral,
     pull_back,
+    side_domain,
     tensor,
 )
-from uflx_spec_interpreter._draft import cell_domain, cell_map, coordinate_function, mesh
+from uflx_spec_interpreter._draft import cell_domain, cell_map, coordinate_function, mesh, side_map
 from uflx_spec_interpreter._src.domains import is_cell
 from uflx_spec_interpreter._src.nodes import CellMap, Division, PullBack
 from uflx_spec_interpreter._src.passes import gradients
@@ -171,3 +172,27 @@ def test_a_mesh_from_the_coordinates_of_the_vertices_gives_the_values_of_the_exp
         expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
         assert np.isclose(evaluate(compile_form(f, 4), {"coefficients:u": U}), expected)
         assert np.isclose(oracle(f, {u: U})(()), expected)
+
+
+def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():
+    D, _ = p1_mesh()
+    I = basix_cell(CELLS[1])
+    S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
+    E = side_domain(D, S)
+    assert E.topology == S
+    assert coordinate_function(E) == pull_back(coordinate_function(D), side_map(T, S))
+
+
+def test_the_jump_of_a_function_on_a_topology_across_a_facet():
+    # A discontinuous function on T, restricted to the diagonal from both triangles, read on the
+    # reference interval of each cell of the side topology.
+    I = basix_cell(CELLS[1])
+    S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
+    d = function(basix_space("W", T, P, 1, discontinuous=True), "d")
+    jump = pull_back(d, side_map(T, S, "+")) - pull_back(d, side_map(T, S, "-"))
+    f = index_sum(integral(pull_back(jump, cell_map(S, 0)), I), (cell_index(S, 0),))
+    W = np.array([0.0, 1.0, 2.0, 5.0, -1.0, 3.0])
+    value = evaluate(compile_form(f, 2), {"coefficients:d": W})
+    assert np.isclose(value, oracle(f, {d: W})(()))
+    # Vertices 0 and 2 of the diagonal are dofs 0 and 2 of cell 0 and dofs 3 and 4 of cell 1.
+    assert np.isclose(value, ((0.0 - 5.0) + (2.0 - -1.0)) / 2)

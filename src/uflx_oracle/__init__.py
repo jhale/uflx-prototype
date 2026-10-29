@@ -3,6 +3,7 @@ import itertools
 import basix
 import numpy as np
 
+from uflx_spec_interpreter import cell_index
 from uflx_spec_interpreter._src.domains import cell_of
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
@@ -111,11 +112,13 @@ def lookup(env, node, label):
     return env[node] if node in env else env[label]
 
 
-def side_cell(E, side):
-    # The piece and the cell on the side of the current cell of E, through the side tables.
+def side_cell(sm):
+    # The group and the cell on the side of the current cell of the parameter domain of the side
+    # map, through the side tables.
+    E, S = sm.parameter_domain, sm.side_topology
     i = POINTS.get(("piece", E), 0)
-    (_, _, j) = next(s for s in E.topology.sides[i] if s[0] == side)
-    return j, E.topology.side_tables(i, side)[0].values[POINTS[("cell", E)]]
+    (_, _, j) = next(s for s in S.sides[i] if s[0] == sm.sides[i])
+    return j, S.side_tables(i, sm.sides[i])[0].values[POINTS[("cell", E)]]
 
 
 def on_cell(D, piece, cell, fn):
@@ -484,12 +487,25 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: (fp(vals) - fm(vals)) / (2 * EPS)
         case Coordinate(P):
             return lambda vals: np.asarray(POINTS[P], dtype=complex)
-        case PullBack(b, SideMap(Dd, Ed, side)):
+        case PullBack(b, SideMap(AbstractTopology() as T, S, sides) as sm):
             fb = ev(b)
+
+            def restricted_on_topology(vals):
+                # The reference point of the cell on the side, through the inclusion A of the cell.
+                i, e = POINTS.get(("piece", S), 0), POINTS[("cell", S)]
+                _, A, _ = S.side_tables(i, sides[i])
+                inside = evaluate(A.parameterisation, env, {cell_index(S, i): e})
+                X = at(A.parameter_domain, POINTS[S], lambda: np.real(np.asarray(inside(()))))
+                j, cell = side_cell(sm)
+                return on_cell(T, j, cell, lambda: at(T, X, lambda: fb(vals)))
+
+            return restricted_on_topology
+        case PullBack(b, SideMap(Dd) as sm):
+            fb, Ed = ev(b), sm.parameter_domain
 
             def restricted(vals):
                 # The point of E, read from the cell on the side through the table of cells.
-                j, cell = side_cell(Ed, side)
+                j, cell = side_cell(sm)
                 return on_cell(Dd, j, cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
 
             return restricted
@@ -515,12 +531,13 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
-        case Normal(SideMap(Dd, Ed, side)):
+        case Normal(SideMap(Dd) as sm):
+            Ed = sm.parameter_domain
 
             def normal(vals):
                 # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
-                j, cell = side_cell(Ed, side)
+                j, cell = side_cell(sm)
                 facet = Ed.pieces[POINTS.get(("piece", Ed), 0)]
                 edge = piece_map(facet, {next(iter(free(facet.parameterisation))): e}, env)
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]

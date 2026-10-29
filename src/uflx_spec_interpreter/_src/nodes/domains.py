@@ -111,9 +111,15 @@ class CellMap(Base):
 @final
 class SideMap(Base):
     identifier = "uflx.SideMap"
-    # The lazy map of the cells of the parameter domain into the ambient domain through a side.
-    ambient_domain: DecomposedDomain
-    parameter_domain: DecomposedDomain
-    side: str
-    opaque = ("side",)
+    # The restriction from a topology or a mesh to the cells of a topology with sides, through a
+    # side of each group: to the side topology for a topology, and to a side domain for a mesh.
+    ambient_domain: DecomposedDomain | AbstractTopology
+    parameter_domain: DecomposedDomain | AbstractTopology
+    sides: tuple
+    opaque = ("sides",)
     free_indices = ()
+
+    @property
+    def side_topology(self):
+        P = self.parameter_domain
+        return P if isinstance(P, AbstractTopology) else P.topology

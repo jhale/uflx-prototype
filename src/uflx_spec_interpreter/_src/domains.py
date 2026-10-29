@@ -1,6 +1,6 @@
 from .nodes import (
+    AbstractTopology,
     CellMap,
-    Coordinate,
     DecomposedDomain,
     DomainMap,
     GatheredIndex,
@@ -8,6 +8,7 @@ from .nodes import (
     PullBack,
     SideMap,
 )
+from .substitution import substitute
 from .topology import cell_index
 
 
@@ -67,25 +68,34 @@ def is_cell(m):
     return cell_of(m) is not None
 
 
-def side_map(D, E, s):
-    return SideMap(D, E, s)
+def side_map(X, P, s=None):
+    # To the side topology P from a topology, or to a side domain P from a mesh, through the side
+    # s of every group, or through the first side of each group on the topology of X.
+    T = X if isinstance(X, AbstractTopology) else X.topology
+    S = P if isinstance(P, AbstractTopology) else P.topology
+    names = tuple(s or next(n for n, U, _ in sides if U == T) for sides in S.sides)
+    return SideMap(X, P, names)
+
+
+def side_map_of_specification(D, E, s):
+    # The signature of LANGUAGE.md, which the draft extends with a topology for D and E.
+    return side_map(D, E, s)
 
 
 def side_domain(D, S):
-    # Piece i is the coordinates of D through the first side of group i on the topology of D.
-    pieces = []
-    for i, F in enumerate(S.cell_types):
-        s = next(name for name, T, _ in S.sides[i] if T == D.topology)
-        B, A = inclusion(D, S, i, s)
-        pieces.append(DomainMap(F, PullBack(PullBack(Coordinate(D), B), A), D.ambient_domain))
-    return DecomposedDomain(tuple(pieces))
+    # The mesh of the trace of the coordinate function of D through the first side of each group.
+    x = coordinate_function(D)
+    return mesh(PullBack(x, side_map(x.support, S)), D.ambient_domain)
 
 
-def inclusion(D, S, i, s):
-    # B, the cell on the side s of each cell e of group i, and A, the inclusion of e into it.
+def inclusion(X, S, i, s, e):
+    # B, the cell on the side s of cell e of group i, and A, the inclusion of cell e into it.
     (_, _, j) = next(side for side in S.sides[i] if side[0] == s)
     cells, A, _ = S.side_tables(i, s)
-    return cell_domain(D, j, GatheredIndex(cells, (cell_index(S, i),))), A
+    c = cell_index(S, i)
+    g = GatheredIndex(cells, (e,))
+    B = CellMap(X, j, g) if isinstance(X, AbstractTopology) else cell_domain(X, j, g)
+    return B, substitute(A, {c: e})
 
 
 def normal(sm):

@@ -21,7 +21,9 @@ from ._src.domains import (
     gathered_cell_domain,
     normal,
     side_domain,
-    side_map,
+)
+from ._src.domains import (
+    side_map_of_specification as side_map,
 )
 from ._src.forms import action, form, function, gateaux_derivative
 from ._src.geometry import density, inverse_jacobian, jacobian
