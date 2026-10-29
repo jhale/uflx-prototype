@@ -1,4 +1,4 @@
-from .nodes import Zero
+from .nodes import Coordinate, Function, Normal, Zero
 
 
 # The free functions read the static type of an expression.
@@ -27,3 +27,12 @@ def free_indices(*es):
 
 def zero_like(f, argument_spaces, *others):
     return Zero(shape(f), free_indices(f, *others), argument_spaces)
+
+
+def downstream(e):
+    # A terminal of a downstream library, whose class is not a class of the core.
+    return not type(e).identifier.startswith("uflx.")
+
+
+def terminal(e):
+    return isinstance(e, (Coordinate, Function, Normal)) or downstream(e)

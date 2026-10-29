@@ -2,6 +2,7 @@ import basix
 import numpy as np
 from test_basix import CELLS, square
 from test_compiler import functionals, runtime_mesh
+from testutil import vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
@@ -160,3 +161,13 @@ def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
     compiled = compile_form(functionals(D, u)[3], 4)
     dets = {n.second for n in nodes(compiled) if isinstance(n, Division)}
     assert dets and all([i for i, _ in d.free_indices] == [cell_index(T, 0)] for d in dets)
+
+
+def test_a_mesh_from_the_coordinates_of_the_vertices_gives_the_values_of_the_explicit_mesh():
+    D, E = vertex_mesh(T, VERTICES), square(K)[0]
+    U = np.random.default_rng(4).normal(size=basix_space("V", D, P, 2).num_dofs)
+    u, w = function(basix_space("V", D, P, 2), "u"), function(basix_space("V", E, P, 2), "u")
+    for f, g in zip(functionals(D, u), functionals(E, w), strict=True):
+        expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
+        assert np.isclose(evaluate(compile_form(f, 4), {"coefficients:u": U}), expected)
+        assert np.isclose(oracle(f, {u: U})(()), expected)

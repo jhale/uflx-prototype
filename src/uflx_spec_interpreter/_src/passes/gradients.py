@@ -32,7 +32,7 @@ from ..nodes import (
     Tensor,
     Zero,
 )
-from ..static import free_indices, shape, support
+from ..static import downstream, free_indices, shape, support, terminal
 from ..substitution import bottom_up, everywhere, memoized
 from ..tensors import identity
 from .derivative_table import derivative_of_node
@@ -116,15 +116,6 @@ ALWAYS = (
     Function,
     Form,
 )
-
-
-def downstream(e):
-    # A terminal of a downstream library, whose class is not a class of the core.
-    return not type(e).identifier.startswith("uflx.")
-
-
-def terminal(e):
-    return isinstance(e, (Coordinate, Function, Normal)) or downstream(e)
 
 
 def allowed(e):

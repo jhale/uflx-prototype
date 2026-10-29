@@ -1,7 +1,9 @@
+import basix
 import numpy as np
 
 from uflx_spec_interpreter import (
     RD,
+    component_tensor,
     index,
     index_sum,
     tensor,
@@ -20,7 +22,7 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_spec_interpreter._src.substitution import bottom_up
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
-from uflx_toy.nodes import IndexTable, RuntimeArray
+from uflx_toy.nodes import IndexTable, RuntimeArray, VertexCoordinates
 from uflx_toy.runtime import runtime_array
 
 from .evaluation import evaluate
@@ -33,6 +35,8 @@ def tabulate(f):
     # inclusion of a facet, becomes its gathered coefficients times the tabulated basis.
     def rewrite(e):
         found = leaf(e)
+        if found and isinstance(found[0], VertexCoordinates):
+            return vertex_values(*found)
         return values(*found) if found else e
 
     return bottom_up(f, rewrite)
@@ -53,6 +57,10 @@ def leaf(e):
 
 def read(x, points):
     match x:
+        case PullBack(VertexCoordinates() as v, C) if cell(C) is not None:
+            return v, cell(C), 0, points
+        case Gradient(PullBack(VertexCoordinates() as v, C), BasixCell()) if cell(C) is not None:
+            return v, cell(C), 1, points
         case PullBack(Function(BasixSpace()) as u, C) if cell(C) is not None:
             return u, cell(C), 0, points
         case Gradient(PullBack(Function(BasixSpace()) as u, C), BasixCell()) if cell(C) is not None:
@@ -103,6 +111,27 @@ def values(u, found_cell, derivative, points):
     if derivative == 0:
         return term(None)
     return tensor(tuple(term(m) for m in range(dimension)))
+
+
+def vertex_values(x, found_cell, derivative, points):
+    # The coordinates of the vertices of the cell times the shape functions of the vertices, which
+    # are the basis of degree 1 of Basix, in the order of the vertices.
+    T, (j, entry) = x.topology, found_cell
+    F = basix.create_element(basix.ElementFamily.P, T.cell_types[j].cell_type, 1)
+    a, k = (index(("compiler.tabulation", x, entry, points, n)) for n in ("a", "k"))
+    cells = IndexTable(nested(np.asarray(T.cells[j])), len(x.vertices))
+    vertex = constant(x.vertices)[GatheredIndex(cells, (entry, a)), k]
+
+    def term(direction):
+        return component_tensor(
+            index_sum(vertex * table_read(None, j, F, points, direction, a), (a,)), (k,)
+        )
+
+    if derivative == 0:
+        return term(None)
+    d, kk = (index(("compiler.tabulation", x, entry, points, n)) for n in ("d", "kk"))
+    directions = tensor(tuple(term(m) for m in range(points.value_shape[0])))
+    return component_tensor(directions[d, kk], (kk, d))
 
 
 def separable(points):

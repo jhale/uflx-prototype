@@ -1,4 +1,7 @@
-from uflx_spec_interpreter import ScalarType, num, tensor
+import numpy as np
+
+from uflx_spec_interpreter import RD, ScalarType, num, tensor
+from uflx_spec_interpreter._draft import mesh
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Action,
@@ -22,6 +25,7 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_spec_interpreter._src.substitution import nodes_in, operands, traversed
 from uflx_spec_interpreter._src.tuples import members
+from uflx_toy.nodes import VertexCoordinates
 
 
 def contains(e, predicate):
@@ -149,3 +153,9 @@ def table(rows):
         return tensor(tuple(build(y) for y in x)) if isinstance(x, (list, tuple)) else num(x)
 
     return build(rows)
+
+
+def vertex_mesh(T, vertices, Q=None):
+    # The mesh of T with the vertices at the given coordinates, mapped by degree 1 on each cell.
+    vertices = tuple(tuple(float(c) for c in v) for v in np.asarray(vertices, dtype=float))
+    return mesh(VertexCoordinates(T, vertices), RD(len(vertices[0])) if Q is None else Q)

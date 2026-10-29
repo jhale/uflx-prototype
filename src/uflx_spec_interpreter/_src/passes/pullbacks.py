@@ -7,7 +7,6 @@ from ..nodes import (
     ComponentTensor,
     Coordinate,
     DomainMap,
-    Function,
     Gradient,
     Index,
     Indexed,
@@ -18,7 +17,7 @@ from ..nodes import (
     SideMap,
     Sum,
 )
-from ..static import free, shape, support, zero_like
+from ..static import free, shape, support, terminal, zero_like
 from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized
 from ..tensors import transpose
 
@@ -48,7 +47,7 @@ def rule(pb, f, m):
             return PullBack(f, m)
         case Normal(sm) if cell_of(m) is not None and m.ambient_domain == sm.parameter_domain:
             return normal(f, m, pb)
-        case Function() | Normal() | Coordinate():
+        case _ if terminal(f):
             return PullBack(f, m)
         case _:
             return pointwise(f, m, pb)
@@ -129,7 +128,9 @@ def expand_pull_backs(f):
 def in_n5(e):
     def holds(n):
         match n:
-            case PullBack(_, SideMap()) | PullBack(Function() | Normal() | Coordinate(), _):
+            case PullBack(_, SideMap()):
+                return True
+            case PullBack(f, _) if terminal(f):
                 return True
             case PullBack(PullBack(_, phi), _):
                 return kept(phi)

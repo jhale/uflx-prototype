@@ -49,7 +49,8 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_spec_interpreter._src.static import arity, free, support
 from uflx_spec_interpreter._src.tuples import members
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
-from uflx_toy.nodes import RuntimeArray
+from uflx_toy.meshes import shape_functions
+from uflx_toy.nodes import RuntimeArray, VertexCoordinates
 
 EPS = 1e-4
 H = 1e-5
@@ -328,6 +329,15 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: v
         case ImaginaryUnit():
             return lambda vals: 1j
+        case VertexCoordinates(T, V):
+
+            def vertex_value(vals):
+                # The shape functions of the vertices of the current cell at the reference point.
+                j, cell = POINTS.get(("piece", T), 0), POINTS[("cell", T)]
+                phi = shape_functions(T.cell_types[j], POINTS[T])
+                return phi @ np.asarray(V)[list(T.cells[j][cell])]
+
+            return vertex_value
         case Function(BasixSpace() as space, _):
 
             def basix_value(vals):
