@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Literal, final
 
 from ..tuples import members
 from .base import AbstractExpression, Base
@@ -131,14 +131,17 @@ class PullBack(AbstractExpression):
         return self.expression.argument_spaces
 
 
+Variance = Literal["covariant", "contravariant"]
+
+
 @final
-class Law(Base):
-    identifier = "uflx.Law"
-    # The transformation law of a tensor density: a kind, covariant or contravariant, for each of
-    # the last axes, the others unchanged, and a weight.
-    kinds: tuple
+class TransformationLaw(Base):
+    identifier = "uflx.TransformationLaw"
+    # The transformation law of a tensor density: a variance for each of the last axes, the
+    # others unchanged, and a weight.
+    variances: tuple[Variance, ...]
     weight: int
-    opaque = ("kinds", "weight")
+    opaque = ("variances", "weight")
 
 
 @final
@@ -147,13 +150,13 @@ class PushForward(AbstractExpression):
     # The field on a mesh of a function on its topology, carried by a transformation law.
     expression: AbstractExpression
     domain: DecomposedDomain
-    law: Law
+    law: TransformationLaw
     objects = ("domain",)
 
     @cached_property
     def value_shape(self):
         # A covariant or a contravariant axis has the extent k on the reference cell and n on D.
-        shape, p = self.expression.value_shape, len(self.law.kinds)
+        shape, p = self.expression.value_shape, len(self.law.variances)
         n = self.domain.ambient_domain.ambient_coordinate_domain.dimension
         return (*shape[: len(shape) - p], *(n for _ in range(p)))
 

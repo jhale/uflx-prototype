@@ -13,8 +13,8 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractReferenceCell,
     AbstractTopology,
     Float,
-    Law,
     ScalarType,
+    TransformationLaw,
     Zero,
 )
 
@@ -140,12 +140,14 @@ class BasixSpace(AbstractFunctionSpace):
 EQUISPACED = basix.LagrangeVariant.equispaced
 
 LAWS = {
-    basix.MapType.identity: Law((), 0),
-    basix.MapType.covariantPiola: Law(("covariant",), 0),
-    basix.MapType.contravariantPiola: Law(("contravariant",), 1),
-    basix.MapType.doubleCovariantPiola: Law(("covariant", "covariant"), 0),
-    basix.MapType.doubleContravariantPiola: Law(("contravariant", "contravariant"), 2),
-    basix.MapType.L2Piola: Law((), 1),
+    basix.MapType.identity: TransformationLaw((), 0),
+    basix.MapType.covariantPiola: TransformationLaw(("covariant",), 0),
+    basix.MapType.contravariantPiola: TransformationLaw(("contravariant",), 1),
+    basix.MapType.doubleCovariantPiola: TransformationLaw(("covariant", "covariant"), 0),
+    basix.MapType.doubleContravariantPiola: TransformationLaw(
+        ("contravariant", "contravariant"), 2
+    ),
+    basix.MapType.L2Piola: TransformationLaw((), 1),
 }
 
 

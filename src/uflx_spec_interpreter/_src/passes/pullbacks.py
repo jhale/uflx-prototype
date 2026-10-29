@@ -107,13 +107,14 @@ def pushed_forward(g, law, C, pb):
     j, e = cell_of(C)
     ghat = pb(g, CellMap(C.ambient_domain.topology, j, e))
     J, K = jacobian(C), inverse_jacobian(C)
-    r, p = len(shape(ghat)), len(law.kinds)
+    r, p = len(shape(ghat)), len(law.variances)
     lead = tuple(fresh(g, C, ("lead", n)) for n in range(r - p))
     out = tuple(fresh(g, C, ("out", n)) for n in range(p))
     summed = tuple(fresh(g, C, ("sum", n)) for n in range(p))
     value = Indexed(ghat, (*lead, *summed))
-    for kind, i, s in zip(law.kinds, out, summed, strict=True):
-        value = Product(value, Indexed(K, (s, i)) if kind == "covariant" else Indexed(J, (i, s)))
+    for variance, i, s in zip(law.variances, out, summed, strict=True):
+        M = Indexed(K, (s, i)) if variance == "covariant" else Indexed(J, (i, s))
+        value = Product(value, M)
     if summed:
         value = IndexSum(value, summed)
     k, n = C.parameter_domain.dimension, C.ambient_domain.ambient_coordinate_domain.dimension

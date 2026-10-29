@@ -113,9 +113,9 @@ def transformed(ghat, law, J):
     # det J, or by the density for a cell of lower dimension, to the weight.
     K = np.linalg.pinv(J)
     value = np.asarray(ghat, dtype=complex)
-    p = len(law.kinds)
-    for a, kind in enumerate(law.kinds):
-        M = K.T if kind == "covariant" else J
+    p = len(law.variances)
+    for a, variance in enumerate(law.variances):
+        M = K.T if variance == "covariant" else J
         value = np.moveaxis(
             np.tensordot(value, M, axes=([value.ndim - p + a], [1])), -1, value.ndim - p + a
         )

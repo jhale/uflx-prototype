@@ -16,10 +16,10 @@ from .calculus import (
     DirectionalDerivative,
     Gradient,
     Integral,
-    Law,
     Normal,
     PullBack,
     PushForward,
+    TransformationLaw,
 )
 from .domains import (
     RD,
@@ -84,7 +84,6 @@ __all__ = [
     "Integer",
     "Integral",
     "Inverse",
-    "Law",
     "Logarithm",
     "Normal",
     "Power",
@@ -97,5 +96,6 @@ __all__ = [
     "SquareRoot",
     "Sum",
     "Tensor",
+    "TransformationLaw",
     "Zero",
 ]

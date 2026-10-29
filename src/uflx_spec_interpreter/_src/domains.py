@@ -5,11 +5,11 @@ from .nodes import (
     DecomposedDomain,
     DomainMap,
     GatheredIndex,
-    Law,
     Normal,
     PullBack,
     PushForward,
     SideMap,
+    TransformationLaw,
 )
 from .substitution import substitute
 from .topology import cell_index
@@ -45,7 +45,11 @@ def coordinate_function(D):
     return D.pieces[0].parameterisation.expression
 
 
-IDENTITY = Law((), 0)
+IDENTITY = TransformationLaw((), 0)
+
+
+def transformation_law(variances, weight):
+    return TransformationLaw(variances, weight)
 
 
 def push_forward(f, D, m=None):
