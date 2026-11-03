@@ -153,11 +153,11 @@ cells both use `CellMap`, retaining the selected cell through substitution.
 `Complex` and `Determinant` are nodes; tensor indexing uses ordinary index tuples,
 including the specified empty-tuple factory identities.
 
-`_src/validation.py` checks construction arguments and the structural rules of
-core nodes in chapter order. These checks do not prove mathematical hypotheses
+Node classes check their own construction rules, using shared structural helpers
+in `_src/validation.py`. These checks do not prove mathematical hypotheses
 or form linearity. Downstream libraries remain responsible for their own leaf
-contracts. Scalar types are immutable symbolic objects, so they satisfy the
-construction-argument whitelist. The toy's factories encode external enum values
+contracts. `ScalarType.real` and `ScalarType.complex` are plain string constants, so they
+satisfy the construction-argument whitelist. The toy's factories encode external enum values
 and optional domains using permitted graph arguments.
 
 `replace` traverses construction dependencies and preserves lexical binding;
@@ -175,3 +175,16 @@ properties are computed lazily and cached rather than eagerly during constructio
 the existing pass functions implement their rule tables directly rather than
 exposing a general extension-table dispatcher. Library topology contracts and
 numerical capabilities are tested through the supplied toy implementations.
+
+Each node declares `value_fields` for evaluation and `index_fields` for value
+instantiation. Construction dependencies include every annotated argument, including
+spaces and identity labels. Library expression terminals explicitly declare
+`is_terminal = True`; an identifier namespace does not make an operation terminal.
+Unknown extension operations require an extension recipe before core lowering.
+
+Directional differentiation evaluates undifferentiated operands at the point and
+inserts directions unchanged. `apply_derivatives` does not collect scalar algebra.
+The compiler explicitly requests the optional `passes/algebra.py` normalizer.
+Both that optimizer and compiler simplification complete each rewritten child's
+static type before rebuilding its parent. Compiler index instantiation uses the
+core's capture-avoiding value substitution, followed by folding known toy tables.

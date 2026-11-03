@@ -386,7 +386,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return lambda vals: env[e](vals[0])
             return lambda vals: env[e]
         case Zero(s, _, _, scalar_type):
-            dtype = complex if scalar_type.value == "complex" else float
+            dtype = complex if scalar_type == "complex" else float
             return lambda vals: (
                 np.zeros(tuple(size(n, env) for n in s), dtype=dtype) if s else dtype(0)
             )

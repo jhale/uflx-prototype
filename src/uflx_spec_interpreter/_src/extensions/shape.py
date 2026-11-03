@@ -11,6 +11,7 @@ from ..tuples import members
 
 @final
 class ShapeDerivative(AbstractExpression):
+    value_fields = ("expression", "direction")
     identifier = "uflx.shape.ShapeDerivative"
     # A derivative in a function that the coordinates do not depend on commutes with the node.
     commuting = ("expression",)

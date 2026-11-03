@@ -66,7 +66,7 @@ def test_opaque_linear_action_and_unrecognised_operation():
 
 
 @pytest.mark.parametrize("antilinear", [False, True])
-def test_rotated_direction_reuses_computed_differential(monkeypatch, antilinear):
+def test_rotated_direction_uses_the_general_differential(monkeypatch, antilinear):
     V = space("reuse")
     u, h = function(V, "u"), function(V, "h")
     body = conjugate(u * u) if antilinear else u * u
@@ -79,8 +79,10 @@ def test_rotated_direction_reuses_computed_differential(monkeypatch, antilinear)
 
     monkeypatch.setattr(derivatives, "deriv", record)
     out = derivatives.apply_derivatives(gateaux_derivative(body, u, u, h))
-    assert len(calls) == 1
-    assert argument_dependence(out, 0) in ("zero", "complex-linear")
+    assert len(calls) == 2
+    from uflx_spec_interpreter._src.passes.algebra import normalizer
+
+    assert argument_dependence(normalizer()(out), 0) in ("zero", "complex-linear")
 
 
 def test_direction_occurring_at_point_does_not_use_shortcut(monkeypatch):

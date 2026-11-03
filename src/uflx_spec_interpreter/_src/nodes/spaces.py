@@ -53,6 +53,16 @@ class ConjugateSpace(AbstractFunctionSpace):
 
         return conjugated(self.space.argument_spaces)
 
+    def _validate(self):
+        from ..validation import require, typed
+
+        typed(self.space, AbstractFunctionSpace, "conjugate requires a space")
+        require(
+            self.space.scalar_type == ScalarType.complex
+            and (not isinstance(self.space, ConjugateSpace)),
+            "conjugate space is not canonical",
+        )
+
 
 @final
 class DualSpace(AbstractFunctionSpace):
@@ -73,3 +83,16 @@ class DualSpace(AbstractFunctionSpace):
         from ..spaces import conjugated
 
         return (conjugated(self.space),)
+
+    def _validate(self):
+        from ..validation import require, tuple_of, typed
+
+        tuple_of(members(self.space), AbstractFunctionSpace) if type(
+            self.space
+        ) is tuple else typed(self.space, AbstractFunctionSpace, "dual requires a space")
+        require(not isinstance(self.space, DualSpace), "dual space is not canonical")
+        if type(self.space) is tuple:
+            require(
+                len(self.space) >= 2 and len({V.scalar_type for V in self.space}) == 1,
+                "dual product needs at least two spaces with one scalar type",
+            )

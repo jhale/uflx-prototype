@@ -261,16 +261,15 @@ def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form(
 
 
 def mesh_only(e, D):
-    # The largest subexpressions that read the coordinates and no other input.
+    # Subexpressions that read only coordinates, independent of product association.
     geometry = {coefficients(f) for f in coordinate_function(D).entries}
     reads, found = memoized(arrays), set()
 
     def walk(walk, n):
         if reads(n) and set(reads(n)) <= geometry:
             found.add(n)
-        else:
-            for m in expressions(n):
-                walk(m)
+        for m in expressions(n):
+            walk(m)
 
     memoized(walk)(e)
     return found

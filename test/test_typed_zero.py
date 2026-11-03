@@ -50,7 +50,7 @@ def test_zero_construction_and_reconstruction(scalar_type):
     )
 
 
-@pytest.mark.parametrize("bad", ["complex", complex, None, 1])
+@pytest.mark.parametrize("bad", ["invalid", complex, None, 1])
 def test_zero_rejects_invalid_scalar_type(bad):
     with pytest.raises(TypeError):
         zero((), (), (), bad)

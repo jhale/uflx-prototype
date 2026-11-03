@@ -12,11 +12,11 @@ from ..tuples import members
 class Base(ABC):
     # The names of the construction arguments, read from the annotations.
     argument_names: ClassVar[tuple] = ()
-    # Arguments that are data, not operands, so traversal skips them.
-    opaque: ClassVar[tuple] = ()
-    # Domains, domain maps and spaces, which a substitution of indices enters and a lowering
-    # pass does not rewrite.
-    objects: ClassVar[tuple] = ()
+    # Expression operands evaluated by passes; all construction arguments remain dependencies.
+    value_fields: ClassVar[tuple] = ()
+    is_terminal: ClassVar[bool] = False
+    # Index entries selected when instantiating a value, excluding identity labels.
+    index_fields: ClassVar[tuple] = ()
     # Arguments whose nodes identify the node, which a substitution rebuilds.
     labels: ClassVar[tuple] = ()
     # The operands into which a linear evaluation, such as a derivative or an action, moves.
@@ -48,7 +48,7 @@ class Base(ABC):
             raise TypeError(f"{cls.__name__} states no identifier")
         if len(args) != len(cls.argument_names):
             raise TypeError(f"{cls.__name__} takes the arguments {cls.argument_names}")
-        from ..validation import construction_arguments, validate
+        from ..validation import construction_arguments
 
         construction_arguments(args)
         digest = digest_of(cls.identifier, args)
@@ -57,7 +57,8 @@ class Base(ABC):
         if node is None:
             node = super().__new__(cls)
             vars(node).update(construction_arguments=args, digest=digest)
-            validate(node)
+            node._validate()
+            node._validate_type()
             table[key] = node
         return node
 
@@ -70,11 +71,31 @@ class Base(ABC):
     def __repr__(self):
         return f"{type(self).__name__}({', '.join(map(repr, self.construction_arguments))})"
 
+    def _validate(self):
+        pass
+
+    def _validate_type(self):
+        pass
+
     def bound(self):
         return []
 
 
 class AbstractExpression(Base):
+    def _validate_type(self):
+        from ..substitution import expressions
+        from ..validation import merge_indices, require
+
+        require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")
+        operands = expressions(self)
+        merge_indices(*(x.free_indices for x in operands))
+        require(self.scalar_type in ("real", "complex"), "unknown scalar type")
+        if self.matching_domains:
+            domains = [x.domain for x in operands if x.domain is not None]
+            require(not domains or all(D == domains[0] for D in domains), "operand domains differ")
+
+    matching_domains: ClassVar[bool] = False
+
     # Every concrete class states its static type, so the abstract class has no defaults.
     @property
     @abstractmethod

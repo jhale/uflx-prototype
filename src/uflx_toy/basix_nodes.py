@@ -24,7 +24,6 @@ class BasixCell(AbstractReferenceCell):
     identifier = "toy.BasixCell"
     # A reference cell of Basix, whose vertices and facet normals Basix tabulates.
     cell_type_value: int
-    opaque = ("cell_type",)
 
     @property
     def cell_type(self):
@@ -69,8 +68,7 @@ class BasixSpace(AbstractFunctionSpace):
     family_value: int
     degree: int
     discontinuous_value: int
-    scalar_type: ScalarType
-    opaque = ("label", "domain", "family", "degree", "discontinuous", "scalar_type")
+    scalar_type: str
     argument_spaces = ()
 
     @property

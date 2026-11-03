@@ -14,45 +14,53 @@ from ..nodes import (
     SquareRoot,
     Sum,
 )
+from ..substitution import freshen, map_fields
 from ..tensors import transpose
 from ..tuples import each, members
-from .commuting import commute
 
 
-def derivative_of_node(f, d, constant, avoid):
+def derivative_of_node(f, d, constant, avoid, at=lambda e: e):
     # The derivatives of the node classes, shared by every pass that differentiates.
+    f = freshen(f, avoid)
     match f:
         case Product(b, c):
-            return Sum(Product(d(b), c), Product(b, d(c)))
+            return Sum(Product(d(b), at(c)), Product(at(b), d(c)))
         case Division(b, c):
-            return subtract(Division(d(b), c), Division(Product(b, d(c)), Product(c, c)))
+            return subtract(
+                Division(d(b), at(c)), Division(Product(at(b), d(c)), Product(at(c), at(c)))
+            )
         case Power(b, c) if constant(c):
-            return Product(Product(c, Power(b, Sum(c, Integer(-1)))), d(b))
+            return Product(Product(at(c), Power(at(b), Sum(at(c), Integer(-1)))), d(b))
         case Power(b, c):
-            return Product(f, Sum(Product(Logarithm(b), d(c)), Division(Product(c, d(b)), b)))
+            return Product(
+                at(f), Sum(Product(Logarithm(at(b)), d(c)), Division(Product(at(c), d(b)), at(b)))
+            )
         case Absolute(b):
-            return abs_derivative(b, d(b))
+            return abs_derivative(at(b), d(b))
         case SquareRoot(b):
-            return Division(d(b), Product(Integer(2), f))
+            return Division(d(b), Product(Integer(2), at(f)))
         case Logarithm(b):
-            return Division(d(b), b)
+            return Division(d(b), at(b))
         case Determinant(A):
             from ..names import derived_indices
             from ..tensors import index_sum, indexed
 
             i, j = derived_indices("uflx.derivative", (f,), 2)
-            return f * index_sum(indexed(Inverse(A), (i, j)) * indexed(d(A), (j, i)), (i, j))
+            return at(f) * index_sum(
+                indexed(Inverse(at(A)), (i, j)) * indexed(d(A), (j, i)), (i, j)
+            )
         case Inverse(A):
-            return inverse_derivative(A, d(A))
+            return inverse_derivative(at(A), d(A))
         case Action(l, p, w):
             if constant(l):
-                return Action(l, p, each(d, w))
+                return Action(at(l), p, each(d, w))
             if all(constant(v) for v in members(w)):
-                return Action(d(l), p, w)
-            return Sum(Action(d(l), p, w), Action(l, p, each(d, w)))
+                return Action(d(l), p, each(at, w))
+            return Sum(Action(d(l), p, each(at, w)), Action(at(l), p, each(d, w)))
         case _ if f.commuting:
-            return commute(f, d, avoid)
-    raise TypeError(f"cannot occur: {f}")
+            other = tuple(n for n in f.value_fields if n not in f.commuting)
+            return map_fields(map_fields(f, at, other), d, f.commuting)
+    raise TypeError(f"no derivative rule for {type(f).__name__}")
 
 
 def abs_derivative(b, db):

@@ -64,7 +64,7 @@ def test_checked_lowering_rejects_extension_and_accepts_completed_extension_reci
 
     x, h = (function(space("shape-recipe"), name) for name in ("x", "h"))
     e = shape_derivative(x * x, x, h)
-    with pytest.raises(ValueError, match="outside core normal form") as error:
+    with pytest.raises(TypeError, match="outside core normal form") as error:
         lower(e)
     assert error.value.args[1][0][0] is e
     out = lower_with_shape_derivatives(e)

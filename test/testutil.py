@@ -22,7 +22,7 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.substitution import nodes_in, operands, traversed
+from uflx_spec_interpreter._src.substitution import expressions, nodes_in
 from uflx_toy.nodes import VertexCoordinates
 
 
@@ -32,7 +32,9 @@ def contains(e, predicate):
 
     def walk(n):
         if n not in seen:
-            seen[n] = predicate(n) or any(walk(c) for c in operands(n))
+            seen[n] = predicate(n) or any(
+                walk(c) for c in nodes_in(n, (*n.value_fields, *n.index_fields))
+            )
         return seen[n]
 
     return walk(e)
@@ -95,14 +97,14 @@ def ill_typed(e):
 
     def walk(n):
         if n not in seen:
-            seen[n] = node_error(n) or next(filter(None, map(walk, operands(n))), None)
+            seen[n] = node_error(n) or next(filter(None, map(walk, expressions(n))), None)
         return seen[n]
 
     return walk(e)
 
 
 def node_error(n):
-    others = [m for name in traversed(n) if name not in passed(n) for m in nodes_in(n, [name])]
+    others = [m for name in n.value_fields if name not in passed(n) for m in nodes_in(n, [name])]
     for m in others:
         if isinstance(m, AbstractExpression) and m.argument_spaces:
             return f"{type(n).__name__} has an operand with argument spaces {m.argument_spaces}"

@@ -16,8 +16,12 @@ class AbstractExtent(Base):
 class Index(Base):
     identifier = "uflx.Index"
     label: str | tuple
-    opaque = ("label",)
     labels = ("label",)
+
+    def _validate(self):
+        from ..validation import typed
+
+        typed(self.label, (str, tuple), "index label must be a string or tuple")
 
 
 class AbstractIndexTable(Base):
@@ -33,6 +37,7 @@ class AbstractIndexTable(Base):
 
 @final
 class GatheredIndex(Base):
+    index_fields = ("indices",)
     identifier = "uflx.GatheredIndex"
     # An index read from a table at the given entries, an int or an Index for each axis.
     table: AbstractIndexTable
@@ -47,3 +52,9 @@ class GatheredIndex(Base):
         from ..validation import entries
 
         return entries(self.table.shape, self.indices)
+
+    def _validate(self):
+        from ..validation import entries, typed
+
+        typed(self.table, AbstractIndexTable, "gather requires an index table")
+        entries(self.table.shape, self.indices)

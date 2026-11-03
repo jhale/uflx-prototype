@@ -6,7 +6,7 @@ from typing import final
 from ..tuples import each, members
 from .arithmetic import Conjugate
 from .base import AbstractExpression
-from .spaces import AbstractFunctionSpace
+from .spaces import AbstractFunctionSpace, DualSpace
 
 
 def entry_function(m):
@@ -26,10 +26,11 @@ def entry_space(entry):
 
 @final
 class Function(AbstractExpression):
+    value_fields = ()
+    is_terminal = True
     identifier = "uflx.Function"
     space: AbstractFunctionSpace
     label: str | tuple
-    opaque = ("space", "label")
     labels = ("label",)
 
     @cached_property
@@ -52,9 +53,16 @@ class Function(AbstractExpression):
     def free_indices(self):
         return ()
 
+    def _validate(self):
+        from ..validation import typed
+
+        typed(self.space, AbstractFunctionSpace, "function requires a space")
+        typed(self.label, (str, tuple), "function label must be a string or tuple")
+
 
 @final
 class Form(AbstractExpression):
+    value_fields = ("expression",)
     identifier = "uflx.Form"
     commuting = ("expression",)
     expression: AbstractExpression
@@ -86,14 +94,31 @@ class Form(AbstractExpression):
     def domain(self):
         return self.expression.domain
 
+    def _validate(self):
+        from ..validation import require, tuple_of, typed
+
+        typed(self.expression, AbstractExpression, "form body must be an expression")
+        tuple_of(self.arguments, (Function, Conjugate, tuple))
+        for a in self.arguments:
+            if type(a) is tuple:
+                require(len(a) >= 2, "product binder needs at least two functions")
+            for f in members(a):
+                f = f.operand if isinstance(f, Conjugate) else f
+                typed(f, Function, "binder must be a function or its conjugate")
+                require(
+                    not f.argument_spaces or isinstance(f.space, DualSpace),
+                    "function is not bindable",
+                )
+        require(len(set(self.bound())) == len(self.bound()), "form binders must be distinct")
+
 
 @final
 class Action(AbstractExpression):
+    value_fields = ("form", "argument")
     identifier = "uflx.Action"
     form: AbstractExpression
     position: int
     argument: AbstractExpression | tuple[AbstractExpression, ...]
-    opaque = ("position",)
 
     @cached_property
     def value_shape(self):
@@ -116,3 +141,15 @@ class Action(AbstractExpression):
     @cached_property
     def domain(self):
         return self.form.domain
+
+    def _validate(self):
+        from ..validation import admissible, require, typed
+
+        typed(self.form, AbstractExpression, "action requires a form expression")
+        if type(self.position) is not int:
+            raise TypeError("action position must be an integer")
+        require(
+            0 <= self.position < len(self.form.argument_spaces),
+            "action position is outside the form",
+        )
+        admissible(self.form.argument_spaces[self.position], self.argument)

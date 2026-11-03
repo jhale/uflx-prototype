@@ -26,7 +26,6 @@ class IndexTable(AbstractIndexTable):
     # The toy knows the values, which the specification leaves to a library.
     values: tuple
     extent: int
-    opaque = ("values", "extent")
 
     @cached_property
     def shape(self):
@@ -42,16 +41,15 @@ class RuntimeExtent(AbstractExtent):
     identifier = "toy.RuntimeExtent"
     # The extent of the cut cell example, known only at assembly.
     label: str
-    opaque = ("label",)
 
 
 @final
 class RuntimeArray(AbstractExpression):
+    is_terminal = True
     identifier = "toy.RuntimeArray"
     # A kernel input of the cut cell example, such as quadrature data.
     label: str
     value_shape: tuple
-    opaque = ("label", "value_shape")
     free_indices = ()
     argument_spaces = ()
     domain = None
@@ -66,7 +64,6 @@ class Space(AbstractFunctionSpace):
     value_shape: tuple
     domain_data: AbstractDomain | tuple
     scalar_type: str
-    opaque = ("name", "value_shape", "domain", "scalar_type")
     argument_spaces = ()
 
     @property
@@ -76,12 +73,12 @@ class Space(AbstractFunctionSpace):
 
 @final
 class VertexCoordinates(AbstractExpression):
+    is_terminal = True
     identifier = "toy.VertexCoordinates"
     # The coordinate function of a mesh from the coordinates of its vertices, of degree 1 on each
     # cell, which the toy evaluates with the shape functions of the vertices.
     topology: AbstractTopology
     vertices: tuple
-    opaque = ("vertices",)
     free_indices = ()
     argument_spaces = ()
     scalar_type = ScalarType.real
@@ -100,7 +97,6 @@ class ReferenceSimplex(AbstractReferenceCell):
     identifier = "toy.ReferenceSimplex"
     # The unit simplex, with vertex 0 at the origin and vertex v the unit vector e_(v-1).
     dimension: int
-    opaque = ("dimension",)
 
     @property
     def num_vertices(self):
@@ -126,7 +122,6 @@ class StaticTopology(AbstractTopology):
     cell_types: tuple
     cells: tuple
     sides: tuple
-    opaque = ("cell_types", "cells", "sides")
 
     @property
     def num_cells(self):
@@ -163,7 +158,6 @@ class TabulatedTopology(AbstractTopology):
     num_cells: tuple
     sides: tuple
     tables: tuple
-    opaque = ("label", "cell_types", "num_cells", "sides", "tables")
 
     def side_tables(self, i, side):
         names = [s[0] for s in self.sides[i]]

@@ -36,7 +36,7 @@ from ..nodes import (
     Tensor,
     Zero,
 )
-from ..static import downstream, free_indices, shape, support, terminal
+from ..static import field_terminal, free_indices, shape, support
 from ..substitution import bottom_up, everywhere, memoized
 from ..tensors import identity
 from .actions import apply_actions, retained
@@ -91,10 +91,10 @@ def chained(f):
 
 
 def remains(f, P):
-    # The gradient of a terminal, a pull-back, a gradient, a push-forward, a divergence or a curl
-    # remains, except the gradient of the coordinates, which is the identity, and the chain rule.
+    # Field and spatial-operator gradients remain, except the coordinate identity
+    # and the chain rule.
     identity = isinstance(f, Coordinate) and P.dimension == P.ambient_coordinate_domain.dimension
-    leaf = terminal(f) or isinstance(f, PullBack | Gradient | PushForward | Divergence | Curl)
+    leaf = field_terminal(f) or isinstance(f, PullBack | Gradient | PushForward | Divergence | Curl)
     return leaf and not identity and not chained(f)
 
 
@@ -146,7 +146,7 @@ def allowed(e):
             | PushForward()
         ):
             return True
-        case _ if downstream(e):
+        case _ if field_terminal(e):
             return True
         case Divergence() | Curl():
             return piola_law(e) is not None

@@ -87,7 +87,7 @@ def node(n, value, env, xp):
         case Zero():
             return xp.zeros(
                 full_shape(n, order, env),
-                dtype=complex if n.scalar_type.value == "complex" else float,
+                dtype=complex if n.scalar_type == "complex" else float,
             )
         case RuntimeArray(label, _):
             return xp.asarray(env[label])
@@ -134,7 +134,7 @@ def node(n, value, env, xp):
         case IndexSum(x, indices) if any(size(dict(x.free_indices)[i], env) == 0 for i in indices):
             return xp.zeros(
                 full_shape(n, order, env),
-                dtype=complex if n.scalar_type.value == "complex" else float,
+                dtype=complex if n.scalar_type == "complex" else float,
             )
         case IndexSum(Product() as x, indices):
             return contracted(n, x, value, xp)

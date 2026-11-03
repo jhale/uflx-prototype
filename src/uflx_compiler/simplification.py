@@ -1,6 +1,5 @@
 import numpy as np
 
-from uflx_spec_interpreter._src.names import derived_index
 from uflx_spec_interpreter._src.nodes import (
     ComponentTensor,
     Conjugate,
@@ -20,7 +19,8 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.substitution import lowered, map_fields, memoized
+from uflx_spec_interpreter._src.static import complete_indices
+from uflx_spec_interpreter._src.substitution import lowered, map_fields, memoized, substitute_values
 from uflx_spec_interpreter._src.tensors import determinant
 
 
@@ -30,10 +30,9 @@ def simplify(f):
     # is the expression at that component, and arithmetic of literals is folded.
     def walk(walk, e):
         new = map_fields(e, walk, lowered(e))
-        if isinstance(e, ComponentTensor | IndexSum):
-            new = restored(e, new)
         out = rewritten(new)
-        return out if out is new else walk(out)
+        # Finish the child before reconstructing a parent which binds its indices.
+        return complete_indices(e, out if out is new else walk(out))
 
     return memoized(walk)(f)
 
@@ -43,6 +42,11 @@ def zero(e):
 
 
 def literal(e):
+    if isinstance(e, Sum):
+        if isinstance(e.first, Zero):
+            return literal(e.second)
+        if isinstance(e.second, Zero):
+            return literal(e.first)
     return e.value if isinstance(e, Integer | Float) else None
 
 
@@ -113,55 +117,15 @@ def adjugate(A):
     )
 
 
-def restored(e, new):
-    # A bound index that the operand lost comes back through a Zero, which broadcasts there.
-    extents, kept = dict(e.expression.free_indices), dict(new.expression.free_indices)
-    lost = tuple((i, extents[i]) for i in e.indices if i not in kept)
-    if not lost:
-        return new
-    x = new.expression
-    return type(e)(Sum(x, Zero(x.value_shape, lost, x.argument_spaces, x.scalar_type)), e.indices)
-
-
 def instantiated(x, mapping):
-    # x with each Index of mapping replaced by an Index or an int, through the free indices of
-    # a Zero too, and with the indices of a binding node renamed where they would capture.
-    def walk(walk, e, items):
-        mapping = dict(items)
-        match e:
-            case Index():
-                return mapping.get(e, e)
-            case GatheredIndex(table, indices):
-                indices = tuple(
-                    walk(i, items) if isinstance(i, Index | GatheredIndex) else i for i in indices
-                )
-                if all(isinstance(i, int) for i in indices):
-                    return int(np.asarray(table.values)[indices])
-                return GatheredIndex(table, indices)
-            case Zero(shape, free, spaces, scalar_type):
-                return Zero(
-                    shape,
-                    tuple(p for i, n in free for p in moved(i, n, mapping)),
-                    spaces,
-                    scalar_type,
-                )
-            case ComponentTensor(body, bound) | IndexSum(body, bound):
-                inner = {i: k for i, k in mapping.items() if i not in bound}
-                captured = [i for i in bound if i in inner.values()]
-                renames = {i: derived_index("compiler.simplify", e, i) for i in captured}
-                if renames:
-                    body = walk(body, tuple(renames.items()))
-                    bound = tuple(renames.get(i, i) for i in bound)
-                return type(e)(walk(body, tuple(inner.items())), bound)
-        return map_fields(e, lambda c: walk(c, items))
+    # Binding and free-index substitution have one implementation in the core.
+    def fold(walk, e):
+        e = map_fields(e, walk, (*e.value_fields, *e.index_fields))
+        if isinstance(e, GatheredIndex) and all(type(i) is int for i in e.indices):
+            from uflx_toy.nodes import IndexTable
 
-    return memoized(walk)(x, tuple(mapping.items()))
+            if isinstance(e.table, IndexTable):
+                return int(np.asarray(e.table.values)[e.indices])
+        return e
 
-
-def moved(i, n, mapping):
-    k = mapping.get(i, i)
-    if isinstance(k, Index):
-        return ((k, n),)
-    if isinstance(k, GatheredIndex):
-        return k.free_indices
-    return ()
+    return memoized(fold)(substitute_values(x, mapping))

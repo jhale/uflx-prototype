@@ -13,6 +13,7 @@ from ..nodes import (
     Complex,
     Conjugate,
     Division,
+    Float,
     Form,
     Integer,
     Product,
@@ -128,11 +129,6 @@ def collected(e):
 
 
 def preserve(e, out):
-    # Cancellation may remove indexed dependencies; retain the original family.
-    if out.value_shape != e.value_shape or out.argument_spaces != e.argument_spaces:
-        return e
-    if e.scalar_type != out.scalar_type:
-        out = Sum(out, Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type))
     return complete_indices(e, out)
 
 
@@ -166,6 +162,11 @@ def rewrite(e):
     if isinstance(e, Sum | Product):
         return preserve(e, collected(e))
     if isinstance(e, Conjugate):
+        if isinstance(e.operand, Complex):
+            a, b = e.operand.real, e.operand.imag
+            # Keep signed zero: it selects a side of a complex branch cut.
+            imag = Float(-float(b.value)) if b.value == 0 else type(b)(-b.value)
+            return Complex(a, imag)
         if isinstance(e.operand, Conjugate):
             return e.operand.operand
         if (value := number(e.operand)) is not None:
@@ -181,6 +182,6 @@ def normalizer():
         moved = operator_rule(new)
         if moved is not new:
             return walk(preserve(new, moved))
-        return rewrite(new)
+        return preserve(new, rewrite(new))
 
     return memoized(walk)

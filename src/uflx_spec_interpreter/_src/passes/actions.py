@@ -1,5 +1,5 @@
 from ..nodes import Action, Conjugate, Form, Function, Gradient, Product, PullBack, Zero
-from ..static import arity, complete_indices, downstream, free_indices, promote
+from ..static import arity, complete_indices, field_terminal, free_indices, promote
 from ..substitution import everywhere, freshen, lowered, map_fields, memoized, rebuild, substitute
 from ..tuples import members
 from .commuting import commute
@@ -69,7 +69,7 @@ def apply_actions(f):
 def retained(form):
     # Spatial operations transform the output; applying them must not move the
     # argument inside again. Further partial applications remain nested.
-    return isinstance(form, Function | Gradient | PullBack | Action) or downstream(form)
+    return isinstance(form, Function | Gradient | PullBack | Action) or field_terminal(form)
 
 
 def in_n2(e):

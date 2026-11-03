@@ -10,10 +10,10 @@ def operands(e, names=None):
 
 
 def edges(e):
-    # The edges of rule 5, without the opaque arguments, kept on the node like its static type.
+    # All construction dependencies, including spaces, maps, labels and literal parts.
     memo = vars(e)
     if "edges" not in memo:
-        memo["edges"] = nodes_in(e, traversed(e))
+        memo["edges"] = nodes_in(e, e.argument_names)
     return memo["edges"]
 
 
@@ -45,11 +45,6 @@ def rebuild(e, **changes):
     return type(e)(*values.values())
 
 
-def traversed(e):
-    # The construction arguments that traversal visits.
-    return [n for n in e.argument_names if n not in e.opaque]
-
-
 def expressions(e):
     # The operands of e that are expressions, which a grammar restricts.
     return [x for x in nodes_in(e, lowered(e)) if isinstance(x, AbstractExpression)]
@@ -64,12 +59,14 @@ def map_fields(e, fn, names=None):
             return tuple(walk(y) for y in x)
         return x
 
-    names = traversed(e) if names is None else names
+    names = e.argument_names if names is None else names
     return rebuild(e, **{n: walk(getattr(e, n)) for n in names})
 
 
 def occurs(r, e):
     # Whether r is free in e, kept on e and weakly in r so that each is freed with its node.
+    if not isinstance(e, Base):
+        return False
     memo = vars(e).setdefault("occurrences", weakref.WeakKeyDictionary())
     if r not in memo:
         memo[r] = e == r or any(occurs(r, x) for x in operands(e, scoped(r, e)))
@@ -113,7 +110,7 @@ def substituted(walk, e, items, dependencies=True):
     from .nodes import GatheredIndex, Zero
     from .validation import merge_indices
 
-    if isinstance(e, Zero) and dependencies:
+    if isinstance(e, Zero):
         # Zero's free-index signature changes when an index is selected or gathered.
         pairs = []
         for i, extent in e.free_indices:
@@ -148,11 +145,17 @@ def substituted(walk, e, items, dependencies=True):
         )
     if not e.scope:
         return map_fields(
-            e, lambda x: walk(x, items), e.argument_names if dependencies else lowered(e)
+            e,
+            lambda x: walk(x, items),
+            e.argument_names if dependencies else (*e.value_fields, *e.index_fields),
         )
     inner = {r: s for r, s in mapping.items() if not any(occurs(n, r) for n in e.bound())}
     e = freshen(e, list(inner.values()))
-    outside = [n for n in (e.argument_names if dependencies else lowered(e)) if n not in e.scope]
+    outside = [
+        n
+        for n in (e.argument_names if dependencies else (*e.value_fields, *e.index_fields))
+        if n not in e.scope
+    ]
     e = map_fields(e, lambda x: walk(x, items), outside)
     return map_fields(e, lambda x: walk(x, tuple(inner.items())), e.scope)
 
@@ -170,15 +173,8 @@ def memoized(rule):
 
 
 def lowered(e):
-    # The arguments that a lowering pass rewrites, without the domains, maps and spaces.
-    return [
-        n
-        for n in traversed(e)
-        if n not in e.objects
-        and n not in e.labels
-        and not (n in e.scope and n != "expression")
-        and any(isinstance(x, AbstractExpression) for x in nodes_in(e, [n]))
-    ]
+    # Only explicitly declared value operands are evaluated.
+    return e.value_fields
 
 
 def bottom_up(f, rewrite):
@@ -201,6 +197,6 @@ def replace(e, mapping):
 
 
 def substitute_values(e, mapping):
-    # Differentiation holds geometry and identity metadata fixed.
+    # Value instantiation holds geometry and identity metadata fixed.
     items = tuple(sorted(mapping.items(), key=lambda item: item[0].digest))
     return memoized(lambda walk, node, pairs: substituted(walk, node, pairs, False))(e, items)

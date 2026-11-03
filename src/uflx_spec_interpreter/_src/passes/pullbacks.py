@@ -4,7 +4,6 @@ from ..domains import cell_of, inclusion, is_cell
 from ..geometry import density, inverse_jacobian, jacobian
 from ..names import derived_index
 from ..nodes import (
-    AbstractExpression,
     Action,
     CellMap,
     ComponentTensor,
@@ -24,7 +23,7 @@ from ..nodes import (
     SideMap,
     TransformationLaw,
 )
-from ..static import complete_indices, shape, support, terminal
+from ..static import complete_indices, field_terminal, shape, support
 from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized, substitute
 from ..tensors import determinant, transpose
 from ..topology import cell_index
@@ -74,7 +73,7 @@ def rule(pb, f, m):
             return normal(f, m, pb)
         case PushForward(g, D, law) if m.ambient_domain == D and is_cell(m):
             return pushed_forward(g, law, m, pb)
-        case _ if terminal(f) or isinstance(f, PushForward):
+        case _ if field_terminal(f) or isinstance(f, PushForward):
             return PullBack(f, m)
         case _:
             return pointwise(f, m, pb)
@@ -102,7 +101,7 @@ def pointwise(f, m, pb):
     fresh = freshen(f, [m])
     if isinstance(fresh, Form):
         return Form(pb(fresh.expression, m), fresh.arguments)
-    return map_fields(fresh, lambda x: pb(x, m) if isinstance(x, AbstractExpression) else x)
+    return map_fields(fresh, lambda x: pb(x, m), fresh.value_fields)
 
 
 def derived_axis(f, m, axis):
@@ -185,7 +184,7 @@ def remains(f, m):
     # The pull-backs that no row of expand_pull_backs rewrites, which a library reads.
     return not isinstance(f, Action | Form) and (
         isinstance(m, SideMap)
-        or terminal(f)
+        or field_terminal(f)
         or isinstance(f, PushForward)
         or (isinstance(f, PullBack) and kept(f.map))
         or (isinstance(f, Gradient) and not is_cell(m))

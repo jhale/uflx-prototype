@@ -13,12 +13,12 @@ def lower(f: AbstractExpression) -> AbstractExpression:
 
     Geometry exposed during lowering must satisfy the geometry precondition of
     the specification. Extension operations require their own recipe before
-    entering this operation. Retained library terminals are not evaluated here.
+    entering this operation. Retained library field_terminals are not evaluated here.
 
     Raises:
         TypeError: The input is not an expression or a rewrite is unsupported.
-        ValueError: The result is outside core normal form. The exception's
-            second argument contains the offending nodes and diagnostic reasons.
+            An unsupported output carries offending nodes and diagnostic reasons
+            in the exception's second argument.
     """
     if not isinstance(f, AbstractExpression):
         raise TypeError("lowering requires an expression")
@@ -26,5 +26,5 @@ def lower(f: AbstractExpression) -> AbstractExpression:
     violations = core_normal_form(out)
     if violations:
         reasons = "; ".join(dict.fromkeys(reason for _, reason in violations))
-        raise ValueError(f"core lowering did not reach its output contract: {reasons}", violations)
+        raise TypeError(f"unsupported core lowering: {reasons}", violations)
     return out

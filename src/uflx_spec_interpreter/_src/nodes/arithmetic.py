@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 @final
 class Sum(AbstractExpression):
+    matching_domains = True
+    value_fields = ("first", "second")
     identifier = "uflx.Sum"
     commuting = ("first", "second")
     first: AbstractExpression
@@ -37,9 +39,14 @@ class Sum(AbstractExpression):
     def domain(self):
         return self.second.domain or self.first.domain
 
+    def _validate(self):
+        _validate_scalar_arithmetic(self)
+
 
 @final
 class Product(AbstractExpression):
+    matching_domains = True
+    value_fields = ("first", "second")
     identifier = "uflx.Product"
     first: AbstractExpression
     second: AbstractExpression
@@ -64,9 +71,14 @@ class Product(AbstractExpression):
     def domain(self):
         return self.second.domain or self.first.domain
 
+    def _validate(self):
+        _validate_scalar_arithmetic(self)
+
 
 @final
 class Division(AbstractExpression):
+    matching_domains = True
+    value_fields = ("first", "second")
     identifier = "uflx.Division"
     commuting = ("first",)
     first: AbstractExpression
@@ -92,9 +104,14 @@ class Division(AbstractExpression):
     def domain(self):
         return self.second.domain or self.first.domain
 
+    def _validate(self):
+        _validate_scalar_arithmetic(self)
+
 
 @final
 class Power(AbstractExpression):
+    matching_domains = True
+    value_fields = ("first", "second")
     identifier = "uflx.Power"
     first: AbstractExpression
     second: AbstractExpression
@@ -119,9 +136,13 @@ class Power(AbstractExpression):
     def domain(self):
         return self.second.domain or self.first.domain
 
+    def _validate(self):
+        _validate_scalar_arithmetic(self)
+
 
 @final
 class Conjugate(AbstractExpression):
+    value_fields = ("operand",)
     identifier = "uflx.Conjugate"
     commuting = ("operand",)
     operand: AbstractExpression
@@ -149,9 +170,15 @@ class Conjugate(AbstractExpression):
     def domain(self):
         return self.operand.domain
 
+    def _validate(self):
+        from ..validation import typed
+
+        typed(self.operand, AbstractExpression, "operand must be an expression")
+
 
 @final
 class RealPart(AbstractExpression):
+    value_fields = ("operand",)
     identifier = "uflx.RealPart"
     commuting = ("operand",)
     operand: AbstractExpression
@@ -176,9 +203,15 @@ class RealPart(AbstractExpression):
     def domain(self):
         return self.operand.domain
 
+    def _validate(self):
+        from ..validation import scalar_operand
+
+        scalar_operand(self.operand)
+
 
 @final
 class ImaginaryPart(AbstractExpression):
+    value_fields = ("operand",)
     identifier = "uflx.ImaginaryPart"
     commuting = ("operand",)
     operand: AbstractExpression
@@ -203,9 +236,15 @@ class ImaginaryPart(AbstractExpression):
     def domain(self):
         return self.operand.domain
 
+    def _validate(self):
+        from ..validation import scalar_operand
+
+        scalar_operand(self.operand)
+
 
 @final
 class Absolute(AbstractExpression):
+    value_fields = ("operand",)
     identifier = "uflx.Absolute"
     operand: AbstractExpression
 
@@ -229,9 +268,15 @@ class Absolute(AbstractExpression):
     def domain(self):
         return self.operand.domain
 
+    def _validate(self):
+        from ..validation import scalar_operand
+
+        scalar_operand(self.operand)
+
 
 @final
 class SquareRoot(AbstractExpression):
+    value_fields = ("operand",)
     identifier = "uflx.SquareRoot"
     operand: AbstractExpression
 
@@ -255,9 +300,15 @@ class SquareRoot(AbstractExpression):
     def domain(self):
         return self.operand.domain
 
+    def _validate(self):
+        from ..validation import scalar_operand
+
+        scalar_operand(self.operand)
+
 
 @final
 class Logarithm(AbstractExpression):
+    value_fields = ("operand",)
     identifier = "uflx.Logarithm"
     operand: AbstractExpression
 
@@ -280,3 +331,22 @@ class Logarithm(AbstractExpression):
     @cached_property
     def domain(self):
         return self.operand.domain
+
+    def _validate(self):
+        from ..validation import scalar_operand
+
+        scalar_operand(self.operand)
+
+
+def _validate_scalar_arithmetic(e):
+    from ..validation import require, typed
+
+    for f in (e.first, e.second):
+        typed(f, AbstractExpression, "arithmetic operands must be expressions")
+        require(f.value_shape == (), "scalar arithmetic requires scalar operands")
+    if isinstance(e, Sum):
+        require(e.first.argument_spaces == e.second.argument_spaces, "sum argument spaces differ")
+    if isinstance(e, (Division, Power)):
+        require(not e.second.argument_spaces, "nonlinear operand has argument spaces")
+    if isinstance(e, Power):
+        require(not e.first.argument_spaces, "power base has argument spaces")

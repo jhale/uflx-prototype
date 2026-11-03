@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal, final
 from ..tuples import members
 from .base import AbstractExpression, Base
 from .scalar_types import ScalarType
+from .spaces import DualSpace
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain, CellMap, DomainMap, Mesh, SideMap
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 
 @final
 class DirectionalDerivative(AbstractExpression):
+    value_fields = ("expression", "point", "direction")
     identifier = "uflx.DirectionalDerivative"
     commuting = ("expression",)
     # The variable, the point and the direction are a function and two expressions, or tuples.
@@ -47,12 +49,40 @@ class DirectionalDerivative(AbstractExpression):
     def domain(self):
         return self.expression.domain
 
+    def _validate(self):
+        from ..validation import admissible, require, tuple_of, typed
+        from .forms import Function
+
+        typed(self.expression, AbstractExpression, "derivative requires an expression")
+        xs = members(self.variable)
+        tuple_of(xs, Function) if type(xs) is tuple else None
+        for x in xs:
+            typed(x, Function, "derivative variable must be a function")
+            require(
+                not x.argument_spaces or isinstance(x.space, DualSpace),
+                "derivative variable is not bindable",
+            )
+        require(len(set(xs)) == len(xs), "derivative variables must be distinct")
+        require(
+            type(self.variable) is not tuple or len(xs) >= 2,
+            "tuple derivative needs at least two variables",
+        )
+        for values in (self.point, self.direction):
+            require(
+                isinstance(values, tuple) == isinstance(self.variable, tuple)
+                and len(members(values)) == len(xs),
+                "derivative tuple structure differs",
+            )
+            for x, value in zip(xs, members(values), strict=True):
+                admissible(x.space, value)
+
 
 @final
 class Coordinate(AbstractExpression):
+    value_fields = ()
+    is_terminal = True
     identifier = "uflx.Coordinate"
     domain: AbstractDomain
-    opaque = ("domain",)
 
     @cached_property
     def value_shape(self):
@@ -70,14 +100,17 @@ class Coordinate(AbstractExpression):
     def argument_spaces(self):
         return ()
 
+    def _validate(self):
+        _validate_calculus(self)
+
 
 @final
 class Gradient(AbstractExpression):
+    value_fields = ("expression",)
     identifier = "uflx.Gradient"
     commuting = ("expression",)
     expression: AbstractExpression
     domain: AbstractDomain
-    opaque = ("domain",)
 
     @cached_property
     def value_shape(self):
@@ -95,15 +128,18 @@ class Gradient(AbstractExpression):
     def argument_spaces(self):
         return self.expression.argument_spaces
 
+    def _validate(self):
+        _validate_calculus(self)
+
 
 @final
 class Divergence(AbstractExpression):
+    value_fields = ("expression",)
     identifier = "uflx.Divergence"
     commuting = ("expression",)
     # The trace of the gradient over the last axis of the value shape and the axis of the gradient.
     expression: AbstractExpression
     domain: AbstractDomain
-    opaque = ("domain",)
 
     @cached_property
     def value_shape(self):
@@ -121,15 +157,18 @@ class Divergence(AbstractExpression):
     def argument_spaces(self):
         return self.expression.argument_spaces
 
+    def _validate(self):
+        _validate_calculus(self)
+
 
 @final
 class Curl(AbstractExpression):
+    value_fields = ("expression",)
     identifier = "uflx.Curl"
     commuting = ("expression",)
     # The curl of a vector field, contracted with the permutation tensor of rank n.
     expression: AbstractExpression
     domain: AbstractDomain
-    opaque = ("domain",)
 
     @cached_property
     def value_shape(self):
@@ -149,14 +188,17 @@ class Curl(AbstractExpression):
     def argument_spaces(self):
         return self.expression.argument_spaces
 
+    def _validate(self):
+        _validate_calculus(self)
+
 
 @final
 class PullBack(AbstractExpression):
+    value_fields = ("expression",)
     identifier = "uflx.PullBack"
     commuting = ("expression",)
     expression: AbstractExpression
     map: DomainMap | SideMap | CellMap
-    objects = ("map",)
 
     @cached_property
     def value_shape(self):
@@ -178,6 +220,18 @@ class PullBack(AbstractExpression):
     def argument_spaces(self):
         return self.expression.argument_spaces
 
+    def _validate(self):
+        from ..validation import merge_indices, require, typed
+        from .domains import CellMap, DomainMap, SideMap
+
+        typed(self.expression, AbstractExpression, "pull-back requires an expression")
+        typed(self.map, (DomainMap, CellMap, SideMap), "pull-back requires a map")
+        require(
+            self.expression.domain in (None, self.map.ambient_domain),
+            "pull-back target differs from expression domain",
+        )
+        merge_indices(self.expression.free_indices, self.map.free_indices)
+
 
 Variance = Literal["covariant", "contravariant"]
 
@@ -189,18 +243,27 @@ class TransformationLaw(Base):
     # others unchanged, and a weight.
     variances: tuple[Variance, ...]
     weight: int
-    opaque = ("variances", "weight")
+
+    def _validate(self):
+        from ..validation import require, tuple_of
+
+        tuple_of(self.variances, str)
+        require(
+            all(v in ("covariant", "contravariant") for v in self.variances), "unknown variance"
+        )
+        if type(self.weight) is not int:
+            raise TypeError("weight must be an integer")
 
 
 @final
 class PushForward(AbstractExpression):
+    value_fields = ("expression",)
     identifier = "uflx.PushForward"
     commuting = ("expression",)
     # The field on a mesh of a function on its topology, carried by a transformation law.
     expression: AbstractExpression
     mesh: Mesh
     law: TransformationLaw
-    objects = ("mesh",)
 
     @cached_property
     def value_shape(self):
@@ -225,14 +288,32 @@ class PushForward(AbstractExpression):
     def argument_spaces(self):
         return self.expression.argument_spaces
 
+    def _validate(self):
+        from ..validation import require, typed
+        from .domains import Mesh
+
+        typed(self.expression, AbstractExpression, "push-forward requires an expression")
+        typed(self.mesh, Mesh, "push-forward requires a mesh")
+        typed(self.law, TransformationLaw, "push-forward requires an explicit law")
+        require(
+            self.expression.domain in (None, self.mesh.topology),
+            "push-forward source differs from the topology",
+        )
+        p = len(self.law.variances)
+        require(
+            len(self.expression.value_shape) >= p
+            and (not p or self.expression.value_shape[-p:] == (self.mesh.dimension,) * p),
+            "transformed axes have the wrong extent",
+        )
+
 
 @final
 class Integral(AbstractExpression):
+    value_fields = ("expression",)
     identifier = "uflx.Integral"
     commuting = ("expression",)
     expression: AbstractExpression
     integration_domain: AbstractDomain
-    opaque = ("integration_domain",)
 
     @cached_property
     def value_shape(self):
@@ -255,12 +336,16 @@ class Integral(AbstractExpression):
     def argument_spaces(self):
         return self.expression.argument_spaces
 
+    def _validate(self):
+        _validate_calculus(self)
+
 
 @final
 class Normal(AbstractExpression):
+    value_fields = ()
+    is_terminal = True
     identifier = "uflx.Normal"
     side_map: SideMap
-    objects = ("side_map",)
 
     @cached_property
     def value_shape(self):
@@ -281,3 +366,43 @@ class Normal(AbstractExpression):
     @cached_property
     def argument_spaces(self):
         return ()
+
+    def _validate(self):
+        from ..validation import require, typed
+        from .domains import Mesh, SideMap
+
+        typed(self.side_map, SideMap, "normal requires a side map")
+        require(
+            isinstance(self.side_map.ambient_domain, Mesh)
+            and self.side_map.parameter_domain.dimension
+            == self.side_map.ambient_domain.dimension - 1,
+            "normal requires a codimension-one mesh side",
+        )
+
+
+def _validate_calculus(e):
+    from ..validation import require, typed
+    from .domains import AbstractDomain, Mesh
+
+    P = e.integration_domain if isinstance(e, Integral) else e.domain
+    typed(P, AbstractDomain, "calculus requires a domain")
+    if not isinstance(e, Coordinate):
+        f = e.expression
+        typed(f, AbstractExpression, "calculus requires an expression")
+        domains = (
+            (None, P, P.ambient_domain)
+            if isinstance(e, Integral) and isinstance(P, Mesh)
+            else (None, P)
+        )
+        require(f.domain in domains, "expression and domain are not a valid pair")
+        dim = P.ambient_coordinate_domain.dimension
+        if isinstance(e, Divergence):
+            require(
+                bool(f.value_shape) and f.value_shape[-1] == dim,
+                "divergence requires a last axis in the ambient frame",
+            )
+        if isinstance(e, Curl):
+            require(
+                dim in (2, 3) and f.value_shape == (dim,),
+                "curl requires a vector in dimension two or three",
+            )

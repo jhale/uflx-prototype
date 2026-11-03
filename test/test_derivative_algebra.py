@@ -43,7 +43,7 @@ def nodes(e):
 
 
 def lower(e):
-    return apply_derivatives(apply_actions(e))
+    return normalizer()(apply_derivatives(apply_actions(e)))
 
 
 def test_collection_keeps_cancelled_free_indices():
@@ -80,6 +80,7 @@ def test_opaque_library_dual_function_needs_no_custom_simplification():
 class LibraryValue(AbstractExpression):
     """An opaque scalar library evaluation; the core cannot inspect its algorithm."""
 
+    value_fields = ("operand",)
     identifier = "experiment.LibraryValue"
     operand: AbstractExpression
     value_shape = ()
@@ -111,6 +112,7 @@ class LibrarySlope(LibraryValue):
 class LibraryJVP(AbstractExpression):
     """A callback whose dependence on the direction is not exposed."""
 
+    value_fields = ("point", "direction")
     identifier = "experiment.LibraryJVP"
     point: AbstractExpression
     direction: AbstractExpression
@@ -139,12 +141,12 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
 ):
     original = derivatives.derivative_of_node
 
-    def library_rule(e, d, constant, avoid):
+    def library_rule(e, d, constant, avoid, at=lambda e: e):
         if type(e) is LibraryValue:
             if expose_direction:
-                return Product(LibrarySlope(e.operand), d(e.operand))
-            return LibraryJVP(e.operand, d(e.operand))
-        return original(e, d, constant, avoid)
+                return Product(LibrarySlope(at(e.operand)), d(e.operand))
+            return LibraryJVP(at(e.operand), d(e.operand))
+        return original(e, d, constant, avoid, at)
 
     # Test adapter for an extension-supplied derivative rule, not a new public registry.
     monkeypatch.setattr(derivatives, "derivative_of_node", library_rule)
