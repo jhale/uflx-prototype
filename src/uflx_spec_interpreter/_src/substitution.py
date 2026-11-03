@@ -5,7 +5,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Concatenate, ParamSpec, TypeVar, cast
 
 from .names import _is_renamed_label, _renamed_label
-from .nodes import AbstractExpression, AbstractFunctionSpace, Base, Function, Index
+from .nodes import AbstractExpression, AbstractFunctionSpace, Base, Function, Index, Zero
 from .types import _Construction
 
 if TYPE_CHECKING:
@@ -147,6 +147,29 @@ def _substitute(e: Base, mapping: Mapping[_K, _Construction]) -> _Construction:
     )
 
 
+def _substitute_zero(e: Zero, replace: Callable[[Base], _Construction]) -> _Construction:
+    from .nodes import GatheredIndex
+    from .validation import _merge_indices
+
+    # Zero's free-index signature changes when an index is selected or gathered.
+    pairs: list[tuple[tuple[Index, int | AbstractExtent], ...]] = []
+    for i, extent in e.free_indices:
+        entry = replace(i)
+        size = cast("int | AbstractExtent", replace(extent)) if isinstance(extent, Base) else extent
+        if isinstance(entry, Index):
+            pairs.append(((entry, size),))
+        elif isinstance(entry, GatheredIndex):
+            if entry.extent != size:
+                raise IndexError("replacement gather has the wrong extent")
+            pairs.append(entry.free_indices)
+        elif type(entry) is not int:
+            raise TypeError("replacement of an index must be an index entry")
+        elif type(size) is not int or not 0 <= entry < size:
+            raise IndexError("replacement index is outside the axis")
+    new = _map_fields(e, replace, ("value_shape", "argument_spaces", "scalar_type"))
+    return _rebuild(cast("Base", new), free_indices=_merge_indices(*pairs))
+
+
 def _substituted(
     walk: Callable[[Base, tuple[tuple[Base, _Construction], ...]], _Construction],
     e: Base,
@@ -156,59 +179,19 @@ def _substituted(
     mapping = dict(items)
     if e in mapping:
         return mapping[e]
-    from .nodes import GatheredIndex, Zero
-    from .validation import _merge_indices
-
     if isinstance(e, Zero):
-        # Zero's free-index signature changes when an index is selected or gathered.
-        pairs: list[tuple[tuple[Index, int | AbstractExtent], ...]] = []
-        for i, extent in e.free_indices:
-            entry = walk(i, items)
-            size = (
-                cast("int | AbstractExtent", walk(extent, items))
-                if isinstance(extent, Base)
-                else extent
-            )
-            if isinstance(entry, Index):
-                pairs.append(((entry, size),))
-            elif isinstance(entry, GatheredIndex):
-                if entry.extent != size:
-                    raise IndexError("replacement gather has the wrong extent")
-                pairs.append(entry.free_indices)
-            elif type(entry) is not int:
-                raise TypeError("replacement of an index must be an index entry")
-            elif type(size) is not int or not 0 <= entry < size:
-                raise IndexError("replacement index is outside the axis")
-        new = _map_fields(
-            e, lambda x: walk(x, items), ("value_shape", "argument_spaces", "scalar_type")
-        )
-        return _rebuild(cast("Base", new), free_indices=_merge_indices(*pairs))
-    if e.labels:
-        if not dependencies:
-            return e
-        # A derived name with a replaced object in its label is rebuilt, and a renamed name is not.
-        if _is_renamed_label(getattr(e, "label")):
-            return _map_fields(
-                e, lambda x: walk(x, items), [n for n in e.argument_names if n not in e.labels]
-            )
-        return _map_fields(
-            e,
-            lambda x: walk(x, items),
-            e.argument_names,
-        )
-    if not e.scope:
-        return _map_fields(
-            e,
-            lambda x: walk(x, items),
-            e.argument_names if dependencies else (*e.value_fields, *e.index_fields),
-        )
+        return _substitute_zero(e, lambda x: walk(x, items))
+    if e.labels and not dependencies:
+        return e
+    names = e.argument_names if dependencies else (*e.value_fields, *e.index_fields)
+    # Derived labels follow substitutions; freshened binder labels remain fixed.
+    if e.labels and _is_renamed_label(getattr(e, "label")):
+        names = tuple(n for n in names if n not in e.labels)
+    if e.labels or not e.scope:
+        return _map_fields(e, lambda x: walk(x, items), names)
     inner = {r: s for r, s in mapping.items() if not any(_occurs(n, r) for n in e.bound())}
     e = _freshen(e, list(inner.values()))
-    outside = [
-        n
-        for n in (e.argument_names if dependencies else (*e.value_fields, *e.index_fields))
-        if n not in e.scope
-    ]
+    outside = [n for n in names if n not in e.scope]
     e = cast("Base", _map_fields(e, lambda x: walk(x, items), outside))
     return _map_fields(e, lambda x: walk(x, tuple(inner.items())), e.scope)
 

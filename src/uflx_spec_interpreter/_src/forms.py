@@ -52,6 +52,63 @@ def action(
     return Action(f, position, g)
 
 
+def _validate_derivative_variables(
+    x: Function | tuple[Function, ...],
+    a: AbstractExpression | tuple[AbstractExpression, ...],
+    w: Function | Conjugate | tuple[Function | Conjugate, ...],
+) -> None:
+    # Variable identity and the matching tuple structure of point and direction.
+    xs, points, entries = _members(x), _members(a), _members(w)
+    if isinstance(x, tuple) and len(x) < 2:
+        raise ValueError("a tuple variable must have at least two members")
+    if any(v.argument_spaces and not isinstance(v.space, DualSpace) for v in xs):
+        raise ValueError("derivative variables must be bindable")
+    if isinstance(x, tuple) != isinstance(a, tuple) or isinstance(x, tuple) != isinstance(w, tuple):
+        raise ValueError("variable, point and argument must have matching tuple structure")
+    if len(xs) != len(points) or len(xs) != len(entries):
+        raise ValueError("variable, point and argument must have matching lengths")
+    if len(set(xs)) != len(xs):
+        raise ValueError("derivative variables must be distinct")
+
+
+def _validate_derivative_directions(
+    variables: tuple[Function, ...],
+    entries: tuple[Function | Conjugate, ...],
+    directions: tuple[Function, ...],
+) -> None:
+    # Each direction is a distinct binder in the corresponding variable space.
+    if len(set(directions)) != len(directions):
+        raise ValueError("direction binders must be distinct")
+    if len({isinstance(v, Conjugate) for v in entries}) != 1:
+        raise ValueError("tuple arguments must be all functions or all conjugates")
+    if len({v.space.scalar_type for v in variables}) != 1:
+        raise ValueError("mixed real and complex variables are unsupported")
+    if any(v.space != d.space for v, d in zip(variables, directions, strict=True)):
+        raise ValueError("directions must belong to the variable spaces")
+
+
+def _validate_derivative_points(
+    expression: AbstractExpression,
+    variables: tuple[Function, ...],
+    points: tuple[AbstractExpression, ...],
+) -> None:
+    # Evaluation points must have admissible signatures and consistent family indices.
+    for variable, point in zip(variables, points, strict=True):
+        if (
+            point.value_shape != variable.value_shape
+            or point.argument_spaces != variable.argument_spaces
+            or point.scalar_type not in (variable.scalar_type, ScalarType.real)
+            or point.domain not in (None, variable.domain)
+        ):
+            raise ValueError("evaluation point is not admissible for the variable space")
+    extents = {}
+    for operand in (expression, *points):
+        for index, extent in operand.free_indices:
+            if index in extents and extents[index] != extent:
+                raise ValueError("shared free indices must have matching extents")
+            extents[index] = extent
+
+
 def gateaux_derivative(
     F: AbstractExpression,
     x: Function | tuple[Function, ...],
@@ -90,41 +147,12 @@ def gateaux_derivative(
     preconditions, not checked here. General node validity is assumed;
     admissibility uses static signatures rather than proving space membership.
     """
+    _validate_derivative_variables(x, a, w)
     xs, points, entries = _members(x), _members(a), _members(w)
-    if isinstance(x, tuple) and len(x) < 2:
-        raise ValueError("a tuple variable must have at least two members")
-    if any(v.argument_spaces and not isinstance(v.space, DualSpace) for v in xs):
-        raise ValueError("derivative variables must be bindable")
-    if isinstance(x, tuple) != isinstance(a, tuple) or isinstance(x, tuple) != isinstance(w, tuple):
-        raise ValueError("variable, point and argument must have matching tuple structure")
-    if len(xs) != len(points) or len(xs) != len(entries):
-        raise ValueError("variable, point and argument must have matching lengths")
-    if len(set(xs)) != len(xs):
-        raise ValueError("derivative variables must be distinct")
     directions = _each(_entry_function, w)
     ws = _members(directions)
-    if len(set(ws)) != len(ws):
-        raise ValueError("direction binders must be distinct")
-    if len({isinstance(v, Conjugate) for v in entries}) != 1:
-        raise ValueError("tuple arguments must be all functions or all conjugates")
-    if len({v.space.scalar_type for v in xs}) != 1:
-        raise ValueError("mixed real and complex variables are unsupported")
-    if any(v.space != d.space for v, d in zip(xs, ws, strict=True)):
-        raise ValueError("directions must belong to the variable spaces")
-    for variable, point in zip(xs, points, strict=True):
-        if (
-            point.value_shape != variable.value_shape
-            or point.argument_spaces != variable.argument_spaces
-            or point.scalar_type not in (variable.scalar_type, ScalarType.real)
-            or point.domain not in (None, variable.domain)
-        ):
-            raise ValueError("evaluation point is not admissible for the variable space")
-    extents = {}
-    for expression in (F, *points):
-        for index, extent in expression.free_indices:
-            if index in extents and extents[index] != extent:
-                raise ValueError("shared free indices must have matching extents")
-            extents[index] = extent
+    _validate_derivative_directions(xs, entries, ws)
+    _validate_derivative_points(F, xs, points)
     if any(_occurs(v, e) for v in ws for e in (F, *points)):
         raise ValueError("direction binders must not be free in the expression or point")
     delta = DirectionalDerivative(F, x, a, directions)

@@ -148,52 +148,58 @@ def _preserve(e: AbstractExpression, out: AbstractExpression) -> AbstractExpress
 
 def _operator_rule(e: AbstractExpression) -> AbstractExpression:
     # Use only contracts already supplied by core operations. No holomorphic test.
-    if isinstance(e, Action) and not isinstance(e.argument, tuple):
-        coefficient, factors = _split_product(e.argument)
-        if coefficient == _ZERO:
-            return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
-        if coefficient != _ONE:
-            arg = _scaled(_ONE, factors)
-            return multiply(_literal(coefficient), Action(e.form, e.position, arg))
-    if isinstance(e, Product):
-        coefficient, factors = _split_product(e)
-        if coefficient != _ONE and len(factors) == 1 and isinstance(factors[0], Form):
-            f = factors[0]
-            return Form(multiply(_literal(coefficient), f.expression), f.arguments)
-    if isinstance(e, Sum) and isinstance(e.first, Form) and isinstance(e.second, Form):
-        if e.first.arguments == e.second.arguments:
-            return Form(add(e.first.expression, e.second.expression), e.first.arguments)
-    if isinstance(e, Conjugate):
-        coefficient, factors = _split_product(e.operand)
-        if factors and coefficient != _ONE:
-            return multiply(
-                _literal((coefficient[0], -coefficient[1])), Conjugate(_product(factors))
-            )
+    match e:
+        case Action(argument=argument) if not isinstance(argument, tuple):
+            coefficient, factors = _split_product(argument)
+            if coefficient == _ZERO:
+                return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
+            if coefficient != _ONE:
+                arg = _scaled(_ONE, factors)
+                return multiply(_literal(coefficient), Action(e.form, e.position, arg))
+        case Product():
+            coefficient, factors = _split_product(e)
+            if coefficient != _ONE and len(factors) == 1 and isinstance(factors[0], Form):
+                f = factors[0]
+                return Form(multiply(_literal(coefficient), f.expression), f.arguments)
+        case Sum(Form(left, arguments), Form(right, other_arguments)) if (
+            arguments == other_arguments
+        ):
+            return Form(add(left, right), arguments)
+        case Conjugate(operand):
+            coefficient, factors = _split_product(operand)
+            if factors and coefficient != _ONE:
+                return multiply(
+                    _literal((coefficient[0], -coefficient[1])), Conjugate(_product(factors))
+                )
+        case _:
+            pass
     return e
+
+
+def _conjugate_literal(value: Complex) -> Complex:
+    # Signed zero selects a side of a complex branch cut, so preserve and reverse it.
+    imaginary = value.imag
+    if imaginary.value == 0:
+        return Complex(value.real, Float(-float(imaginary.value)))
+    if isinstance(imaginary, Integer):
+        return Complex(value.real, Integer(-imaginary.value))
+    return Complex(value.real, Float(-imaginary.value))
 
 
 def _rewrite(e: AbstractExpression) -> AbstractExpression:
     if e.value_shape:
         return e
-    if isinstance(e, Sum | Product):
-        return _preserve(e, _collected(e))
-    if isinstance(e, Conjugate):
-        if isinstance(e.operand, Complex):
-            a, b = e.operand.real, e.operand.imag
-            # Keep signed zero: it selects a side of a complex branch cut.
-            imag = (
-                Float(-float(b.value))
-                if b.value == 0
-                else Integer(-b.value)
-                if isinstance(b, Integer)
-                else Float(-b.value)
-            )
-            return Complex(a, imag)
-        if isinstance(e.operand, Conjugate):
-            return e.operand.operand
-        if (value := _number(e.operand)) is not None:
-            return _literal((value[0], -value[1]))
-    return e
+    match e:
+        case Sum() | Product():
+            return _preserve(e, _collected(e))
+        case Conjugate(Complex() as value):
+            return _conjugate_literal(value)
+        case Conjugate(Conjugate(operand)):
+            return operand
+        case Conjugate(operand) if (value := _number(operand)) is not None:
+            return _literal(value)
+        case _:
+            return e
 
 
 def _normalizer() -> Callable[[AbstractExpression], AbstractExpression]:
