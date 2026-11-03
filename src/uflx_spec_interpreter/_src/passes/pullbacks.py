@@ -2,7 +2,7 @@ from ..arithmetic import divide, square_root
 from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..domains import cell_of, inclusion, is_cell
 from ..geometry import density, inverse_jacobian, jacobian
-from ..names import derived_index, derived_indices
+from ..names import derived_index
 from ..nodes import (
     AbstractExpression,
     CellMap,
@@ -46,8 +46,11 @@ def rule(pb, f, m):
         case PullBack(g, phi):
             return pb(g, composed(phi, m, pb))
         case Gradient(g, _) if is_cell(m):
-            K = inverse_jacobian(m)
-            return contract_gradient(Gradient(pb(g, m), m.parameter_domain), K, f, m)
+            return transformed(
+                Gradient(pb(g, m), m.parameter_domain),
+                TransformationLaw(("covariant",), 0),
+                m,
+            )
         case Gradient():
             return PullBack(f, m)
         case Divergence(PushForward(g, D, TransformationLaw(("contravariant",), 1)), P) if (
@@ -113,15 +116,6 @@ def pointwise(f, m, pb):
 def derived_axis(f, m, axis):
     """Identify a pull-back axis using the shared structural naming rule."""
     return derived_index("uflx.expand_pull_backs", f, m, axis)
-
-
-def contract_gradient(gradP, K, f, m):
-    # Entry j of the last axis is the sum over r of gradP[..., r] * K[r, j].
-    axes = derived_indices("uflx.expand_pull_backs", (f, m), len(shape(gradP)) - 1)
-    r, j = derived_axis(f, m, "r"), derived_axis(f, m, "j")
-    return ComponentTensor(
-        IndexSum(Product(Indexed(gradP, (*axes, r)), Indexed(K, (r, j))), (r,)), (*axes, j)
-    )
 
 
 def pushed_forward(g, law, C, pb):
