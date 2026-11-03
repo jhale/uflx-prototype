@@ -46,13 +46,46 @@ checks:
   and `assemble`, which puts the unit vectors in place of the coefficients of
   each argument of a form, so that the form evaluates to its assembled tensor
 
-The optional C backend, `uflx_compiler.c_code.c_kernel`, emits a scalar kernel
-for one cell. Index sums become nested C loops; input-independent subgraphs
+The C emitter, `uflx_compiler.c_code.c_kernel`, emits scalar arithmetic with
+optional outer loops over `output_indices`. Index sums become nested C loops; input-independent subgraphs
 become constant multidimensional tables. Temporary expressions are shared only
 within scopes where their indices are defined. The runtime arrays keep the flat
 pointer interface: `read(label, offset)` must accept an integer or a C expression
 for the offset, for example `f"w[{offset}]"`. The backend retains its real-valued,
-static-extent arithmetic subset and accumulates into `A[0]`.
+static-extent arithmetic subset. With no output indices it accumulates into `A[0]`.
+
+`compile_ufcx(f, mesh, degree, name="my_form", coefficients=..., constants=...)`
+provides the UFCx output boundary. It returns C source and the coefficient,
+constant and local tensor layouts. The source includes FFCx's `ufcx.h` and exports
+`my_form` (`ufcx_form`), `my_form_integral` (`ufcx_integral`) and `my_form_kernel`.
+Compile it with the include directory containing your installed FFCx header.
+Explicit input sequences set packing order; omitted sequences use graph traversal
+order. Offsets count scalar entries in `w` and `c`.
+
+This backend tabulates directly in standard Basix element ordering. It does not
+use the toy mesh's global DOF map or tensor-product DOF reordering. A kernel
+computes one cell contribution, with outer loops over the local argument DOFs;
+the solver packs cell-local coefficients and three-component coordinate DOFs,
+performs DOF transformations, and assembles the result. Mesh connectivity and
+coordinate values are absent from the generated kernel. Equivalent input graphs
+may still produce differently ordered arithmetic after canonicalisation.
+
+The supported UFCx subset is float64 cell integrals of rank 0, 1 or 2, on one
+mesh with one Basix cell type. Geometry is a tensor of scalar Basix coordinate
+functions (including curved geometry), or vertex coordinates interpreted as P1.
+Element families and degrees follow the toy Basix spaces, with the equispaced
+variant; custom variants are not yet exposed. Facets, mixed arguments and complex
+inputs are rejected. Scalar and tensor
+constants are packed separately from coefficients. The source targets the UFCx
+interface in FFCx 0.12; other versions need their own compatibility validation.
+
+`test/test_ufcx.py` compares generated local tensors and descriptors with FFCx,
+including higher-order elements, Piola maps and curved cells. It also contains a
+DOLFINx assembly test using the generated `ufcx_form` address directly. These tests
+skip when their optional dependencies are unavailable. With local FFCx and UFL
+checkouts on `PYTHONPATH`, run `pytest test/test_ufcx.py`; `UFCX_INCLUDE_DIR` can
+supply the header directory separately. Keep the compiled shared library alive
+while DOLFINx uses the form's pointers.
 
 The standard recipe in `_src/passes/lowering.py` coordinates:
 

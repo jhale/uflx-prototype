@@ -29,8 +29,8 @@ from uflx_toy.nodes import RuntimeArray
 from .folding import fold
 
 
-def c_kernel(e, name, read):
-    # A scalar compiled expression for one cell, with nested loops for index sums.
+def c_kernel(e, name, read, *, output_indices=()):
+    # Scalar arithmetic with nested index sums and optional outer output-index loops.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 100000))
     lines, scopes, tables = [], [{}], {}
@@ -242,13 +242,26 @@ def c_kernel(e, name, read):
         return float(f(a)) if isinstance(a, float) else temp(f"{name}({a})")
 
     bound = {i: 0 for i, _ in e.free_indices}
-    result = entry(e, bound, ())
+    with ExitStack() as stack:
+        for i in output_indices:
+            loop = fresh("a")
+            stack.enter_context(
+                block(f"for (int {loop} = 0; {loop} < {dict(e.free_indices)[i]}; ++{loop})")
+            )
+            bound[i] = loop
+        result = entry(e, bound, ())
+        output = offset(
+            tuple(bound[i] for i in output_indices),
+            tuple(dict(e.free_indices)[i] for i in output_indices),
+        )
+        emit(f"A[{output}] += {render(result)};")
     body = "\n".join([declaration for _, declaration in tables.values()] + lines)
     return (
+        "#include <stdint.h>\n"
         f"void {name}(double* restrict A, const double* restrict w, const double* restrict c,\n"
         "    const double* restrict coordinate_dofs, const int* restrict entity_local_index,\n"
-        "    const unsigned char* restrict quadrature_permutation, void* custom_data)\n"
-        f"{{\n{body}\n  A[0] += {render(result)};\n}}\n"
+        "    const uint8_t* restrict quadrature_permutation, void* custom_data)\n"
+        f"{{\n{body}\n}}\n"
     )
 
 
