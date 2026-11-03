@@ -19,7 +19,7 @@ from uflx_spec_interpreter import (
     num,
     real_part,
 )
-from uflx_spec_interpreter._src.passes import actions, derivatives, gateaux
+from uflx_spec_interpreter._src.passes import actions, derivatives
 from uflx_spec_interpreter._src.static import arity
 from uflx_toy.spaces import space
 
@@ -51,7 +51,7 @@ def body(rnd, u, names, holomorphic, depth):
 
 
 def main(trials):
-    bad, rejected = 0, 0
+    bad = 0
     rows = {"real": 0, "holomorphic": 0, "general": 0}
     typed = {}
     for seed in range(trials):
@@ -72,11 +72,8 @@ def main(trials):
             # An action on the new argument, the derivative in a fixed direction.
             e = action(e, 1, rnd.choice([z, add(u, z)]))
         rows["real" if space is R else ("holomorphic" if holomorphic else "general")] += 1
-        out0 = gateaux.apply_gateaux_derivatives(e)
-        rejected += not gateaux.in_n1(e)
-        bad += not gateaux.in_n1(out0)
-        out = derivatives.apply_derivatives(actions.apply_actions(out0))
-        check_types(typed, e, out0, out)
+        out = derivatives.apply_derivatives(actions.apply_actions(e))
+        check_types(typed, e, out)
         rng = np.random.default_rng(seed)
         scalar = (
             (lambda: complex(*rng.normal(size=2))) if space is C else (lambda: float(rng.normal()))
@@ -90,12 +87,8 @@ def main(trials):
             bad += 1
             if bad <= 3:
                 print("value changed, seed", seed, space.name, holomorphic, entry, before, after)
-    print(
-        f"{trials} Gateaux derivatives: {bad} values changed or outside N1; "
-        f"N1 rejected {rejected} of {trials} inputs; "
-        f"cases {rows}"
-    )
-    return dict(value=bad, lazy=trials, rejected=rejected) | typed
+    print(f"{trials} derivative forms: {bad} values changed; cases {rows}")
+    return dict(value=bad) | typed
 
 
 if __name__ == "__main__":
@@ -112,12 +105,9 @@ def test_pairing_with_the_conjugate():
     l = load(C)
     F = multiply(action(l, 0, conjugate(u)), u)
     env = {u: 0.3 + 0.2j, w: 0.1 - 0.5j, l: lambda x: LOAD_VALUE * x}
-    assert not gateaux.holomorphic(F, u)
     for entry in (w, conjugate(w)):
         e = gateaux_derivative(F, u, u, entry)
-        out = derivatives.apply_derivatives(
-            actions.apply_actions(gateaux.apply_gateaux_derivatives(e))
-        )
+        out = derivatives.apply_derivatives(actions.apply_actions(e))
         assert not (ill_typed(e) or ill_typed(out))
         before, after = evaluate(e, env)((0.4 + 0.9j,)), evaluate(out, env)((0.4 + 0.9j,))
         assert np.isclose(before, after) and abs(after) > 0.1

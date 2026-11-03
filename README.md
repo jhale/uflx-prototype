@@ -1,5 +1,14 @@
 # UFLx spec interpreter
 
+`lower(f)` runs the standard core recipe and checks its core-normal-form output.
+Individual transformations remain available. Internal checks in `_src/contracts.py`
+return offending nodes and diagnostic reasons without running transformations or
+checking later compiler capabilities.
+
+`gateaux_derivative(...)` constructs a `Form` from `DirectionalDerivative`
+expressions. There is no separate Gateaux node or pass. Linearity analysis is an
+optional internal optimization, not a requirement for declaring a form.
+
 `image(x, Q)` constructs a `Mesh` from topology-supported coordinates with no
 free indices. Mesh integrals retain free integrand indices and sum over internal
 cell indices. Cell-dependent data are fields on the topology or mesh; use mapped
@@ -36,16 +45,19 @@ checks:
   and `assemble`, which puts the unit vectors in place of the coefficients of
   each argument of a form, so that the form evaluates to its assembled tensor
 
-The passes, in `src/uflx_spec_interpreter/_src/`, in the order of the specification:
+The standard recipe in `_src/passes/lowering.py` coordinates:
 
-| Pass | Module | Output grammar |
-| --- | --- | --- |
-| 0 `apply_gateaux_derivatives` | `passes/gateaux.py` | N1 |
-| 1 `apply_actions` | `passes/actions.py` | N2 |
-| 2 `apply_derivatives` | `passes/derivatives.py` | N3 |
-| 3 `expand_integrals` | `passes/integrals.py` | N4 |
-| 4 `expand_pull_backs` | `passes/pullbacks.py` | N5 |
-| 5 `apply_gradients` | `passes/gradients.py` | N6 |
+| Transformation | Module |
+| --- | --- |
+| Apply actions | `passes/actions.py` |
+| Expand derivatives and finish resulting actions | `passes/derivatives.py` |
+| Expand mesh integrals | `passes/integrals.py` |
+| Alternate gradients and pull-backs until stable | `passes/gradients.py`, `passes/pullbacks.py` |
+| Check core normal form | `contracts.py` |
+
+The shape extension uses its own recipe: expose geometry, apply shape derivatives,
+then re-enter checked core lowering. Quadrature and tabulation follow that boundary
+in the compiler and impose their own requirements.
 
 The core splits a public API from a private one, as JAX does with `jax._src`.
 
@@ -135,3 +147,7 @@ specification. The core still simplifies the specification in these places,
 which the toy replaces with the classes of the specification one at a time:
 
 - The constructors do not validate their arguments (rule 8).
+
+The signature test reads the sibling `uflx/design/LANGUAGE.md` by default.
+For an isolated checkout, set `UFLX_SPEC_PATH` to the specification path to run
+that check instead of skipping it.

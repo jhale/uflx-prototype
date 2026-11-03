@@ -4,8 +4,6 @@ from ..nodes import (
     Action,
     Conjugate,
     Division,
-    DualSpace,
-    Function,
     Integer,
     Inverse,
     Logarithm,
@@ -16,6 +14,7 @@ from ..nodes import (
     Sum,
 )
 from ..tensors import transpose
+from ..tuples import each, members
 from .commuting import commute
 
 
@@ -38,8 +37,12 @@ def derivative_of_node(f, d, constant, avoid):
             return Division(d(b), b)
         case Inverse(A):
             return inverse_derivative(A, d(A))
-        case Action(Function(space, _) as l, 0, w) if isinstance(space, DualSpace):
-            return Action(l, 0, d(w))
+        case Action(l, p, w):
+            if constant(l):
+                return Action(l, p, each(d, w))
+            if all(constant(v) for v in members(w)):
+                return Action(d(l), p, w)
+            return Sum(Action(d(l), p, w), Action(l, p, each(d, w)))
         case _ if f.commuting:
             return commute(f, d, avoid)
     raise TypeError(f"cannot occur: {f}")

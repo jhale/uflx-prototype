@@ -4,7 +4,7 @@ from functools import cached_property
 from typing import final
 
 from ..nodes import AbstractExpression, Function
-from ..passes.derivatives import deriv
+from ..passes.derivatives import apply_derivatives, deriv
 from ..substitution import bottom_up
 from ..tuples import members
 
@@ -57,7 +57,23 @@ def apply_shape_derivatives(f):
     def lower(e):
         match e:
             case ShapeDerivative(g, x, h):
-                return deriv(g, x, x, h)
+                return apply_derivatives(deriv(g, x, x, h))
         return e
 
     return bottom_up(f, lower)
+
+
+def lower_with_shape_derivatives(f):
+    """Expose geometry, differentiate it, then re-enter checked core lowering.
+
+    Unlike core lower, this extension recipe permits ShapeDerivative nodes
+    during the first spatial lowering stage. It does not weaken the final
+    core-normal-form contract.
+    """
+    from ..passes.actions import apply_actions
+    from ..passes.gradients import lower as lower_spatial
+    from ..passes.integrals import expand_integrals
+    from ..passes.lowering import lower
+
+    exposed = lower_spatial(expand_integrals(apply_derivatives(apply_actions(f))))
+    return lower(apply_shape_derivatives(exposed))

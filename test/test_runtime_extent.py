@@ -16,7 +16,6 @@ from uflx_spec_interpreter._src.nodes import PullBack
 from uflx_spec_interpreter._src.passes import (
     actions,
     derivatives,
-    gateaux,
     gradients,
     integrals,
     pullbacks,
@@ -49,7 +48,6 @@ def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():
     e = runtime_quadrature()
     out = e
     for apply in (
-        gateaux.apply_gateaux_derivatives,
         actions.apply_actions,
         derivatives.apply_derivatives,
         integrals.expand_integrals,

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from testutil import ill_typed, keeps_static_type
 
 from uflx_oracle import evaluate
@@ -12,7 +13,7 @@ from uflx_spec_interpreter import (
     multiply,
     num,
 )
-from uflx_spec_interpreter._src.passes import actions, derivatives, gateaux
+from uflx_spec_interpreter._src.passes import actions, derivatives
 from uflx_toy.spaces import space
 
 # Derivatives in two unknowns at once, as for a mixed problem.
@@ -22,7 +23,7 @@ ENV = {u: 0.3 + 0.2j, p: -0.5 + 0.4j, a0: 0.7 - 0.1j, a1: 0.2 + 0.6j, h0: 0.4j, 
 
 
 def passes(e):
-    out = derivatives.apply_derivatives(actions.apply_actions(gateaux.apply_gateaux_derivatives(e)))
+    out = derivatives.apply_derivatives(actions.apply_actions(e))
     assert not (ill_typed(e) or ill_typed(out)), ill_typed(e) or ill_typed(out)
     return out
 
@@ -71,7 +72,6 @@ def test_a_mixed_derivative_that_is_not_holomorphic():
     w = (0.2 + 0.1j, -0.4 + 0.3j)
     check(F, (u, p), (v, q), w)
     check(F, (u, p), (conjugate(v), conjugate(q)), w)
-    assert gateaux.holomorphic(multiply(u, p), (u, p)) and not gateaux.holomorphic(F, (u, p))
 
 
 def test_a_constant_point_and_direction():
@@ -82,4 +82,5 @@ def test_a_constant_point_and_direction():
 def test_a_tuple_of_real_and_complex_functions_is_ill_typed():
     # The product of a real and a complex space has no linear and antilinear parts.
     lam, v, mu = function(R, "lam"), function(C, "v"), function(R, "mu")
-    assert ill_typed(gateaux_derivative(multiply(u, lam), (u, lam), (u, lam), (v, mu)))
+    with pytest.raises(ValueError, match="mixed real and complex"):
+        gateaux_derivative(multiply(u, lam), (u, lam), (u, lam), (v, mu))

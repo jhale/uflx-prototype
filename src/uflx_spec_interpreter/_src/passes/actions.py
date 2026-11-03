@@ -1,6 +1,6 @@
 from ..nodes import Action, Conjugate, DualSpace, Form, Function, Product, Zero
 from ..static import arity, free_indices
-from ..substitution import bottom_up, everywhere, freshen, memoized, rebuild, substitute
+from ..substitution import everywhere, freshen, lowered, map_fields, memoized, rebuild, substitute
 from ..tuples import members
 from .commuting import commute
 
@@ -46,13 +46,15 @@ def apply_actions(f):
     # Inner actions first, then the rule for the form of each action.
     act = memoized(rule)
 
-    def apply(e):
+    def apply(walk, e):
+        e = map_fields(e, walk, lowered(e))
         match e:
             case Action(form, p, g):
-                return act(form, p, g)
+                out = act(form, p, g)
+                return out if out is e else walk(out)
         return e
 
-    return bottom_up(f, apply)
+    return memoized(apply)(f)
 
 
 def in_n2(e):

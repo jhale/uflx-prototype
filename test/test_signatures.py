@@ -1,4 +1,5 @@
 import inspect
+import os
 import re
 from pathlib import Path
 
@@ -6,7 +7,9 @@ import pytest
 
 import uflx_spec_interpreter
 
-SPEC = Path(__file__).parents[2] / "uflx" / "design" / "LANGUAGE.md"
+SPEC = Path(
+    os.environ.get("UFLX_SPEC_PATH", Path(__file__).parents[2] / "uflx" / "design" / "LANGUAGE.md")
+)
 
 
 def spec_signatures():

@@ -34,9 +34,9 @@ from ._src.maps import domain_map, pull_back
 from ._src.nodes import RD, ScalarType
 from ._src.passes.actions import apply_actions
 from ._src.passes.derivatives import apply_derivatives
-from ._src.passes.gateaux import apply_gateaux_derivatives
 from ._src.passes.gradients import apply_gradients
 from ._src.passes.integrals import expand_integrals
+from ._src.passes.lowering import lower
 from ._src.passes.pullbacks import expand_pull_backs
 from ._src.spaces import conjugate_space, dual_space
 from ._src.tensors import (
@@ -62,7 +62,6 @@ __all__ = [
     "add",
     "apply_actions",
     "apply_derivatives",
-    "apply_gateaux_derivatives",
     "apply_gradients",
     "cell_domain",
     "cell_index",
@@ -96,6 +95,7 @@ __all__ = [
     "inverse_jacobian",
     "jacobian",
     "logarithm",
+    "lower",
     "matrix_product",
     "multiply",
     "negate",

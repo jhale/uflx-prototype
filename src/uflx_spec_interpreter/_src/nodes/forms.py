@@ -6,7 +6,6 @@ from typing import final
 from ..tuples import each, members
 from .arithmetic import Conjugate
 from .base import AbstractExpression
-from .scalar_types import ScalarType
 from .spaces import AbstractFunctionSpace
 
 
@@ -117,39 +116,3 @@ class Action(AbstractExpression):
     @cached_property
     def support(self):
         return self.form.support
-
-
-@final
-class GateauxDerivative(AbstractExpression):
-    identifier = "uflx.GateauxDerivative"
-    expression: AbstractExpression
-    variable: Function | tuple[Function, ...]
-    point: AbstractExpression | tuple[AbstractExpression, ...]
-    argument: Function | Conjugate | tuple
-    scope = ("expression", "variable", "argument")
-
-    def bound(self):
-        return [*members(self.variable), *map(entry_function, members(self.argument))]
-
-    @cached_property
-    def value_shape(self):
-        return self.expression.value_shape
-
-    @cached_property
-    def argument_spaces(self):
-        return (*self.expression.argument_spaces, entry_space(self.argument))
-
-    @cached_property
-    def free_indices(self):
-        edges = (self.expression, *members(self.point))
-        return tuple(dict(p for x in edges for p in x.free_indices).items())
-
-    @cached_property
-    def scalar_type(self):
-        if self.joined_scalar_type(self.variable) == ScalarType.real:
-            return self.expression.scalar_type
-        return ScalarType.complex
-
-    @cached_property
-    def support(self):
-        return self.expression.support

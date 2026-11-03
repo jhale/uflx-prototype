@@ -37,7 +37,6 @@ EXPRESSIONS = (
     "Integer Float ImaginaryUnit Zero Sum Product Division Power Absolute Conjugate RealPart "
     "ImaginaryPart SquareRoot Logarithm Tensor Indexed ComponentTensor IndexSum Inverse "
     "Coordinate Gradient DirectionalDerivative Integral PullBack Normal Function Form Action "
-    "GateauxDerivative"
 ).split()
 STATIC_TYPE = {"value_shape", "free_indices", "argument_spaces", "support", "scalar_type"}
 OTHERS = [

@@ -33,7 +33,7 @@ from .domains import (
     Mesh,
     SideMap,
 )
-from .forms import Action, Form, Function, GateauxDerivative
+from .forms import Action, Form, Function
 from .indices import (
     AbstractExtent,
     AbstractIndexValue,
@@ -76,7 +76,6 @@ __all__ = [
     "Float",
     "Form",
     "Function",
-    "GateauxDerivative",
     "GatheredIndex",
     "Gradient",
     "ImaginaryPart",

@@ -1,11 +1,4 @@
-from uflx_spec_interpreter import (
-    apply_actions,
-    apply_derivatives,
-    apply_gateaux_derivatives,
-    expand_integrals,
-)
-from uflx_spec_interpreter._draft import apply_shape_derivatives
-from uflx_spec_interpreter._src.passes.gradients import lower
+from uflx_spec_interpreter._src.extensions.shape import lower_with_shape_derivatives
 
 from .quadrature import apply_quadrature
 from .simplification import simplify
@@ -13,15 +6,7 @@ from .tabulation import tabulate
 
 
 def compile_form(f, degree):
-    # The passes of the core, then quadrature and tabulation, down to arithmetic on arrays.
-    for apply in (
-        apply_gateaux_derivatives,
-        apply_actions,
-        apply_derivatives,
-        expand_integrals,
-        lower,
-        apply_shape_derivatives,
-        lower,
-    ):
-        f = apply(f)
+    # The extension recipe finishes at the checked core boundary. The compiler
+    # then owns quadrature, tabulation and simplification of array arithmetic.
+    f = lower_with_shape_derivatives(f)
     return simplify(tabulate(apply_quadrature(f, degree)))
