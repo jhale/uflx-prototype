@@ -141,3 +141,98 @@ def test_loop_body_does_not_grow_with_extent():
     small, large = source(3), source(3000)
     assert small.count("for (") == large.count("for (") == 1
     assert small.replace("< 3;", "< 3000;") == large
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+def test_scheduling_shares_equal_reductions_and_hoists_invariants(tmp_path):
+    q, k, i, j = (index(name) for name in ("q", "k", "i", "j"))
+    coefficients = runtime_array("coefficients", (2, 4))
+    scale = runtime_array("scale", ())
+    first = index_sum(coefficients[q, k] * coefficients[q, k], (k,))
+    second = index_sum(coefficients[q, k] * coefficients[q, k], (k,))
+    assert first == second
+    basis = tensor((tensor((num(1), num(2), num(3))), tensor((num(4), num(5), num(6)))))
+    expression = index_sum((first * second + scale * scale) * basis[q, i] * basis[q, j], (q,))
+
+    def counted_read(label, offset):
+        counter, start = (0, 0) if label == "coefficients" else (1, 8)
+        return f"counted_read({counter}, w[{start} + ({offset})])"
+
+    code = c_kernel(expression, "scheduled", counted_read, output_indices=(i, j))
+    source, library = tmp_path / "scheduled.c", tmp_path / "scheduled.so"
+    source.write_text(
+        "int counts[2] = {0, 0};\n"
+        "double counted_read(int counter, double value) { counts[counter]++; return value; }\n"
+        + code
+    )
+    # No optimiser: these counts measure the scheduling performed by our emitter.
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    lib = ctypes.CDLL(str(library))
+    data = np.arange(1.0, 10.0)
+    result = np.full((3, 3), 7.0)
+    pointer = ctypes.POINTER(ctypes.c_double)
+    lib.scheduled(
+        result.ctypes.data_as(pointer),
+        data.ctypes.data_as(pointer),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    B = np.array([[1, 2, 3], [4, 5, 6]])
+    factors = np.sum(data[:8].reshape(2, 4) ** 2, axis=1) ** 2 + data[8] ** 2
+    np.testing.assert_allclose(result, 7 + B.T @ (factors[:, None] * B))
+    # Each squared input is read twice, once per required point/DOF; the
+    # structurally equal reduction and all nine matrix entries share the result.
+    assert list((ctypes.c_int * 2).in_dll(lib, "counts")) == [16, 2]
+    assert code.count("double sum") == 1
+    loops = re.findall(r"for \(int ([a-z]+)\d+", code)
+    assert loops == ["q", "i", "a", "a"]
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+def test_scheduling_preserves_conditional_evaluation(tmp_path):
+    i = index("choice")
+    values = runtime_array("values", (2,))
+    expression = tensor((num(1) / values[0], values[1] * values[1]))[i]
+    code = c_kernel(
+        expression,
+        "selected",
+        lambda label, offset: f"counted_read({offset}, w[{offset}])",
+        index_bindings={i: "entity_local_index[0]"},
+    )
+    source, library = tmp_path / "selected.c", tmp_path / "selected.so"
+    source.write_text(
+        "int counts[2] = {0, 0};\n"
+        "double counted_read(int index, double value) { counts[index]++; return value; }\n" + code
+    )
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    lib = ctypes.CDLL(str(library))
+    data, result = np.array([0.0, 3.0]), np.zeros(1)
+    pointer = ctypes.POINTER(ctypes.c_double)
+    choice = (ctypes.c_int * 1)(1)
+    lib.selected(
+        result.ctypes.data_as(pointer),
+        data.ctypes.data_as(pointer),
+        None,
+        None,
+        choice,
+        None,
+        None,
+    )
+    assert result[0] == 9
+    assert list((ctypes.c_int * 2).in_dll(lib, "counts")) == [0, 2]
+
+
+def test_empty_output_does_not_evaluate_hoisted_inputs():
+    i = index("empty")
+    empty, scale = runtime_array("empty", (0,)), runtime_array("scale", ())
+    code = c_kernel(
+        empty[i] * (scale * scale),
+        "empty_output",
+        lambda label, offset: f"w[{offset}]",
+        output_indices=(i,),
+    )
+    assert "w[" not in code
+    assert "A[" not in code

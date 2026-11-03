@@ -47,11 +47,17 @@ checks:
   each argument of a form, so that the form evaluates to its assembled tensor
 
 The C emitter, `uflx_compiler.c_code.c_kernel`, emits scalar arithmetic with
-optional outer loops over `output_indices`. `index_bindings` maps remaining
+loops over `output_indices`. `index_bindings` maps remaining
 indices to C expressions, such as `entity_local_index[0]`. Index sums become
-nested C loops; input-independent subgraphs
-become constant multidimensional tables. Temporary expressions are shared only
-within scopes where their indices are defined. The runtime arrays keep the flat
+nested C loops; outer integral sums surround the output loops. Input-independent
+subgraphs become constant multidimensional tables. A buffered scope tree schedules
+computations using their free indices and bound component positions. Structurally
+equal expressions share temporaries; entire reductions and partial products move
+outside loops they do not depend on. Runtime geometry independent of quadrature
+is computed once per invocation, while coefficient evaluation at each point is
+shared across argument DOFs. Computations remain inside conditional branches
+unless a reusable value is already available in an enclosing scope. This scheduling
+does not reassociate products or factor structurally different expressions. The runtime arrays keep the flat
 pointer interface: `read(label, offset)` must accept an integer or a C expression
 for the offset, for example `f"w[{offset}]"`. The backend retains its real-valued,
 static-extent arithmetic subset. With no output indices it accumulates into `A[0]`.

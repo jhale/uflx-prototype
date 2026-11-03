@@ -1,5 +1,7 @@
+import re
 import sys
 from contextlib import ExitStack, contextmanager
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -29,11 +31,33 @@ from uflx_toy.nodes import RuntimeArray
 from .folding import fold
 
 
+@dataclass
+class _Scope:
+    """Buffered statements and shared expressions at one lexical scope."""
+
+    parent: "_Scope | None" = None
+    header: str = ""
+    index: str | None = None
+    conditional: bool = False
+    statements: list = field(default_factory=list)
+    expressions: dict = field(default_factory=dict)
+
+    def lines(self, depth=1):
+        for statement in self.statements:
+            if isinstance(statement, _Scope):
+                yield "  " * depth + statement.header + " {"
+                yield from statement.lines(depth + 1)
+                yield "  " * depth + "}"
+            else:
+                yield "  " * depth + statement
+
+
 def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
-    # Scalar arithmetic with nested index sums and optional outer output-index loops.
+    # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 100000))
-    lines, scopes, tables = [], [{}], {}
+    root = scope = _Scope()
+    tables = {}
     folded = fold(e, preserve_indices=(*output_indices, *(index_bindings or {})))
     serial = 0
 
@@ -44,17 +68,20 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
         return name
 
     def emit(code):
-        lines.append("  " * len(scopes) + code)
+        scope.statements.append(code)
 
     @contextmanager
-    def block(header):
-        emit(header + " {")
-        scopes.append({})
+    def block(header, *, index=None, conditional=False):
+        nonlocal scope
+        parent = scope
+        child = _Scope(parent, header, index, conditional)
+        scope = child
         try:
             yield
         finally:
-            scopes.pop()
-            emit("}")
+            scope = parent
+            # Hoisted statements have already been added to the parent.
+            parent.statements.append(child)
 
     def temp(code):
         name = fresh("t")
@@ -62,13 +89,27 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
         return name
 
     def entry(n, bound, comp):
-        key = (n, tuple(bound[i] for i, _ in n.free_indices), comp)
-        for memo in reversed(scopes):
-            if key in memo:
-                return memo[key]
-        result = scalar(n, bound, comp)
-        scopes[-1][key] = result
-        return result
+        nonlocal scope
+        positions = tuple(bound[i] for i, _ in n.free_indices)
+        key = (n, positions, comp)
+        # Bound positions may be C expressions, including gathered table indices.
+        names = set(re.findall(r"[A-Za-z_][A-Za-z_0-9]*", " ".join(map(str, positions + comp))))
+        target = scope
+        while target.parent is not None and not target.conditional and target.index not in names:
+            target = target.parent
+        ancestor = target
+        while ancestor is not None:
+            if key in ancestor.expressions:
+                return ancestor.expressions[key]
+            ancestor = ancestor.parent
+        previous = scope
+        scope = target
+        try:
+            result = scalar(n, bound, comp)
+            target.expressions[key] = result
+            return result
+        finally:
+            scope = previous
 
     def table(key, values, indices, dtype="double"):
         if all(isinstance(i, int) for i in indices):
@@ -134,7 +175,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
                 emit(f"double {result};")
                 with block(f"switch ({comp[0]})"):
                     for k, x in enumerate(entries):
-                        with block(f"case {k}:"):
+                        with block(f"case {k}:", conditional=True):
                             emit(f"{result} = {render(entry(x, bound, comp[1:]))};")
                             emit("break;")
                 return result
@@ -154,7 +195,9 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
                     for i in indices:
                         name = fresh("i")
                         stack.enter_context(
-                            block(f"for (int {name} = 0; {name} < {extent[i]}; ++{name})")
+                            block(
+                                f"for (int {name} = 0; {name} < {extent[i]}; ++{name})", index=name
+                            )
                         )
                         inner[i] = name
                     emit(f"{total} += {render(entry(x, inner, comp))};")
@@ -241,21 +284,49 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
     def call(name, f, a):
         return float(f(a)) if isinstance(a, float) else temp(f"{name}({a})")
 
-    bound = {i: 0 for i, _ in e.free_indices} | (index_bindings or {})
-    with ExitStack() as stack:
-        for i in output_indices:
-            loop = fresh("a")
-            stack.enter_context(
-                block(f"for (int {loop} = 0; {loop} < {dict(e.free_indices)[i]}; ++{loop})")
+    def accumulate(n, bound):
+        # Integral sums surround argument loops. Other reductions remain scalar
+        # computations, which entry() schedules at their earliest legal scope.
+        if isinstance(n, Sum):
+            accumulate(n.first, bound)
+            accumulate(n.second, bound)
+            return
+        if isinstance(n, IndexSum):
+            extent = dict(n.expression.free_indices)
+            with ExitStack() as stack:
+                inner = dict(bound)
+                for i in n.indices:
+                    if extent[i] == 0:
+                        return
+                    loop = fresh("q")
+                    stack.enter_context(
+                        block(f"for (int {loop} = 0; {loop} < {extent[i]}; ++{loop})", index=loop)
+                    )
+                    inner[i] = loop
+                accumulate(n.expression, inner)
+            return
+        with ExitStack() as stack:
+            inner = dict(bound)
+            for i in output_indices:
+                loop = fresh("a")
+                stack.enter_context(
+                    block(
+                        f"for (int {loop} = 0; {loop} < {dict(e.free_indices)[i]}; ++{loop})",
+                        index=loop,
+                    )
+                )
+                inner[i] = loop
+            result = entry(n, inner, ())
+            output = offset(
+                tuple(inner[i] for i in output_indices),
+                tuple(dict(e.free_indices)[i] for i in output_indices),
             )
-            bound[i] = loop
-        result = entry(e, bound, ())
-        output = offset(
-            tuple(bound[i] for i in output_indices),
-            tuple(dict(e.free_indices)[i] for i in output_indices),
-        )
-        emit(f"A[{output}] += {render(result)};")
-    body = "\n".join([declaration for _, declaration in tables.values()] + lines)
+            emit(f"A[{output}] += {render(result)};")
+
+    bound = {i: 0 for i, _ in e.free_indices} | (index_bindings or {})
+    if all(dict(e.free_indices)[i] > 0 for i in output_indices):
+        accumulate(e, bound)
+    body = "\n".join([declaration for _, declaration in tables.values()] + list(root.lines()))
     return (
         "#include <stdint.h>\n"
         f"void {name}(double* restrict A, const double* restrict w, const double* restrict c,\n"
