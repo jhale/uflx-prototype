@@ -19,6 +19,7 @@ from ..nodes import (
     Sum,
     Zero,
 )
+from ..static import complete_indices
 from ..substitution import lowered, map_fields, memoized
 
 ONE = (Fraction(1), Fraction(0))
@@ -126,9 +127,7 @@ def preserve(e, out):
     # Cancellation may remove indexed dependencies; retain the original family.
     if out.value_shape != e.value_shape or out.argument_spaces != e.argument_spaces:
         return e
-    if dict(out.free_indices) != dict(e.free_indices):
-        return Sum(out, Zero(e.value_shape, e.free_indices, e.argument_spaces))
-    return out
+    return complete_indices(e, out)
 
 
 def operator_rule(e):

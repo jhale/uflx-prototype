@@ -1,6 +1,6 @@
 from ..linearity import dependence
 from ..nodes import DirectionalDerivative, Function, ImaginaryUnit, Integer, Product
-from ..static import zero_like
+from ..static import complete_indices, zero_like
 from ..substitution import bottom_up, everywhere, memoized, occurs, substitute
 from ..tuples import each, members
 from .actions import apply_actions
@@ -13,7 +13,8 @@ def deriv(f, x, a, h, normalize=None):
     xs, at, hs = members(x), members(a), members(h)
     normalize = normalizer() if normalize is None else normalize
     out = memoized(lambda d, g: normalize(rules(d, g, xs, at, hs)))(f)
-    return substitute(out, dict(zip(xs, at, strict=True)))
+    out = substitute(out, dict(zip(xs, at, strict=True)))
+    return complete_indices(DirectionalDerivative(f, x, a, h), out)
 
 
 def rules(d, f, xs, a, h):

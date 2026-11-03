@@ -22,10 +22,9 @@ from ..nodes import (
     PullBack,
     PushForward,
     SideMap,
-    Sum,
     TransformationLaw,
 )
-from ..static import free, shape, support, terminal, zero_like
+from ..static import complete_indices, shape, support, terminal
 from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized, substitute
 from ..tensors import determinant, transpose
 from ..topology import cell_index
@@ -40,7 +39,7 @@ def rule(pb, f, m):
         case _ if isinstance(m, SideMap) and support(f) is not None:
             return PullBack(f, m)
         case _ if support(f) is None:
-            return broadcast(f, m)
+            return complete_indices(PullBack(f, m), f)
         case Coordinate():
             return m.parameterisation
         case PullBack(g, SideMap() as sm) if side_cell(sm, m) is not None:
@@ -102,14 +101,6 @@ def lowered_copy(pb, e):
     # The parameterisation of a map that a row builds is lowered as the row builds it, because
     # a lowering pass does not enter maps.
     return bottom_up(e, lambda n: pb(n.expression, n.domain) if isinstance(n, PullBack) else n)
-
-
-def broadcast(f, m):
-    # f has no support, so the pull-back is f on every member of the family of m.
-    pulled = PullBack(f, m)
-    if free(pulled).keys() <= free(f).keys():
-        return f
-    return Sum(f, zero_like(pulled, f.argument_spaces))
 
 
 def pointwise(f, m, pb):
