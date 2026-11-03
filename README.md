@@ -66,20 +66,20 @@ order. Offsets count scalar entries in `w` and `c`.
 
 This backend tabulates directly in standard Basix element ordering. It does not
 use the toy mesh's global DOF map or tensor-product DOF reordering. A kernel
-computes one cell or exterior-facet contribution, with outer loops over the local argument DOFs;
+computes one cell or facet contribution, with outer loops over local argument DOFs;
 the solver packs cell-local coefficients and three-component coordinate DOFs,
 performs DOF transformations, and assembles the result. Mesh connectivity and
 coordinate values are absent from the generated kernel. Equivalent input graphs
 may still produce differently ordered arithmetic after canonicalisation.
 
-The supported UFCx subset is float64 cell and exterior-facet integrals of rank
-0, 1 or 2, on one
-mesh with one Basix cell type. Geometry is a tensor of scalar Basix coordinate
-functions (including curved geometry), or vertex coordinates interpreted as P1.
+The supported UFCx subset is float64 cell, exterior-facet and interior-facet
+integrals of rank 0, 1 or 2, on one mesh with one Basix cell type. Facet kernels
+currently require a uniform reference facet type. Geometry is a tensor of scalar
+Basix coordinate functions (including curved geometry), or vertex coordinates interpreted as P1.
 Element families and degrees follow the toy Basix spaces, with the equispaced
-variant; custom variants are not yet exposed. Interior facets (`dS`), mixed
-arguments and complex inputs are rejected. Scalar and tensor constants are packed separately from coefficients. The source targets the UFCx
-interface in FFCx 0.12; other versions need their own compatibility validation.
+variant; custom variants are not yet exposed. Mixed arguments and complex inputs
+are rejected. Scalar and tensor constants are packed separately from coefficients.
+The source targets the UFCx interface in FFCx 0.12; other versions need their own compatibility validation.
 
 For exterior facets (`ds`), construct the boundary with `side_domain` on a
 one-sided topology and pull the cell integrand back through its `side_map`:
@@ -98,10 +98,39 @@ embedded. Exterior facets require no quadrature permutation. Compile cell and
 boundary contributions separately: one generated form currently has one
 integration domain and the default integral ID `-1`.
 
+For interior facets (`dS`), the side topology has two sides named `"+"` and `"-"`.
+Use `side_domain(mesh, interface_topology, "+")` for the integration domain and
+`side_map(mesh, interface, side)` to restrict each field to the chosen cell.
+`code.integral_type` is then `"interior_facet"`. For example:
+
+```python
+interface = side_domain(mesh, interface_topology, "+")
+plus = side_map(mesh, interface, "+")
+minus = side_map(mesh, interface, "-")
+jump = pull_back(u, plus) - pull_back(u, minus)
+code = compile_ufcx(integral(jump * jump, interface), mesh, degree=4)
+```
+
+UFCx supplies two entries in `entity_local_index` and `quadrature_permutation`.
+Permutation numbers are `2 * rotations + reflections`. The compiler precomputes
+separate reference-facet and basis tables for each side, then selects them at
+runtime. It does not generate kernels for every pair of facets or permutations.
+Constant folding preserves output and dispatch indices to avoid materialising
+cross-products of the two sides' tables.
+
+Interior coefficients use `w[coefficient][side][local_dof]`, with `+` before `-`.
+Coordinates use `coordinate_dofs[side][coordinate_dof][3]`; constants are shared
+between sides. Each argument axis has twice the element dimension, again with
+`+` DOFs before `-` DOFs. A bilinear kernel therefore fills all four coupling
+blocks. The solver remains responsible for element DOF transformations and for
+packing two conforming cells with their facet permutations.
+
 `test/test_ufcx.py` compares generated local tensors and descriptors with FFCx,
 including higher-order elements, Piola maps, curved cells and every local facet
-of triangles, quadrilaterals, tetrahedra and hexahedra. It also contains
-DOLFINx cell and exterior-facet assembly tests using the generated `ufcx_form` address directly. These tests
+of intervals, triangles, quadrilaterals, tetrahedra and hexahedra. Interior-facet
+comparisons cover every local-facet pair and every rotation/reflection combination.
+It also contains DOLFINx cell, exterior-facet and interior-facet assembly tests using the generated
+`ufcx_form` address directly. These tests
 skip when their optional dependencies are unavailable. With local FFCx and UFL
 checkouts on `PYTHONPATH`, run `pytest test/test_ufcx.py`; `UFCX_INCLUDE_DIR` can
 supply the header directory separately. Keep the compiled shared library alive

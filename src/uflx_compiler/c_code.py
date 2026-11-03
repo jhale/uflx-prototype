@@ -34,7 +34,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 100000))
     lines, scopes, tables = [], [{}], {}
-    folded = fold(e)
+    folded = fold(e, preserve_indices=(*output_indices, *(index_bindings or {})))
     serial = 0
 
     def fresh(prefix):
