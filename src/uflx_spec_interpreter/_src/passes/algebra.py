@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from fractions import Fraction
 
+from ..arithmetic import add, divide, multiply
 from ..nodes import (
     AbstractExpression,
     Action,
@@ -57,7 +58,7 @@ def number(e: AbstractExpression) -> tuple[Fraction, Fraction] | None:
 def literal(value: tuple[Fraction, Fraction]) -> AbstractExpression:
     def rational(q: Fraction) -> AbstractExpression:
         n = Integer(q.numerator)
-        return n if q.denominator == 1 else Division(n, Integer(q.denominator))
+        return n if q.denominator == 1 else divide(n, Integer(q.denominator))
 
     real, imag = value
     if not imag:
@@ -65,15 +66,15 @@ def literal(value: tuple[Fraction, Fraction]) -> AbstractExpression:
     imaginary = (
         Complex(Integer(0), Integer(1))
         if imag == 1
-        else Product(rational(imag), Complex(Integer(0), Integer(1)))
+        else multiply(rational(imag), Complex(Integer(0), Integer(1)))
     )
-    return imaginary if not real else Sum(rational(real), imaginary)
+    return imaginary if not real else add(rational(real), imaginary)
 
 
 def product(factors: Sequence[AbstractExpression]) -> AbstractExpression:
     out = factors[0]
     for factor in factors[1:]:
-        out = Product(out, factor)
+        out = multiply(out, factor)
     return out
 
 
@@ -107,7 +108,7 @@ def scaled(
     if not factors:
         return literal(coefficient)
     body = product(factors)
-    return body if coefficient == ONE else Product(literal(coefficient), body)
+    return body if coefficient == ONE else multiply(literal(coefficient), body)
 
 
 def collected(e: AbstractExpression) -> AbstractExpression:
@@ -133,7 +134,7 @@ def collected(e: AbstractExpression) -> AbstractExpression:
         parts.sort(key=lambda x: x.digest)
     out = parts[0]
     for part in parts[1:]:
-        out = Sum(out, part)
+        out = add(out, part)
     return out
 
 
@@ -149,19 +150,19 @@ def operator_rule(e: AbstractExpression) -> AbstractExpression:
             return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
         if coefficient != ONE:
             arg = scaled(ONE, factors)
-            return Product(literal(coefficient), Action(e.form, e.position, arg))
+            return multiply(literal(coefficient), Action(e.form, e.position, arg))
     if isinstance(e, Product):
         coefficient, factors = split_product(e)
         if coefficient != ONE and len(factors) == 1 and isinstance(factors[0], Form):
             f = factors[0]
-            return Form(Product(literal(coefficient), f.expression), f.arguments)
+            return Form(multiply(literal(coefficient), f.expression), f.arguments)
     if isinstance(e, Sum) and isinstance(e.first, Form) and isinstance(e.second, Form):
         if e.first.arguments == e.second.arguments:
-            return Form(Sum(e.first.expression, e.second.expression), e.first.arguments)
+            return Form(add(e.first.expression, e.second.expression), e.first.arguments)
     if isinstance(e, Conjugate):
         coefficient, factors = split_product(e.operand)
         if factors and coefficient != ONE:
-            return Product(literal((coefficient[0], -coefficient[1])), Conjugate(product(factors)))
+            return multiply(literal((coefficient[0], -coefficient[1])), Conjugate(product(factors)))
     return e
 
 

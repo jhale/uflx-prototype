@@ -3,7 +3,7 @@ from __future__ import annotations
 from itertools import combinations
 from typing import TYPE_CHECKING
 
-from .arithmetic import divide, rank
+from .arithmetic import divide, multiply, rank
 from .names import derived_indices
 from .nodes import (
     AbstractExpression,
@@ -13,7 +13,6 @@ from .nodes import (
     IndexSum,
     Integer,
     Inverse,
-    Product,
     ScalarType,
     SquareRoot,
     Tensor,
@@ -81,7 +80,7 @@ def matrix_product(first: AbstractExpression, second: AbstractExpression) -> Abs
     i, k, j = derived_indices("uflx.matrix_product", (first, second), 3)
     a = (i,) if rank(first) == 2 else ()
     b = (j,) if rank(second) == 2 else ()
-    contracted = IndexSum(Product(Indexed(first, (*a, k)), Indexed(second, (k, *b))), (k,))
+    contracted = IndexSum(multiply(Indexed(first, (*a, k)), Indexed(second, (k, *b))), (k,))
     return ComponentTensor(contracted, a + b) if a + b else contracted
 
 

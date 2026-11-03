@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
-from ..arithmetic import divide, square_root
+from ..arithmetic import divide, multiply, square_root
 from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..domains import cell_of, inclusion, is_cell
 from ..geometry import density, geometric_map, inverse_jacobian, jacobian
@@ -15,14 +15,12 @@ from ..nodes import (
     Coordinate,
     Curl,
     Divergence,
-    Division,
     DomainMap,
     Form,
     Gradient,
     Indexed,
     IndexSum,
     Normal,
-    Product,
     PullBack,
     PushForward,
     SideMap,
@@ -165,16 +163,16 @@ def transformed(ghat: AbstractExpression, law: TransformationLaw, C: CellMap) ->
     value = Indexed(ghat, (*lead, *summed)) if lead or summed else ghat
     for variance, i, s in zip(law.variances, out, summed, strict=True):
         M = Indexed(K, (s, i)) if variance == "covariant" else Indexed(J, (i, s))
-        value = Product(value, M)
+        value = multiply(value, M)
     if summed:
         value = IndexSum(value, summed)
     source, target = geometric_map(C)
     k, n = source.dimension, target.dimension
     scale = determinant(jacobian(C)) if k == n else density(C)
     for _ in range(law.weight):
-        value = Division(value, scale)
+        value = divide(value, scale)
     for _ in range(-law.weight):
-        value = Product(value, scale)
+        value = multiply(value, scale)
     axes = (*lead, *out)
     return ComponentTensor(value, axes) if axes else value
 

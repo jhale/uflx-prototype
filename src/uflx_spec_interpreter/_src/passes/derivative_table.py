@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
-from ..arithmetic import subtract
+from ..arithmetic import add, divide, multiply, real_part, subtract
 from ..nodes import (
     Absolute,
     Action,
@@ -15,9 +15,7 @@ from ..nodes import (
     Logarithm,
     Power,
     Product,
-    RealPart,
     SquareRoot,
-    Sum,
 )
 from ..substitution import freshen, map_values
 from ..tensors import transpose
@@ -39,23 +37,23 @@ def derivative_of_node(
     f = freshen(f, avoid)
     match f:
         case Product(b, c):
-            return Sum(Product(d(b), at(c)), Product(at(b), d(c)))
+            return add(multiply(d(b), at(c)), multiply(at(b), d(c)))
         case Division(b, c):
             return subtract(
-                Division(d(b), at(c)), Division(Product(at(b), d(c)), Product(at(c), at(c)))
+                divide(d(b), at(c)), divide(multiply(at(b), d(c)), multiply(at(c), at(c)))
             )
         case Power(b, c) if constant(c):
-            return Product(Product(at(c), Power(at(b), Sum(at(c), Integer(-1)))), d(b))
+            return multiply(multiply(at(c), Power(at(b), add(at(c), Integer(-1)))), d(b))
         case Power(b, c):
-            return Product(
-                at(f), Sum(Product(Logarithm(at(b)), d(c)), Division(Product(at(c), d(b)), at(b)))
+            return multiply(
+                at(f), add(multiply(Logarithm(at(b)), d(c)), divide(multiply(at(c), d(b)), at(b)))
             )
         case Absolute(b):
             return abs_derivative(at(b), d(b))
         case SquareRoot(b):
-            return Division(d(b), Product(Integer(2), at(f)))
+            return divide(d(b), multiply(Integer(2), at(f)))
         case Logarithm(b):
-            return Division(d(b), at(b))
+            return divide(d(b), at(b))
         case Determinant(a):
             from ..names import derived_indices
             from ..tensors import index_sum, indexed
@@ -71,7 +69,7 @@ def derivative_of_node(
                 return Action(at(l), p, each(d, w))
             if all(constant(v) for v in members(w)):
                 return Action(d(l), p, each(at, w))
-            return Sum(Action(d(l), p, each(at, w)), Action(at(l), p, each(d, w)))
+            return add(Action(d(l), p, each(at, w)), Action(at(l), p, each(d, w)))
         case _ if f.commuting:
             other = tuple(n for n in f.value_fields if n not in f.commuting)
             return map_values(map_values(f, at, other), d, f.commuting)
@@ -81,7 +79,7 @@ def derivative_of_node(
 
 def abs_derivative(b: AbstractExpression, db: AbstractExpression) -> AbstractExpression:
     # Re(conj(b) db) / |b|, which is real arithmetic like the Absolute it replaces.
-    return Division(RealPart(Product(Conjugate(b), db)), Absolute(b))
+    return divide(real_part(multiply(Conjugate(b), db)), Absolute(b))
 
 
 def inverse_derivative(A: AbstractExpression, dA: AbstractExpression) -> AbstractExpression:

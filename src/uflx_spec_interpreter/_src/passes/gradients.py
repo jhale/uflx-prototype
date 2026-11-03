@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from ..arithmetic import multiply
 from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..domains import is_cell
 from ..names import derived_index, derived_indices
@@ -84,7 +85,7 @@ def rule(
             r = derived_index("uflx.apply_gradients", f, P, "r")
             outer = Indexed(PullBack(Gradient(g, phi.ambient_domain), phi), (*axes, r))
             inner = Indexed(partial(phi.parameterisation, P, j), (r,))
-            entry = IndexSum(Product(outer, inner), (r,))
+            entry = IndexSum(multiply(outer, inner), (r,))
             return ComponentTensor(entry, axes) if axes else entry
         case _ if remains(f, P):
             axes = derived_indices("uflx.apply_gradients", (f, P), len(shape(f)))

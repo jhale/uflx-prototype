@@ -2,18 +2,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .arithmetic import add, divide, multiply
 from .nodes import (
     AbstractExpression,
     Action,
     Complex,
     Conjugate,
     DirectionalDerivative,
-    Division,
     DualSpace,
     Form,
     Function,
     Integer,
-    Product,
     ScalarType,
 )
 from .nodes.forms import entry_function
@@ -128,12 +127,11 @@ def gateaux_derivative(
     if xs[0].space.scalar_type == ScalarType.real:
         return Form(delta, (w,))
     i = Complex(Integer(0), Integer(1))
-    from .arithmetic import add, multiply
 
     def rotate(v: Function) -> AbstractExpression:
         return multiply(i, v)
 
     rotated = each(rotate, directions)
-    sign = i if isinstance(entries[0], Conjugate) else Product(Integer(-1), i)
+    sign = i if isinstance(entries[0], Conjugate) else multiply(Integer(-1), i)
     second = multiply(sign, DirectionalDerivative(F, x, a, rotated))
-    return Form(multiply(Division(Integer(1), Integer(2)), add(delta, second)), (w,))
+    return Form(multiply(divide(Integer(1), Integer(2)), add(delta, second)), (w,))

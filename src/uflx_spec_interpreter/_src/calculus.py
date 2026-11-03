@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .arithmetic import multiply
 from .names import derived_indices
 from .nodes import (
     ComponentTensor,
@@ -13,7 +14,6 @@ from .nodes import (
     Indexed,
     IndexSum,
     Integral,
-    Product,
 )
 from .tensors import permutation_tensor
 
@@ -65,7 +65,7 @@ def rotation_of_gradient(f: AbstractExpression, P: AbstractDomain) -> AbstractEx
     n = P.ambient_coordinate_domain.dimension
     *out, j, k = derived_indices("uflx.curl", (f, P), n)
     entry = IndexSum(
-        Product(Indexed(permutation_tensor(n), (*out, j, k)), Indexed(Gradient(f, P), (k, j))),
+        multiply(Indexed(permutation_tensor(n), (*out, j, k)), Indexed(Gradient(f, P), (k, j))),
         (j, k),
     )
     return ComponentTensor(entry, tuple(out)) if out else entry

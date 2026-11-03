@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from ..arithmetic import multiply
 from ..nodes import Action, Conjugate, Form, Function, Gradient, Product, PullBack, Zero
 from ..nodes.forms import entry_function
 from ..static import arity, complete_indices, field_terminal, free_indices, promote
@@ -35,9 +36,9 @@ def rule(
         case Form(e, _) if p >= arity(e):
             return bind(f, p - arity(e), g)
         case Product(a, b) if p < arity(a):
-            return Product(act(a, p, g), b)
+            return multiply(act(a, p, g), b)
         case Product(a, b):
-            return Product(a, act(b, p - arity(a), g))
+            return multiply(a, act(b, p - arity(a), g))
         case _ if retained(f):
             return Action(f, p, g)
         case _ if f.commuting:

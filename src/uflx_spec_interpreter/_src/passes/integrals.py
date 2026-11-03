@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..arithmetic import total
+from ..arithmetic import multiply, total
 from ..domains import cell_domain
 from ..geometry import density
 from ..names import derived_indices
@@ -14,7 +14,6 @@ from ..nodes import (
     Integer,
     Integral,
     Mesh,
-    Product,
     PullBack,
 )
 from ..static import shape, support
@@ -50,7 +49,7 @@ def piece_integral(f: AbstractExpression, D: Mesh, j: int) -> AbstractExpression
     P = cells.parameter_domain
     piece = DomainMap(P, cells.parameterisation, D.ambient_domain)
     g = PullBack(f, piece if support(f) == D.ambient_domain else cells)
-    term = rule(Integral(Product(g, density(cells)), P))
+    term = rule(Integral(multiply(g, density(cells)), P))
     return IndexSum(term, (entry,))
 
 

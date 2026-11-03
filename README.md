@@ -217,3 +217,26 @@ so their overrides are checked normally.
 Pyright checks exhaustiveness for finite unions. `AbstractExpression` remains
 open to library extensions, so core passes explicitly retain or reject unsupported
 nodes; static checking cannot prove coverage of every possible extension class.
+
+### Arithmetic construction convention
+
+Use `add`, `multiply`, `divide`, `real_part` and `imaginary_part` (or their
+operator overloads) when constructing arithmetic. They handle tensor operands
+and reduce to scalar nodes for scalar operands. Direct construction of `Sum`,
+`Product`, `Division`, `RealPart` and `ImaginaryPart` is checked by
+`test/test_construction_boundaries.py`. Node classes remain available for
+pattern matching, type annotations and inspection.
+
+The only direct-construction exceptions are the `add`, `multiply` and `divide`
+implementations in `_src/arithmetic.py`: they build the scalar nodes that
+implement the lifting itself. Exceptions are specific to a function and node
+class, and the check rejects unused exceptions. Other node classes are not
+banned; this convention targets operations with tensor-aware arithmetic
+wrappers.
+
+The AST check follows direct imports, relative imports and import aliases,
+including module aliases. It is a source convention check, not a Python
+interpreter or a shape proof: wildcard imports, dynamically retrieved
+constructors and constructor reassignment are outside its supported syntax.
+Run it with `pytest test/test_construction_boundaries.py`; it also runs with
+the ordinary package test suite.
