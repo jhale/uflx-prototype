@@ -1,5 +1,6 @@
 import re
 import sys
+from collections import Counter
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from functools import cache
@@ -34,6 +35,28 @@ from .folding import fold
 
 
 @dataclass
+class _ProductStatement:
+    """A scalar product retained until its uses are known."""
+
+    name: str
+    expression: str
+
+    def __str__(self):
+        return f"const double {self.name} = {self.expression};"
+
+
+@dataclass
+class _Accumulation:
+    """An in-place scalar addition."""
+
+    target: str
+    value: str
+
+    def __str__(self):
+        return f"{self.target} += {self.value};"
+
+
+@dataclass
 class _Scope:
     """Buffered statements and shared expressions at one lexical scope."""
 
@@ -55,7 +78,30 @@ class _Scope:
                 yield from statement.lines(depth + 1)
                 yield "  " * depth + "}"
             else:
-                yield "  " * depth + statement
+                yield "  " * depth + str(statement)
+
+    def inline_products(self):
+        """Expose multiply-adds without duplicating shared or hoisted products."""
+        uses = Counter(re.findall(r"[A-Za-z_][A-Za-z_0-9]*", "\n".join(self.lines())))
+
+        def visit(scope):
+            statements = []
+            for statement in scope.statements:
+                if isinstance(statement, _Scope):
+                    visit(statement)
+                if isinstance(statement, _Accumulation) and statements:
+                    previous = statements[-1]
+                    if (
+                        isinstance(previous, _ProductStatement)
+                        and statement.value == previous.name
+                        and uses[previous.name] == 2  # Declaration and sole use.
+                    ):
+                        statements.pop()
+                        statement = _Accumulation(statement.target, previous.expression)
+                statements.append(statement)
+            scope.statements = statements
+
+        visit(self)
 
 
 def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
@@ -238,7 +284,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
 
                 def reduce(indices, inner):
                     if not indices:
-                        emit(f"{total} += {render(entry(x, inner, comp))};")
+                        emit(_Accumulation(total, render(entry(x, inner, comp))))
                         return
                     i, *rest = indices
                     # Resolve small spatial component selections before scheduling;
@@ -322,7 +368,9 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
             return b
         if b == 1.0:
             return a
-        return temp(f"{render(a)} * {render(b)}")
+        name = fresh("t")
+        emit(_ProductStatement(name, f"{render(a)} * {render(b)}"))
+        return name
 
     def divide(a, b):
         if isinstance(a, float) and isinstance(b, float):
@@ -432,11 +480,12 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
                 tuple(inner[i] for i in output_indices),
                 tuple(dict(e.free_indices)[i] for i in output_indices),
             )
-            emit(f"A[{output}] += {render(result)};")
+            emit(_Accumulation(f"A[{output}]", render(result)))
 
     bound = {i: 0 for i, _ in e.free_indices} | (index_bindings or {})
     if all(dict(e.free_indices)[i] > 0 for i in output_indices):
         accumulate(e, bound)
+    root.inline_products()
     body = "\n".join([declaration for _, declaration in tables.values()] + list(root.lines()))
     return (
         "#include <stdint.h>\n"

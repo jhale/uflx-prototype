@@ -65,7 +65,12 @@ are regrouped by the scope where their factors become available, so quadrature w
 products. Small reductions (up to three entries) that select explicit tensor
 components are expanded to expose shared geometry; DOF and quadrature loops are
 retained. Product regrouping can change floating-point rounding. Algebraic
-factorisation across sums is not performed. The runtime arrays keep the flat
+factorisation across sums is not performed. A single-use multiplication directly
+before an accumulation is emitted in that accumulation, allowing the C compiler
+to generate fused multiply-add instructions with its normal contraction settings.
+Shared and hoisted products keep their temporaries. Fused operations may round
+differently from separate multiplication and addition; no fast-math flags are
+required. The runtime arrays keep the flat
 pointer interface: `read(label, offset)` must accept an integer or a C expression
 for the offset, for example `f"w[{offset}]"`. The backend retains its real-valued,
 static-extent arithmetic subset. With no output indices it accumulates into `A[0]`.

@@ -106,6 +106,15 @@ def loop_examples():
     yield "tensor_selection", index_sum(choices[i], (i,)), np.array([2.0, 4.0])
     contraction = index_sum(choices[i], (i,))
     yield "tensor_contraction", contraction * contraction, np.array([2.0, 4.0])
+    v = runtime_array("a", (3,))
+    product = v[0] * v[1]
+    yield "direct_product", product, np.array([2.0, 3.0, 5.0])
+    yield "hoisted_product", index_sum(product * v[i], (i,)), np.array([2.0, 3.0, 5.0])
+    yield (
+        "shared_accumulated_product",
+        product + index_sum(product * v[i], (i,)),
+        np.array([2.0, 3.0, 5.0]),
+    )
     empty = runtime_array("a", (0,))
     yield "empty", index_sum(empty[i], (i,)), np.empty(0)
 
@@ -127,6 +136,18 @@ def test_nested_loops_match_array_evaluation(tmp_path, name, expression, data):
         result.ctypes.data_as(pointer), data.ctypes.data_as(pointer), None, None, None, None, None
     )
     assert np.isclose(result[0], 7.0 + evaluate(expression, {"a": data}))
+    if name == "direct_product":
+        assert "A[0] += w[0] * w[1];" in code
+        assert "const double t" not in code
+    if name in ("hoisted_product", "shared_accumulated_product"):
+        declaration = re.search(r"const double (t\d+) = w\[0\] \* w\[1\];", code)
+        assert declaration is not None
+        temporary = declaration[1]
+        assert code.index(declaration[0]) < code.index("for (")
+        if name == "shared_accumulated_product":
+            assert f"A[0] += {temporary};" in code
+    if name == "nested":
+        assert re.search(r"A\[0\] \+= w\[[^;]+ \* w\[[^;]+;", code)
     if name == "tensor_contraction":
         assert "switch" not in code
         assert "for (" not in code
