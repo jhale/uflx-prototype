@@ -46,6 +46,14 @@ checks:
   and `assemble`, which puts the unit vectors in place of the coefficients of
   each argument of a form, so that the form evaluates to its assembled tensor
 
+The optional C backend, `uflx_compiler.c_code.c_kernel`, emits a scalar kernel
+for one cell. Index sums become nested C loops; input-independent subgraphs
+become constant multidimensional tables. Temporary expressions are shared only
+within scopes where their indices are defined. The runtime arrays keep the flat
+pointer interface: `read(label, offset)` must accept an integer or a C expression
+for the offset, for example `f"w[{offset}]"`. The backend retains its real-valued,
+static-extent arithmetic subset and accumulates into `A[0]`.
+
 The standard recipe in `_src/passes/lowering.py` coordinates:
 
 | Transformation | Module |

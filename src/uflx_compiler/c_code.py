@@ -1,4 +1,5 @@
 import sys
+from contextlib import ExitStack, contextmanager
 
 import numpy as np
 
@@ -25,32 +26,87 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_toy.nodes import RuntimeArray
 
+from .folding import fold
+
 
 def c_kernel(e, name, read):
-    # A compiled expression as straight-line C for one cell, with every index unrolled and each
-    # entry computed once. read(label, k) is the C expression that reads entry k of the runtime
-    # array with the label.
+    # A scalar compiled expression for one cell, with nested loops for index sums.
+    # read(label, offset) supplies a C array read; offset is an integer or a C expression.
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 100000))
-    lines, memo = [], {}
+    lines, scopes, tables = [], [{}], {}
+    folded = fold(e)
+    serial = 0
+
+    def fresh(prefix):
+        nonlocal serial
+        name = f"{prefix}{serial}"
+        serial += 1
+        return name
+
+    def emit(code):
+        lines.append("  " * len(scopes) + code)
+
+    @contextmanager
+    def block(header):
+        emit(header + " {")
+        scopes.append({})
+        try:
+            yield
+        finally:
+            scopes.pop()
+            emit("}")
 
     def temp(code):
-        lines.append(f"  const double t{len(lines)} = {code};")
-        return f"t{len(lines) - 1}"
+        name = fresh("t")
+        emit(f"const double {name} = {code};")
+        return name
 
     def entry(n, bound, comp):
         key = (n, tuple(bound[i] for i, _ in n.free_indices), comp)
-        if key not in memo:
-            memo[key] = scalar(n, bound, comp)
-        return memo[key]
+        for memo in reversed(scopes):
+            if key in memo:
+                return memo[key]
+        result = scalar(n, bound, comp)
+        scopes[-1][key] = result
+        return result
+
+    def table(key, values, indices, dtype="double"):
+        if all(isinstance(i, int) for i in indices):
+            return float(values[indices]) if dtype == "double" else int(values[indices])
+        if key not in tables:
+            name = fresh("table")
+            shape = "".join(f"[{n}]" for n in values.shape)
+            tables[key] = (name, f"  static const {dtype} {name}{shape} = {initializer(values)};")
+        name = tables[key][0]
+        return name + "".join(f"[{i}]" for i in indices)
+
+    def initializer(values):
+        if values.ndim == 0:
+            return repr(values.item())
+        return "{" + ", ".join(initializer(v) for v in values) + "}"
+
+    def offset(comp, shape):
+        result = 0
+        for i, n in zip(comp, shape, strict=True):
+            if result == 0:
+                result = i
+            elif isinstance(result, int) and isinstance(i, int):
+                result = result * n + i
+            else:
+                result = f"({result} * {n} + {i})"
+        return result
 
     def scalar(n, bound, comp):
+        if n in folded:
+            indices = tuple(bound[i] for i, _ in n.free_indices) + comp
+            return table(n, folded[n], indices)
         match n:
             case Integer(v) | Float(v):
                 return float(v)
             case Zero():
                 return 0.0
             case RuntimeArray(label, shape):
-                return read(label, int(np.ravel_multi_index(comp, shape)) if shape else 0)
+                return read(label, offset(comp, shape))
             case Sum(a, b):
                 return add(entry(a, bound, comp), entry(b, bound, comp))
             case Product(a, b) if a.value_shape:
@@ -72,7 +128,16 @@ def c_kernel(e, name, read):
             case Conjugate(a) | RealPart(a):
                 return entry(a, bound, comp)
             case Tensor(entries):
-                return entry(entries[comp[0]], bound, comp[1:])
+                if isinstance(comp[0], int):
+                    return entry(entries[comp[0]], bound, comp[1:])
+                result = fresh("t")
+                emit(f"double {result};")
+                with block(f"switch ({comp[0]})"):
+                    for k, x in enumerate(entries):
+                        with block(f"case {k}:"):
+                            emit(f"{result} = {render(entry(x, bound, comp[1:]))};")
+                            emit("break;")
+                return result
             case Indexed(x, indices):
                 return entry(x, bound, tuple(position(k, bound) for k in indices) + comp)
             case ComponentTensor(x, indices):
@@ -80,10 +145,19 @@ def c_kernel(e, name, read):
                 return entry(x, inner, comp[len(indices) :])
             case IndexSum(x, indices):
                 extent = dict(x.free_indices)
-                total = 0.0
-                for values in np.ndindex(*(extent[i] for i in indices)):
-                    inner = bound | dict(zip(indices, map(int, values), strict=True))
-                    total = add(total, entry(x, inner, comp))
+                if any(extent[i] == 0 for i in indices):
+                    return 0.0
+                total = fresh("sum")
+                emit(f"double {total} = 0.0;")
+                inner = dict(bound)
+                with ExitStack() as stack:
+                    for i in indices:
+                        name = fresh("i")
+                        stack.enter_context(
+                            block(f"for (int {name} = 0; {name} < {extent[i]}; ++{name})")
+                        )
+                        inner[i] = name
+                    emit(f"{total} += {render(entry(x, inner, comp))};")
                 return total
             case Determinant(a):
                 size = a.value_shape[0]
@@ -98,11 +172,9 @@ def c_kernel(e, name, read):
         match k:
             case Index():
                 return bound[k]
-            case GatheredIndex(table, indices):
-                values = table.values
-                for m in indices:
-                    values = values[position(m, bound)]
-                return values
+            case GatheredIndex(t, indices):
+                positions = tuple(position(i, bound) for i in indices)
+                return table(t, np.asarray(t.values), positions, "int")
         return int(k)
 
     def inverse(a, bound, comp):
@@ -111,10 +183,18 @@ def c_kernel(e, name, read):
         det = determinant(A)
         if n == 1:
             return divide(1.0, det)
-        i, j = comp
-        minor = [[A[r][c] for c in range(n) if c != i] for r in range(n) if r != j]
-        cofactor = determinant(minor)
-        return divide(cofactor if (i + j) % 2 == 0 else negate(cofactor), det)
+
+        def cofactor(i, j):
+            minor = [[A[r][c] for c in range(n) if c != i] for r in range(n) if r != j]
+            value = determinant(minor)
+            return value if (i + j) % 2 == 0 else negate(value)
+
+        if all(isinstance(i, int) for i in comp):
+            return divide(cofactor(*comp), det)
+        rows = ["{" + ", ".join(render(cofactor(i, j)) for j in range(n)) + "}" for i in range(n)]
+        name = fresh("cofactors")
+        emit(f"const double {name}[{n}][{n}] = {{" + ", ".join(rows) + "};")
+        return divide(f"{name}[{comp[0]}][{comp[1]}]", det)
 
     def determinant(A):
         if len(A) == 1:
@@ -163,7 +243,7 @@ def c_kernel(e, name, read):
 
     bound = {i: 0 for i, _ in e.free_indices}
     result = entry(e, bound, ())
-    body = "\n".join(lines)
+    body = "\n".join([declaration for _, declaration in tables.values()] + lines)
     return (
         f"void {name}(double* restrict A, const double* restrict w, const double* restrict c,\n"
         "    const double* restrict coordinate_dofs, const int* restrict entity_local_index,\n"
