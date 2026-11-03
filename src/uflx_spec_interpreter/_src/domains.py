@@ -13,7 +13,7 @@ from .nodes import (
     SideMap,
     TransformationLaw,
 )
-from .substitution import substitute
+from .substitution import _substitute
 from .topology import cell_index
 
 if TYPE_CHECKING:
@@ -22,7 +22,24 @@ if TYPE_CHECKING:
     from .nodes.indices import Index
 
 
-def cell_domain(
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = [
+    "_cell_domain",
+    "_cell_of",
+    "_coordinate_function",
+    "_inclusion",
+    "_is_cell",
+    "cell_map",
+    "image",
+    "normal",
+    "push_forward",
+    "side_domain",
+    "side_map",
+    "transformation_law",
+]
+
+
+def _cell_domain(
     D: AbstractTopology | Mesh, j: int, e: int | Index | GatheredIndex | None = None
 ) -> CellMap:
     # Private compatibility spelling; both topology and mesh cells are CellMaps.
@@ -40,11 +57,11 @@ def image(x: AbstractExpression, Q: AbstractCoordinateDomain) -> Mesh:
     return Mesh(x, Q)
 
 
-def coordinate_function(D: Mesh) -> AbstractExpression:
+def _coordinate_function(D: Mesh) -> AbstractExpression:
     return D.coordinate_function
 
 
-IDENTITY = TransformationLaw((), 0)
+_IDENTITY = TransformationLaw((), 0)
 
 
 def transformation_law(
@@ -57,7 +74,7 @@ def push_forward(f: AbstractExpression, D: Mesh, m: TransformationLaw) -> PushFo
     return PushForward(f, D, m)
 
 
-def cell_of(m: DomainMap | CellMap | SideMap) -> tuple[int, int | Index | GatheredIndex] | None:
+def _cell_of(m: DomainMap | CellMap | SideMap) -> tuple[int, int | Index | GatheredIndex] | None:
     return (
         (m.cell_group, m.entry)
         if isinstance(m, CellMap) and isinstance(m.ambient_domain, Mesh)
@@ -65,8 +82,8 @@ def cell_of(m: DomainMap | CellMap | SideMap) -> tuple[int, int | Index | Gather
     )
 
 
-def is_cell(m: DomainMap | CellMap | SideMap) -> TypeGuard[CellMap]:
-    return cell_of(m) is not None
+def _is_cell(m: DomainMap | CellMap | SideMap) -> TypeGuard[CellMap]:
+    return _cell_of(m) is not None
 
 
 def side_map(X: Mesh | AbstractTopology, P: Mesh | AbstractTopology, s: str) -> SideMap:
@@ -74,11 +91,11 @@ def side_map(X: Mesh | AbstractTopology, P: Mesh | AbstractTopology, s: str) -> 
 
 
 def side_domain(D: Mesh, S: AbstractTopology, s: str) -> Mesh:
-    x = coordinate_function(D)
+    x = _coordinate_function(D)
     return image(PullBack(x, side_map(D.topology, S, s)), D.ambient_domain)
 
 
-def inclusion(
+def _inclusion(
     X: Mesh | AbstractTopology, S: AbstractTopology, i: int, s: str, e: int | Index | GatheredIndex
 ) -> tuple[CellMap, DomainMap]:
     # B, the cell on the side s of cell e of group i, and A, the inclusion of cell e into it.
@@ -86,8 +103,8 @@ def inclusion(
     cells, A, _ = S.side_tables(i, s)
     c = cell_index(S, i)
     g = GatheredIndex(cells, (e,))
-    B = CellMap(X, j, g) if isinstance(X, AbstractTopology) else cell_domain(X, j, g)
-    return B, cast("DomainMap", substitute(A, {c: e}))
+    B = CellMap(X, j, g) if isinstance(X, AbstractTopology) else _cell_domain(X, j, g)
+    return B, cast("DomainMap", _substitute(A, {c: e}))
 
 
 def normal(sm: SideMap) -> Normal:

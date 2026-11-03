@@ -24,11 +24,11 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._src.contracts import core_normal_form
+from uflx_spec_interpreter._src.contracts import _core_normal_form
 from uflx_spec_interpreter._src.nodes import AbstractDomain, AbstractFunctionSpace, Action, SideMap
-from uflx_spec_interpreter._src.passes.actions import in_n2
-from uflx_spec_interpreter._src.passes.gradients import lower as lower_spatial
-from uflx_spec_interpreter._src.passes.pullbacks import in_n5
+from uflx_spec_interpreter._src.passes.actions import _in_n2
+from uflx_spec_interpreter._src.passes.gradients import _lower as lower_spatial
+from uflx_spec_interpreter._src.passes.pullbacks import _in_n5
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 
@@ -67,7 +67,7 @@ def test_pullback_keeps_the_original_field_argument_and_value():
     np.testing.assert_allclose(value(out, K, 0.3), [3 * 1.6**2], atol=1e-6)
     np.testing.assert_allclose(value(out, K, 0.3), value(e, K, 0.3), atol=1e-6)
     complete = lower(e)
-    assert not core_normal_form(complete)
+    assert not _core_normal_form(complete)
     assert lower_spatial(complete) is complete
     np.testing.assert_allclose(value(complete, K, 0.3), [3 * 1.6**2], atol=1e-5)
 
@@ -92,8 +92,8 @@ def test_partial_applications_of_transformed_operators_remain_and_are_accepted()
     u, v = function(V, "u"), function(V, "v")
     e = action(action(gradient(A, P), 1, u), 0, v)
     assert apply_actions(e) is e
-    assert in_n2(e)
-    assert not core_normal_form(e)
+    assert _in_n2(e)
+    assert not _core_normal_form(e)
     assert lower(e) is e
 
 
@@ -113,13 +113,13 @@ def test_side_pullback_transforms_output_before_deferral_and_keeps_tuple_family(
     k = index("argument-family")
     g = (tensor((u, v))[k], v)
     original = pull_back(action(A, 0, g), sm)
-    assert not in_n5(original)
+    assert not _in_n5(original)
     out = expand_pull_backs(original)
     assert isinstance(out, Action)
     assert out.argument is g
     assert out.form is pull_back(A, sm)
     assert out.free_indices == original.free_indices
-    assert in_n5(out) and not core_normal_form(out)
+    assert _in_n5(out) and not _core_normal_form(out)
     assert apply_actions(out) is out
 
 

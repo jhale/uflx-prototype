@@ -114,11 +114,11 @@ def run(trials):
         out = gradients.apply_gradients(e)
         if contains(e, needs_pass):
             bad["lazy"] += 1
-            bad["rejected"] += not gradients.in_n6(e)
+            bad["rejected"] += not gradients._in_n6(e)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
-        bad["grammar"] += not gradients.in_n6(out)
+        bad["grammar"] += not gradients._in_n6(out)
         before, after = evaluate(e, ENV)(()), evaluate(out, ENV)(())
         if not np.allclose(before, after, rtol=1e-4, atol=1e-5):
             bad["value"] += 1
@@ -146,4 +146,4 @@ def test_projection_remains():
 
     pi = gradient(coordinate(M), M)
     assert gradients.apply_gradients(pi) == pi
-    assert gradients.in_n6(pi)
+    assert gradients._in_n6(pi)

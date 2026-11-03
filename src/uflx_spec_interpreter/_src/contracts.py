@@ -12,17 +12,21 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .nodes import AbstractExpression, DirectionalDerivative, Integral, Mesh
-from .passes.gradients import allowed
-from .substitution import expressions
+from .passes.gradients import _allowed
+from .substitution import _expressions
 
-Violation = tuple[AbstractExpression, str]
+_Violation = tuple[AbstractExpression, str]
+
+
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_core_normal_form", "_derivatives_expanded", "_reference_integration"]
 
 
 def _violations(
     expression: AbstractExpression, rule: Callable[[AbstractExpression], str | None]
-) -> tuple[Violation, ...]:
+) -> tuple[_Violation, ...]:
     seen: set[AbstractExpression] = set()
-    found: list[Violation] = []
+    found: list[_Violation] = []
 
     def visit(node: AbstractExpression) -> None:
         if node in seen:
@@ -31,7 +35,7 @@ def _violations(
         reason = rule(node)
         if reason is not None:
             found.append((node, reason))
-        for child in expressions(node):
+        for child in _expressions(node):
             visit(child)
 
     visit(expression)
@@ -50,7 +54,7 @@ def _reference_integral(node: AbstractExpression) -> str | None:
     return None
 
 
-def derivatives_expanded(expression: AbstractExpression) -> tuple[Violation, ...]:
+def _derivatives_expanded(expression: AbstractExpression) -> tuple[_Violation, ...]:
     """Check that no directional derivatives remain in expression operands.
 
     Actions, spatial operators and mesh integrals are permitted. This does not
@@ -59,7 +63,7 @@ def derivatives_expanded(expression: AbstractExpression) -> tuple[Violation, ...
     return _violations(expression, _derivative)
 
 
-def reference_integration(expression: AbstractExpression) -> tuple[Violation, ...]:
+def _reference_integration(expression: AbstractExpression) -> tuple[_Violation, ...]:
     """Check the derivative-free boundary after mesh integral expansion.
 
     No mesh integrals or directional derivatives may remain. Other core integral
@@ -70,7 +74,7 @@ def reference_integration(expression: AbstractExpression) -> tuple[Violation, ..
     return _violations(expression, _reference_integral)
 
 
-def core_normal_form(expression: AbstractExpression) -> tuple[Violation, ...]:
+def _core_normal_form(expression: AbstractExpression) -> tuple[_Violation, ...]:
     """Diagnose violations of the interpreter's existing core normal form.
 
     Delegate allowed-node patterns to the existing predicate. Accepted terminal
@@ -79,6 +83,6 @@ def core_normal_form(expression: AbstractExpression) -> tuple[Violation, ...]:
     return _violations(
         expression,
         lambda node: (
-            None if allowed(node) else f"{type(node).__name__} is outside core normal form"
+            None if _allowed(node) else f"{type(node).__name__} is outside core normal form"
         ),
     )

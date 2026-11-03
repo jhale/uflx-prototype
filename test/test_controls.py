@@ -10,7 +10,7 @@ from uflx_toy.spaces import space
 
 
 def test_without_freshening_values_change(monkeypatch):
-    monkeypatch.setattr(substitution, "rename", lambda node, name, avoid: name)
+    monkeypatch.setattr(substitution, "_rename", lambda node, name, avoid: name)
     assert test_random.main(2000)["value"] > 0
 
 
@@ -25,18 +25,18 @@ def test_sequential_substitution_captures(monkeypatch):
 
     def sequential(e, mapping):
         for name, value in mapping.items():
-            e = substitution.substitute(e, {name: value})
+            e = substitution._substitute(e, {name: value})
         return e
 
-    monkeypatch.setattr(actions, "substitute", sequential)
+    monkeypatch.setattr(actions, "_substitute", sequential)
     assert actions.apply_actions(e) == multiply(num(2), num(2))
 
 
 def test_a_zero_without_argument_spaces_is_ill_typed(monkeypatch):
     # The values do not change, so only the check of the argument spaces notices.
     def without_spaces(f, spaces, *others):
-        return static.zero_like(f, (), *others)
+        return static._zero_like(f, (), *others)
 
-    monkeypatch.setattr(derivatives, "zero_like", without_spaces)
+    monkeypatch.setattr(derivatives, "_zero_like", without_spaces)
     with pytest.raises(ValueError):
         test_pipeline.main(1000)

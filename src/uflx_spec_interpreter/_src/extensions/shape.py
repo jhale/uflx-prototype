@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import cached
+from ..interning import _cached
 from ..nodes import AbstractExpression, Function
-from ..passes.derivatives import apply_derivatives, deriv
-from ..substitution import bottom_up
-from ..tuples import members
+from ..passes.derivatives import _deriv, apply_derivatives
+from ..substitution import _bottom_up
+from ..tuples import _members
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
@@ -15,8 +15,12 @@ if TYPE_CHECKING:
     from ..nodes.topology import AbstractTopology
 
 
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_apply_shape_derivatives", "_lower_with_shape_derivatives", "_shape_derivative"]
+
+
 @final
-class ShapeDerivative(AbstractExpression):
+class _ShapeDerivative(AbstractExpression):
     value_fields = ("expression", "direction")
     identifier = "uflx.shape.ShapeDerivative"
     # A derivative in a function that the coordinates do not depend on commutes with the node.
@@ -29,60 +33,60 @@ class ShapeDerivative(AbstractExpression):
     scope = ("expression", "variable")
 
     def bound(self) -> tuple[Function, ...]:
-        return members(self.variable)
+        return _members(self.variable)
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        edges = (self.expression, *members(self.direction))
+        edges = (self.expression, *_members(self.direction))
         return tuple(dict(p for x in edges for p in x.free_indices).items())
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.expression.scalar_type
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
 
-def shape_derivative(
+def _shape_derivative(
     f: AbstractExpression,
     x: Function | tuple[Function, ...],
     h: AbstractExpression | tuple[AbstractExpression, ...],
-) -> ShapeDerivative:
-    return ShapeDerivative(f, x, h)
+) -> _ShapeDerivative:
+    return _ShapeDerivative(f, x, h)
 
 
-def apply_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
+def _apply_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
     # After the pull-backs are expanded, the coordinate function occurs in the expression itself,
     # in the coordinates, the Jacobians and the densities, so the derivative is a directional
     # derivative with the domains fixed.
     def lower(e: AbstractExpression) -> AbstractExpression:
         match e:
-            case ShapeDerivative(g, x, h):
-                return apply_derivatives(deriv(g, x, x, h))
+            case _ShapeDerivative(g, x, h):
+                return apply_derivatives(_deriv(g, x, x, h))
             case _:
                 return e
 
-    return bottom_up(f, lower)
+    return _bottom_up(f, lower)
 
 
-def lower_with_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
+def _lower_with_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
     """Expose geometry, differentiate it, then re-enter checked core lowering.
 
     Unlike core lower, this extension recipe permits ShapeDerivative nodes
@@ -90,9 +94,9 @@ def lower_with_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
     core-normal-form contract.
     """
     from ..passes.actions import apply_actions
-    from ..passes.gradients import lower as lower_spatial
+    from ..passes.gradients import _lower
     from ..passes.integrals import expand_integrals
     from ..passes.lowering import lower
 
-    exposed = lower_spatial(expand_integrals(apply_derivatives(apply_actions(f))))
-    return lower(apply_shape_derivatives(exposed))
+    exposed = _lower(expand_integrals(apply_derivatives(apply_actions(f))))
+    return lower(_apply_shape_derivatives(exposed))

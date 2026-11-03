@@ -4,9 +4,9 @@ import inspect
 from abc import ABC, abstractmethod, update_abstractmethods
 from typing import TYPE_CHECKING, ClassVar, Literal, Never, Self, cast, dataclass_transform
 
-from ..interning import digest_of, table
-from ..tuples import members
-from ..types import Construction
+from ..interning import _digest_of, _table
+from ..tuples import _members
+from ..types import _Construction
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
@@ -37,8 +37,8 @@ class Base(ABC):
     __match_args__: ClassVar[tuple[str, ...]] = ()
 
     @property
-    def construction_arguments(self) -> tuple[Construction, ...]:
-        return cast("tuple[Construction, ...]", vars(self)["construction_arguments"])
+    def construction_arguments(self) -> tuple[_Construction, ...]:
+        return cast("tuple[_Construction, ...]", vars(self)["construction_arguments"])
 
     @property
     def digest(self) -> int:
@@ -59,27 +59,27 @@ class Base(ABC):
         if names:
             cls.argument_names = cls.__match_args__ = names
             for k, n in enumerate(names):
-                setattr(cls, n, argument_property(k))
+                setattr(cls, n, _argument_property(k))
             # A generated property may implement an abstract property.
             update_abstractmethods(cls)
 
-    def __new__(cls, *args: Construction) -> Self:
+    def __new__(cls, *args: _Construction) -> Self:
         if "identifier" not in cls.__dict__:
             raise TypeError(f"{cls.__name__} states no identifier")
         if len(args) != len(cls.argument_names):
             raise TypeError(f"{cls.__name__} takes the arguments {cls.argument_names}")
-        from ..validation import construction_arguments
+        from ..validation import _construction_arguments
 
-        construction_arguments(args)
-        digest = digest_of(cls.identifier, args)
+        _construction_arguments(args)
+        digest = _digest_of(cls.identifier, args)
         key = (cls, digest)
-        node = table.get(key)
+        node = _table.get(key)
         if node is None:
             node = super().__new__(cls)
             vars(node).update(construction_arguments=args, digest=digest)
             node._validate()
             node._validate_type()
-            table[key] = node
+            _table[key] = node
         return cast("Self", node)
 
     def __setattr__(self, name: str, value: object) -> Never:
@@ -103,16 +103,16 @@ class Base(ABC):
 
 class AbstractExpression(Base):
     def _validate_type(self) -> None:
-        from ..substitution import expressions
-        from ..validation import merge_indices, require
+        from ..substitution import _expressions
+        from ..validation import _merge_indices, _require
 
-        require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")
-        operands = expressions(self)
-        merge_indices(*(x.free_indices for x in operands))
-        require(self.scalar_type in ("real", "complex"), "unknown scalar type")
+        _require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")
+        operands = _expressions(self)
+        _merge_indices(*(x.free_indices for x in operands))
+        _require(self.scalar_type in ("real", "complex"), "unknown scalar type")
         if self.matching_domains:
             domains = [x.domain for x in operands if x.domain is not None]
-            require(not domains or all(D == domains[0] for D in domains), "operand domains differ")
+            _require(not domains or all(D == domains[0] for D in domains), "operand domains differ")
 
     matching_domains: ClassVar[bool] = False
 
@@ -146,7 +146,7 @@ class AbstractExpression(Base):
         # The default rule, complex if and only if an edge is a complex expression.
         from .scalar_types import ScalarType
 
-        flat = [m for x in operands for m in members(x)]
+        flat = [m for x in operands for m in _members(x)]
         return (
             ScalarType.complex
             if any(m.scalar_type == ScalarType.complex for m in flat)
@@ -211,14 +211,14 @@ class AbstractExpression(Base):
     ) -> AbstractExpression:
         from ..tensors import component
 
-        return component(self, members(entries))
+        return component(self, _members(entries))
 
     def __iter__(self) -> Never:
         raise TypeError(f"{type(self).__name__} is not iterable")
 
 
-def argument_property(position: int) -> property:
-    def read(node: Base) -> Construction:
+def _argument_property(position: int) -> property:
+    def read(node: Base) -> _Construction:
         return node.construction_arguments[position]
 
     return property(read)

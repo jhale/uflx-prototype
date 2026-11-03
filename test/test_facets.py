@@ -100,7 +100,7 @@ def main(trials):
         E, sides = rnd.choice([(E_int, sides_int), (E_bnd, sides_bnd)])
         e_int = integral(integrand(rnd, E, sides), E)
         out3 = integrals.expand_integrals(e_int)
-        out = gradients.lower(out3)
+        out = gradients._lower(out3)
         if contains(
             out3,
             lambda n: (
@@ -110,11 +110,11 @@ def main(trials):
             ),
         ):
             lazy += 1
-            rejected += not pullbacks.in_n5(out3)
+            rejected += not pullbacks._in_n5(out3)
         check_types(bad, e_int, out)
         if not keeps_static_type(e_int, out):
             bad["static"] += 1
-        bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
+        bad["grammar"] += not (pullbacks._in_n5(out) and gradients._in_n6(out))
         before, after = evaluate(e_int, env)(()), evaluate(out, env)(())
         if not np.allclose(before, after, rtol=1e-5, atol=1e-7):
             bad["value"] += 1

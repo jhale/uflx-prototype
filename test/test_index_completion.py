@@ -13,7 +13,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import Zero
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_spec_interpreter._src.static import complete_indices
+from uflx_spec_interpreter._src.static import _complete_indices
 from uflx_toy.spaces import space
 
 
@@ -31,11 +31,11 @@ def test_derivative_restores_unused_point_indices_before_rebuilding_parent():
 def test_completion_is_idempotent_and_accepts_reordered_indices():
     i, j = index("i"), index("j")
     original = Zero((), ((i, 2), (j, 3)), (), ScalarType.real)
-    out = complete_indices(original, num(1))
+    out = _complete_indices(original, num(1))
     assert out.free_indices == original.free_indices
-    assert complete_indices(original, out) is out
+    assert _complete_indices(original, out) is out
     reordered = Zero((), ((j, 3), (i, 2)), (), ScalarType.real)
-    assert complete_indices(original, reordered) is reordered
+    assert _complete_indices(original, reordered) is reordered
 
 
 @pytest.mark.parametrize("kind", ["extra", "extent", "shape", "arity"])
@@ -49,4 +49,4 @@ def test_completion_rejects_incompatible_replacements(kind):
         "arity": Zero((), ((i, 2),), (space("slot"),), ScalarType.real),
     }[kind]
     with pytest.raises(ValueError):
-        complete_indices(original, replacement)
+        _complete_indices(original, replacement)

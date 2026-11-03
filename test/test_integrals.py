@@ -22,7 +22,7 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
-from uflx_spec_interpreter._src.static import free, shape
+from uflx_spec_interpreter._src.static import _free, _shape
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology
@@ -112,8 +112,8 @@ def main(trials):
         kind = rnd.choice(["domain", "ambient", "none"])
         e = integral(integrand(rnd, dom, kind), dom)
         out3 = integrals.expand_integrals(e)
-        out = gradients.lower(out3)
-        rejected += not integrals.in_n4(e)
+        out = gradients._lower(out3)
+        rejected += not integrals._in_n4(e)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
@@ -122,16 +122,16 @@ def main(trials):
                     "static type changed, seed",
                     seed,
                     kind,
-                    (shape(e), free(e)),
-                    (shape(out), free(out)),
+                    (_shape(e), _free(e)),
+                    (_shape(out), _free(out)),
                 )
         bad["grammar"] += not (
-            integrals.in_n4(out3)
-            and integrals.in_n4(out)
-            and pullbacks.in_n5(out)
-            and gradients.in_n6(out)
+            integrals._in_n4(out3)
+            and integrals._in_n4(out)
+            and pullbacks._in_n5(out)
+            and gradients._in_n6(out)
         )
-        fr = free(e)
+        fr = _free(e)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             ienv = dict(zip(fr, combo))
             before, after = evaluate(e, env, ienv)(()), evaluate(out, env, ienv)(())

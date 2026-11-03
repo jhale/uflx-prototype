@@ -23,10 +23,10 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._draft import cell_domain, image, push_forward
+from uflx_spec_interpreter._draft import _cell_domain, image, push_forward
 from uflx_spec_interpreter._src.nodes import Mesh
-from uflx_spec_interpreter._src.passes.gradients import lower
-from uflx_spec_interpreter._src.substitution import substitute
+from uflx_spec_interpreter._src.passes.gradients import _lower
+from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.cells import reference_simplex
@@ -44,7 +44,7 @@ def test_integrate_members_then_sum_only_the_selected_index():
     assert dict(members.free_indices) == {i: 3, configuration: 2}
     assert dict(total.free_indices) == {configuration: 2}
     for c, expected in enumerate((10, 20)):
-        assert np.isclose(evaluate(lower(total), {}, {configuration: c})(()), expected)
+        assert np.isclose(evaluate(_lower(total), {}, {configuration: c})(()), expected)
 
 
 def test_integration_patches_need_no_field_domain():
@@ -56,7 +56,7 @@ def test_integration_patches_need_no_field_domain():
     )
     f = coordinate(RD(1))[0]
     expression = sum((integral(pull_back(f, M) * density(M), P) for M in patches), num(0))
-    assert np.isclose(evaluate(lower(expression), {})(()), 12.5)
+    assert np.isclose(evaluate(_lower(expression), {})(()), 12.5)
 
 
 def test_coincident_cells_keep_independent_finite_element_fields():
@@ -82,8 +82,8 @@ def test_mesh_identity_and_geometry_follow_coordinate_replacement():
     assert isinstance(D, Mesh)
     assert D.construction_arguments == (x, RD(1))
     assert image(x, RD(1)) is D
-    assert substitute(D, {x: y}) is E
-    assert substitute(jacobian(cell_domain(D, 0)), {x: y}) is jacobian(cell_domain(E, 0))
+    assert _substitute(D, {x: y}) is E
+    assert _substitute(jacobian(_cell_domain(D, 0)), {x: y}) is jacobian(_cell_domain(E, 0))
 
 
 def test_diffusion_on_independent_analytic_curve_patches():
@@ -126,9 +126,9 @@ def test_mesh_rejects_free_coordinate_indices_but_keeps_symbolic_coordinates():
     # A symbolic scalar parameter is fine; only an unbound family index is excluded.
     scale = function(space("scale", scalar_type=ScalarType.real), "scale")
     symbolic = image(scale * D.coordinate_function, RD(1))
-    assert substitute(symbolic, {scale: num(2)}) is image(num(2) * D.coordinate_function, RD(1))
+    assert _substitute(symbolic, {scale: num(2)}) is image(num(2) * D.coordinate_function, RD(1))
     with pytest.raises(ValueError, match="no free indices"):
-        substitute(symbolic, {scale: table([2, 3])[q]})
+        _substitute(symbolic, {scale: table([2, 3])[q]})
 
 
 def test_mesh_integral_retains_integrand_indices_across_substitution():
@@ -142,11 +142,11 @@ def test_mesh_integral_retains_integrand_indices_across_substitution():
     r = function(space("load"), "r")
     load = table([2, 7])[c]
     expression = integral(r, D)
-    inserted = substitute(expression, {r: load})
+    inserted = _substitute(expression, {r: load})
     first = expand_integrals(inserted)
-    second = substitute(expand_integrals(expression), {r: load})
+    second = _substitute(expand_integrals(expression), {r: load})
     assert inserted.free_indices == first.free_indices == second.free_indices == ((c, 2),)
     for n, expected in enumerate((4, 14)):
         for form in (inserted, first, second):
-            assert np.isclose(evaluate(lower(form), {}, {c: n})(()), expected)
+            assert np.isclose(evaluate(_lower(form), {}, {c: n})(()), expected)
     assert expand_integrals(inserted) is first

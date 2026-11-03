@@ -10,7 +10,11 @@ if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
 
 
-def piola_law(expression: AbstractExpression) -> TransformationLaw | None:
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_piola_law"]
+
+
+def _piola_law(expression: AbstractExpression) -> TransformationLaw | None:
     """Return the output transformation law, or None when no identity applies.
 
     This inspects the differential and mapped field only. A pull-back must

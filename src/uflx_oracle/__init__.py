@@ -4,8 +4,8 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import cell_index
-from uflx_spec_interpreter._src.calculus import rotation_of_gradient, trace_of_gradient
-from uflx_spec_interpreter._src.domains import cell_of
+from uflx_spec_interpreter._src.calculus import _rotation_of_gradient, _trace_of_gradient
+from uflx_spec_interpreter._src.domains import _cell_of
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
@@ -49,8 +49,8 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.static import arity, free, support
-from uflx_spec_interpreter._src.tuples import members
+from uflx_spec_interpreter._src.static import _arity, _free, _support
+from uflx_spec_interpreter._src.tuples import _members
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.meshes import shape_functions
 from uflx_toy.nodes import RuntimeArray, VertexCoordinates
@@ -105,7 +105,7 @@ def index_value(i, ienv):
 
 def cell_value(m, ienv):
     # The group and the cell that a cell reads, as a library.
-    found = cell_of(m)
+    found = _cell_of(m)
     return None if found is None else (found[0], index_value(found[1], ienv))
 
 
@@ -182,7 +182,7 @@ def tangent_projector(P, env):
         T = jacobian_of(POINTS[("chart", P)], POINTS[("ref", P)])
     else:
         piece = P.pieces[0]
-        index = next(iter(free(piece.parameterisation)))
+        index = next(iter(_free(piece.parameterisation)))
         cell = POINTS[("cell", P)] if ("cell", P) in POINTS else locate(P, POINTS[P], env)
         chart = piece_map(piece, {index: cell}, env)
         T = jacobian_of(chart, reference_point(chart, POINTS[P], P.dimension))
@@ -192,8 +192,8 @@ def tangent_projector(P, env):
 def locate(P, x, env):
     # The cell of P that contains x, as a mesh library finds it for a point.
     piece = P.pieces[0]
-    index = next(iter(free(piece.parameterisation)))
-    for cell in range(free(piece.parameterisation)[index]):
+    index = next(iter(_free(piece.parameterisation)))
+    for cell in range(_free(piece.parameterisation)[index]):
         chart = piece_map(piece, {index: cell}, env)
         X = reference_point(chart, x, P.dimension)
         if inside(piece.parameter_domain, X) and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
@@ -237,7 +237,7 @@ def integrate(P, fn, env):
         return sum(w * at(P, p, lambda: fn({})) for p, w in rule_on(P))
     total = 0
     for number, piece in enumerate(P.pieces):
-        fr = free(piece.parameterisation)
+        fr = _free(piece.parameterisation)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             members = dict(zip(fr, combo))
             psi = evaluate(piece.parameterisation, env, members)
@@ -287,7 +287,7 @@ VALUES = {}
 
 
 def evaluate(e, env, ienv=None, over=None):
-    ienv = {i: n for i, n in (ienv or {}).items() if i in free(e)}
+    ienv = {i: n for i, n in (ienv or {}).items() if i in _free(e)}
     key = (e, id(env), frozenset(ienv.items()), id(over) if over else None)
     if key not in BUILT:
         f = evaluate_uncached(e, env, ienv, over)
@@ -343,7 +343,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 # The value of g on the topology at the reference point of the point, by the law.
                 j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
                 piece = D.pieces[j]
-                chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell}, env)
+                chart = piece_map(piece, {next(iter(_free(piece.parameterisation))): cell}, env)
                 X = reference_point(chart, POINTS[D], D.dimension)
                 T = D.topology
                 ghat = on_cell(T, j, cell, lambda: at(T, X, lambda: np.asarray(fg(vals))))
@@ -394,7 +394,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             fa, fb = ev(a), ev(b)
             return lambda vals: fa(vals) + fb(vals)
         case Product(a, b):
-            fa, fb, n = ev(a), ev(b), arity(a)
+            fa, fb, n = ev(a), ev(b), _arity(a)
             return lambda vals: fa(vals[:n]) * fb(vals[n:])
         case Division(a, c):
             fa, fc = ev(a), ev(c)
@@ -429,11 +429,11 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             # Every index selects one value axis.
             values = [index_value(i, ienv) for i in idx]
-            key = tuple(k for v in values for k in members(v))
+            key = tuple(k for v in values for k in _members(v))
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
             # Enumerate the bound axes independently.
-            extents = [size(free(x)[i], env) for i in idx]
+            extents = [size(_free(x)[i], env) for i in idx]
             ranges = [
                 list(itertools.product(*map(range, n))) if isinstance(n, tuple) else range(n)
                 for n in extents
@@ -441,10 +441,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             fs = {
                 combo: ev(x, ienv | dict(zip(idx, combo))) for combo in itertools.product(*ranges)
             }
-            shape = tuple(m for n in extents for m in members(n))
+            shape = tuple(m for n in extents for m in _members(n))
 
             def flat(combo):
-                return tuple(k for v in combo for k in members(v))
+                return tuple(k for v in combo for k in _members(v))
 
             def value(vals):
                 out = {combo: f(vals) for combo, f in fs.items()}
@@ -457,7 +457,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return value
         case Form(x, args):
-            n = arity(x)
+            n = _arity(x)
 
             def value(vals):
                 # The expression takes the first arguments, and the form binds the rest.
@@ -476,14 +476,14 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def value_of(x):
                 # A field is bound lazily, as a function of the point, and anything else eagerly.
                 fx = ev(x)
-                return (lambda *point: fx(())) if support(x) is not None else fx(())
+                return (lambda *point: fx(())) if _support(x) is not None else fx(())
 
             gv = tuple(value_of(x) for x in g) if isinstance(g, tuple) else value_of(g)
             return lambda vals: ff((*tuple(vals[:p]), gv, *tuple(vals[p:])))
         case DirectionalDerivative(f, x, a, h):
             # Every member of a tuple variable moves at once, along its member of the direction.
-            xs = members(x)
-            fa, fh = [ev(m) for m in members(a)], [ev(m) for m in members(h)]
+            xs = _members(x)
+            fa, fh = [ev(m) for m in _members(a)], [ev(m) for m in _members(h)]
 
             def moved(step):
                 return {
@@ -548,11 +548,11 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
                 j, cell = side_cell(sm)
                 facet = Ed.pieces[POINTS.get(("piece", Ed), 0)]
-                edge = piece_map(facet, {next(iter(free(facet.parameterisation))): e}, env)
+                edge = piece_map(facet, {next(iter(_free(facet.parameterisation))): e}, env)
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)
                 piece = Dd.pieces[j]
-                chart = piece_map(piece, {next(iter(free(piece.parameterisation))): cell}, env)
+                chart = piece_map(piece, {next(iter(_free(piece.parameterisation))): cell}, env)
                 X = reference_point(chart, x, Dd.dimension)
                 d = jacobian_of(chart, X) @ (X - reference_centroid(piece.parameter_domain))
                 n = d - (d @ t) * t
@@ -560,9 +560,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return normal
         case Divergence(b, P):
-            return ev(trace_of_gradient(b, P))
+            return ev(_trace_of_gradient(b, P))
         case Curl(b, P):
-            return ev(rotation_of_gradient(b, P))
+            return ev(_rotation_of_gradient(b, P))
         case Gradient(b, P):
             fb = ev(b)
 

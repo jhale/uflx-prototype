@@ -36,8 +36,8 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
-from uflx_spec_interpreter._draft import coordinate_function, image, push_forward
-from uflx_spec_interpreter._src.domains import cell_domain
+from uflx_spec_interpreter._draft import _coordinate_function, image, push_forward
+from uflx_spec_interpreter._src.domains import _cell_domain
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     Division,
@@ -47,7 +47,7 @@ from uflx_spec_interpreter._src.nodes import (
     Power,
     PullBack,
 )
-from uflx_spec_interpreter._src.substitution import everywhere, expressions, memoized
+from uflx_spec_interpreter._src.substitution import _everywhere, _expressions, _memoized
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.runtime import runtime_array, runtime_extent
@@ -174,7 +174,7 @@ def test_a_function_at_points_known_only_at_assembly():
     points = runtime_array("points", (cells, q, 2))
     weights = runtime_array("weights", (cells, q))
     xs = domain_map(RD(0), points[c, i], K)
-    cell = cell_domain(D, 0)
+    cell = _cell_domain(D, 0)
     rng = np.random.default_rng(11)
     U = rng.normal(size=V.num_dofs)
     for f in (u, gradient(u, D)[0]):
@@ -251,7 +251,7 @@ def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form(
     forms = [integral(gu[0] * gu[0], D), integral(gu[1] * gw[0], D)]
     found = [set() for _ in forms]
     for dets, f in zip(found, forms, strict=True):
-        everywhere(
+        _everywhere(
             compile_form(f, 4),
             lambda n: not isinstance(n, Division) or not dets.add(n.second),
         )
@@ -262,16 +262,16 @@ def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form(
 
 def mesh_only(e, D):
     # Subexpressions that read only coordinates, independent of product association.
-    geometry = {coefficients(f) for f in coordinate_function(D).entries}
-    reads, found = memoized(arrays), set()
+    geometry = {coefficients(f) for f in _coordinate_function(D).entries}
+    reads, found = _memoized(arrays), set()
 
     def walk(walk, n):
         if reads(n) and set(reads(n)) <= geometry:
             found.add(n)
-        for m in expressions(n):
+        for m in _expressions(n):
             walk(m)
 
-    memoized(walk)(e)
+    _memoized(walk)(e)
     return found
 
 

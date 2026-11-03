@@ -4,10 +4,10 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from ..arithmetic import divide, multiply, square_root
-from ..calculus import rotation_of_gradient, trace_of_gradient
-from ..domains import cell_of, inclusion, is_cell
-from ..geometry import density, geometric_map, inverse_jacobian, jacobian
-from ..names import derived_index
+from ..calculus import _rotation_of_gradient, _trace_of_gradient
+from ..domains import _cell_of, _inclusion, _is_cell
+from ..geometry import _geometric_map, density, inverse_jacobian, jacobian
+from ..names import _derived_index
 from ..nodes import (
     Action,
     CellMap,
@@ -26,19 +26,23 @@ from ..nodes import (
     SideMap,
     TransformationLaw,
 )
-from ..static import complete_indices, field_terminal, shape, support
-from ..substitution import bottom_up, everywhere, freshen, map_values, memoized, substitute
+from ..static import _complete_indices, _field_terminal, _shape, _support
+from ..substitution import _bottom_up, _everywhere, _freshen, _map_values, _memoized, _substitute
 from ..tensors import determinant, transpose
 from ..topology import cell_index
 from .actions import apply_actions
-from .piola import piola_law
+from .piola import _piola_law
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
     from ..nodes.indices import GatheredIndex, Index
 
 
-def rule(
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_in_n5", "_remains", "_transformed", "expand_pull_backs"]
+
+
+def _rule(
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
     f: AbstractExpression,
     m: DomainMap | CellMap | SideMap,
@@ -46,104 +50,104 @@ def rule(
     # The rule table of expand_pull_backs, for PullBack(f, m).
     match f:
         case Form():
-            return pointwise(f, m, pb)
+            return _pointwise(f, m, pb)
         case Action(form, position, argument):
             return apply_actions(Action(pb(form, m), position, argument))
-        case _ if isinstance(m, SideMap) and support(f) is not None:
+        case _ if isinstance(m, SideMap) and _support(f) is not None:
             return PullBack(f, m)
-        case _ if support(f) is None:
-            return complete_indices(PullBack(f, m), f)
+        case _ if _support(f) is None:
+            return _complete_indices(PullBack(f, m), f)
         case Coordinate() if isinstance(m, (DomainMap, CellMap)):
             return m.parameterisation
-        case PullBack(g, SideMap() as sm) if (cell := side_cell(sm, m)) is not None:
-            outer, inner, _ = side_maps(sm, *cell)
+        case PullBack(g, SideMap() as sm) if (cell := _side_cell(sm, m)) is not None:
+            outer, inner, _ = _side_maps(sm, *cell)
             return pb(pb(g, outer), inner)
         case PullBack(_, (SideMap() | CellMap())):
             return PullBack(f, m)
         case PullBack(g, DomainMap() as phi) if isinstance(m, (DomainMap, CellMap)):
-            return pb(g, composed(phi, m, pb))
-        case Gradient(g, _) if is_cell(m):
-            return transformed(
+            return pb(g, _composed(phi, m, pb))
+        case Gradient(g, _) if _is_cell(m):
+            return _transformed(
                 Gradient(pb(g, m), m.parameter_domain), TransformationLaw(("covariant",), 0), m
             )
         case Gradient():
             return PullBack(f, m)
-        case Divergence() | Curl() if (law := piola_law(f)) is not None:
-            if not is_cell(m) or m.ambient_domain != f.domain:
+        case Divergence() | Curl() if (law := _piola_law(f)) is not None:
+            if not _is_cell(m) or m.ambient_domain != f.domain:
                 return PullBack(f, m)
             # The Piola identity applies only to a mapped field.
             assert isinstance(f.expression, PushForward)
-            expand = trace_of_gradient if isinstance(f, Divergence) else rotation_of_gradient
-            reference = on_the_reference_cell(f.expression.expression, m, pb)
-            return transformed(expand(reference, m.parameter_domain), law, m)
+            expand = _trace_of_gradient if isinstance(f, Divergence) else _rotation_of_gradient
+            reference = _on_the_reference_cell(f.expression.expression, m, pb)
+            return _transformed(expand(reference, m.parameter_domain), law, m)
         case Divergence(g, domain):
-            return pb(trace_of_gradient(g, domain), m)
+            return pb(_trace_of_gradient(g, domain), m)
         case Curl(g, domain):
-            return pb(rotation_of_gradient(g, domain), m)
-        case Normal(sm) if (cell := side_cell(sm, m)) is not None:
-            return normal(f, cell, pb)
-        case PushForward(g, domain, law) if m.ambient_domain == domain and is_cell(m):
-            return pushed_forward(g, law, m, pb)
-        case _ if field_terminal(f) or isinstance(f, PushForward):
+            return pb(_rotation_of_gradient(g, domain), m)
+        case Normal(sm) if (cell := _side_cell(sm, m)) is not None:
+            return _normal(f, cell, pb)
+        case PushForward(g, domain, law) if m.ambient_domain == domain and _is_cell(m):
+            return _pushed_forward(g, law, m, pb)
+        case _ if _field_terminal(f) or isinstance(f, PushForward):
             return PullBack(f, m)
         case _:
-            return pointwise(f, m, pb)
+            return _pointwise(f, m, pb)
 
 
-def kept(m: DomainMap | CellMap | SideMap) -> bool:
+def _kept(m: DomainMap | CellMap | SideMap) -> bool:
     # a pull-back stays inside another only by a cell, a cell map or a side map.
-    return isinstance(m, SideMap | CellMap) or is_cell(m)
+    return isinstance(m, SideMap | CellMap) or _is_cell(m)
 
 
-def composed(
+def _composed(
     phi: DomainMap,
     m: DomainMap | CellMap,
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
 ) -> DomainMap:
     # The map phi after m, so that only a pull-back by a cell keeps a pull-back inside it.
-    psi = pb(lowered_copy(pb, phi.parameterisation), m)
+    psi = pb(_lowered_copy(pb, phi.parameterisation), m)
     return DomainMap(m.parameter_domain, psi, phi.ambient_domain)
 
 
-def lowered_copy(
+def _lowered_copy(
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
     e: AbstractExpression,
 ) -> AbstractExpression:
     # The parameterisation of a map that a row builds is lowered as the row builds it, because
     # a lowering pass does not enter maps.
-    return bottom_up(e, lambda n: pb(n.expression, n.map) if isinstance(n, PullBack) else n)
+    return _bottom_up(e, lambda n: pb(n.expression, n.map) if isinstance(n, PullBack) else n)
 
 
-def pointwise(
+def _pointwise(
     f: AbstractExpression,
     m: DomainMap | CellMap | SideMap,
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
 ) -> AbstractExpression:
     # a binding node is made fresh for the free indices of the map, which occur in the map.
-    fresh = freshen(f, [m])
+    fresh = _freshen(f, [m])
     if isinstance(fresh, Form):
         return Form(pb(fresh.expression, m), fresh.arguments)
-    return map_values(fresh, lambda x: pb(x, m), fresh.value_fields)
+    return _map_values(fresh, lambda x: pb(x, m), fresh.value_fields)
 
 
-def derived_axis(
+def _derived_axis(
     f: AbstractExpression, m: DomainMap | CellMap | SideMap, axis: tuple[str, int]
 ) -> Index:
     """Identify a pull-back axis using the shared structural naming rule."""
-    return derived_index("uflx.expand_pull_backs", f, m, axis)
+    return _derived_index("uflx.expand_pull_backs", f, m, axis)
 
 
-def pushed_forward(
+def _pushed_forward(
     g: AbstractExpression,
     law: TransformationLaw,
     C: CellMap,
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
 ) -> AbstractExpression:
     # The law applied to the value of g on the cell C.
-    return transformed(on_the_reference_cell(g, C, pb), law, C)
+    return _transformed(_on_the_reference_cell(g, C, pb), law, C)
 
 
-def on_the_reference_cell(
+def _on_the_reference_cell(
     g: AbstractExpression,
     C: CellMap,
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
@@ -152,21 +156,23 @@ def on_the_reference_cell(
     return pb(g, CellMap(C.topology, C.cell_group, C.entry))
 
 
-def transformed(ghat: AbstractExpression, law: TransformationLaw, C: CellMap) -> AbstractExpression:
+def _transformed(
+    ghat: AbstractExpression, law: TransformationLaw, C: CellMap
+) -> AbstractExpression:
     # K^T on each covariant axis and J on each contravariant axis of ghat, divided by det J, or
     # by the density on a cell of lower dimension, to the weight.
     J, K = jacobian(C), inverse_jacobian(C)
-    r, p = len(shape(ghat)), len(law.variances)
-    lead = tuple(derived_axis(ghat, C, ("lead", n)) for n in range(r - p))
-    out = tuple(derived_axis(ghat, C, ("out", n)) for n in range(p))
-    summed = tuple(derived_axis(ghat, C, ("sum", n)) for n in range(p))
+    r, p = len(_shape(ghat)), len(law.variances)
+    lead = tuple(_derived_axis(ghat, C, ("lead", n)) for n in range(r - p))
+    out = tuple(_derived_axis(ghat, C, ("out", n)) for n in range(p))
+    summed = tuple(_derived_axis(ghat, C, ("sum", n)) for n in range(p))
     value = Indexed(ghat, (*lead, *summed)) if lead or summed else ghat
     for variance, i, s in zip(law.variances, out, summed, strict=True):
         M = Indexed(K, (s, i)) if variance == "covariant" else Indexed(J, (i, s))
         value = multiply(value, M)
     if summed:
         value = IndexSum(value, summed)
-    source, target = geometric_map(C)
+    source, target = _geometric_map(C)
     k, n = source.dimension, target.dimension
     scale = determinant(jacobian(C)) if k == n else density(C)
     for _ in range(law.weight):
@@ -177,39 +183,39 @@ def transformed(ghat: AbstractExpression, law: TransformationLaw, C: CellMap) ->
     return ComponentTensor(value, axes) if axes else value
 
 
-def side_cell(
+def _side_cell(
     sm: SideMap, m: DomainMap | CellMap | SideMap
 ) -> tuple[int, int | Index | GatheredIndex] | None:
     # The group and the entry of m as a cell of the parameter domain of the side map: a cell
     # map of the side topology, or a cell of the side domain.
     if isinstance(m, CellMap):
         return (m.cell_group, m.entry) if m.topology == sm.side_topology else None
-    return cell_of(m) if m.ambient_domain == sm.parameter_domain else None
+    return _cell_of(m) if m.ambient_domain == sm.parameter_domain else None
 
 
-def side_maps(
+def _side_maps(
     sm: SideMap, i: int, e: int | Index | GatheredIndex
 ) -> tuple[CellMap, DomainMap, AbstractExpression | None]:
     # B and a of cell e of group i, and the reference normal of the side tables.
     S, s = sm.side_topology, sm.side
-    B, a = inclusion(sm.ambient_domain, S, i, s, e)
+    B, a = _inclusion(sm.ambient_domain, S, i, s, e)
     m_hat = S.side_tables(i, s)[2]
     return (
         B,
         a,
         None
         if m_hat is None
-        else cast("AbstractExpression", substitute(m_hat, {cell_index(S, i): e})),
+        else cast("AbstractExpression", _substitute(m_hat, {cell_index(S, i): e})),
     )
 
 
-def normal(
+def _normal(
     f: Normal,
     cell: tuple[int, int | Index | GatheredIndex],
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
 ) -> AbstractExpression:
     # K^T m_hat / |K^T m_hat|, with the normal supplied by the side table.
-    outer, inner, reference_normal = side_maps(f.side_map, *cell)
+    outer, inner, reference_normal = _side_maps(f.side_map, *cell)
     if reference_normal is None:
         raise TypeError("the side table supplies no reference normal")
     w = transpose(pb(inverse_jacobian(outer), inner)) @ reference_normal
@@ -218,7 +224,7 @@ def normal(
 
 def expand_pull_backs(f: AbstractExpression) -> AbstractExpression:
     # Inner pull-backs first, then the rule for the expression of each pull-back.
-    pb = memoized(rule)
+    pb = _memoized(_rule)
 
     def expand(e: AbstractExpression) -> AbstractExpression:
         match e:
@@ -227,20 +233,20 @@ def expand_pull_backs(f: AbstractExpression) -> AbstractExpression:
             case _:
                 return e
 
-    return bottom_up(f, expand)
+    return _bottom_up(f, expand)
 
 
-def remains(f: AbstractExpression, m: DomainMap | CellMap | SideMap) -> bool:
+def _remains(f: AbstractExpression, m: DomainMap | CellMap | SideMap) -> bool:
     # The pull-backs that no row of expand_pull_backs rewrites, which a library reads.
     return not isinstance(f, Action | Form) and (
         isinstance(m, SideMap)
-        or field_terminal(f)
+        or _field_terminal(f)
         or isinstance(f, PushForward)
-        or (isinstance(f, PullBack) and kept(f.map))
-        or (isinstance(f, Gradient) and not is_cell(m))
-        or (piola_law(f) is not None and (not is_cell(m) or m.ambient_domain != f.domain))
+        or (isinstance(f, PullBack) and _kept(f.map))
+        or (isinstance(f, Gradient) and not _is_cell(m))
+        or (_piola_law(f) is not None and (not _is_cell(m) or m.ambient_domain != f.domain))
     )
 
 
-def in_n5(e: AbstractExpression) -> bool:
-    return everywhere(e, lambda n: not isinstance(n, PullBack) or remains(n.expression, n.map))
+def _in_n5(e: AbstractExpression) -> bool:
+    return _everywhere(e, lambda n: not isinstance(n, PullBack) or _remains(n.expression, n.map))

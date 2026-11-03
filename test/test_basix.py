@@ -87,8 +87,8 @@ def facet_integrals(K):
     ]
     values = []
     for e in forms:
-        out = gradients.lower(integrals.expand_integrals(e))
-        assert gradients.in_n6(out)
+        out = gradients._lower(integrals.expand_integrals(e))
+        assert gradients._in_n6(out)
         values.append(evaluate(out, env)(()))
         assert np.isclose(evaluate(e, env)(()), values[-1], rtol=1e-6)
     return np.array(values)
@@ -140,8 +140,8 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
         (integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B), None),
     ]
     for e, expected in exact:
-        out = gradients.lower(integrals.expand_integrals(e))
-        assert gradients.in_n6(out)
+        out = gradients._lower(integrals.expand_integrals(e))
+        assert gradients._in_n6(out)
         before, after = evaluate(e, env)(()), evaluate(out, env)(())
         assert np.isclose(before, after, rtol=1e-6), (before, after)
         if expected is not None:
@@ -199,8 +199,8 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
         (integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B), None),
     ]
     for e, expected in exact:
-        out = gradients.lower(integrals.expand_integrals(e))
-        assert gradients.in_n6(out)
+        out = gradients._lower(integrals.expand_integrals(e))
+        assert gradients._in_n6(out)
         before, after = evaluate(e, env)(()), evaluate(out, env)(())
         assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
         if expected is not None:

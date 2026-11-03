@@ -20,7 +20,7 @@ from uflx_spec_interpreter import (
     real_part,
 )
 from uflx_spec_interpreter._src.passes import actions, derivatives
-from uflx_spec_interpreter._src.static import arity
+from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
 C, R = space("C"), space("R", scalar_type=ScalarType.real)
@@ -81,7 +81,7 @@ def main(trials):
         env = {f: 0.5 * scalar() for f in (u, v, w, z)}
         value = LOAD_VALUE if space is C else LOAD_VALUE.real
         env[load(space)] = lambda x, value=value: value * x
-        vals = tuple(0.5 * scalar() for _ in range(arity(e)))
+        vals = tuple(0.5 * scalar() for _ in range(_arity(e)))
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-5, atol=1e-6):
             bad += 1

@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, cast, final
 
-from ..interning import cached
+from ..interning import _cached
 from .base import AbstractExpression, Base
 from .indices import GatheredIndex, Index
 from .scalar_types import ScalarType
@@ -45,11 +45,11 @@ class RD(AbstractCoordinateDomain):
     dimension: int  # pyright: ignore[reportIncompatibleMethodOverride]
 
     def _validate(self) -> None:
-        from ..validation import require
+        from ..validation import _require
 
         if type(self.dimension) is not int:
             raise TypeError("dimension must be an integer")
-        require(self.dimension >= 0, "dimension must be nonnegative")
+        _require(self.dimension >= 0, "dimension must be nonnegative")
 
 
 class AbstractReferenceCell(AbstractCoordinateDomain, AbstractCellType):
@@ -65,22 +65,22 @@ class DomainMap(Base):
     ambient_domain: AbstractCoordinateDomain
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.parameterisation.free_indices
 
     def _validate(self) -> None:
-        from ..validation import require
+        from ..validation import _require
 
         f = self.parameterisation
-        require(f.domain in (None, self.parameter_domain), "parameterisation domain differs")
-        require(
+        _require(f.domain in (None, self.parameter_domain), "parameterisation domain differs")
+        _require(
             f.scalar_type == ScalarType.real
             and (not f.argument_spaces)
             and (f.value_shape == (self.ambient_domain.dimension,)),
             "invalid coordinate expression",
         )
-        require(
+        _require(
             self.parameter_domain.dimension <= self.ambient_domain.dimension,
             "map decreases ambient dimension",
         )
@@ -104,7 +104,7 @@ class Mesh(AbstractDomain):
         return self.topology.dimension
 
     @property
-    @cached
+    @_cached
     def pieces(self) -> tuple[DomainMap, ...]:
         # Derived views for integration and the oracle, not construction arguments.
         from ..domains import cell_map
@@ -124,23 +124,23 @@ class Mesh(AbstractDomain):
         )
 
     def _validate(self) -> None:
-        from ..validation import require
+        from ..validation import _require
 
         f = self.coordinate_function
         topology = self.topology
-        require(
+        _require(
             all(isinstance(K, AbstractReferenceCell) for K in topology.cell_types),
             "mesh cells must be reference cells",
         )
-        require(not f.free_indices, "mesh coordinates must have no free indices")
-        require(
+        _require(not f.free_indices, "mesh coordinates must have no free indices")
+        _require(
             not f.free_indices
             and (not f.argument_spaces)
             and (f.scalar_type == ScalarType.real)
             and (f.value_shape == (self.ambient_domain.dimension,)),
             "invalid mesh coordinates",
         )
-        require(
+        _require(
             topology.dimension <= self.ambient_domain.dimension,
             "mesh dimension exceeds ambient dimension",
         )
@@ -166,7 +166,7 @@ class CellMap(Base):
         return cell
 
     @property
-    @cached
+    @_cached
     def parameterisation(self) -> AbstractExpression:
         from .calculus import PullBack
 
@@ -178,7 +178,7 @@ class CellMap(Base):
         )
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         if isinstance(self.entry, GatheredIndex):
             return self.entry.free_indices
@@ -187,20 +187,20 @@ class CellMap(Base):
         return ((self.entry, self.topology.num_cells[self.cell_group]),)
 
     def _validate(self) -> None:
-        from ..validation import require
+        from ..validation import _require
 
         if type(self.cell_group) is not int:
             raise TypeError("cell group must be an integer")
-        require(0 <= self.cell_group < len(self.topology.cell_types), "invalid cell group")
+        _require(0 <= self.cell_group < len(self.topology.cell_types), "invalid cell group")
         self.parameter_domain  # Check that the selected cell is a reference cell.
         size = self.topology.num_cells[self.cell_group]
         if isinstance(self.entry, int):
-            require(
+            _require(
                 type(size) is int and 0 <= self.entry < size,
                 "cell selection is outside the group",
             )
         elif isinstance(self.entry, GatheredIndex):
-            require(self.entry.extent == size, "cell gather has the wrong extent")
+            _require(self.entry.extent == size, "cell gather has the wrong extent")
         else:
             pass
 
@@ -219,16 +219,16 @@ class SideMap(Base):
         return P if isinstance(P, AbstractTopology) else P.topology
 
     def _validate(self) -> None:
-        from ..validation import require
+        from ..validation import _require
 
         X = self.ambient_domain
         S = self.side_topology
         T = X.topology if isinstance(X, Mesh) else X
-        require(
+        _require(
             all(isinstance(K, AbstractReferenceCell) for K in S.cell_types),
             "side cells must be reference cells",
         )
-        require(
+        _require(
             len(S.sides) == len(S.cell_types)
             and all(
                 any((name == self.side and U == T for name, U, _ in sides)) for sides in S.sides

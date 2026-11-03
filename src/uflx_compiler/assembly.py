@@ -1,10 +1,10 @@
 import numpy as np
 
 from uflx_spec_interpreter import component_tensor
-from uflx_spec_interpreter._src.names import derived_indices
+from uflx_spec_interpreter._src.names import _derived_indices
 from uflx_spec_interpreter._src.nodes import Conjugate, Form
-from uflx_spec_interpreter._src.substitution import substitute
-from uflx_spec_interpreter._src.tensors import identity
+from uflx_spec_interpreter._src.substitution import _substitute
+from uflx_spec_interpreter._src.tensors import _identity
 
 from .evaluation import evaluate
 from .folding import fold
@@ -22,10 +22,10 @@ def assemble(form, degree):
     rows, replacements = [], {}
     for p, entry in enumerate(arguments):
         v = entry.operand if isinstance(entry, Conjugate) else entry
-        J, k = derived_indices("compiler.assembly", (p,), 2)
-        replacements[coefficients(v)] = component_tensor(identity(v.space.num_dofs)[J, k], (k,))
+        J, k = _derived_indices("compiler.assembly", (p,), 2)
+        replacements[coefficients(v)] = component_tensor(_identity(v.space.num_dofs)[J, k], (k,))
         rows.append(J)
-    e = substitute(e, replacements)
+    e = _substitute(e, replacements)
     folded = fold(e)
     order = [i for i, _ in e.free_indices]
 

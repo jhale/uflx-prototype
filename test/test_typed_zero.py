@@ -17,9 +17,9 @@ from uflx_spec_interpreter import (
     index,
     num,
 )
-from uflx_spec_interpreter._src.literals import zero
+from uflx_spec_interpreter._src.literals import _zero
 from uflx_spec_interpreter._src.nodes import Complex, Product, Sum, Zero
-from uflx_spec_interpreter._src.passes.algebra import normalizer
+from uflx_spec_interpreter._src.passes.algebra import _normalizer
 from uflx_toy.spaces import space
 
 
@@ -27,10 +27,10 @@ from uflx_toy.spaces import space
 def test_zero_construction_and_reconstruction(scalar_type):
     k = index("typed-zero")
     V = space("slot")
-    z = zero((2,), ((k, 3),), (V,), scalar_type)
+    z = _zero((2,), ((k, 3),), (V,), scalar_type)
     assert z.scalar_type == scalar_type
     assert Zero(*z.construction_arguments) is z
-    assert z is not zero(
+    assert z is not _zero(
         (2,),
         ((k, 3),),
         (V,),
@@ -44,8 +44,8 @@ def test_zero_construction_and_reconstruction(scalar_type):
         applied.argument_spaces,
         applied.scalar_type,
     ) == ((2,), ((k, 3),), (), scalar_type)
-    assert instantiated(applied, {k: 1}) is zero((2,), (), (), scalar_type)
-    assert np.iscomplexobj(evaluate(zero((2,), (), (), scalar_type), {})([])) == (
+    assert instantiated(applied, {k: 1}) is _zero((2,), (), (), scalar_type)
+    assert np.iscomplexobj(evaluate(_zero((2,), (), (), scalar_type), {})([])) == (
         scalar_type == ScalarType.complex
     )
 
@@ -53,20 +53,20 @@ def test_zero_construction_and_reconstruction(scalar_type):
 @pytest.mark.parametrize("bad", ["invalid", complex, None, 1])
 def test_zero_rejects_invalid_scalar_type(bad):
     with pytest.raises(TypeError):
-        zero((), (), (), bad)
+        _zero((), (), (), bad)
 
 
 def test_cancellation_and_zero_products_preserve_complex_type():
     i = Complex(Integer(0), Integer(1))
     for e in (Sum(i, Product(num(-1), i)), Product(num(0), i)):
-        out = normalizer()(e)
-        assert out is zero((), (), (), ScalarType.complex)
-    z = zero((), (), (), ScalarType.complex)
+        out = _normalizer()(e)
+        assert out is _zero((), (), (), ScalarType.complex)
+    z = _zero((), (), (), ScalarType.complex)
     assert simplify(Product(z, num(2))) is z
     assert simplify(Sum(z, num(2))).scalar_type == ScalarType.complex
-    normalized = normalizer()(Sum(z, num(2)))
+    normalized = _normalizer()(Sum(z, num(2)))
     assert normalized.scalar_type == ScalarType.complex
-    assert normalizer()(normalized) is normalized
+    assert _normalizer()(normalized) is normalized
 
 
 @pytest.mark.parametrize("scalar_type", (ScalarType.real, ScalarType.complex))
@@ -75,14 +75,14 @@ def test_constant_derivative_preserves_output_type_not_direction_type(scalar_typ
     V = space("complex-variable")
     u = function(V, "u")
     h = function(V, "h")
-    z = zero((2,), ((k, 3),), (), scalar_type)
+    z = _zero((2,), ((k, 3),), (), scalar_type)
     out = apply_derivatives(directional_derivative(z, u, u, h))
     assert out is z
 
 
 def test_array_evaluation_uses_complex_dtype_for_indexed_tensor_zero():
     k = index("array-zero")
-    z = zero((2,), ((k, 3),), (), ScalarType.complex)
+    z = _zero((2,), ((k, 3),), (), ScalarType.complex)
     value = evaluate_array(z, {})
     assert value.shape == (3, 2)
     assert np.iscomplexobj(value)

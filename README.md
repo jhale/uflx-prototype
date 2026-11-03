@@ -252,7 +252,7 @@ The ordinary test suite also checks three source conventions:
   `_draft`, or `_src/extensions`. Extension modules may depend on the core.
 - `test/test_overloads.py` checks that expression operator methods return calls
   to their designated free functions with the correct operand order. Indexing
-  preserves the `members(entries)` conversion. Returning `NotImplemented` for
+  preserves the `_members(entries)` conversion. Returning `NotImplemented` for
   unsupported operand types remains allowed. Numerical overload tests remain
   responsible for behaviour.
 - `test/test_signatures.py` checks explicit facade imports against the literal
@@ -267,3 +267,22 @@ via `importlib` or prove runtime behaviour. The specification comparison keeps
 its existing skip when the sibling specification is unavailable; set
 `UFLX_SPEC_PATH` to supply it from another location. The other checks run
 without the specification.
+
+### Public and private names
+
+The package `__init__.py` defines the public free functions and convenience
+constructors. `_src/nodes/__init__.py` exposes the spec node classes used by
+extensions and passes. Those names retain the spelling in the specification.
+
+Other module-level functions, implementation classes, constants and typing
+helpers begin with `_`, including helpers shared between implementation
+modules. Internal `__all__` lists explicitly permit that sharing without
+weakening strict Pyright's private-access checks; they do not expand the
+package's public API. `_draft` remains a private compatibility facade.
+
+Node fields and protocol methods retain their existing names because they
+form the extension/reconstruction interface. Nested functions and local
+variables are already confined to their enclosing function. Imported public
+classes and free functions keep their names; we do not add aliases merely
+to hide imports. `test/test_boundaries.py` checks the naming convention for
+module-level definitions and bindings under `_src`.

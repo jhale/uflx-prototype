@@ -6,8 +6,8 @@ from uflx_spec_interpreter import (
     index_sum,
     tensor,
 )
-from uflx_spec_interpreter._src.domains import cell_of
-from uflx_spec_interpreter._src.names import derived_index, derived_indices
+from uflx_spec_interpreter._src.domains import _cell_of
+from uflx_spec_interpreter._src.names import _derived_index, _derived_indices
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
     DomainMap,
@@ -19,7 +19,7 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_spec_interpreter._src.substitution import bottom_up
+from uflx_spec_interpreter._src.substitution import _bottom_up
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.nodes import IndexTable, RuntimeArray, VertexCoordinates
@@ -42,7 +42,7 @@ def tabulate(f):
             return vertex_values(*found)
         return values(*found) if found else e
 
-    return bottom_up(f, rewrite)
+    return _bottom_up(f, rewrite)
 
 
 def coefficients(u):
@@ -71,7 +71,7 @@ def read(x, points):
 
 def cell(C):
     # The group and the entry of a cell map, or of a cell of a mesh.
-    return (C.cell_group, C.entry) if isinstance(C, CellMap) else cell_of(C)
+    return (C.cell_group, C.entry) if isinstance(C, CellMap) else _cell_of(C)
 
 
 def values(u, found_cell, order, points):
@@ -83,7 +83,7 @@ def values(u, found_cell, order, points):
         factors = [(F, X, (k,)) for k, (F, X) in enumerate(zip(V.factors(j), points.entries))]
     else:
         factors = [(V.element(j), points, tuple(range(dimension)))]
-    i = derived_indices("compiler.tabulation", (u, entry, points), len(factors))
+    i = _derived_indices("compiler.tabulation", (u, entry, points), len(factors))
     rows = np.asarray(V.dofmap[j]).reshape(-1, *(F.dim for F, _, _ in factors))
     coefficient = coefficients(u)[GatheredIndex(IndexTable(nested(rows), V.num_dofs), (entry, *i))]
 
@@ -114,7 +114,7 @@ def vertex_values(x, found_cell, order, points):
     # at points known only at assembly.
     V = basix_space("vertices", T, basix.ElementFamily.P, 1)
     F = V.element(j)
-    a = derived_index("compiler.tabulation", x, entry, points, "a")
+    a = _derived_index("compiler.tabulation", x, entry, points, "a")
     # The element may order its dofs for sum factorisation, so each dof reads its own vertex.
     vertex_of = {d: v for v, dofs in enumerate(F.entity_dofs[0]) for d in dofs}
     rows = [[cell[vertex_of[d]] for d in range(F.dim)] for cell in T.cells[j]]

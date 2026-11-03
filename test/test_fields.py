@@ -26,10 +26,10 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.domains import cell_domain
+from uflx_spec_interpreter._src.domains import _cell_domain
 from uflx_spec_interpreter._src.nodes import Function
 from uflx_spec_interpreter._src.passes import actions, derivatives, integrals
-from uflx_spec_interpreter._src.static import arity
+from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
 VD = space("VD", domain=MESH)
@@ -64,7 +64,7 @@ def integral_of(rnd, body):
     # The integral over the mesh, or the same written by hand with a pull-back by the cells.
     if rnd.random() < 0.7:
         return integral(body, MESH)
-    cells = cell_domain(MESH, 0)
+    cells = _cell_domain(MESH, 0)
     return index_sum(integral(multiply(pull_back(body, cells), density(cells)), K), (c,))
 
 
@@ -92,14 +92,14 @@ def main(trials):
         e = random_form(rnd, n, 2)
         out = integrals.expand_integrals(derivatives.apply_derivatives(actions.apply_actions(e)))
         check_types(bad, e, out)
-        vals = tuple(args[: arity(e)])
+        vals = tuple(args[: _arity(e)])
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
             bad["value"] += 1
             if bad["value"] <= 3:
                 print("value changed, seed", seed, before, after)
         bad["grammar"] += not (
-            actions.in_n2(out) and derivatives.in_n3(out) and integrals.in_n4(out)
+            actions._in_n2(out) and derivatives._in_n3(out) and integrals._in_n4(out)
         )
     print(f"{trials} forms on a mesh: {bad['value']} values changed, {bad['grammar']} outside N4")
     return bad

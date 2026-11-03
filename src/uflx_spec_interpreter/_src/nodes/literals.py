@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Literal, Self, final
 
-from ..interning import cached
+from ..interning import _cached
 from .base import AbstractExpression
 from .scalar_types import ScalarType
 
@@ -28,29 +28,29 @@ class Integer(AbstractExpression):
         return super().__new__(cls, value)
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return None
 
@@ -71,29 +71,29 @@ class Float(AbstractExpression):
         return super().__new__(cls, value)
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return None
 
@@ -107,29 +107,29 @@ class Complex(AbstractExpression):
     imag: Integer | Float
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.complex
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return None
 
@@ -158,22 +158,22 @@ class Zero(AbstractExpression):
         return super().__new__(cls, value_shape, free_indices, argument_spaces, scalar_type)
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return None
 
     def _validate(self) -> None:
-        from ..validation import extent, require
+        from ..validation import _extent, _require
 
         for size in self.value_shape:
-            extent(size)
+            _extent(size)
         seen: set[Index] = set()
         for pair in self.free_indices:
-            require(len(pair) == 2, "a free index is an index/extent pair")
+            _require(len(pair) == 2, "a free index is an index/extent pair")
             i, size = pair
-            extent(size)
-            require(i not in seen, "free index is repeated")
+            _extent(size)
+            _require(i not in seen, "free index is repeated")
             seen.add(i)
         for V in self.argument_spaces:
             if isinstance(V, tuple):
-                require(len(V) >= 2, "product argument needs at least two spaces")
+                _require(len(V) >= 2, "product argument needs at least two spaces")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import final
 
 from uflx_spec_interpreter._src.nodes import AbstractExtent, Base
-from uflx_spec_interpreter._src.substitution import expressions, memoized
+from uflx_spec_interpreter._src.substitution import _expressions, _memoized
 from uflx_toy.nodes import RuntimeArray
 
 
@@ -21,11 +21,11 @@ class Basis(Base):
 def arrays(arrays, e):
     # The runtime arrays that e reads, in the order of a walk from e.
     own = {e: None} if isinstance(e, RuntimeArray) else {}
-    return own | {n: None for c in expressions(e) for n in arrays(c)}
+    return own | {n: None for c in _expressions(e) for n in arrays(c)}
 
 
 def runtime_arrays(e):
-    return list(memoized(arrays)(e))
+    return list(_memoized(arrays)(e))
 
 
 def kernel_inputs(e):

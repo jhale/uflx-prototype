@@ -166,14 +166,14 @@ def main(trials):
                 (i,),
             )
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
-        out = gradients.lower(integrals.expand_integrals(e))
+        out = gradients._lower(integrals.expand_integrals(e))
         if contains(out4, needs_pass):
             bad["lazy"] += 1
-            bad["rejected"] += not gradients.in_n6(out4)
+            bad["rejected"] += not gradients._in_n6(out4)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
-        bad["grammar"] += not (pullbacks.in_n5(out) and gradients.in_n6(out))
+        bad["grammar"] += not (pullbacks._in_n5(out) and gradients._in_n6(out))
         if restricted:
             # Through the restriction, every pull-back reads a library value on a cell.
             bad["restricted"] += 1

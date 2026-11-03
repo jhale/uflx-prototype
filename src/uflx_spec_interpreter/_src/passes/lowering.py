@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from ..contracts import core_normal_form
+from ..contracts import _core_normal_form
 from ..nodes import AbstractExpression
 from .actions import apply_actions
 from .derivatives import apply_derivatives
-from .gradients import lower as lower_spatial
+from .gradients import _lower
 from .integrals import expand_integrals
 
 
@@ -22,8 +22,8 @@ def lower(f: AbstractExpression) -> AbstractExpression:
             An unsupported output carries offending nodes and diagnostic reasons
             in the exception's second argument.
     """
-    out = lower_spatial(expand_integrals(apply_derivatives(apply_actions(f))))
-    violations = core_normal_form(out)
+    out = _lower(expand_integrals(apply_derivatives(apply_actions(f))))
+    violations = _core_normal_form(out)
     if violations:
         reasons = "; ".join(dict.fromkeys(reason for _, reason in violations))
         raise TypeError(f"unsupported core lowering: {reasons}", violations)

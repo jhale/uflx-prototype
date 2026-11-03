@@ -29,7 +29,7 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.passes import actions, derivatives
-from uflx_spec_interpreter._src.static import arity
+from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
 V, Vd = space("V"), dual_space(space("V"))
@@ -133,14 +133,14 @@ def main(trials):
         out1 = actions.apply_actions(e)
         out2 = derivatives.apply_derivatives(out1)
         check_types(counts, e, out1, out2)
-        vals = tuple(0.3 * complex(*rng.normal(size=2)) for _ in range(arity(e)))
+        vals = tuple(0.3 * complex(*rng.normal(size=2)) for _ in range(_arity(e)))
         before, after = evaluate(e, env)(vals), evaluate(out2, env)(vals)
         if not np.allclose(before, after, rtol=1e-3, atol=1e-4):
             counts["changed"] += 1
             if counts["changed"] <= 3:
                 print("value changed, seed", seed, before, after)
-        counts["not_n1"] += not actions.in_n2(out1)
-        counts["not_n2"] += not (actions.in_n2(out2) and derivatives.in_n3(out2))
+        counts["not_n1"] += not actions._in_n2(out1)
+        counts["not_n2"] += not (actions._in_n2(out2) and derivatives._in_n3(out2))
     print(
         f"{trials} expressions, {counts['actions']} actions, {counts['derivatives']} derivatives:",
         f"{counts['changed']} values changed, {counts['not_n1']} not in N2 after pass 1,",

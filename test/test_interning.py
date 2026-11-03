@@ -11,9 +11,9 @@ from test_surface import M
 from testutil import contains
 
 from uflx_spec_interpreter import density, inverse_jacobian
-from uflx_spec_interpreter._src.domains import cell_domain
+from uflx_spec_interpreter._src.domains import _cell_domain
 from uflx_spec_interpreter._src.geometry import jacobian
-from uflx_spec_interpreter._src.interning import digest_of
+from uflx_spec_interpreter._src.interning import _digest_of
 from uflx_spec_interpreter._src.nodes import (
     Base,
     Complex,
@@ -25,7 +25,7 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.substitution import map_fields, rebuild
+from uflx_spec_interpreter._src.substitution import _map_fields, _rebuild
 from uflx_toy.spaces import space
 
 V = space("V")
@@ -53,8 +53,8 @@ def test_literals_take_exact_types():
 
 def test_rebuilding_returns_the_same_object():
     e = Sum(Integer(1), Function(V, "u"))
-    assert rebuild(e) is e
-    assert map_fields(e, lambda x: x) is e
+    assert _rebuild(e) is e
+    assert _map_fields(e, lambda x: x) is e
 
 
 def test_unused_nodes_are_freed():
@@ -82,11 +82,11 @@ def test_hash_is_the_same_in_every_process():
 
 def test_hash_does_not_depend_on_where_the_class_is():
     e = Sum(Integer(1), Function(V, "u"))
-    digest = digest_of(Sum.identifier, e.construction_arguments)
+    digest = _digest_of(Sum.identifier, e.construction_arguments)
     module, qualname = Sum.__module__, Sum.__qualname__
     try:
         Sum.__module__, Sum.__qualname__ = "elsewhere", "Elsewhere"
-        assert digest_of(Sum.identifier, e.construction_arguments) == digest
+        assert _digest_of(Sum.identifier, e.construction_arguments) == digest
     finally:
         Sum.__module__, Sum.__qualname__ = module, qualname
     assert e.digest == digest
@@ -101,7 +101,7 @@ def test_a_class_with_no_identifier_raises():
 
 
 def test_density_and_inverse_jacobian_share_the_jacobian():
-    m = cell_domain(M, 0)
+    m = _cell_domain(M, 0)
     J = jacobian(m)
     assert contains(density(m), lambda n: n is J)
     assert contains(inverse_jacobian(m), lambda n: n is J)

@@ -24,22 +24,26 @@ from ..nodes import (
     Sum,
     Zero,
 )
-from ..static import complete_indices
-from ..substitution import lowered, map_values, memoized
+from ..static import _complete_indices
+from ..substitution import _lowered, _map_values, _memoized
 
-ONE = (Fraction(1), Fraction(0))
-ZERO = (Fraction(0), Fraction(0))
+_ONE = (Fraction(1), Fraction(0))
+_ZERO = (Fraction(0), Fraction(0))
 
 
-def plus(a: tuple[Fraction, Fraction], b: tuple[Fraction, Fraction]) -> tuple[Fraction, Fraction]:
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_normalizer"]
+
+
+def _plus(a: tuple[Fraction, Fraction], b: tuple[Fraction, Fraction]) -> tuple[Fraction, Fraction]:
     return a[0] + b[0], a[1] + b[1]
 
 
-def times(a: tuple[Fraction, Fraction], b: tuple[Fraction, Fraction]) -> tuple[Fraction, Fraction]:
+def _times(a: tuple[Fraction, Fraction], b: tuple[Fraction, Fraction]) -> tuple[Fraction, Fraction]:
     return a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]
 
 
-def number(e: AbstractExpression) -> tuple[Fraction, Fraction] | None:
+def _number(e: AbstractExpression) -> tuple[Fraction, Fraction] | None:
     match e:
         case Integer(n):
             return Fraction(n), Fraction(0)
@@ -48,14 +52,14 @@ def number(e: AbstractExpression) -> tuple[Fraction, Fraction] | None:
         case Division(Integer(n), Integer(d)) if d:
             return Fraction(n, d), Fraction(0)
         case Sum(a, b) | Product(a, b):
-            left = number(a)
-            if left is not None and (right := number(b)) is not None:
-                return plus(left, right) if isinstance(e, Sum) else times(left, right)
+            left = _number(a)
+            if left is not None and (right := _number(b)) is not None:
+                return _plus(left, right) if isinstance(e, Sum) else _times(left, right)
         case _:
             return None
 
 
-def literal(value: tuple[Fraction, Fraction]) -> AbstractExpression:
+def _literal(value: tuple[Fraction, Fraction]) -> AbstractExpression:
     def rational(q: Fraction) -> AbstractExpression:
         n = Integer(q.numerator)
         return n if q.denominator == 1 else divide(n, Integer(q.denominator))
@@ -71,25 +75,25 @@ def literal(value: tuple[Fraction, Fraction]) -> AbstractExpression:
     return imaginary if not real else add(rational(real), imaginary)
 
 
-def product(factors: Sequence[AbstractExpression]) -> AbstractExpression:
+def _product(factors: Sequence[AbstractExpression]) -> AbstractExpression:
     out = factors[0]
     for factor in factors[1:]:
         out = multiply(out, factor)
     return out
 
 
-def split_product(
+def _split_product(
     e: AbstractExpression,
 ) -> tuple[tuple[Fraction, Fraction], tuple[AbstractExpression, ...]]:
-    coefficient = ONE
+    coefficient = _ONE
     factors: list[AbstractExpression] = []
 
     def collect(node: AbstractExpression) -> None:
         nonlocal coefficient
         if isinstance(node, Zero):
-            coefficient = ZERO
-        elif (value := number(node)) is not None:
-            coefficient = times(coefficient, value)
+            coefficient = _ZERO
+        elif (value := _number(node)) is not None:
+            coefficient = _times(coefficient, value)
         elif isinstance(node, Product):
             collect(node.first)
             collect(node.second)
@@ -102,16 +106,16 @@ def split_product(
     return coefficient, tuple(factors)
 
 
-def scaled(
+def _scaled(
     coefficient: tuple[Fraction, Fraction], factors: tuple[AbstractExpression, ...]
 ) -> AbstractExpression:
     if not factors:
-        return literal(coefficient)
-    body = product(factors)
-    return body if coefficient == ONE else multiply(literal(coefficient), body)
+        return _literal(coefficient)
+    body = _product(factors)
+    return body if coefficient == _ONE else multiply(_literal(coefficient), body)
 
 
-def collected(e: AbstractExpression) -> AbstractExpression:
+def _collected(e: AbstractExpression) -> AbstractExpression:
     terms: dict[tuple[AbstractExpression, ...], tuple[Fraction, Fraction]] = {}
 
     def collect(node: AbstractExpression, scale: tuple[Fraction, Fraction]) -> None:
@@ -119,15 +123,15 @@ def collected(e: AbstractExpression) -> AbstractExpression:
             collect(node.first, scale)
             collect(node.second, scale)
             return
-        coefficient, factors = split_product(node)
-        coefficient = times(coefficient, scale)
+        coefficient, factors = _split_product(node)
+        coefficient = _times(coefficient, scale)
         if len(factors) == 1 and isinstance(factors[0], Sum):
             collect(factors[0], coefficient)
         else:
-            terms[factors] = plus(terms.get(factors, ZERO), coefficient)
+            terms[factors] = _plus(terms.get(factors, _ZERO), coefficient)
 
-    collect(e, ONE)
-    parts = [scaled(c, fs) for fs, c in terms.items() if c != ZERO]
+    collect(e, _ONE)
+    parts = [_scaled(c, fs) for fs, c in terms.items() if c != _ZERO]
     if not parts:
         return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
     if not e.argument_spaces:
@@ -138,39 +142,41 @@ def collected(e: AbstractExpression) -> AbstractExpression:
     return out
 
 
-def preserve(e: AbstractExpression, out: AbstractExpression) -> AbstractExpression:
-    return complete_indices(e, out)
+def _preserve(e: AbstractExpression, out: AbstractExpression) -> AbstractExpression:
+    return _complete_indices(e, out)
 
 
-def operator_rule(e: AbstractExpression) -> AbstractExpression:
+def _operator_rule(e: AbstractExpression) -> AbstractExpression:
     # Use only contracts already supplied by core operations. No holomorphic test.
     if isinstance(e, Action) and not isinstance(e.argument, tuple):
-        coefficient, factors = split_product(e.argument)
-        if coefficient == ZERO:
+        coefficient, factors = _split_product(e.argument)
+        if coefficient == _ZERO:
             return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
-        if coefficient != ONE:
-            arg = scaled(ONE, factors)
-            return multiply(literal(coefficient), Action(e.form, e.position, arg))
+        if coefficient != _ONE:
+            arg = _scaled(_ONE, factors)
+            return multiply(_literal(coefficient), Action(e.form, e.position, arg))
     if isinstance(e, Product):
-        coefficient, factors = split_product(e)
-        if coefficient != ONE and len(factors) == 1 and isinstance(factors[0], Form):
+        coefficient, factors = _split_product(e)
+        if coefficient != _ONE and len(factors) == 1 and isinstance(factors[0], Form):
             f = factors[0]
-            return Form(multiply(literal(coefficient), f.expression), f.arguments)
+            return Form(multiply(_literal(coefficient), f.expression), f.arguments)
     if isinstance(e, Sum) and isinstance(e.first, Form) and isinstance(e.second, Form):
         if e.first.arguments == e.second.arguments:
             return Form(add(e.first.expression, e.second.expression), e.first.arguments)
     if isinstance(e, Conjugate):
-        coefficient, factors = split_product(e.operand)
-        if factors and coefficient != ONE:
-            return multiply(literal((coefficient[0], -coefficient[1])), Conjugate(product(factors)))
+        coefficient, factors = _split_product(e.operand)
+        if factors and coefficient != _ONE:
+            return multiply(
+                _literal((coefficient[0], -coefficient[1])), Conjugate(_product(factors))
+            )
     return e
 
 
-def rewrite(e: AbstractExpression) -> AbstractExpression:
+def _rewrite(e: AbstractExpression) -> AbstractExpression:
     if e.value_shape:
         return e
     if isinstance(e, Sum | Product):
-        return preserve(e, collected(e))
+        return _preserve(e, _collected(e))
     if isinstance(e, Conjugate):
         if isinstance(e.operand, Complex):
             a, b = e.operand.real, e.operand.imag
@@ -185,21 +191,21 @@ def rewrite(e: AbstractExpression) -> AbstractExpression:
             return Complex(a, imag)
         if isinstance(e.operand, Conjugate):
             return e.operand.operand
-        if (value := number(e.operand)) is not None:
-            return literal((value[0], -value[1]))
+        if (value := _number(e.operand)) is not None:
+            return _literal((value[0], -value[1]))
     return e
 
 
-def normalizer() -> Callable[[AbstractExpression], AbstractExpression]:
+def _normalizer() -> Callable[[AbstractExpression], AbstractExpression]:
     """Build a normalisation traversal with a memo local to one lowering call."""
 
     def walk(
         walk: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression
     ) -> AbstractExpression:
-        new = map_values(e, walk, lowered(e))
-        moved = operator_rule(new)
+        new = _map_values(e, walk, _lowered(e))
+        moved = _operator_rule(new)
         if moved is not new:
-            return walk(preserve(new, moved))
-        return preserve(new, rewrite(new))
+            return walk(_preserve(new, moved))
+        return _preserve(new, _rewrite(new))
 
-    return memoized(walk)
+    return _memoized(walk)

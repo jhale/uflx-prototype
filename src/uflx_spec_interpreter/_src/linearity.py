@@ -32,17 +32,17 @@ from .nodes import (
     Tensor,
     Zero,
 )
-from .nodes.forms import entry_function
-from .substitution import memoized, occurs
-from .tuples import members
+from .nodes.forms import _entry_function
+from .substitution import _memoized, _occurs
+from .tuples import _members
 
-ZERO: frozenset[tuple[int, int]] = frozenset()
-CONSTANT = frozenset({(0, 0)})
-LINEAR = frozenset({(1, 0)})
-ANTILINEAR = frozenset({(0, 1)})
+_ZERO: frozenset[tuple[int, int]] = frozenset()
+_CONSTANT = frozenset({(0, 0)})
+_LINEAR = frozenset({(1, 0)})
+_ANTILINEAR = frozenset({(0, 1)})
 
 
-Dependence = Literal[
+_Dependence = Literal[
     "zero",
     "independent",
     "complex-linear",
@@ -53,9 +53,13 @@ Dependence = Literal[
 ]
 
 
-def dependence(
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_argument_dependence", "_dependence"]
+
+
+def _dependence(
     expression: AbstractExpression, variables: Function | tuple[Function, ...]
-) -> Dependence:
+) -> _Dependence:
     """Certify dependence on free functions, treating other data as fixed.
 
     Args:
@@ -88,7 +92,7 @@ def dependence(
     the validity of declarations inside opaque forms. Unknown must not be used
     as a verdict that a form is invalid or nonlinear. No nodes are rewritten.
     """
-    variables = tuple(members(variables))
+    variables = tuple(_members(variables))
     if not variables:
         raise TypeError("dependence variables must be one or more functions")
     if len(set(variables)) != len(variables):
@@ -110,23 +114,23 @@ def dependence(
         e: AbstractExpression,
     ) -> frozenset[tuple[int, int]] | None:
         if isinstance(e, Zero) or (isinstance(e, Integer) and e.value == 0):
-            return ZERO
+            return _ZERO
         if e in variables:
-            return LINEAR
-        if not any(occurs(v, e) for v in variables):
-            return CONSTANT
+            return _LINEAR
+        if not any(_occurs(v, e) for v in variables):
+            return _CONSTANT
         match e:
             case Sum(a, b):
                 return union((walk(a), walk(b)))
             case Product(a, b):
                 left, right = walk(a), walk(b)
-                if left == ZERO or right == ZERO:
-                    return ZERO
+                if left == _ZERO or right == _ZERO:
+                    return _ZERO
                 if left is None or right is None:
                     return None
                 # Cap degrees: only constant and degree-one certificates are needed.
                 return frozenset((min(2, p + r), min(2, q + s)) for p, q in left for r, s in right)
-            case Division(a, b) if not any(occurs(v, b) for v in variables):
+            case Division(a, b) if not any(_occurs(v, b) for v in variables):
                 return walk(a)
             case Conjugate(a):
                 result = walk(a)
@@ -141,7 +145,7 @@ def dependence(
             case Indexed():
                 # Gather indices can themselves carry expression dependencies.
                 if any(
-                    any(occurs(v, i) for v in variables)
+                    any(_occurs(v, i) for v in variables)
                     for i in e.indices
                     if not isinstance(i, int)
                 ):
@@ -153,31 +157,31 @@ def dependence(
                     return None
                 return walk(e.expression)
             case Action():
-                if any(occurs(v, e.form) for v in variables):
+                if any(_occurs(v, e.form) for v in variables):
                     return None
-                return union(walk(a) for a in members(e.argument))
+                return union(walk(a) for a in _members(e.argument))
             case _:
                 return None
 
-    result = memoized(degrees)(expression)
-    if result == ZERO:
+    result = _memoized(degrees)(expression)
+    if result == _ZERO:
         return "zero"
-    if result == CONSTANT:
+    if result == _CONSTANT:
         return "independent"
-    if real_variables and result is not None and result <= LINEAR | ANTILINEAR:
+    if real_variables and result is not None and result <= _LINEAR | _ANTILINEAR:
         return "real-linear"
-    if result == LINEAR:
+    if result == _LINEAR:
         return "complex-linear"
-    if result == ANTILINEAR:
+    if result == _ANTILINEAR:
         return "complex-antilinear"
-    if result is not None and result <= LINEAR | ANTILINEAR:
+    if result is not None and result <= _LINEAR | _ANTILINEAR:
         return "real-linear"
-    if result is not None and result <= CONSTANT | LINEAR | ANTILINEAR:
+    if result is not None and result <= _CONSTANT | _LINEAR | _ANTILINEAR:
         return "affine"
     return "unknown"
 
 
-def argument_dependence(form: Form, position: int) -> Dependence:
+def _argument_dependence(form: Form, position: int) -> _Dependence:
     """Inspect an entry introduced by an explicit Form, without validating it.
 
     Args:
@@ -206,4 +210,4 @@ def argument_dependence(form: Form, position: int) -> Dependence:
     if not 0 <= position < len(form.arguments):
         raise ValueError("argument position is outside the explicit binding entries")
     entry = form.arguments[position]
-    return dependence(form.expression, tuple(entry_function(v) for v in members(entry)))
+    return _dependence(form.expression, tuple(_entry_function(v) for v in _members(entry)))

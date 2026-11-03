@@ -15,23 +15,27 @@ from .nodes import (
     Integer,
     ScalarType,
 )
-from .nodes.forms import entry_function
-from .substitution import occurs
-from .tuples import each, members
+from .nodes.forms import _entry_function
+from .substitution import _occurs
+from .tuples import _each, _members
 
 if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
-    from .types import Construction
+    from .types import _Construction
 
 
-def entry_fns(
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_entry_fns", "action", "form", "function", "gateaux_derivative"]
+
+
+def _entry_fns(
     entry: Function | Conjugate | tuple[Function | Conjugate, ...],
 ) -> tuple[Function, ...]:
     # The functions of an entry, without the conjugate of an entry conjugate(v).
-    return tuple(entry_function(m) for m in members(entry))
+    return tuple(_entry_function(m) for m in _members(entry))
 
 
-def function(V: AbstractFunctionSpace, label: str | tuple[Construction, ...]) -> Function:
+def function(V: AbstractFunctionSpace, label: str | tuple[_Construction, ...]) -> Function:
     return Function(V, label)
 
 
@@ -86,7 +90,7 @@ def gateaux_derivative(
     preconditions, not checked here. General node validity is assumed;
     admissibility uses static signatures rather than proving space membership.
     """
-    xs, points, entries = members(x), members(a), members(w)
+    xs, points, entries = _members(x), _members(a), _members(w)
     if isinstance(x, tuple) and len(x) < 2:
         raise ValueError("a tuple variable must have at least two members")
     if any(v.argument_spaces and not isinstance(v.space, DualSpace) for v in xs):
@@ -97,8 +101,8 @@ def gateaux_derivative(
         raise ValueError("variable, point and argument must have matching lengths")
     if len(set(xs)) != len(xs):
         raise ValueError("derivative variables must be distinct")
-    directions = each(entry_function, w)
-    ws = members(directions)
+    directions = _each(_entry_function, w)
+    ws = _members(directions)
     if len(set(ws)) != len(ws):
         raise ValueError("direction binders must be distinct")
     if len({isinstance(v, Conjugate) for v in entries}) != 1:
@@ -121,7 +125,7 @@ def gateaux_derivative(
             if index in extents and extents[index] != extent:
                 raise ValueError("shared free indices must have matching extents")
             extents[index] = extent
-    if any(occurs(v, e) for v in ws for e in (F, *points)):
+    if any(_occurs(v, e) for v in ws for e in (F, *points)):
         raise ValueError("direction binders must not be free in the expression or point")
     delta = DirectionalDerivative(F, x, a, directions)
     if xs[0].space.scalar_type == ScalarType.real:
@@ -131,7 +135,7 @@ def gateaux_derivative(
     def rotate(v: Function) -> AbstractExpression:
         return multiply(i, v)
 
-    rotated = each(rotate, directions)
+    rotated = _each(rotate, directions)
     sign = i if isinstance(entries[0], Conjugate) else multiply(Integer(-1), i)
     second = multiply(sign, DirectionalDerivative(F, x, a, rotated))
     return Form(multiply(divide(Integer(1), Integer(2)), add(delta, second)), (w,))

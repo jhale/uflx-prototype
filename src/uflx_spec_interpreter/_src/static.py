@@ -13,48 +13,62 @@ if TYPE_CHECKING:
 
 
 # The free functions read the static type of an expression.
-def shape(e: AbstractExpression) -> tuple[int | AbstractExtent, ...]:
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = [
+    "_arity",
+    "_complete_indices",
+    "_field_terminal",
+    "_free",
+    "_free_indices",
+    "_promote",
+    "_shape",
+    "_support",
+    "_zero_like",
+]
+
+
+def _shape(e: AbstractExpression) -> tuple[int | AbstractExtent, ...]:
     return e.value_shape
 
 
-def free(e: AbstractExpression) -> dict[Index, int | AbstractExtent]:
+def _free(e: AbstractExpression) -> dict[Index, int | AbstractExtent]:
     return dict(e.free_indices)
 
 
-def arity(e: AbstractExpression) -> int:
+def _arity(e: AbstractExpression) -> int:
     return len(e.argument_spaces)
 
 
-def support(e: AbstractExpression) -> AbstractDomain | AbstractTopology | None:
+def _support(e: AbstractExpression) -> AbstractDomain | AbstractTopology | None:
     return e.domain
 
 
-def free_indices(*es: AbstractExpression) -> tuple[tuple[Index, int | AbstractExtent], ...]:
+def _free_indices(*es: AbstractExpression) -> tuple[tuple[Index, int | AbstractExtent], ...]:
     merged: dict[Index, int | AbstractExtent] = {}
     for e in es:
-        merged |= free(e)
+        merged |= _free(e)
     return tuple(merged.items())
 
 
-def zero_like(
+def _zero_like(
     f: AbstractExpression,
     argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...],
     *others: AbstractExpression,
 ) -> Zero:
     return Zero(
-        shape(f),
-        free_indices(f, *others),
+        _shape(f),
+        _free_indices(f, *others),
         argument_spaces,
         f.scalar_type,
     )
 
 
-def field_terminal(e: Base) -> bool:
+def _field_terminal(e: Base) -> bool:
     # Literal terminals have their own evaluation rows; fields may remain unevaluated.
     return e.is_terminal and not isinstance(e, (Integer, Float, Complex, Zero))
 
 
-def complete_indices(
+def _complete_indices(
     original: AbstractExpression, replacement: AbstractExpression
 ) -> AbstractExpression:
     """Restore a rewrite's lost family indices, rejecting incompatible signatures.
@@ -63,24 +77,24 @@ def complete_indices(
     restoring indices. Call before rebuilding a parent that binds an index.
     """
     if (
-        shape(original) != shape(replacement)
+        _shape(original) != _shape(replacement)
         or original.argument_spaces != replacement.argument_spaces
     ):
         raise ValueError("index completion requires matching shapes and argument spaces")
     if replacement.domain not in (None, original.domain):
         raise ValueError("a replacement changes domain")
-    expected, actual = free(original), free(replacement)
+    expected, actual = _free(original), _free(replacement)
     if any(i not in expected or expected[i] != n for i, n in actual.items()):
         raise ValueError("a replacement introduces an index or changes its extent")
-    replacement = promote(original, replacement)
+    replacement = _promote(original, replacement)
     if actual.keys() == expected.keys():
         return replacement
     from .arithmetic import add
 
-    return add(replacement, zero_like(original, original.argument_spaces))
+    return add(replacement, _zero_like(original, original.argument_spaces))
 
 
-def promote(original: AbstractExpression, replacement: AbstractExpression) -> AbstractExpression:
+def _promote(original: AbstractExpression, replacement: AbstractExpression) -> AbstractExpression:
     from .arithmetic import multiply
     from .nodes import Complex, Integer, ScalarType
 

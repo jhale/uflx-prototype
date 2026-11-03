@@ -2,10 +2,10 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import RD, domain_map, index_sum, pull_back, tensor
-from uflx_spec_interpreter._src.names import derived_index, derived_indices
+from uflx_spec_interpreter._src.names import _derived_index, _derived_indices
 from uflx_spec_interpreter._src.nodes import Float, Integral
 from uflx_spec_interpreter._src.passes.pullbacks import expand_pull_backs
-from uflx_spec_interpreter._src.substitution import bottom_up
+from uflx_spec_interpreter._src.substitution import _bottom_up
 from uflx_toy.basix_nodes import BasixCell
 
 
@@ -20,7 +20,7 @@ def apply_quadrature(f, degree):
                 return g
         return e
 
-    return expand_pull_backs(bottom_up(f, rewrite))
+    return expand_pull_backs(_bottom_up(f, rewrite))
 
 
 def rule(g, K, degree):
@@ -30,7 +30,7 @@ def rule(g, K, degree):
     points, weights = constant(X), constant(w)
     # The index is named by the rule alone, so the geometry at the points is one node in every
     # integral, and the pull-back makes an inner sum over the same rule fresh.
-    q = derived_index("compiler.quadrature", K, degree)
+    q = _derived_index("compiler.quadrature", K, degree)
     return index_sum(weights[q] * pull_back(g, domain_map(RD(0), points[q], K)), (q,))
 
 
@@ -38,7 +38,7 @@ def product_rule(g, K, degree):
     # Coordinate k of the points reads only its own index, which tabulation reads as separable.
     X, w = basix.make_quadrature(basix.CellType.interval, degree)
     X, w = constant(X[:, 0]), constant(w)
-    q = derived_indices("compiler.quadrature", (K, degree), K.dimension)
+    q = _derived_indices("compiler.quadrature", (K, degree), K.dimension)
     points = tensor(tuple(X[i] for i in q))
     weight = w[q[0]]
     for i in q[1:]:

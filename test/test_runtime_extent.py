@@ -57,7 +57,7 @@ def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():
         pullbacks.expand_pull_backs,
     ):
         out = apply(out)
-    assert gradients.in_n6(out)
+    assert gradients._in_n6(out)
     assert contains(e, lambda n: isinstance(n, PullBack))
     assert not contains(out, lambda n: isinstance(n, PullBack))
 

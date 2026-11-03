@@ -3,11 +3,11 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, final
 
-from ..interning import cached
+from ..interning import _cached
 from .base import Base
 
 if TYPE_CHECKING:
-    from ..types import Construction
+    from ..types import _Construction
 
 
 class AbstractExtent(Base):
@@ -18,7 +18,7 @@ class AbstractExtent(Base):
 @final
 class Index(Base):
     identifier = "uflx.Index"
-    label: str | tuple[Construction, ...]
+    label: str | tuple[_Construction, ...]
     labels = ("label",)
 
 
@@ -46,13 +46,13 @@ class GatheredIndex(Base):
         return self.table.extent
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        from ..validation import entries
+        from ..validation import _entries
 
-        return entries(self.table.shape, self.indices)
+        return _entries(self.table.shape, self.indices)
 
     def _validate(self) -> None:
-        from ..validation import entries
+        from ..validation import _entries
 
-        entries(self.table.shape, self.indices)
+        _entries(self.table.shape, self.indices)

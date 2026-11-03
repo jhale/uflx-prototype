@@ -4,6 +4,9 @@ from typing import overload
 
 from .nodes import AbstractFunctionSpace, ConjugateSpace, DualSpace, ScalarType
 
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_conjugated", "conjugate_space", "dual_space"]
+
 
 def conjugate_space(V: AbstractFunctionSpace) -> AbstractFunctionSpace:
     return (
@@ -20,13 +23,13 @@ def dual_space(
 
 
 @overload
-def conjugated(S: AbstractFunctionSpace) -> AbstractFunctionSpace: ...
+def _conjugated(S: AbstractFunctionSpace) -> AbstractFunctionSpace: ...
 @overload
-def conjugated(S: tuple[AbstractFunctionSpace, ...]) -> tuple[AbstractFunctionSpace, ...]: ...
-def conjugated(
+def _conjugated(S: tuple[AbstractFunctionSpace, ...]) -> tuple[AbstractFunctionSpace, ...]: ...
+def _conjugated(
     S: AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...],
 ) -> AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...]:
     # The conjugate of an argument space, so that conjugating twice gives the space back.
     if isinstance(S, tuple):
-        return tuple(conjugated(V) for V in S)
+        return tuple(_conjugated(V) for V in S)
     return S.space if isinstance(S, ConjugateSpace) else conjugate_space(S)

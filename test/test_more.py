@@ -19,9 +19,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.literals import zero
+from uflx_spec_interpreter._src.literals import _zero
 from uflx_spec_interpreter._src.passes import actions
-from uflx_spec_interpreter._src.static import arity
+from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
 rng = np.random.default_rng(2)
@@ -45,12 +45,12 @@ c, c2 = tensor((num(1), num(2))), tensor((num(3), num(-1)))
 
 def check(name, e, ienv=None, vals=None):
     out = actions.apply_actions(e)
-    n = arity(e)
+    n = _arity(e)
     vals = vals if vals is not None else tuple(cplx() for _ in range(n))
     before = evaluate(e, env, ienv)(vals)
     after = evaluate(out, env, ienv)(vals)
     assert np.allclose(before, after, atol=1e-5), name
-    assert actions.in_n2(out), name
+    assert actions._in_n2(out), name
     assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))
 
 
@@ -62,7 +62,7 @@ def test_cases():
     for kk in range(2):
         check(
             f"zero form, argument with family index i = {kk}",
-            action(zero((), (), (V, V), ScalarType.real), 1, multiply(indexed(c, (i,)), w)),
+            action(_zero((), (), (V, V), ScalarType.real), 1, multiply(indexed(c, (i,)), w)),
             {i: kk},
         )
     check("form divided by a scalar", action(divide(F, num(3)), 0, z))

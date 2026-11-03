@@ -30,8 +30,8 @@ def interpolate(V, f, coordinates):
 
 
 def value(e, env):
-    out = gradients.lower(integrals.expand_integrals(e))
-    assert gradients.in_n6(out)
+    out = gradients._lower(integrals.expand_integrals(e))
+    assert gradients._in_n6(out)
     before, after = evaluate(e, env)(()), evaluate(out, env)(())
     assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
     return np.real(after)

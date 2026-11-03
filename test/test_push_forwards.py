@@ -19,7 +19,7 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._draft import curl, divergence, image, push_forward
 from uflx_spec_interpreter._src.nodes import Gradient, PushForward
 from uflx_spec_interpreter._src.passes import gradients
-from uflx_spec_interpreter._src.substitution import everywhere
+from uflx_spec_interpreter._src.substitution import _everywhere
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
@@ -54,7 +54,7 @@ def by_label(env):
 
 def lowered(e):
     found = []
-    everywhere(compile_form(e, 2), lambda n: not isinstance(n, PushForward) or not found.append(n))
+    _everywhere(compile_form(e, 2), lambda n: not isinstance(n, PushForward) or not found.append(n))
     return not found
 
 
@@ -91,8 +91,8 @@ def test_a_raviart_thomas_function_pushed_forward_agrees_with_the_oracle():
 def second_derivatives(e):
     # The gradients of gradients in the lowered form, such as the derivative of the Jacobian.
     found = []
-    everywhere(
-        gradients.lower(expand_integrals(e)),
+    _everywhere(
+        gradients._lower(expand_integrals(e)),
         lambda n: (
             not (isinstance(n, Gradient) and isinstance(n.expression, Gradient))
             or not found.append(n)

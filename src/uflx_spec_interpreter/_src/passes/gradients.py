@@ -4,9 +4,9 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from ..arithmetic import multiply
-from ..calculus import rotation_of_gradient, trace_of_gradient
-from ..domains import is_cell
-from ..names import derived_index, derived_indices
+from ..calculus import _rotation_of_gradient, _trace_of_gradient
+from ..domains import _is_cell
+from ..names import _derived_index, _derived_indices
 from ..nodes import (
     Absolute,
     Action,
@@ -42,14 +42,14 @@ from ..nodes import (
     Tensor,
     Zero,
 )
-from ..static import field_terminal, free_indices, shape, support
-from ..substitution import bottom_up, everywhere, memoized
-from ..tensors import identity
-from .actions import apply_actions, retained
-from .derivative_table import derivative_of_node
-from .piola import piola_law
+from ..static import _field_terminal, _free_indices, _shape, _support
+from ..substitution import _bottom_up, _everywhere, _memoized
+from ..tensors import _identity
+from .actions import _retained, apply_actions
+from .derivative_table import _derivative_of_node
+from .piola import _piola_law
+from .pullbacks import _remains as _pulled_back_remains
 from .pullbacks import expand_pull_backs
-from .pullbacks import remains as pulled_back_remains
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
@@ -57,7 +57,11 @@ if TYPE_CHECKING:
     from ..nodes.indices import Index
 
 
-def rule(
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_allowed", "_in_n6", "_lower", "apply_gradients"]
+
+
+def _rule(
     partial: Callable[[AbstractExpression, AbstractDomain, Index], AbstractExpression],
     f: AbstractExpression,
     P: AbstractDomain,
@@ -67,79 +71,81 @@ def rule(
     match f:
         case Action(A, p, g):
             return Action(partial(A, P, j), p, g)
-        case _ if support(f) is None:
+        case _ if _support(f) is None:
             return Zero(
-                shape(f),
-                (*free_indices(f), (j, P.ambient_coordinate_domain.dimension)),
+                _shape(f),
+                (*_free_indices(f), (j, P.ambient_coordinate_domain.dimension)),
                 f.argument_spaces,
                 f.scalar_type,
             )
         case Coordinate() if P.dimension == P.ambient_coordinate_domain.dimension:
-            i = derived_index("uflx.apply_gradients", f, P)
+            i = _derived_index("uflx.apply_gradients", f, P)
             return ComponentTensor(
-                Indexed(identity(P.ambient_coordinate_domain.dimension), (i, j)), (i,)
+                Indexed(_identity(P.ambient_coordinate_domain.dimension), (i, j)), (i,)
             )
-        case PullBack(g, DomainMap() as phi) if chained(f):
+        case PullBack(g, DomainMap() as phi) if _chained(f):
             # The chain rule, because a library gives the gradient of a function on a cell only.
-            axes = derived_indices("uflx.apply_gradients", (f, P), len(shape(f)))
-            r = derived_index("uflx.apply_gradients", f, P, "r")
+            axes = _derived_indices("uflx.apply_gradients", (f, P), len(_shape(f)))
+            r = _derived_index("uflx.apply_gradients", f, P, "r")
             outer = Indexed(PullBack(Gradient(g, phi.ambient_domain), phi), (*axes, r))
             inner = Indexed(partial(phi.parameterisation, P, j), (r,))
             entry = IndexSum(multiply(outer, inner), (r,))
             return ComponentTensor(entry, axes) if axes else entry
-        case _ if remains(f, P):
-            axes = derived_indices("uflx.apply_gradients", (f, P), len(shape(f)))
+        case _ if _remains(f, P):
+            axes = _derived_indices("uflx.apply_gradients", (f, P), len(_shape(f)))
             entry = Indexed(Gradient(f, P), (*axes, j))
             return ComponentTensor(entry, axes) if axes else entry
         case _:
-            return derivative_of_node(
-                f, lambda b: partial(b, P, j), lambda c: support(c) is None, []
+            return _derivative_of_node(
+                f, lambda b: partial(b, P, j), lambda c: _support(c) is None, []
             )
 
 
-def gradient(
+def _gradient(
     f: AbstractExpression,
     P: AbstractDomain,
     partial: Callable[[AbstractExpression, AbstractDomain, Index], AbstractExpression],
 ) -> AbstractExpression:
-    j = derived_index("uflx.apply_gradients", f, P, "j")
-    axes = derived_indices("uflx.apply_gradients", (f, P), len(shape(f)))
+    j = _derived_index("uflx.apply_gradients", f, P, "j")
+    axes = _derived_indices("uflx.apply_gradients", (f, P), len(_shape(f)))
     df = partial(f, P, j)
     return ComponentTensor(Indexed(df, axes) if axes else df, (*axes, j))
 
 
-def chained(f: AbstractExpression) -> bool:
+def _chained(f: AbstractExpression) -> bool:
     # A pull-back by a domain map that is not a cell, whose gradient is the chain rule.
-    return isinstance(f, PullBack) and isinstance(f.map, DomainMap) and not is_cell(f.map)
+    return isinstance(f, PullBack) and isinstance(f.map, DomainMap) and not _is_cell(f.map)
 
 
-def remains(f: AbstractExpression, P: AbstractDomain) -> bool:
+def _remains(f: AbstractExpression, P: AbstractDomain) -> bool:
     # Field and spatial-operator gradients remain, except the coordinate identity
     # and the chain rule.
     identity = isinstance(f, Coordinate) and P.dimension == P.ambient_coordinate_domain.dimension
-    leaf = field_terminal(f) or isinstance(f, PullBack | Gradient | PushForward | Divergence | Curl)
-    return leaf and not identity and not chained(f)
+    leaf = _field_terminal(f) or isinstance(
+        f, PullBack | Gradient | PushForward | Divergence | Curl
+    )
+    return leaf and not identity and not _chained(f)
 
 
 def apply_gradients(f: AbstractExpression) -> AbstractExpression:
     # Inner gradients first, then the rule for the expression of each gradient.
-    partial = memoized(rule)
+    partial = _memoized(_rule)
 
     def evaluate(e: AbstractExpression) -> AbstractExpression:
         match e:
-            case Divergence(g, p) if piola_law(e) is None:
-                return apply_gradients(trace_of_gradient(g, p))
-            case Curl(g, p) if piola_law(e) is None:
-                return apply_gradients(rotation_of_gradient(g, p))
-            case Gradient(g, p) if not remains(g, p):
-                return apply_actions(gradient(g, p, partial))
+            case Divergence(g, p) if _piola_law(e) is None:
+                return apply_gradients(_trace_of_gradient(g, p))
+            case Curl(g, p) if _piola_law(e) is None:
+                return apply_gradients(_rotation_of_gradient(g, p))
+            case Gradient(g, p) if not _remains(g, p):
+                return apply_actions(_gradient(g, p, partial))
             case _:
                 return e
 
-    return bottom_up(f, evaluate)
+    return _bottom_up(f, evaluate)
 
 
-def allowed(e: AbstractExpression) -> bool:
+def _allowed(e: AbstractExpression) -> bool:
     # The core normal form, the output grammar N6.
     match e:
         case (
@@ -170,23 +176,23 @@ def allowed(e: AbstractExpression) -> bool:
             | PushForward()
         ):
             return True
-        case _ if field_terminal(e):
+        case _ if _field_terminal(e):
             return True
         case Divergence() | Curl():
-            return piola_law(e) is not None
+            return _piola_law(e) is not None
         case Gradient(f, p):
-            return remains(f, p)
+            return _remains(f, p)
         case Integral(_, p):
             return not isinstance(p, Mesh)
         case PullBack(f, m):
-            return pulled_back_remains(f, m)
+            return _pulled_back_remains(f, m)
         case Action(A, _, _):
-            return retained(A)
+            return _retained(A)
         case _:
             return False
 
 
-def lower(f: AbstractExpression) -> AbstractExpression:
+def _lower(f: AbstractExpression) -> AbstractExpression:
     # apply_gradients and expand_pull_backs until neither rewrites, the stage of the core after
     # expand_integrals. A graph that the passes leave unchanged is the same object. Gradients on
     # the domains of the forms come first, so a gradient of the coordinates is the identity.
@@ -195,5 +201,5 @@ def lower(f: AbstractExpression) -> AbstractExpression:
     return f
 
 
-def in_n6(e: AbstractExpression) -> bool:
-    return everywhere(e, allowed)
+def _in_n6(e: AbstractExpression) -> bool:
+    return _everywhere(e, _allowed)

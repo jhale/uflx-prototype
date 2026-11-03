@@ -10,6 +10,10 @@ if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
 
 
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_zero", "num"]
+
+
 def num(value: int | float | complex) -> AbstractExpression:
     # A convenience for the interpreter examples; expression factories never convert numbers.
     if isinstance(value, complex):
@@ -17,7 +21,7 @@ def num(value: int | float | complex) -> AbstractExpression:
     return Integer(value) if isinstance(value, int) else Float(value)
 
 
-def zero(
+def _zero(
     value_shape: tuple[int | AbstractExtent, ...],
     free_indices: tuple[tuple[Index, int | AbstractExtent], ...],
     argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...],

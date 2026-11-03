@@ -10,12 +10,16 @@ if TYPE_CHECKING:
     from .nodes.domains import AbstractCoordinateDomain, CellMap, DomainMap
 
 
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_geometric_map", "_metric", "density", "inverse_jacobian", "jacobian"]
+
+
 def jacobian(D: DomainMap | CellMap) -> AbstractExpression:
-    source, _ = geometric_map(D)
+    source, _ = _geometric_map(D)
     return Gradient(D.parameterisation, source)
 
 
-def metric(D: DomainMap | CellMap) -> AbstractExpression:
+def _metric(D: DomainMap | CellMap) -> AbstractExpression:
     # JᵀJ, the metric that the parameterisation induces on its parameter domain.
     J = jacobian(D)
     return matrix_product(transpose(J), J)
@@ -23,13 +27,13 @@ def metric(D: DomainMap | CellMap) -> AbstractExpression:
 
 def density(D: DomainMap | CellMap) -> AbstractExpression:
     # sqrt(det G), with the closed form |det J| for a cell of the ambient dimension.
-    source, target = geometric_map(D)
+    source, target = _geometric_map(D)
     k, n = source.dimension, target.dimension
     if k == 0:
         return Integer(1)
     if k == n:
         return Absolute(determinant(jacobian(D)))
-    return SquareRoot(determinant(metric(D)))
+    return SquareRoot(determinant(_metric(D)))
 
 
 def inverse_jacobian(D: DomainMap | CellMap) -> AbstractExpression:
@@ -37,7 +41,7 @@ def inverse_jacobian(D: DomainMap | CellMap) -> AbstractExpression:
     return Inverse(jacobian(D))
 
 
-def geometric_map(
+def _geometric_map(
     D: DomainMap | CellMap,
 ) -> tuple[AbstractCoordinateDomain, AbstractCoordinateDomain]:
     from .nodes import AbstractCoordinateDomain, Mesh

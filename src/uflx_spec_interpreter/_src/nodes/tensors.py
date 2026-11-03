@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import cached
+from ..interning import _cached
 from .base import AbstractExpression
 from .indices import Index
 
@@ -22,37 +22,37 @@ class Tensor(AbstractExpression):
     entries: tuple[AbstractExpression, ...]
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return (len(self.entries), *self.entries[0].value_shape)
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(p for x in self.entries for p in x.free_indices).items())
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.entries[0].argument_spaces
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(*self.entries)
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return next((x.domain for x in reversed(self.entries) if x.domain), None)
 
     def _validate(self) -> None:
-        from ..validation import require
+        from ..validation import _require
 
-        require(bool(self.entries), "tensor entries must be nonempty")
-        require(
+        _require(bool(self.entries), "tensor entries must be nonempty")
+        _require(
             all(
                 f.value_shape == self.entries[0].value_shape
                 and f.argument_spaces == self.entries[0].argument_spaces
@@ -72,42 +72,42 @@ class Indexed(AbstractExpression):
     indices: tuple[int | Index | GatheredIndex, ...]
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        from ..validation import entries, merge_indices
+        from ..validation import _entries, _merge_indices
 
-        return merge_indices(
-            self.expression.free_indices, entries(self.expression.value_shape, self.indices)
+        return _merge_indices(
+            self.expression.free_indices, _entries(self.expression.value_shape, self.indices)
         )
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
     def _validate(self) -> None:
-        from ..validation import entries, merge_indices, require
+        from ..validation import _entries, _merge_indices, _require
 
-        require(bool(self.indices), "Indexed requires nonempty entries")
-        merge_indices(
-            self.expression.free_indices, entries(self.expression.value_shape, self.indices)
+        _require(bool(self.indices), "Indexed requires nonempty entries")
+        _merge_indices(
+            self.expression.free_indices, _entries(self.expression.value_shape, self.indices)
         )
 
 
@@ -124,30 +124,30 @@ class ComponentTensor(AbstractExpression):
         return self.indices
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         free = dict(self.expression.free_indices)
         return tuple(free[i] for i in self.indices)
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple((i, n) for i, n in self.expression.free_indices if i not in self.indices)
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
@@ -168,29 +168,29 @@ class IndexSum(AbstractExpression):
         return self.indices
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple((i, n) for i, n in self.expression.free_indices if i not in self.indices)
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
@@ -205,36 +205,36 @@ class Inverse(AbstractExpression):
     operand: AbstractExpression
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return tuple(reversed(self.operand.value_shape))
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.operand)
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import matrix_operand
+        from ..validation import _matrix_operand
 
-        matrix_operand(self.operand, rectangular=True)
+        _matrix_operand(self.operand, rectangular=True)
 
 
 @final
@@ -244,44 +244,46 @@ class Determinant(AbstractExpression):
     operand: AbstractExpression
 
     @property
-    @cached
+    @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
     @property
-    @cached
+    @_cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @cached
+    @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.operand)
 
     @property
-    @cached
+    @_cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import matrix_operand
+        from ..validation import _matrix_operand
 
-        matrix_operand(self.operand)
+        _matrix_operand(self.operand)
 
 
 def _validate_index_binding(e: ComponentTensor | IndexSum) -> None:
-    from ..validation import require
+    from ..validation import _require
 
-    require(
+    _require(
         bool(e.indices) and len(set(e.indices)) == len(e.indices),
         "bound indices must be nonempty and distinct",
     )
-    require(e.expression.value_shape == (), "index binding requires a scalar")
-    require(all(i in dict(e.expression.free_indices) for i in e.indices), "bound index is not free")
+    _require(e.expression.value_shape == (), "index binding requires a scalar")
+    _require(
+        all(i in dict(e.expression.free_indices) for i in e.indices), "bound index is not free"
+    )

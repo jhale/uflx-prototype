@@ -21,17 +21,17 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._draft import (
-    cell_domain,
+    _cell_domain,
+    _coordinate_function,
     cell_map,
-    coordinate_function,
     image,
     push_forward,
     side_map,
 )
-from uflx_spec_interpreter._src.domains import is_cell
+from uflx_spec_interpreter._src.domains import _is_cell
 from uflx_spec_interpreter._src.nodes import CellMap, Division, Gradient, PullBack
 from uflx_spec_interpreter._src.passes import gradients
-from uflx_spec_interpreter._src.substitution import everywhere
+from uflx_spec_interpreter._src.substitution import _everywhere
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.indices import index_table
@@ -63,17 +63,17 @@ def labelled(env):
 
 def nodes(e):
     found = []
-    everywhere(e, lambda n: found.append(n) or True)
+    _everywhere(e, lambda n: found.append(n) or True)
     return found
 
 
 def test_a_mesh_from_a_coordinate_function_has_the_topology_and_the_cells_of_the_draft():
     D, _ = p1_mesh()
-    x = coordinate_function(D)
+    x = _coordinate_function(D)
     assert D.topology == T and x.domain == T
     g = gathered_index(index_table((1, 0), 2), (index("i"),))
-    C = cell_domain(D, 0, g)
-    assert C.parameterisation == pull_back(x, CellMap(T, 0, g)) and is_cell(C)
+    C = _cell_domain(D, 0, g)
+    assert C.parameterisation == pull_back(x, CellMap(T, 0, g)) and _is_cell(C)
     assert cell_map(T, 0) == CellMap(T, 0, cell_index(T, 0))
 
 
@@ -95,8 +95,8 @@ def test_a_p1_coordinate_function_gives_the_values_of_the_explicit_mesh():
 def test_the_jacobian_of_a_mesh_is_the_reference_gradient_of_the_coordinate_function():
     D, _ = p1_mesh()
     u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
-    out = gradients.lower(expand_integrals(functionals(D, u)[3]))
-    assert gradients.in_n6(out)
+    out = gradients._lower(expand_integrals(functionals(D, u)[3]))
+    assert gradients._in_n6(out)
     # The Jacobian is the reference gradient of the reads of x0 and x1 through the cell maps.
     gradients_of_reads = [
         n.expression.expression.label
@@ -158,13 +158,13 @@ def test_a_gathered_cell_of_a_mesh_reads_the_cells_that_the_entry_selects():
     U = np.random.default_rng(2).normal(size=u.expression.space.num_dofs)
     i, c = index("i"), cell_index(T, 0)
     g = gathered_index(index_table((1, 0), 2), (i,))
-    gathered = index_sum(integral(pull_back(u, cell_domain(D, 0, g)), K), (i,))
-    plain = index_sum(integral(pull_back(u, cell_domain(D, 0)), K), (c,))
+    gathered = index_sum(integral(pull_back(u, _cell_domain(D, 0, g)), K), (i,))
+    plain = index_sum(integral(pull_back(u, _cell_domain(D, 0)), K), (c,))
     env = labelled(geometry) | {"coefficients:u": U}
     value = evaluate(compile_form(gathered, 4), env)
     assert np.isclose(value, evaluate(compile_form(plain, 4), env))
     assert np.isclose(value, oracle(gathered, geometry | {u.expression: U})(()))
-    assert gradients.in_n6(apply_gradients(gathered))
+    assert gradients._in_n6(apply_gradients(gathered))
 
 
 def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
@@ -172,7 +172,7 @@ def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
     # form are cells of the mesh of the user, and its function is the function of the user.
     D, _ = p1_mesh()
     uT = function(basix_space("V", T, P, 2), "u")
-    out = gradients.lower(expand_integrals(functionals(D, push_forward(uT, D))[3]))
+    out = gradients._lower(expand_integrals(functionals(D, push_forward(uT, D))[3]))
     # The function of the user is read through the cell maps of the topology of the user.
     reads = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == uT]
     assert reads and all(n.map.ambient_domain == T for n in reads)
@@ -206,8 +206,8 @@ def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():
     S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     E = side_domain(D, S, S.sides[0][0][0])
     assert E.topology == S
-    assert coordinate_function(E) == pull_back(
-        coordinate_function(D),
+    assert _coordinate_function(E) == pull_back(
+        _coordinate_function(D),
         side_map(T, S, (S.topology if hasattr(S, "topology") else S).sides[0][0][0]),
     )
 

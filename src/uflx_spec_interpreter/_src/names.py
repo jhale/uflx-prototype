@@ -8,10 +8,14 @@ from typing import TYPE_CHECKING
 from .nodes import Base, Index
 
 if TYPE_CHECKING:
-    from .types import Construction
+    from .types import _Construction
 
 
-def derived_index(purpose: str, *dependencies: Construction) -> Index:
+# Shared implementation helpers; the package public API is declared in __init__.py.
+__all__ = ["_derived_index", "_derived_indices", "_is_renamed_label", "_renamed_label"]
+
+
+def _derived_index(purpose: str, *dependencies: _Construction) -> Index:
     """Identify an index by its purpose and ordered structural dependencies.
 
     Keep dependency order and tuple nesting: both are part of existing identity.
@@ -20,14 +24,16 @@ def derived_index(purpose: str, *dependencies: Construction) -> Index:
     return Index((purpose, *dependencies))
 
 
-def derived_indices(purpose: str, operands: tuple[Construction, ...], n: int) -> tuple[Index, ...]:
+def _derived_indices(
+    purpose: str, operands: tuple[_Construction, ...], n: int
+) -> tuple[Index, ...]:
     """Identify each axis by the same operands and its position."""
-    return tuple(derived_index(purpose, *operands, m) for m in range(n))
+    return tuple(_derived_index(purpose, *operands, m) for m in range(n))
 
 
-def renamed_label(
-    node: Base, name: Base, avoid: Sequence[Construction]
-) -> tuple[Construction, ...]:
+def _renamed_label(
+    node: Base, name: Base, avoid: Sequence[_Construction]
+) -> tuple[_Construction, ...]:
     """Record a capture-avoidance identity without referring to its binding node.
 
     The scoped operands, original name and ordered avoidance context distinguish
@@ -37,6 +43,6 @@ def renamed_label(
     return ("uflx.rename", name, body, tuple(avoid))
 
 
-def is_renamed_label(label: object) -> bool:
+def _is_renamed_label(label: object) -> bool:
     """Whether a label records a fixed capture-avoidance identity."""
     return isinstance(label, tuple) and label[:1] == ("uflx.rename",)

@@ -32,10 +32,10 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.literals import zero
+from uflx_spec_interpreter._src.literals import _zero
 from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative
 from uflx_spec_interpreter._src.passes import actions, derivatives
-from uflx_spec_interpreter._src.static import arity, free, shape
+from uflx_spec_interpreter._src.static import _arity, _free, _shape
 from uflx_toy.spaces import space
 
 V, Vd = space("V"), dual_space(space("V"))
@@ -147,12 +147,12 @@ def wrap(rnd, xs, body):
 def derivative(rnd, body, nd):
     if rnd.random() < 0.7:
         x = rnd.choice([u, v, w])
-        f = wrap(rnd, x, body) if arity(body) == 0 else multiply(x, body)
+        f = wrap(rnd, x, body) if _arity(body) == 0 else multiply(x, body)
         point = rnd.choice([x, x, z, add(x, num(0.1))])
         direction = rnd.choice([h, z, num(1), multiply(indexed(c, (kf,)), h)])
     else:
         x = U2
-        f = wrap(rnd, dot(U2, U), body) if arity(body) == 0 else multiply(dot(U2, U), body)
+        f = wrap(rnd, dot(U2, U), body) if _arity(body) == 0 else multiply(dot(U2, U), body)
         point = rnd.choice([U2, U2, U3, tensor((z, h))])
         direction = rnd.choice(
             [tensor((h, z)), component_tensor(multiply(indexed(c, (kf,)), indexed(U3, (m,))), (m,))]
@@ -212,7 +212,7 @@ def random_form(rnd, specs, depth):
         return leaf_form(rnd, specs) if specs else scalar(rnd, 2)
     op = rnd.randrange(9)
     if op == 8:
-        return zero((), (), tuple(spaces(spec) for spec in specs), ScalarType.real)
+        return _zero((), (), tuple(spaces(spec) for spec in specs), ScalarType.real)
     if op == 0:
         return add(random_form(rnd, specs, depth - 1), random_form(rnd, specs, depth - 1))
     if op == 1:
@@ -260,7 +260,10 @@ def main(trials):
             bad["static"] += 1
             if bad["static"] <= 2:
                 print(
-                    "static type changed, seed", seed, (shape(e), free(e)), (shape(out), free(out))
+                    "static type changed, seed",
+                    seed,
+                    (_shape(e), _free(e)),
+                    (_shape(out), _free(out)),
                 )
         if contains(
             e,
@@ -270,11 +273,11 @@ def main(trials):
             ),
         ):
             lazy += 1
-            rejected += not (actions.in_n2(e) and derivatives.in_n3(e))
-        if not (actions.in_n2(out) and derivatives.in_n3(out)):
+            rejected += not (actions._in_n2(e) and derivatives._in_n3(e))
+        if not (actions._in_n2(out) and derivatives._in_n3(out)):
             bad["grammar"] += 1
         vals = tuple(entry_value(rng, s) for s in specs)
-        fr = free(e)
+        fr = _free(e)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             ienv = dict(zip(fr, combo))
             before, after = evaluate(e, env, ienv)(vals), evaluate(out, env, ienv)(vals)

@@ -24,8 +24,8 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.nodes import AbstractExpression, Action, Product, Zero
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
 from uflx_spec_interpreter._src.passes import derivatives
-from uflx_spec_interpreter._src.passes.algebra import normalizer
-from uflx_spec_interpreter._src.substitution import bottom_up, operands
+from uflx_spec_interpreter._src.passes.algebra import _normalizer
+from uflx_spec_interpreter._src.substitution import _bottom_up, _operands
 from uflx_toy.spaces import space
 
 
@@ -35,7 +35,7 @@ def nodes(e):
     def walk(e):
         if e not in seen:
             seen.add(e)
-            for child in operands(e):
+            for child in _operands(e):
                 walk(child)
 
     walk(e)
@@ -43,13 +43,13 @@ def nodes(e):
 
 
 def lower(e):
-    return normalizer()(apply_derivatives(apply_actions(e)))
+    return _normalizer()(apply_derivatives(apply_actions(e)))
 
 
 def test_collection_keeps_cancelled_free_indices():
     k = index("k")
     indexed = tensor((num(2), num(3)))[k]
-    out = normalizer()(indexed - indexed)
+    out = _normalizer()(indexed - indexed)
     assert isinstance(out, Zero)
     assert out.free_indices == ((k, 2),)
 
@@ -58,8 +58,8 @@ def test_scalar_collection_is_idempotent_without_product_expansion():
     V = space("algebra")
     a, b, c, d = (function(V, label) for label in "abcd")
     e = (a + b) * (c + d)
-    out = normalizer()(e)
-    assert normalizer()(out) is out
+    out = _normalizer()(e)
+    assert _normalizer()(out) is out
     assert isinstance(out, Product)
 
 
@@ -139,7 +139,7 @@ class LibraryJVP(AbstractExpression):
 def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
     monkeypatch, expose_direction
 ):
-    original = derivatives.derivative_of_node
+    original = derivatives._derivative_of_node
 
     def library_rule(e, d, constant, avoid, at=lambda e: e):
         if type(e) is LibraryValue:
@@ -149,7 +149,7 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
         return original(e, d, constant, avoid, at)
 
     # Test adapter for an extension-supplied derivative rule, not a new public registry.
-    monkeypatch.setattr(derivatives, "derivative_of_node", library_rule)
+    monkeypatch.setattr(derivatives, "_derivative_of_node", library_rule)
     V = space("opaque-nonlinear")
     u, w = function(V, "u"), function(V, "w")
     a, h = num(0.7 + 0.2j), num(0.3 - 0.1j)
@@ -174,7 +174,7 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
         (minus, conjugate(h), 0),
     ):
         out = lower(action(derivative, 0, argument))
-        resolved = bottom_up(out, supply_library_values)
+        resolved = _bottom_up(out, supply_library_values)
         assert np.isclose(evaluate(resolved, {})(()), expected)
 
 
@@ -183,7 +183,7 @@ def test_zero_action_keeps_family_indices_and_argument_shape(shape):
     V = space("zero-action", value_shape=shape)
     L = function(dual_space(V), "L")
     k = index("family")
-    out = normalizer()(action(L, 0, Zero(shape, ((k, 3),), (), ScalarType.real)))
+    out = _normalizer()(action(L, 0, Zero(shape, ((k, 3),), (), ScalarType.real)))
     assert isinstance(out, Zero)
     assert out.value_shape == ()
     assert out.free_indices == ((k, 3),)
@@ -195,8 +195,8 @@ def test_complex_coefficients_have_a_stable_collected_representation():
 
     u = function(space("complex-coefficients"), "u")
     i = Complex(Integer(0), Integer(1))
-    first = normalizer()(u + i * u)
-    second = normalizer()((num(1) + i) * u)
+    first = _normalizer()(u + i * u)
+    second = _normalizer()((num(1) + i) * u)
     assert first is second
-    assert normalizer()(first) is first
-    assert isinstance(normalizer()(first - second), Zero)
+    assert _normalizer()(first) is first
+    assert isinstance(_normalizer()(first - second), Zero)

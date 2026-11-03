@@ -19,8 +19,13 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.static import complete_indices
-from uflx_spec_interpreter._src.substitution import lowered, map_fields, memoized, substitute_values
+from uflx_spec_interpreter._src.static import _complete_indices
+from uflx_spec_interpreter._src.substitution import (
+    _lowered,
+    _map_fields,
+    _memoized,
+    _substitute_values,
+)
 from uflx_spec_interpreter._src.tensors import determinant
 
 
@@ -29,12 +34,12 @@ def simplify(f):
     # that its value needs. A term that is zero is dropped, a component of a component tensor
     # is the expression at that component, and arithmetic of literals is folded.
     def walk(walk, e):
-        new = map_fields(e, walk, lowered(e))
+        new = _map_fields(e, walk, _lowered(e))
         out = rewritten(new)
         # Finish the child before reconstructing a parent which binds its indices.
-        return complete_indices(e, out if out is new else walk(out))
+        return _complete_indices(e, out if out is new else walk(out))
 
-    return memoized(walk)(f)
+    return _memoized(walk)(f)
 
 
 def zero(e):
@@ -120,7 +125,7 @@ def adjugate(A):
 def instantiated(x, mapping):
     # Binding and free-index substitution have one implementation in the core.
     def fold(walk, e):
-        e = map_fields(e, walk, (*e.value_fields, *e.index_fields))
+        e = _map_fields(e, walk, (*e.value_fields, *e.index_fields))
         if isinstance(e, GatheredIndex) and all(type(i) is int for i in e.indices):
             from uflx_toy.nodes import IndexTable
 
@@ -128,4 +133,4 @@ def instantiated(x, mapping):
                 return int(np.asarray(e.table.values)[e.indices])
         return e
 
-    return memoized(fold)(substitute_values(x, mapping))
+    return _memoized(fold)(_substitute_values(x, mapping))

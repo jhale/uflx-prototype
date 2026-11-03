@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ._src.calculus import curl, divergence
-from ._src.domains import cell_domain, cell_map, coordinate_function, image, transformation_law
+from ._src.domains import _cell_domain, _coordinate_function, cell_map, image, transformation_law
 from ._src.domains import push_forward as _push_forward
 from ._src.domains import side_domain as _side_domain
 from ._src.domains import side_map as _side_map
-from ._src.extensions.shape import apply_shape_derivatives, shape_derivative
+from ._src.extensions.shape import _apply_shape_derivatives, _shape_derivative
 
 if TYPE_CHECKING:
     from ._src.nodes.base import AbstractExpression
@@ -19,15 +19,15 @@ if TYPE_CHECKING:
 # Private compatibility helpers for older interpreter examples and the shape extension.
 
 __all__ = [
-    "apply_shape_derivatives",
-    "cell_domain",
+    "_apply_shape_derivatives",
+    "_cell_domain",
+    "_coordinate_function",
+    "_shape_derivative",
     "cell_map",
-    "coordinate_function",
     "curl",
     "divergence",
     "image",
     "push_forward",
-    "shape_derivative",
     "side_map",
     "transformation_law",
 ]
