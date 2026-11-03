@@ -15,7 +15,6 @@ from .nodes import (
     Integer,
     Product,
     ScalarType,
-    Sum,
 )
 from .nodes.forms import entry_function
 from .substitution import occurs
@@ -129,12 +128,12 @@ def gateaux_derivative(
     if xs[0].space.scalar_type == ScalarType.real:
         return Form(delta, (w,))
     i = Complex(Integer(0), Integer(1))
-    from .arithmetic import multiply
+    from .arithmetic import add, multiply
 
     def rotate(v: Function) -> AbstractExpression:
         return multiply(i, v)
 
     rotated = each(rotate, directions)
     sign = i if isinstance(entries[0], Conjugate) else Product(Integer(-1), i)
-    second = Product(sign, DirectionalDerivative(F, x, a, rotated))
-    return Form(Product(Division(Integer(1), Integer(2)), Sum(delta, second)), (w,))
+    second = multiply(sign, DirectionalDerivative(F, x, a, rotated))
+    return Form(multiply(Division(Integer(1), Integer(2)), add(delta, second)), (w,))
