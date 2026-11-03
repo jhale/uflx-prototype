@@ -1,12 +1,12 @@
 from functools import reduce
 
+from .names import derived_indices
 from .nodes import (
     Absolute,
     ComponentTensor,
     Conjugate,
     Division,
     ImaginaryPart,
-    Index,
     Indexed,
     Integer,
     Logarithm,
@@ -18,34 +18,30 @@ from .nodes import (
 )
 
 
-def derived(name, operands, n):
-    return tuple(Index((name, *operands, m)) for m in range(n))
-
-
 def rank(f):
     return len(f.value_shape)
 
 
 def add(first, second):
     if rank(first) and rank(second):
-        K = derived("uflx.add", (first, second), rank(first))
+        K = derived_indices("uflx.add", (first, second), rank(first))
         return ComponentTensor(Sum(Indexed(first, K), Indexed(second, K)), K)
     return Sum(first, second)
 
 
 def multiply(first, second):
     if rank(second) and not rank(first):
-        K = derived("uflx.multiply", (first, second), rank(second))
+        K = derived_indices("uflx.multiply", (first, second), rank(second))
         return ComponentTensor(Product(first, Indexed(second, K)), K)
     if rank(first) and not rank(second):
-        K = derived("uflx.multiply", (first, second), rank(first))
+        K = derived_indices("uflx.multiply", (first, second), rank(first))
         return ComponentTensor(Product(Indexed(first, K), second), K)
     return Product(first, second)
 
 
 def divide(first, second):
     if rank(first) and not rank(second):
-        K = derived("uflx.divide", (first, second), rank(first))
+        K = derived_indices("uflx.divide", (first, second), rank(first))
         return ComponentTensor(Division(Indexed(first, K), second), K)
     return Division(first, second)
 
@@ -73,7 +69,7 @@ def conjugate(f):
 def entrywise(name, op, f):
     if not rank(f):
         return op(f)
-    K = derived(name, (f,), rank(f))
+    K = derived_indices(name, (f,), rank(f))
     return ComponentTensor(op(Indexed(f, K)), K)
 
 

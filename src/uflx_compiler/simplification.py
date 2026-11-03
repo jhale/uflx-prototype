@@ -1,5 +1,6 @@
 import numpy as np
 
+from uflx_spec_interpreter._src.names import derived_index
 from uflx_spec_interpreter._src.nodes import (
     ComponentTensor,
     Conjugate,
@@ -143,7 +144,7 @@ def instantiated(x, mapping):
             case ComponentTensor(body, bound) | IndexSum(body, bound):
                 inner = {i: k for i, k in mapping.items() if i not in bound}
                 captured = [i for i in bound if i in inner.values()]
-                renames = {i: Index(("compiler.simplify", e, i)) for i in captured}
+                renames = {i: derived_index("compiler.simplify", e, i) for i in captured}
                 if renames:
                     body = walk(body, tuple(renames.items()))
                     bound = tuple(renames.get(i, i) for i in bound)

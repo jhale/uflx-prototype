@@ -1,6 +1,7 @@
 import numpy as np
 
-from uflx_spec_interpreter import component_tensor, index
+from uflx_spec_interpreter import component_tensor
+from uflx_spec_interpreter._src.names import derived_indices
 from uflx_spec_interpreter._src.nodes import Conjugate, Form
 from uflx_spec_interpreter._src.substitution import substitute
 from uflx_spec_interpreter._src.tensors import identity
@@ -21,7 +22,7 @@ def assemble(form, degree):
     rows, replacements = [], {}
     for p, entry in enumerate(arguments):
         v = entry.operand if isinstance(entry, Conjugate) else entry
-        J, k = (index(("compiler.assembly", p, n)) for n in range(2))
+        J, k = derived_indices("compiler.assembly", (p,), 2)
         replacements[coefficients(v)] = component_tensor(identity(v.space.num_dofs)[J, k], (k,))
         rows.append(J)
     e = substitute(e, replacements)

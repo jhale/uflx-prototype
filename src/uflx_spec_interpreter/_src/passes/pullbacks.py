@@ -2,6 +2,7 @@ from ..arithmetic import divide, square_root
 from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..domains import cell_of, inclusion, is_cell
 from ..geometry import density, inverse_jacobian, jacobian
+from ..names import derived_index, derived_indices
 from ..nodes import (
     AbstractExpression,
     CellMap,
@@ -12,7 +13,6 @@ from ..nodes import (
     Division,
     DomainMap,
     Gradient,
-    Index,
     Indexed,
     IndexSum,
     Normal,
@@ -110,14 +110,15 @@ def pointwise(f, m, pb):
     return map_fields(fresh, lambda x: pb(x, m) if isinstance(x, AbstractExpression) else x)
 
 
-def fresh(f, m, n):
-    return Index(("uflx.expand_pull_backs", f, m, n))
+def derived_axis(f, m, axis):
+    """Identify a pull-back axis using the shared structural naming rule."""
+    return derived_index("uflx.expand_pull_backs", f, m, axis)
 
 
 def contract_gradient(gradP, K, f, m):
     # Entry j of the last axis is the sum over r of gradP[..., r] * K[r, j].
-    axes = tuple(fresh(f, m, n) for n in range(len(shape(gradP)) - 1))
-    r, j = fresh(f, m, "r"), fresh(f, m, "j")
+    axes = derived_indices("uflx.expand_pull_backs", (f, m), len(shape(gradP)) - 1)
+    r, j = derived_axis(f, m, "r"), derived_axis(f, m, "j")
     return ComponentTensor(
         IndexSum(Product(Indexed(gradP, (*axes, r)), Indexed(K, (r, j))), (r,)), (*axes, j)
     )
@@ -143,9 +144,9 @@ def transformed(ghat, law, C):
     # by the density on a cell of lower dimension, to the weight.
     J, K = jacobian(C), inverse_jacobian(C)
     r, p = len(shape(ghat)), len(law.variances)
-    lead = tuple(fresh(ghat, C, ("lead", n)) for n in range(r - p))
-    out = tuple(fresh(ghat, C, ("out", n)) for n in range(p))
-    summed = tuple(fresh(ghat, C, ("sum", n)) for n in range(p))
+    lead = tuple(derived_axis(ghat, C, ("lead", n)) for n in range(r - p))
+    out = tuple(derived_axis(ghat, C, ("out", n)) for n in range(p))
+    summed = tuple(derived_axis(ghat, C, ("sum", n)) for n in range(p))
     value = Indexed(ghat, (*lead, *summed))
     for variance, i, s in zip(law.variances, out, summed, strict=True):
         M = Indexed(K, (s, i)) if variance == "covariant" else Indexed(J, (i, s))

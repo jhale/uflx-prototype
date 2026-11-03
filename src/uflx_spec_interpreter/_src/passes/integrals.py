@@ -1,10 +1,10 @@
 from ..arithmetic import total
 from ..domains import cell_domain
 from ..geometry import density
+from ..names import derived_indices
 from ..nodes import (
     ComponentTensor,
     DecomposedDomain,
-    Index,
     Indexed,
     IndexSum,
     Integral,
@@ -19,7 +19,7 @@ def rule(e):
     # The rows of expand_integrals, for an Integral over a decomposed domain.
     match e:
         case Integral(f, DecomposedDomain() as D) if shape(f):
-            K = tuple(Index(("uflx.expand_integrals", f, D, m)) for m in range(len(shape(f))))
+            K = derived_indices("uflx.expand_integrals", (f, D), len(shape(f)))
             return ComponentTensor(rule(Integral(Indexed(f, K), D)), K)
         case Integral(f, DecomposedDomain(pieces) as D):
             return total(piece_integral(f, D, j) for j in range(len(pieces)))

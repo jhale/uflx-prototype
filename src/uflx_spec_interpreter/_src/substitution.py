@@ -1,5 +1,6 @@
 import weakref
 
+from .names import is_renamed_label, renamed_label
 from .nodes import AbstractExpression, Base, EllipsisIndex, Function, Index
 
 
@@ -78,8 +79,7 @@ def scoped(r, e):
 
 def rename(node, name, avoid):
     # The label refers to the bound operands and to avoid, never to the binding node.
-    body = tuple(getattr(node, f) for f in node.scope)
-    label = ("uflx.rename", name, body, tuple(avoid))
+    label = renamed_label(node, name, avoid)
     if isinstance(name, Index | EllipsisIndex):
         return type(name)(label)
     if isinstance(name, Function):
@@ -107,8 +107,9 @@ def substituted(walk, e, items):
         return mapping[e]
     if e.labels:
         # A derived name with a replaced object in its label is rebuilt, and a renamed name is not.
-        renamed = isinstance(e.label, tuple) and e.label[:1] == ("uflx.rename",)
-        return e if renamed else map_fields(e, lambda x: walk(x, items), e.labels)
+        if is_renamed_label(e.label):
+            return e
+        return map_fields(e, lambda x: walk(x, items), e.labels)
     if not e.scope:
         return map_fields(e, lambda x: walk(x, items))
     inner = {r: s for r, s in mapping.items() if not any(occurs(n, r) for n in e.bound())}

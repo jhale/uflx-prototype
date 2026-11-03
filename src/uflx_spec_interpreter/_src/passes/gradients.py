@@ -1,4 +1,5 @@
 from ..domains import is_cell
+from ..names import derived_index, derived_indices
 from ..nodes import (
     Absolute,
     Action,
@@ -17,7 +18,6 @@ from ..nodes import (
     Gradient,
     ImaginaryPart,
     ImaginaryUnit,
-    Index,
     Indexed,
     IndexSum,
     Integer,
@@ -53,28 +53,28 @@ def rule(partial, f, P, j):
                 f.argument_spaces,
             )
         case Coordinate() if P.dimension == P.ambient_coordinate_domain.dimension:
-            i = Index(("uflx.apply_gradients", f, P))
+            i = derived_index("uflx.apply_gradients", f, P)
             return ComponentTensor(
                 Indexed(identity(P.ambient_coordinate_domain.dimension), (i, j)), (i,)
             )
         case PullBack(g, phi) if chained(f):
             # The chain rule, because a library gives the gradient of a function on a cell only.
-            axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
-            r = Index(("uflx.apply_gradients", f, P, "r"))
+            axes = derived_indices("uflx.apply_gradients", (f, P), len(shape(f)))
+            r = derived_index("uflx.apply_gradients", f, P, "r")
             outer = Indexed(PullBack(Gradient(g, phi.ambient_domain), phi), (*axes, r))
             inner = Indexed(partial(phi.parameterisation, P, j), (r,))
             entry = IndexSum(Product(outer, inner), (r,))
             return ComponentTensor(entry, axes) if axes else entry
         case _ if remains(f, P):
-            axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
+            axes = derived_indices("uflx.apply_gradients", (f, P), len(shape(f)))
             entry = Indexed(Gradient(f, P), (*axes, j))
             return ComponentTensor(entry, axes) if axes else entry
     return derivative_of_node(f, lambda b: partial(b, P, j), lambda c: support(c) is None, [])
 
 
 def gradient(f, P, partial):
-    j = Index(("uflx.apply_gradients", f, P, "j"))
-    axes = tuple(Index(("uflx.apply_gradients", f, P, n)) for n in range(len(shape(f))))
+    j = derived_index("uflx.apply_gradients", f, P, "j")
+    axes = derived_indices("uflx.apply_gradients", (f, P), len(shape(f)))
     df = partial(f, P, j)
     return ComponentTensor(Indexed(df, axes) if axes else df, (*axes, j))
 

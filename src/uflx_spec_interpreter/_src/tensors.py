@@ -1,7 +1,8 @@
 from functools import reduce
 from itertools import combinations, permutations
 
-from .arithmetic import derived, divide, rank, total
+from .arithmetic import divide, rank, total
+from .names import derived_indices
 from .nodes import (
     ComponentTensor,
     EllipsisIndex,
@@ -52,12 +53,12 @@ def permutation_tensor(n):
 
 
 def transpose(A):
-    k, l = derived("uflx.transpose", (A,), 2)
+    k, l = derived_indices("uflx.transpose", (A,), 2)
     return ComponentTensor(Indexed(A, (k, l)), (l, k))
 
 
 def matrix_product(first, second):
-    i, k, j = derived("uflx.matrix_product", (first, second), 3)
+    i, k, j = derived_indices("uflx.matrix_product", (first, second), 3)
     a = (i,) if rank(first) == 2 else ()
     b = (j,) if rank(second) == 2 else ()
     contracted = IndexSum(Product(Indexed(first, (*a, k)), Indexed(second, (k, *b))), (k,))
@@ -66,7 +67,7 @@ def matrix_product(first, second):
 
 def component(f, entries):
     if len(entries) < rank(f) and not any(isinstance(e, EllipsisIndex) for e in entries):
-        K = derived("uflx.component", (f, entries), rank(f) - len(entries))
+        K = derived_indices("uflx.component", (f, entries), rank(f) - len(entries))
         return ComponentTensor(Indexed(f, (*entries, *K)), K)
     return Indexed(f, entries)
 
