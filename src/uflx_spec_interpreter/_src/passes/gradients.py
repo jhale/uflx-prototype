@@ -1,3 +1,4 @@
+from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..domains import is_cell
 from ..names import derived_index, derived_indices
 from ..nodes import (
@@ -39,6 +40,7 @@ from ..substitution import bottom_up, everywhere, memoized
 from ..tensors import identity
 from .actions import apply_actions, retained
 from .derivative_table import derivative_of_node
+from .piola import piola_law
 from .pullbacks import expand_pull_backs
 from .pullbacks import remains as pulled_back_remains
 
@@ -100,6 +102,10 @@ def apply_gradients(f):
 
     def evaluate(e):
         match e:
+            case Divergence(g, P) if piola_law(e) is None:
+                return apply_gradients(trace_of_gradient(g, P))
+            case Curl(g, P) if piola_law(e) is None:
+                return apply_gradients(rotation_of_gradient(g, P))
             case Gradient(g, P) if not remains(g, P):
                 return apply_actions(gradient(g, P, partial))
         return e
@@ -139,6 +145,8 @@ def allowed(e):
             return True
         case _ if downstream(e):
             return True
+        case Divergence() | Curl():
+            return piola_law(e) is not None
         case Gradient(f, P):
             return remains(f, P)
         case Integral(_, P):

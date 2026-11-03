@@ -29,6 +29,7 @@ from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized,
 from ..tensors import determinant, transpose
 from ..topology import cell_index
 from .actions import apply_actions
+from .piola import piola_law
 
 
 def rule(pb, f, m):
@@ -57,21 +58,12 @@ def rule(pb, f, m):
             )
         case Gradient():
             return PullBack(f, m)
-        case Divergence(PushForward(g, D, TransformationLaw(("contravariant",), 1)), P) if (
-            P == D == m.ambient_domain and is_cell(m)
-        ):
-            # The divergence on the reference cell, a density, with no derivative of J.
-            div = trace_of_gradient(on_the_reference_cell(g, m, pb), m.parameter_domain)
-            return transformed(div, TransformationLaw((), 1), m)
-        case Curl(PushForward(g, D, TransformationLaw(("covariant",), 0)), P) if (
-            P == D == m.ambient_domain and is_cell(m) and k_is_n(m)
-        ):
-            # The curl on the reference cell, contravariant with the weight 1, with no derivative
-            # of J. The identity needs cells of the dimension of the mesh.
-            rot = rotation_of_gradient(on_the_reference_cell(g, m, pb), m.parameter_domain)
-            return transformed(
-                rot, TransformationLaw(("contravariant",) * len(f.value_shape), 1), m
-            )
+        case Divergence() | Curl() if (law := piola_law(f)) is not None:
+            if not is_cell(m) or m.ambient_domain != f.domain:
+                return PullBack(f, m)
+            expand = trace_of_gradient if isinstance(f, Divergence) else rotation_of_gradient
+            reference = on_the_reference_cell(f.expression.expression, m, pb)
+            return transformed(expand(reference, m.parameter_domain), law, m)
         case Divergence(g, P):
             return pb(trace_of_gradient(g, P), m)
         case Curl(g, P):
@@ -125,10 +117,6 @@ def on_the_reference_cell(g, C, pb):
     # The value of g on the topology, read on the cell C through its cell map.
     j, e = cell_of(C)
     return pb(g, CellMap(C.ambient_domain.topology, j, e))
-
-
-def k_is_n(C):
-    return C.parameter_domain.dimension == C.ambient_domain.ambient_coordinate_domain.dimension
 
 
 def transformed(ghat, law, C):
@@ -197,6 +185,7 @@ def remains(f, m):
         or isinstance(f, PushForward)
         or (isinstance(f, PullBack) and kept(f.domain))
         or (isinstance(f, Gradient) and not is_cell(m))
+        or (piola_law(f) is not None and (not is_cell(m) or m.ambient_domain != f.domain))
     )
 
 
