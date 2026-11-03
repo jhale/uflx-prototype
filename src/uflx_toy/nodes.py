@@ -106,7 +106,7 @@ class ReferenceSimplex(AbstractReferenceCell):
     def vertices(self):
         n = self.dimension
         if n == 0:
-            return Zero((1, 0), (), ())
+            return Zero((1, 0), (), (), ScalarType.real)
         return Tensor(
             tuple(
                 Tensor(tuple(Integer(1 if k == v - 1 else 0) for k in range(n)))

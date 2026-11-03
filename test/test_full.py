@@ -7,6 +7,7 @@ from testutil import assert_clean, check_types, contains, keeps_static_type, pai
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    ScalarType,
     absolute,
     action,
     add,
@@ -211,7 +212,7 @@ def random_form(rnd, specs, depth):
         return leaf_form(rnd, specs) if specs else scalar(rnd, 2)
     op = rnd.randrange(9)
     if op == 8:
-        return zero((), (), tuple(spaces(spec) for spec in specs))
+        return zero((), (), tuple(spaces(spec) for spec in specs), ScalarType.real)
     if op == 0:
         return add(random_form(rnd, specs, depth - 1), random_form(rnd, specs, depth - 1))
     if op == 1:

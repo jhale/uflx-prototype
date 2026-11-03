@@ -114,7 +114,7 @@ def collected(e):
     collect(e, ONE)
     parts = [scaled(c, fs) for fs, c in terms.items() if c != ZERO]
     if not parts:
-        return Zero(e.value_shape, e.free_indices, e.argument_spaces)
+        return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
     if not e.argument_spaces:
         parts.sort(key=lambda x: x.digest)
     out = parts[0]
@@ -127,6 +127,8 @@ def preserve(e, out):
     # Cancellation may remove indexed dependencies; retain the original family.
     if out.value_shape != e.value_shape or out.argument_spaces != e.argument_spaces:
         return e
+    if e.scalar_type != out.scalar_type:
+        out = Sum(out, Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type))
     return complete_indices(e, out)
 
 
@@ -135,7 +137,7 @@ def operator_rule(e):
     if isinstance(e, Action) and not isinstance(e.argument, tuple):
         coefficient, factors = split_product(e.argument)
         if coefficient == ZERO:
-            return Zero(e.value_shape, e.free_indices, e.argument_spaces)
+            return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
         if coefficient != ONE:
             arg = scaled(ONE, factors)
             return Product(literal(coefficient), Action(e.form, e.position, arg))

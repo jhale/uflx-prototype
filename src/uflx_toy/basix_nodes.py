@@ -37,7 +37,7 @@ class BasixCell(AbstractReferenceCell):
     @property
     def vertices(self):
         if self.dimension == 0:
-            return Zero((1, 0), (), ())
+            return Zero((1, 0), (), (), ScalarType.real)
         return table(basix.cell.geometry(self.cell_type))
 
     @property

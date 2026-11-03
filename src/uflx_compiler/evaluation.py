@@ -84,7 +84,10 @@ def node(n, value, env, xp):
         case ImaginaryUnit():
             return xp.asarray(1j)
         case Zero():
-            return xp.zeros(full_shape(n, order, env))
+            return xp.zeros(
+                full_shape(n, order, env),
+                dtype=complex if n.scalar_type.value == "complex" else float,
+            )
         case RuntimeArray(label, _):
             return xp.asarray(env[label])
         case Sum(a, b):

@@ -385,8 +385,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             if isinstance(space, DualSpace):
                 return lambda vals: env[e](vals[0])
             return lambda vals: env[e]
-        case Zero(s, _, _):
-            return lambda vals: np.zeros(s) if s else 0.0
+        case Zero(s, _, _, scalar_type):
+            dtype = complex if scalar_type.value == "complex" else float
+            return lambda vals: np.zeros(s, dtype=dtype) if s else dtype(0)
         case Sum(a, b):
             fa, fb = ev(a), ev(b)
             return lambda vals: fa(vals) + fb(vals)

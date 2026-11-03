@@ -26,7 +26,12 @@ def free_indices(*es):
 
 
 def zero_like(f, argument_spaces, *others):
-    return Zero(shape(f), free_indices(f, *others), argument_spaces)
+    return Zero(
+        shape(f),
+        free_indices(f, *others),
+        argument_spaces,
+        f.scalar_type,
+    )
 
 
 def downstream(e):

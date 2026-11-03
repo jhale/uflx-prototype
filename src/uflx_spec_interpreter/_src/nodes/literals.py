@@ -111,11 +111,13 @@ class Zero(AbstractExpression):
     value_shape: tuple[int, ...]
     free_indices: tuple[tuple[Index, int], ...]
     argument_spaces: tuple
-    opaque = ("value_shape", "free_indices", "argument_spaces")
+    scalar_type: ScalarType
+    opaque = ("value_shape", "free_indices", "argument_spaces", "scalar_type")
 
-    @cached_property
-    def scalar_type(self):
-        return ScalarType.real
+    def __new__(cls, value_shape, free_indices, argument_spaces, scalar_type):
+        if not isinstance(scalar_type, ScalarType):
+            raise TypeError("Zero takes a ScalarType")
+        return super().__new__(cls, value_shape, free_indices, argument_spaces, scalar_type)
 
     @cached_property
     def support(self):

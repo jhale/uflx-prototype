@@ -40,7 +40,7 @@ def simplify(f):
 
 
 def zero(e):
-    return Zero(e.value_shape, e.free_indices, e.argument_spaces)
+    return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
 
 
 def literal(e):
@@ -53,9 +53,9 @@ def is_zero(e):
 
 def rewritten(e):
     match e:
-        case Sum(a, b) if is_zero(a):
+        case Sum(a, b) if is_zero(a) and b.scalar_type == e.scalar_type:
             return b
-        case Sum(a, b) if is_zero(b):
+        case Sum(a, b) if is_zero(b) and a.scalar_type == e.scalar_type:
             return a
         case Product(a, b) if is_zero(a) or is_zero(b):
             return zero(e)
@@ -121,7 +121,7 @@ def restored(e, new):
     if not lost:
         return new
     x = new.expression
-    return type(e)(Sum(x, Zero(x.value_shape, lost, x.argument_spaces)), e.indices)
+    return type(e)(Sum(x, Zero(x.value_shape, lost, x.argument_spaces, x.scalar_type)), e.indices)
 
 
 def instantiated(x, mapping):
@@ -139,8 +139,13 @@ def instantiated(x, mapping):
                 if all(isinstance(i, int) for i in indices):
                     return int(np.asarray(table.values)[indices])
                 return GatheredIndex(table, indices)
-            case Zero(shape, free, spaces):
-                return Zero(shape, tuple(p for i, n in free for p in moved(i, n, mapping)), spaces)
+            case Zero(shape, free, spaces, scalar_type):
+                return Zero(
+                    shape,
+                    tuple(p for i, n in free for p in moved(i, n, mapping)),
+                    spaces,
+                    scalar_type,
+                )
             case ComponentTensor(body, bound) | IndexSum(body, bound):
                 inner = {i: k for i, k in mapping.items() if i not in bound}
                 captured = [i for i in bound if i in inner.values()]

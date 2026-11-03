@@ -19,7 +19,12 @@ def rule(act, f, p, g):
         case _ if f.commuting:
             return commute(f, lambda b: act(b, p, g), members(g))
         case Zero(s, _, args):
-            return Zero(s, free_indices(f, *members(g)), without(args, p))
+            return Zero(
+                s,
+                free_indices(f, *members(g)),
+                without(args, p),
+                f.scalar_type,
+            )
     raise TypeError(f"cannot occur: {f}")
 
 

@@ -21,6 +21,7 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.nodes import AbstractExpression, Action, Product, Zero
+from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
 from uflx_spec_interpreter._src.passes import derivatives
 from uflx_spec_interpreter._src.passes.algebra import normalizer
 from uflx_spec_interpreter._src.substitution import bottom_up, operands
@@ -179,7 +180,7 @@ def test_zero_action_keeps_family_indices_and_argument_shape(shape):
     V = space("zero-action", value_shape=shape)
     L = function(dual_space(V), "L")
     k = index("family")
-    out = normalizer()(action(L, 0, Zero(shape, ((k, 3),), ())))
+    out = normalizer()(action(L, 0, Zero(shape, ((k, 3),), (), ScalarType.real)))
     assert isinstance(out, Zero)
     assert out.value_shape == ()
     assert out.free_indices == ((k, 3),)

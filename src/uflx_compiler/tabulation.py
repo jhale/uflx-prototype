@@ -18,6 +18,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
+from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
 from uflx_spec_interpreter._src.substitution import bottom_up
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.basix_spaces import basix_space
@@ -148,7 +149,7 @@ def table_read(V, j, F, X, d, i, c):
     values, kept = basis(F, d, coordinates(X, {}), c), []
     if not np.any(values):
         # A table of zeros, such as a second derivative of an affine element, is Zero.
-        return Zero((), (*X.free_indices, (i, F.dim)), ())
+        return Zero((), (*X.free_indices, (i, F.dim)), (), ScalarType.real)
     for a in axes:
         p = len(kept)
         first = np.take(values, [0], axis=p)

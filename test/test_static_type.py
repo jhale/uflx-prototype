@@ -19,13 +19,13 @@ V = space("V")
 u, h = function(V, "u"), function(V, "h")
 
 
-def test_a_zero_may_make_a_complex_field_real_and_constant():
+def test_a_zero_preserves_complex_type_but_may_lose_support():
     e = directional_derivative(multiply(ImaginaryUnit(), on_D), u, u, h)
     out = apply_derivatives(e)
     assert (e.scalar_type, e.support, out.scalar_type, out.support) == (
         ScalarType.complex,
         D,
-        ScalarType.real,
+        ScalarType.complex,
         None,
     )
     assert keeps_static_type(e, out)

@@ -9,5 +9,5 @@ def num(value):
     return Integer(value) if isinstance(value, int) else Float(value)
 
 
-def zero(value_shape, free_indices, argument_spaces):
-    return Zero(value_shape, free_indices, argument_spaces)
+def zero(value_shape, free_indices, argument_spaces, scalar_type):
+    return Zero(value_shape, free_indices, argument_spaces, scalar_type)

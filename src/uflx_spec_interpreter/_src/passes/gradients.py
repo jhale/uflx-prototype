@@ -55,6 +55,7 @@ def rule(partial, f, P, j):
                 shape(f),
                 (*free_indices(f), (j, P.ambient_coordinate_domain.dimension)),
                 f.argument_spaces,
+                f.scalar_type,
             )
         case Coordinate() if P.dimension == P.ambient_coordinate_domain.dimension:
             i = derived_index("uflx.apply_gradients", f, P)

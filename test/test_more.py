@@ -3,6 +3,7 @@ from testutil import ill_typed
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    ScalarType,
     action,
     add,
     component_tensor,
@@ -61,7 +62,7 @@ def test_cases():
     for kk in range(2):
         check(
             f"zero form, argument with family index i = {kk}",
-            action(zero((), (), (V, V)), 1, multiply(indexed(c, (i,)), w)),
+            action(zero((), (), (V, V), ScalarType.real), 1, multiply(indexed(c, (i,)), w)),
             {i: kk},
         )
     check("form divided by a scalar", action(divide(F, num(3)), 0, z))
