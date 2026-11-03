@@ -337,6 +337,64 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
     def call(name, f, a):
         return float(f(a)) if isinstance(a, float) else temp(f"{name}({a})")
 
+    @cache
+    def work(n):
+        if n in folded or isinstance(n, RuntimeArray):
+            return 0
+        arithmetic = isinstance(n, (Sum, Product, Division, Power, IndexSum, Inverse, Determinant))
+        return int(arithmetic) + sum(work(child) for child in _expressions(n))
+
+    def prepare(n, bound):
+        # Materialise maximal computations reused across an output index.
+        # Precomputing both sides also separates basis evaluation from contraction.
+        # Arrays span only the indices the computation depends on.
+        if len(output_indices) < 2:
+            return
+        seen = set()
+
+        def visit(n):
+            if n in seen or n in folded:
+                return
+            seen.add(n)
+            free = dict(n.free_indices)
+            if free.keys() <= bound.keys():
+                key = (n, tuple(bound[i] for i, _ in n.free_indices), ())
+                ancestor = scope
+                while ancestor is not None:
+                    if key in ancestor.expressions:
+                        return
+                    ancestor = ancestor.parent
+            axes = tuple(i for i in output_indices if i in free)
+            if (
+                axes
+                and not n.value_shape
+                and free.keys() <= bound.keys()
+                and work(n) > 1
+                and any(dict(e.free_indices)[i] > 1 for i in output_indices if i not in free)
+            ):
+                name = fresh("cache")
+                emit(f"double {name}" + "".join(f"[{free[i]}]" for i in axes) + ";")
+                with ExitStack() as stack:
+                    inner = dict(bound)
+                    for i in axes:
+                        loop = fresh("p")
+                        stack.enter_context(
+                            block(f"for (int {loop} = 0; {loop} < {free[i]}; ++{loop})", index=loop)
+                        )
+                        inner[i] = loop
+                    value = entry(n, inner, ())
+                    access = name + "".join(f"[{inner[i]}]" for i in axes)
+                    emit(f"{access} = {render(value)};")
+                key = (n, tuple(bound[i] for i, _ in n.free_indices), ())
+                scope.expressions[key] = name + "".join(f"[{bound[i]}]" for i in axes)
+                return
+            if isinstance(n, (Tensor, IndexSum, ComponentTensor)):
+                return  # Do not cross conditional branches or local index bindings.
+            for child in _expressions(n):
+                visit(child)
+
+        visit(n)
+
     def accumulate(n, bound):
         # Integral sums surround argument loops. Other reductions remain scalar
         # computations, which entry() schedules at their earliest legal scope.
@@ -359,16 +417,16 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
                 accumulate(n.expression, inner)
             return
         with ExitStack() as stack:
-            inner = dict(bound)
+            inner = bound | {i: fresh("a") for i in output_indices}
+            prepare(n, inner)
             for i in output_indices:
-                loop = fresh("a")
+                loop = inner[i]
                 stack.enter_context(
                     block(
                         f"for (int {loop} = 0; {loop} < {dict(e.free_indices)[i]}; ++{loop})",
                         index=loop,
                     )
                 )
-                inner[i] = loop
             result = entry(n, inner, ())
             output = offset(
                 tuple(inner[i] for i in output_indices),

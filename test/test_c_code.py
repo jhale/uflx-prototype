@@ -198,7 +198,9 @@ def test_scheduling_shares_equal_reductions_and_hoists_invariants(tmp_path, late
     assert list((ctypes.c_int * 2).in_dll(lib, "counts")) == [16, 2]
     assert code.count("double sum") == 1
     loops = re.findall(r"for \(int ([a-z]+)\d+", code)
-    assert loops == ["q", "i", "a", "a"]
+    assert loops[0] == "q"
+    assert loops[-2:] == ["a", "a"]
+    assert loops.count("i") == 1
 
 
 @pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
@@ -246,3 +248,91 @@ def test_empty_output_does_not_evaluate_hoisted_inputs():
     )
     assert "w[" not in code
     assert "A[" not in code
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("order", [(0, 1, 2), (2, 0, 1)])
+@pytest.mark.parametrize("shadow", [False, True])
+def test_array_scheduling_reuses_later_indices(tmp_path, order, shadow):
+    q, i, j, k = (index(name) for name in ("q", "i", "j", "k"))
+    values = runtime_array("values", (2, 3, 2))
+    first = values[q, j, k] * values[q, j, k] + num(1)
+    second = values[q, j, k] * values[q, j, k] + num(1)
+    row = tensor(tuple(num(v) for v in (1, 2, 3, 4)))
+    integrand = row[i] * first * second
+    if shadow:
+        # This j is locally bound, independently of the output's j.
+        integrand = integrand * index_sum(values[0, j, 0] * values[0, j, 0] * values[0, j, 0], (j,))
+    expression = index_sum(integrand, (q,))
+    code = c_kernel(
+        expression,
+        "scheduled_array",
+        lambda label, offset: f"counted_read(w[{offset}])",
+        output_indices=tuple((i, j, k)[axis] for axis in order),
+    )
+    source, library = tmp_path / "array.c", tmp_path / "array.so"
+    source.write_text(
+        "int reads = 0;\ndouble counted_read(double value) { reads++; return value; }\n" + code
+    )
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    lib = ctypes.CDLL(str(library))
+    data = np.arange(12.0).reshape(2, 3, 2)
+    result = np.full(tuple((4, 3, 2)[axis] for axis in order), 7.0)
+    pointer = ctypes.POINTER(ctypes.c_double)
+    lib.scheduled_array(
+        result.ctypes.data_as(pointer),
+        data.ctypes.data_as(pointer),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    expected = np.arange(1, 5)[:, None, None] * np.sum((data**2 + 1) ** 2, axis=0)
+    if shadow:
+        expected *= np.sum(data[0, :, 0] ** 3)
+    np.testing.assert_allclose(result, 7 + np.transpose(expected, order))
+    assert ctypes.c_int.in_dll(lib, "reads").value == (33 if shadow else 24)
+    # Neither the quadrature axis nor the independent output axis needs storage.
+    assert re.findall(r"double cache\d+(\[[^;]+);", code) == (
+        ["[3][2]"] if order == (0, 1, 2) else ["[2][3]"]
+    )
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+def test_precomputed_arrays_preserve_conditional_evaluation(tmp_path):
+    i, j, choice = (index(name) for name in ("i", "j", "choice"))
+    values = runtime_array("values", (2, 3))
+    row = tensor(tuple(num(v) for v in (1, 2, 3, 4)))
+    selected = tensor((num(1) / values[0, j], values[1, j] * values[1, j]))[choice]
+    code = c_kernel(
+        row[i] * selected,
+        "selected_array",
+        lambda label, offset: f"counted_read({offset}, w[{offset}])",
+        output_indices=(i, j),
+        index_bindings={choice: "entity_local_index[0]"},
+    )
+    source, library = tmp_path / "selected.c", tmp_path / "selected.so"
+    source.write_text(
+        "int reads[2] = {0, 0};\n"
+        "double counted_read(int offset, double value) { reads[offset / 3]++; return value; }\n"
+        + code
+    )
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    lib = ctypes.CDLL(str(library))
+    data = np.array([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]])
+    result = np.zeros((4, 3))
+    pointer = ctypes.POINTER(ctypes.c_double)
+    selected_side = (ctypes.c_int * 1)(1)
+    lib.selected_array(
+        result.ctypes.data_as(pointer),
+        data.ctypes.data_as(pointer),
+        None,
+        None,
+        selected_side,
+        None,
+        None,
+    )
+    np.testing.assert_allclose(result, np.arange(1, 5)[:, None] * data[1] ** 2)
+    assert list((ctypes.c_int * 2).in_dll(lib, "reads")) == [0, 6]
+    assert re.findall(r"double cache\d+(\[[^;]+);", code) == ["[3]"]

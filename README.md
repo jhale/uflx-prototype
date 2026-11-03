@@ -53,7 +53,11 @@ nested C loops; outer integral sums surround the output loops. Input-independent
 subgraphs become constant multidimensional tables. A buffered scope tree schedules
 computations using their free indices and bound component positions. Structurally
 equal expressions share temporaries; entire reductions and partial products move
-outside loops they do not depend on. Runtime geometry independent of quadrature
+outside loops they do not depend on. Computations reused across output
+indices can be precomputed into temporary arrays before the output loops. This
+also separates basis evaluation from tensor contraction. Arrays span only the
+required output indices, and structurally equal expressions share them. Loads
+and expressions with at most one arithmetic operation are left inline. Runtime geometry independent of quadrature
 is computed once per invocation, while coefficient evaluation at each point is
 shared across argument DOFs. Computations remain inside conditional branches
 unless a reusable value is already available in an enclosing scope. Scalar products
