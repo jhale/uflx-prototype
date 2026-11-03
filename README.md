@@ -240,3 +240,30 @@ interpreter or a shape proof: wildcard imports, dynamically retrieved
 constructors and constructor reassignment are outside its supported syntax.
 Run it with `pytest test/test_construction_boundaries.py`; it also runs with
 the ordinary package test suite.
+
+### Source architecture checks
+
+The ordinary test suite also checks three source conventions:
+
+- `test/test_boundaries.py` resolves absolute and relative imports, including
+  `from package import submodule`, local imports and imports under
+  `TYPE_CHECKING`. It enforces the existing package dependency direction and
+  prevents core implementation modules from importing the public facade,
+  `_draft`, or `_src/extensions`. Extension modules may depend on the core.
+- `test/test_overloads.py` checks that expression operator methods return calls
+  to their designated free functions with the correct operand order. Indexing
+  preserves the `members(entries)` conversion. Returning `NotImplemented` for
+  unsupported operand types remains allowed. Numerical overload tests remain
+  responsible for behaviour.
+- `test/test_signatures.py` checks explicit facade imports against the literal
+  `__all__` list, rejecting duplicate bindings, duplicate exports, wildcard
+  imports and missing names. With the language specification available, its
+  generated free-function and pass tables determine the exact public name set,
+  plus the explicitly listed public constructors and conveniences. Existing
+  signature checks also verify parameter names and supported overloads.
+
+These checks inspect static source syntax; they do not follow dynamic imports
+via `importlib` or prove runtime behaviour. The specification comparison keeps
+its existing skip when the sibling specification is unavailable; set
+`UFLX_SPEC_PATH` to supply it from another location. The other checks run
+without the specification.

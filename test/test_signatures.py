@@ -1,3 +1,4 @@
+import ast
 import inspect
 import os
 import re
@@ -32,7 +33,10 @@ def spec_signatures():
 @pytest.mark.skipif(not SPEC.exists(), reason="the uflx repository is not beside this one")
 def test_the_public_free_functions_take_the_parameters_of_the_specification():
     spec = spec_signatures()
-    assert set(spec) <= set(uflx_spec_interpreter.__all__)
+    # Classes intentionally exposed alongside the free functions, plus two
+    # implementation conveniences without a generated free-function row.
+    conveniences = {"RD", "Complex", "Float", "Integer", "ScalarType", "Zero", "num", "replace"}
+    assert set(uflx_spec_interpreter.__all__) == set(spec) | conveniences
     stand_ins = {"num", "replace"}
     for name in uflx_spec_interpreter.__all__:
         if name in stand_ins:
@@ -45,3 +49,52 @@ def test_the_public_free_functions_take_the_parameters_of_the_specification():
         for overload in spec[name]:
             assert params[: len(overload)] == overload, name
             signature.bind(**dict.fromkeys(overload))
+
+
+def facade_declarations(source):
+    """Read the facade's explicit imports and literal __all__ declaration."""
+    tree = ast.parse(source)
+    declarations = [
+        n.value
+        for n in tree.body
+        if isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "__all__" for t in n.targets)
+    ]
+    assert len(declarations) == 1, "the facade needs one literal __all__ declaration"
+    exports = ast.literal_eval(declarations[0])
+    assert isinstance(exports, list) and all(isinstance(n, str) for n in exports)
+    assert len(exports) == len(set(exports)), "duplicate __all__ entries"
+    imports = []
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            assert all(n.name != "*" for n in node.names), "facade imports must be explicit"
+            imports.extend(n.asname or n.name for n in node.names)
+        elif isinstance(node, ast.Import):
+            imports.extend(n.asname or n.name.split(".")[0] for n in node.names)
+    public_imports = [n for n in imports if not n.startswith("_")]
+    assert len(public_imports) == len(set(public_imports)), "duplicate facade bindings"
+    assert set(exports) == set(public_imports), "__all__ must match the explicit public imports"
+    return set(exports)
+
+
+def test_facade_imports_match_its_declared_exports():
+    path = Path(uflx_spec_interpreter.__file__)
+    assert facade_declarations(path.read_text()) == set(uflx_spec_interpreter.__all__)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from ._src.forms import form; __all__ = ['form', 'form']",
+        "from ._src.forms import form; __all__ = []",
+        "from ._src.forms import form; __all__ = ['form', 'function']",
+        "from ._src.forms import *; __all__ = ['form']",
+        (
+            "from ._src.forms import form; from ._src.forms import function as form; "
+            "__all__ = ['form']"
+        ),
+    ],
+)
+def test_facade_check_rejects_inconsistent_exports(source):
+    with pytest.raises(AssertionError):
+        facade_declarations(source)
