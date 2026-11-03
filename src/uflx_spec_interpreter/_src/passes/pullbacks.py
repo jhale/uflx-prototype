@@ -5,6 +5,7 @@ from ..geometry import density, inverse_jacobian, jacobian
 from ..names import derived_index
 from ..nodes import (
     AbstractExpression,
+    Action,
     CellMap,
     ComponentTensor,
     Coordinate,
@@ -12,6 +13,7 @@ from ..nodes import (
     Divergence,
     Division,
     DomainMap,
+    Form,
     Gradient,
     Indexed,
     IndexSum,
@@ -27,11 +29,14 @@ from ..static import free, shape, support, terminal, zero_like
 from ..substitution import bottom_up, everywhere, freshen, map_fields, memoized, substitute
 from ..tensors import determinant, transpose
 from ..topology import cell_index
+from .actions import apply_actions
 
 
 def rule(pb, f, m):
     # The rule table of expand_pull_backs, for PullBack(f, m).
     match f:
+        case Action(A, p, g):
+            return apply_actions(Action(pb(A, m), p, g))
         case _ if isinstance(m, SideMap) and support(f) is not None:
             return PullBack(f, m)
         case _ if support(f) is None:
@@ -110,6 +115,8 @@ def broadcast(f, m):
 def pointwise(f, m, pb):
     # A binding node is made fresh for the free indices of the map, which occur in the map.
     fresh = freshen(f, [m])
+    if isinstance(fresh, Form):
+        return Form(pb(fresh.expression, m), fresh.arguments)
     return map_fields(fresh, lambda x: pb(x, m) if isinstance(x, AbstractExpression) else x)
 
 
@@ -193,7 +200,7 @@ def expand_pull_backs(f):
 
 def remains(f, m):
     # The pull-backs that no row of expand_pull_backs rewrites, which a library reads.
-    return (
+    return not isinstance(f, Action) and (
         isinstance(m, SideMap)
         or terminal(f)
         or isinstance(f, PushForward)

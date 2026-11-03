@@ -1,4 +1,4 @@
-from ..nodes import Action, Conjugate, DualSpace, Form, Function, Product, Zero
+from ..nodes import Action, Conjugate, Form, Function, Gradient, Product, PullBack, Zero
 from ..static import arity, free_indices
 from ..substitution import everywhere, freshen, lowered, map_fields, memoized, rebuild, substitute
 from ..tuples import members
@@ -14,12 +14,12 @@ def rule(act, f, p, g):
             return Product(act(a, p, g), b)
         case Product(a, b):
             return Product(a, act(b, p - arity(a), g))
+        case _ if retained(f):
+            return Action(f, p, g)
         case _ if f.commuting:
             return commute(f, lambda b: act(b, p, g), members(g))
         case Zero(s, _, args):
             return Zero(s, free_indices(f, *members(g)), without(args, p))
-        case Function(space, _) if isinstance(space, DualSpace):
-            return Action(f, p, g)
     raise TypeError(f"cannot occur: {f}")
 
 
@@ -57,11 +57,11 @@ def apply_actions(f):
     return memoized(apply)(f)
 
 
-def in_n2(e):
-    def holds(n):
-        match n:
-            case Action(Function(space, _), _, _):
-                return isinstance(space, DualSpace)
-        return not isinstance(n, Action)
+def retained(form):
+    # Spatial operations transform the output; applying them must not move the
+    # argument inside again. Further partial applications remain nested.
+    return isinstance(form, Function | Gradient | PullBack | Action)
 
-    return everywhere(e, holds)
+
+def in_n2(e):
+    return everywhere(e, lambda n: not isinstance(n, Action) or retained(n.form))

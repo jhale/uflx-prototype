@@ -10,7 +10,6 @@ from ..nodes import (
     Divergence,
     Division,
     DomainMap,
-    DualSpace,
     Float,
     Form,
     Function,
@@ -38,6 +37,7 @@ from ..nodes import (
 from ..static import downstream, free_indices, shape, support, terminal
 from ..substitution import bottom_up, everywhere, memoized
 from ..tensors import identity
+from .actions import apply_actions, retained
 from .derivative_table import derivative_of_node
 from .pullbacks import expand_pull_backs
 from .pullbacks import remains as pulled_back_remains
@@ -46,6 +46,8 @@ from .pullbacks import remains as pulled_back_remains
 def rule(partial, f, P, j):
     # Entry j of the last axis of Gradient(f, P), with the leaf rows of apply_gradients first.
     match f:
+        case Action(A, p, g):
+            return Action(partial(A, P, j), p, g)
         case _ if support(f) is None:
             return Zero(
                 shape(f),
@@ -99,7 +101,7 @@ def apply_gradients(f):
     def evaluate(e):
         match e:
             case Gradient(g, P) if not remains(g, P):
-                return gradient(g, P, partial)
+                return apply_actions(gradient(g, P, partial))
         return e
 
     return bottom_up(f, evaluate)
@@ -143,8 +145,8 @@ def allowed(e):
             return not isinstance(P, Mesh)
         case PullBack(f, m):
             return pulled_back_remains(f, m)
-        case Action(Function(space, _), _, _):
-            return isinstance(space, DualSpace)
+        case Action(A, _, _):
+            return retained(A)
     return False
 
 
