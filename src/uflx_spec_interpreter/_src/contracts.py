@@ -7,6 +7,8 @@ Stored geometry, spaces and labels are outside the expression traversal and must
 be checked separately when exposed. Each shared expression is reported once.
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable
 
 from .nodes import AbstractExpression, DirectionalDerivative, Integral, Mesh
@@ -19,12 +21,10 @@ Violation = tuple[AbstractExpression, str]
 def _violations(
     expression: AbstractExpression, rule: Callable[[AbstractExpression], str | None]
 ) -> tuple[Violation, ...]:
-    if not isinstance(expression, AbstractExpression):
-        raise TypeError("contract checking requires an expression")
-    seen = set()
-    found = []
+    seen: set[AbstractExpression] = set()
+    found: list[Violation] = []
 
-    def visit(node):
+    def visit(node: AbstractExpression) -> None:
         if node in seen:
             return
         seen.add(node)
@@ -38,11 +38,11 @@ def _violations(
     return tuple(found)
 
 
-def _derivative(node):
+def _derivative(node: AbstractExpression) -> str | None:
     return "directional derivative remains" if isinstance(node, DirectionalDerivative) else None
 
 
-def _reference_integral(node):
+def _reference_integral(node: AbstractExpression) -> str | None:
     if reason := _derivative(node):
         return reason
     if isinstance(node, Integral) and isinstance(node.integration_domain, Mesh):

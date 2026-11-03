@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ..arithmetic import total
 from ..domains import cell_domain
 from ..geometry import density
@@ -17,19 +21,23 @@ from ..static import shape, support
 from ..substitution import bottom_up, everywhere, freshen
 from ..topology import cell_index
 
+if TYPE_CHECKING:
+    from ..nodes.base import AbstractExpression
 
-def rule(e):
+
+def rule(e: AbstractExpression) -> AbstractExpression:
     # Expand a mesh integral into reference-cell integrals and internal cell sums.
     match e:
-        case Integral(f, Mesh() as D) if shape(f):
-            K = derived_indices("uflx.expand_integrals", (f, D), len(shape(f)))
-            return ComponentTensor(rule(Integral(Indexed(f, K), D)), K)
-        case Integral(f, Mesh() as D):
-            return total(piece_integral(f, D, j) for j in range(len(D.topology.cell_types)))
-    return e
+        case Integral(f, Mesh() as d) if shape(f):
+            K = derived_indices("uflx.expand_integrals", (f, d), len(shape(f)))
+            return ComponentTensor(rule(Integral(Indexed(f, K), d)), K)
+        case Integral(f, Mesh() as d):
+            return total(piece_integral(f, d, j) for j in range(len(d.topology.cell_types)))
+        case _:
+            return e
 
 
-def piece_integral(f, D, j):
+def piece_integral(f: AbstractExpression, D: Mesh, j: int) -> AbstractExpression:
     # Pulled back by the cells of D, or by the piece if the support is the ambient domain.
     cells = cell_domain(D, j)
     c = cell_index(D.topology, j)
@@ -46,16 +54,17 @@ def piece_integral(f, D, j):
     return IndexSum(term, (entry,))
 
 
-def expand_integrals(f):
+def expand_integrals(f: AbstractExpression) -> AbstractExpression:
     # Inner integrals first; integrand indices remain free.
     return bottom_up(f, rule)
 
 
-def in_n4(e):
-    def holds(n):
+def in_n4(e: AbstractExpression) -> bool:
+    def holds(n: AbstractExpression) -> bool:
         match n:
             case Integral(_, Mesh()):
                 return False
-        return True
+            case _:
+                return True
 
     return everywhere(e, holds)

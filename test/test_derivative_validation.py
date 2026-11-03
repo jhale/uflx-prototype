@@ -27,17 +27,12 @@ def variables():
 @pytest.mark.parametrize(
     ("arguments", "error", "message"),
     [
-        (lambda u, v, w, z: (3, u, u, w), TypeError, "expression"),
-        (lambda u, v, w, z: (u, num(1), u, w), TypeError, "variable"),
-        (lambda u, v, w, z: (u, (u, num(1)), (u, v), (w, z)), TypeError, "variable"),
         (lambda u, v, w, z: (u, (), (), ()), ValueError, "at least two"),
         (lambda u, v, w, z: (u, (u,), (u,), (w,)), ValueError, "at least two"),
         (lambda u, v, w, z: (u, u, (u,), w), ValueError, "tuple structure"),
         (lambda u, v, w, z: (u, (u, v), (u,), (w, z)), ValueError, "lengths"),
         (lambda u, v, w, z: (u, (u, u), (u, v), (w, z)), ValueError, "distinct"),
-        (lambda u, v, w, z: (u, u, u, num(1)), ValueError, "form arguments"),
         (lambda u, v, w, z: (u, u, u, conjugate(u * w)), ValueError, "form arguments"),
-        (lambda u, v, w, z: (u, u, 1, w), ValueError, "points must be expressions"),
         (lambda u, v, w, z: (u, u, tensor((num(1), num(2))), w), ValueError, "admissible"),
         (lambda u, v, w, z: (u, u, form(v, (v,)), w), ValueError, "admissible"),
         (lambda u, v, w, z: (u * w, u, u, w), ValueError, "must not be free"),

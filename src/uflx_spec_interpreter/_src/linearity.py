@@ -4,6 +4,9 @@ Certificates are sufficient, not necessary: cancellation can hide linearity.
 Unknown never means nonlinear. Zero satisfies both complex linearity conventions.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable
 from typing import Literal
 
 from .nodes import (
@@ -33,7 +36,7 @@ from .nodes.forms import entry_function
 from .substitution import memoized, occurs
 from .tuples import members
 
-ZERO = frozenset()
+ZERO: frozenset[tuple[int, int]] = frozenset()
 CONSTANT = frozenset({(0, 0)})
 LINEAR = frozenset({(1, 0)})
 ANTILINEAR = frozenset({(0, 1)})
@@ -76,8 +79,7 @@ def dependence(
         as free dependence, and coefficients may have free family indices.
 
     Raises:
-        TypeError: expression is not an expression, or variables is not a
-            function or nonempty tuple of functions.
+        TypeError: The variable tuple is empty.
         ValueError: A variable is repeated.
 
     Certificates assume existing node contracts, including valid form slots,
@@ -86,20 +88,27 @@ def dependence(
     the validity of declarations inside opaque forms. Unknown must not be used
     as a verdict that a form is invalid or nonlinear. No nodes are rewritten.
     """
-    if not isinstance(expression, AbstractExpression):
-        raise TypeError("dependence requires an expression")
     variables = tuple(members(variables))
-    if not variables or not all(isinstance(v, Function) for v in variables):
+    if not variables:
         raise TypeError("dependence variables must be one or more functions")
     if len(set(variables)) != len(variables):
         raise ValueError("dependence variables must be distinct")
     real_variables = any(v.scalar_type == ScalarType.real for v in variables)
 
-    def union(parts):
+    def union(
+        parts: Iterable[frozenset[tuple[int, int]] | None],
+    ) -> frozenset[tuple[int, int]] | None:
         parts = list(parts)
-        return None if any(p is None for p in parts) else frozenset().union(*parts)
+        return (
+            None
+            if any(p is None for p in parts)
+            else frozenset(pair for part in parts if part is not None for pair in part)
+        )
 
-    def degrees(walk, e):
+    def degrees(
+        walk: Callable[[AbstractExpression], frozenset[tuple[int, int]] | None],
+        e: AbstractExpression,
+    ) -> frozenset[tuple[int, int]] | None:
         if isinstance(e, Zero) or (isinstance(e, Integer) and e.value == 0):
             return ZERO
         if e in variables:
@@ -147,7 +156,8 @@ def dependence(
                 if any(occurs(v, e.form) for v in variables):
                     return None
                 return union(walk(a) for a in members(e.argument))
-        return None
+            case _:
+                return None
 
     result = memoized(degrees)(expression)
     if result == ZERO:
@@ -185,15 +195,12 @@ def argument_dependence(form: Form, position: int) -> Dependence:
         query alone does not validate such a declaration.
 
     Raises:
-        TypeError: form is not an explicit Form, position is not an int, or
-            its entry does not contain functions or conjugates of functions.
+        TypeError: The position is not an exact int.
         ValueError: position is out of range or the entry repeats a function.
 
     Unlike dependence(form, v), this query inspects the binding body: the chosen
     entry is exposed, while any inner binding still shadows its functions.
     """
-    if not isinstance(form, Form):
-        raise TypeError("argument inspection currently requires an explicit Form")
     if type(position) is not int:
         raise TypeError("argument position must be an int")
     if not 0 <= position < len(form.arguments):

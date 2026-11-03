@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from .nodes import (
     AbstractExpression,
     Action,
@@ -17,21 +21,32 @@ from .nodes.forms import entry_function
 from .substitution import occurs
 from .tuples import each, members
 
+if TYPE_CHECKING:
+    from .nodes.spaces import AbstractFunctionSpace
+    from .types import Construction
 
-def entry_fns(entry):
+
+def entry_fns(
+    entry: Function | Conjugate | tuple[Function | Conjugate, ...],
+) -> tuple[Function, ...]:
     # The functions of an entry, without the conjugate of an entry conjugate(v).
-    return [m.operand if isinstance(m, Conjugate) else m for m in members(entry)]
+    return tuple(entry_function(m) for m in members(entry))
 
 
-def function(V, label):
+def function(V: AbstractFunctionSpace, label: str | tuple[Construction, ...]) -> Function:
     return Function(V, label)
 
 
-def form(expression, arguments):
+def form(
+    expression: AbstractExpression,
+    arguments: tuple[Function | Conjugate | tuple[Function | Conjugate, ...], ...],
+) -> Form:
     return Form(expression, arguments)
 
 
-def action(f, position, g):
+def action(
+    f: AbstractExpression, position: int, g: AbstractExpression | tuple[AbstractExpression, ...]
+) -> Action:
     return Action(f, position, g)
 
 
@@ -65,19 +80,15 @@ def gateaux_derivative(
         variables or the two-projection composition for complex variables.
 
     Raises:
-        TypeError: F is not an expression or x is not a function or tuple of
-            functions.
-        ValueError: Another structural or static-type requirement fails.
+        ValueError: A structural or static-signature requirement fails.
+
+    Python argument types are checked statically.
 
     Existence and real-linearity of the differential are mathematical
     preconditions, not checked here. General node validity is assumed;
     admissibility uses static signatures rather than proving space membership.
     """
     xs, points, entries = members(x), members(a), members(w)
-    if not isinstance(F, AbstractExpression):
-        raise TypeError("the differentiated value must be an expression")
-    if not all(isinstance(v, Function) for v in xs):
-        raise TypeError("the variable must be a function or tuple of functions")
     if isinstance(x, tuple) and len(x) < 2:
         raise ValueError("a tuple variable must have at least two members")
     if any(v.argument_spaces and not isinstance(v.space, DualSpace) for v in xs):
@@ -90,8 +101,6 @@ def gateaux_derivative(
         raise ValueError("derivative variables must be distinct")
     directions = each(entry_function, w)
     ws = members(directions)
-    if not all(isinstance(v, Function) for v in ws):
-        raise ValueError("form arguments must be functions or their conjugates")
     if len(set(ws)) != len(ws):
         raise ValueError("direction binders must be distinct")
     if len({isinstance(v, Conjugate) for v in entries}) != 1:
@@ -101,8 +110,6 @@ def gateaux_derivative(
     if any(v.space != d.space for v, d in zip(xs, ws, strict=True)):
         raise ValueError("directions must belong to the variable spaces")
     for variable, point in zip(xs, points, strict=True):
-        if not isinstance(point, AbstractExpression):
-            raise ValueError("evaluation points must be expressions")
         if (
             point.value_shape != variable.value_shape
             or point.argument_spaces != variable.argument_spaces
@@ -124,7 +131,10 @@ def gateaux_derivative(
     i = Complex(Integer(0), Integer(1))
     from .arithmetic import multiply
 
-    rotated = each(lambda v: multiply(i, v), directions)
+    def rotate(v: Function) -> AbstractExpression:
+        return multiply(i, v)
+
+    rotated = each(rotate, directions)
     sign = i if isinstance(entries[0], Conjugate) else Product(Integer(-1), i)
     second = Product(sign, DirectionalDerivative(F, x, a, rotated))
     return Form(Product(Division(Integer(1), Integer(2)), Sum(delta, second)), (w,))

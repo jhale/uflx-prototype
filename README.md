@@ -136,6 +136,7 @@ of trials as its argument, and prints its counts.
 pip install -e ".[test,lint]"
 pytest                # on 6 workers, set in pyproject.toml
 ruff check . && ruff format --check .
+pyright
 coverage run -m pytest && coverage report
 python test/test_full.py 100
 ```
@@ -188,3 +189,31 @@ The compiler explicitly requests the optional `passes/algebra.py` normalizer.
 Both that optimizer and compiler simplification complete each rewritten child's
 static type before rebuilding its parent. Compiler index instantiation uses the
 core's capture-avoiding value substitution, followed by folding known toy tables.
+
+## Static type checking
+
+Install the `lint` extra and run `pyright` from the repository root. The strict
+configuration includes only `src/uflx_spec_interpreter`; the compiler, oracle,
+toy library and tests are excluded. No diagnostic categories are disabled.
+
+Python argument types are now checked statically instead of repeatedly checked
+inside constructors and passes. Construction still enforces the primitive argument
+whitelist, finite floats, shapes, extents, domain compatibility and binder rules.
+The excluded packages must continue to supply values satisfying the annotated
+contracts. Wrong classes from untyped callers no longer consistently produce the
+specification's mandated `TypeError`; this tradeoff is recorded in the design
+repository's `possible-issues-with-spec.md`. The negative typing fixture in `test/typecheck/arguments.py` verifies
+wrong argument types, rewrite callback results and non-exhaustive matches; pytest
+runs it separately when Pyright is installed.
+
+Annotations use concrete classes and tuples. The only new alias is the recursive
+`Construction` type. Casts are concentrated at the reflection, cache and graph
+reconstruction boundaries. Ten stored field declarations have narrow
+`reportIncompatibleMethodOverride` suppressions because `Base` generates their
+read-only properties at runtime. Unnecessary suppressions are reported as errors.
+Cached attributes use ordinary properties with a small per-node cache decorator,
+so their overrides are checked normally.
+
+Pyright checks exhaustiveness for finite unions. `AbstractExpression` remains
+open to library extensions, so core passes explicitly retain or reject unsupported
+nodes; static checking cannot prove coverage of every possible extension class.

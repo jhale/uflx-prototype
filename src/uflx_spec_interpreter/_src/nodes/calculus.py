@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from functools import cached_property
 from typing import TYPE_CHECKING, Literal, final
 
+from ..interning import cached
 from ..tuples import members
 from .base import AbstractExpression, Base
 from .scalar_types import ScalarType
 from .spaces import DualSpace
 
 if TYPE_CHECKING:
+    from ..nodes.indices import AbstractExtent, Index
+    from ..nodes.spaces import AbstractFunctionSpace
+    from ..nodes.topology import AbstractTopology
     from .domains import AbstractDomain, CellMap, DomainMap, Mesh, SideMap
     from .forms import Function
 
@@ -25,39 +28,42 @@ class DirectionalDerivative(AbstractExpression):
     direction: AbstractExpression | tuple[AbstractExpression, ...]
     scope = ("expression", "variable")
 
-    def bound(self):
+    def bound(self) -> tuple[Function, ...]:
         return members(self.variable)
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         edges = (self.expression, *members(self.point), *members(self.direction))
         return tuple(dict(p for x in edges for p in x.free_indices).items())
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.expression.scalar_type
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
-    def _validate(self):
-        from ..validation import admissible, require, tuple_of, typed
-        from .forms import Function
+    def _validate(self) -> None:
+        from ..validation import admissible, require
 
-        typed(self.expression, AbstractExpression, "derivative requires an expression")
         xs = members(self.variable)
-        tuple_of(xs, Function) if type(xs) is tuple else None
         for x in xs:
-            typed(x, Function, "derivative variable must be a function")
             require(
                 not x.argument_spaces or isinstance(x.space, DualSpace),
                 "derivative variable is not bindable",
@@ -82,25 +88,31 @@ class Coordinate(AbstractExpression):
     value_fields = ()
     is_terminal = True
     identifier = "uflx.Coordinate"
-    domain: AbstractDomain
+    domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return (self.domain.ambient_coordinate_domain.dimension,)
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return ()
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_calculus(self)
 
 
@@ -110,25 +122,31 @@ class Gradient(AbstractExpression):
     identifier = "uflx.Gradient"
     commuting = ("expression",)
     expression: AbstractExpression
-    domain: AbstractDomain
+    domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return (*self.expression.value_shape, self.domain.ambient_coordinate_domain.dimension)
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.expression.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_calculus(self)
 
 
@@ -139,25 +157,31 @@ class Divergence(AbstractExpression):
     commuting = ("expression",)
     # The trace of the gradient over the last axis of the value shape and the axis of the gradient.
     expression: AbstractExpression
-    domain: AbstractDomain
+    domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape[:-1]
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.expression.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_calculus(self)
 
 
@@ -168,27 +192,33 @@ class Curl(AbstractExpression):
     commuting = ("expression",)
     # The curl of a vector field, contracted with the permutation tensor of rank n.
     expression: AbstractExpression
-    domain: AbstractDomain
+    domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         # The axes of the permutation tensor that the curl leaves, n - 2 of them.
         n = self.domain.ambient_coordinate_domain.dimension
         return (n,) * (n - 2)
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.expression.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_calculus(self)
 
 
@@ -200,32 +230,36 @@ class PullBack(AbstractExpression):
     expression: AbstractExpression
     map: DomainMap | SideMap | CellMap
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple((dict(self.expression.free_indices) | dict(self.map.free_indices)).items())
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.map.parameter_domain
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
-    def _validate(self):
-        from ..validation import merge_indices, require, typed
-        from .domains import CellMap, DomainMap, SideMap
+    def _validate(self) -> None:
+        from ..validation import merge_indices, require
 
-        typed(self.expression, AbstractExpression, "pull-back requires an expression")
-        typed(self.map, (DomainMap, CellMap, SideMap), "pull-back requires a map")
         require(
             self.expression.domain in (None, self.map.ambient_domain),
             "pull-back target differs from expression domain",
@@ -244,10 +278,9 @@ class TransformationLaw(Base):
     variances: tuple[Variance, ...]
     weight: int
 
-    def _validate(self):
-        from ..validation import require, tuple_of
+    def _validate(self) -> None:
+        from ..validation import require
 
-        tuple_of(self.variances, str)
         require(
             all(v in ("covariant", "contravariant") for v in self.variances), "unknown variance"
         )
@@ -265,36 +298,39 @@ class PushForward(AbstractExpression):
     mesh: Mesh
     law: TransformationLaw
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         # A covariant or a contravariant axis has the extent k on the reference cell and n on D.
         shape, p = self.expression.value_shape, len(self.law.variances)
         n = self.mesh.ambient_domain.ambient_coordinate_domain.dimension
         return (*shape[: len(shape) - p], *(n for _ in range(p)))
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.expression.free_indices
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.mesh
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
-    def _validate(self):
-        from ..validation import require, typed
-        from .domains import Mesh
+    def _validate(self) -> None:
+        from ..validation import require
 
-        typed(self.expression, AbstractExpression, "push-forward requires an expression")
-        typed(self.mesh, Mesh, "push-forward requires a mesh")
-        typed(self.law, TransformationLaw, "push-forward requires an explicit law")
         require(
             self.expression.domain in (None, self.mesh.topology),
             "push-forward source differs from the topology",
@@ -315,28 +351,35 @@ class Integral(AbstractExpression):
     expression: AbstractExpression
     integration_domain: AbstractDomain
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         # Mesh integration binds its own cell index, never an integrand index.
         return self.expression.free_indices
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return None
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_calculus(self)
 
 
@@ -347,31 +390,42 @@ class Normal(AbstractExpression):
     identifier = "uflx.Normal"
     side_map: SideMap
 
-    @cached_property
-    def value_shape(self):
-        return (self.side_map.ambient_domain.ambient_coordinate_domain.dimension,)
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
+        from .domains import Mesh
 
-    @cached_property
-    def scalar_type(self):
+        domain = self.side_map.ambient_domain
+        if not isinstance(domain, Mesh):
+            raise TypeError("normal requires a mesh side")
+        return (domain.ambient_coordinate_domain.dimension,)
+
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.side_map.parameter_domain
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return ()
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
-    def _validate(self):
-        from ..validation import require, typed
-        from .domains import Mesh, SideMap
+    def _validate(self) -> None:
+        from ..validation import require
+        from .domains import Mesh
 
-        typed(self.side_map, SideMap, "normal requires a side map")
         require(
             isinstance(self.side_map.ambient_domain, Mesh)
             and self.side_map.parameter_domain.dimension
@@ -380,15 +434,13 @@ class Normal(AbstractExpression):
         )
 
 
-def _validate_calculus(e):
-    from ..validation import require, typed
-    from .domains import AbstractDomain, Mesh
+def _validate_calculus(e: Coordinate | Gradient | Divergence | Curl | Integral) -> None:
+    from ..validation import require
+    from .domains import Mesh
 
     P = e.integration_domain if isinstance(e, Integral) else e.domain
-    typed(P, AbstractDomain, "calculus requires a domain")
     if not isinstance(e, Coordinate):
         f = e.expression
-        typed(f, AbstractExpression, "calculus requires an expression")
         domains = (
             (None, P, P.ambient_domain)
             if isinstance(e, Integral) and isinstance(P, Mesh)

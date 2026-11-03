@@ -1,26 +1,40 @@
+from __future__ import annotations
+
 import weakref
+from collections.abc import Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Concatenate, ParamSpec, TypeVar, cast
 
 from .names import is_renamed_label, renamed_label
-from .nodes import AbstractExpression, Base, Function, Index
+from .nodes import AbstractExpression, AbstractFunctionSpace, Base, Function, Index
+from .types import Construction
+
+if TYPE_CHECKING:
+    from .nodes.indices import AbstractExtent
 
 
-def operands(e, names=None):
+T = TypeVar("T", bound=Base)
+P = ParamSpec("P")
+K = TypeVar("K", bound=Base)
+R = TypeVar("R")
+
+
+def operands(e: Base, names: Sequence[str] | None = None) -> list[Base]:
     # The nodes on the edges of e, in order, through tuples, or those of the named arguments.
     return list(edges(e) if names is None else nodes_in(e, names))
 
 
-def edges(e):
+def edges(e: Base) -> tuple[Base, ...]:
     # All construction dependencies, including spaces, maps, labels and literal parts.
     memo = vars(e)
     if "edges" not in memo:
         memo["edges"] = nodes_in(e, e.argument_names)
-    return memo["edges"]
+    return cast("tuple[Base, ...]", memo["edges"])
 
 
-def nodes_in(e, names):
-    out = []
+def nodes_in(e: Base, names: Sequence[str]) -> tuple[Base, ...]:
+    out: list[Base] = []
 
-    def walk(x):
+    def walk(x: Construction) -> None:
         if isinstance(x, Base):
             out.append(x)
         elif isinstance(x, tuple):
@@ -32,27 +46,31 @@ def nodes_in(e, names):
     return tuple(out)
 
 
-def rebuild(e, **changes):
+def rebuild(e: Base, **changes: Construction) -> Construction:
     # An unknown name adds an argument, which the class rejects.
     values = dict(zip(e.argument_names, e.construction_arguments)) | changes
     from .nodes import ConjugateSpace, DualSpace
     from .spaces import conjugate_space, dual_space
 
     if isinstance(e, ConjugateSpace):
-        return conjugate_space(values["space"])
+        return conjugate_space(cast("AbstractFunctionSpace", values["space"]))
     if isinstance(e, DualSpace):
-        return dual_space(values["space"])
+        return dual_space(
+            cast("AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...]", values["space"])
+        )
     return type(e)(*values.values())
 
 
-def expressions(e):
+def expressions(e: Base) -> list[AbstractExpression]:
     # The operands of e that are expressions, which a grammar restricts.
     return [x for x in nodes_in(e, lowered(e)) if isinstance(x, AbstractExpression)]
 
 
-def map_fields(e, fn, names=None):
+def map_fields(
+    e: Base, fn: Callable[[Base], Construction], names: Sequence[str] | None = None
+) -> Construction:
     # Rebuild e with fn applied to every node in the named fields.
-    def walk(x):
+    def walk(x: Construction) -> Construction:
         if isinstance(x, Base):
             return fn(x)
         if isinstance(x, tuple):
@@ -63,47 +81,55 @@ def map_fields(e, fn, names=None):
     return rebuild(e, **{n: walk(getattr(e, n)) for n in names})
 
 
-def occurs(r, e):
+def occurs(r: Base, e: Construction) -> bool:
     # Whether r is free in e, kept on e and weakly in r so that each is freed with its node.
     if not isinstance(e, Base):
         return False
-    memo = vars(e).setdefault("occurrences", weakref.WeakKeyDictionary())
+    memo = cast(
+        "weakref.WeakKeyDictionary[Base, bool]",
+        vars(e).setdefault("occurrences", weakref.WeakKeyDictionary()),
+    )
     if r not in memo:
         memo[r] = e == r or any(occurs(r, x) for x in operands(e, scoped(r, e)))
     return memo[r]
 
 
-def scoped(r, e):
+def scoped(r: Base, e: Base) -> list[str]:
     # The arguments of e in which r can be free, without the scope if r names a bound name.
-    names = list(e.argument_names) if isinstance(r, Index) else lowered(e)
+    names = list(e.argument_names) if isinstance(r, Index) else list(lowered(e))
     names = [n for n in names if n not in e.labels]
     if any(occurs(n, r) for n in e.bound()):
         names = [n for n in names if n not in e.scope]
     return names
 
 
-def rename(node, name, avoid):
+def rename(node: Base, name: Index | Function, avoid: Sequence[Construction]) -> Index | Function:
     # The label refers to the bound operands and to avoid, never to the binding node.
     label = renamed_label(node, name, avoid)
     if isinstance(name, Index):
         return type(name)(label)
-    if isinstance(name, Function):
-        return Function(name.space, label)
-    raise TypeError("a compound variable has no new name")
+    return Function(name.space, label)
 
 
-def freshen(e, avoid):
+def freshen(e: T, avoid: Sequence[Construction]) -> T:
     # Rename the bound names of e that are free in an expression of avoid.
-    renames = {n: rename(e, n, avoid) for n in e.bound() if any(occurs(n, s) for s in avoid)}
-    return map_fields(e, lambda x: substitute(x, renames), e.scope) if renames else e
+    renames: dict[Base, Construction] = {
+        n: rename(e, n, avoid) for n in e.bound() if any(occurs(n, s) for s in avoid)
+    }
+    return cast("T", map_fields(e, lambda x: substitute(x, renames), e.scope)) if renames else e
 
 
-def substitute(e, mapping):
+def substitute(e: Base, mapping: Mapping[K, Construction]) -> Construction:
     # Simultaneous capture-avoiding substitution of mapping[r] for each r in e.
     return memoized(substituted)(e, tuple(sorted(mapping.items(), key=lambda item: item[0].digest)))
 
 
-def substituted(walk, e, items, dependencies=True):
+def substituted(
+    walk: Callable[[Base, tuple[tuple[Base, Construction], ...]], Construction],
+    e: Base,
+    items: tuple[tuple[Base, Construction], ...],
+    dependencies: bool = True,
+) -> Construction:
     mapping = dict(items)
     if e in mapping:
         return mapping[e]
@@ -112,10 +138,14 @@ def substituted(walk, e, items, dependencies=True):
 
     if isinstance(e, Zero):
         # Zero's free-index signature changes when an index is selected or gathered.
-        pairs = []
+        pairs: list[tuple[tuple[Index, int | AbstractExtent], ...]] = []
         for i, extent in e.free_indices:
             entry = walk(i, items)
-            size = walk(extent, items) if isinstance(extent, Base) else extent
+            size = (
+                cast("int | AbstractExtent", walk(extent, items))
+                if isinstance(extent, Base)
+                else extent
+            )
             if isinstance(entry, Index):
                 pairs.append(((entry, size),))
             elif isinstance(entry, GatheredIndex):
@@ -129,12 +159,12 @@ def substituted(walk, e, items, dependencies=True):
         new = map_fields(
             e, lambda x: walk(x, items), ("value_shape", "argument_spaces", "scalar_type")
         )
-        return rebuild(new, free_indices=merge_indices(*pairs))
+        return rebuild(cast("Base", new), free_indices=merge_indices(*pairs))
     if e.labels:
         if not dependencies:
             return e
         # A derived name with a replaced object in its label is rebuilt, and a renamed name is not.
-        if is_renamed_label(e.label):
+        if is_renamed_label(getattr(e, "label")):
             return map_fields(
                 e, lambda x: walk(x, items), [n for n in e.argument_names if n not in e.labels]
             )
@@ -156,47 +186,82 @@ def substituted(walk, e, items, dependencies=True):
         for n in (e.argument_names if dependencies else (*e.value_fields, *e.index_fields))
         if n not in e.scope
     ]
-    e = map_fields(e, lambda x: walk(x, items), outside)
+    e = cast("Base", map_fields(e, lambda x: walk(x, items), outside))
     return map_fields(e, lambda x: walk(x, tuple(inner.items())), e.scope)
 
 
-def memoized(rule):
+def memoized(rule: Callable[Concatenate[Callable[P, R], P], R]) -> Callable[P, R]:
     # The recursion of rule through one memo, which lasts as long as the returned function.
-    memo = {}
+    memo: dict[tuple[object, ...], R] = {}
 
-    def recurse(*args):
-        if args not in memo:
-            memo[args] = rule(recurse, *args)
-        return memo[args]
+    def recurse(*args: P.args, **kwargs: P.kwargs) -> R:
+        key = (*args, *kwargs.items())
+        if key not in memo:
+            memo[key] = rule(recurse, *args, **kwargs)
+        return memo[key]
 
     return recurse
 
 
-def lowered(e):
+def lowered(e: Base) -> tuple[str, ...]:
     # Only explicitly declared value operands are evaluated.
     return e.value_fields
 
 
-def bottom_up(f, rewrite):
+def bottom_up(
+    f: AbstractExpression, rewrite: Callable[[AbstractExpression], AbstractExpression]
+) -> AbstractExpression:
     # Rewrite each node after its operands, once for each node of the graph of f.
-    return memoized(lambda walk, e: rewrite(map_fields(e, walk, lowered(e))))(f)
+    def visit(
+        walk: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression
+    ) -> AbstractExpression:
+        return rewrite(map_values(e, walk))
+
+    return memoized(visit)(f)
 
 
-def everywhere(e, holds):
+def everywhere(e: AbstractExpression, holds: Callable[[AbstractExpression], bool]) -> bool:
     # Whether holds is true at every node of the graph of e.
-    return memoized(lambda walk, n: holds(n) and all(map(walk, expressions(n))))(e)
+    def visit(walk: Callable[[AbstractExpression], bool], n: AbstractExpression) -> bool:
+        return holds(n) and all(map(walk, expressions(n)))
+
+    return memoized(visit)(e)
 
 
-def replace(e, mapping):
+def replace(e: Base, mapping: dict[Base, Construction]) -> Construction:
     """Substitute simultaneously through construction dependencies, respecting binding."""
-    if not isinstance(e, Base) or type(mapping) is not dict:
+    if type(mapping) is not dict:
         raise TypeError("replace takes a graph object and a dictionary")
-    if not all(isinstance(key, Base) for key in mapping):
-        raise TypeError("replacement keys must be graph objects")
     return substitute(e, mapping)
 
 
-def substitute_values(e, mapping):
+def substitute_values(
+    e: AbstractExpression, mapping: Mapping[K, Construction]
+) -> AbstractExpression:
     # Value instantiation holds geometry and identity metadata fixed.
     items = tuple(sorted(mapping.items(), key=lambda item: item[0].digest))
-    return memoized(lambda walk, node, pairs: substituted(walk, node, pairs, False))(e, items)
+
+    def visit(
+        walk: Callable[[Base, tuple[tuple[Base, Construction], ...]], Construction],
+        node: Base,
+        pairs: tuple[tuple[Base, Construction], ...],
+    ) -> Construction:
+        return substituted(walk, node, pairs, False)
+
+    return cast("AbstractExpression", memoized(visit)(e, items))
+
+
+def map_values(
+    e: AbstractExpression,
+    fn: Callable[[AbstractExpression], AbstractExpression],
+    names: Sequence[str] | None = None,
+) -> AbstractExpression:
+    # The node declares these fields to contain expressions, including tuple members.
+    return cast(
+        "AbstractExpression",
+        map_fields(
+            e,
+            lambda child: fn(cast("AbstractExpression", child)),
+            e.value_fields if names is None else names,
+        ),
+    )

@@ -9,11 +9,9 @@ from uflx_spec_interpreter import (
     ScalarType,
     apply_gradients,
     coordinate,
-    domain_map,
     expand_pull_backs,
     function,
     image,
-    num,
     pull_back,
     tensor,
 )
@@ -46,9 +44,6 @@ def test_divergence_identity_and_noncell_reads_agree_across_passes(k, n):
     assert piola_law(e) is transformation_law((), 1)
     assert apply_gradients(e) is e
     assert allowed(e)
-    # Coordinate-only maps into a mesh cannot select a cell.
-    with pytest.raises(TypeError):
-        domain_map(RD(0), tensor(tuple(num(0) for _ in range(n))), D)
     out = expand_pull_backs(pull_back(e, cell_domain(D, 0)))
     assert everywhere(out, lambda node: not isinstance(node, Divergence | PushForward))
     # The identity must not differentiate the geometric Jacobian.

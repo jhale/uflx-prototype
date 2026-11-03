@@ -1,9 +1,19 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from .nodes import GatheredIndex, Index
 
+if TYPE_CHECKING:
+    from .nodes.indices import AbstractIndexTable
+    from .types import Construction
 
-def index(label):
+
+def index(label: str | tuple[Construction, ...]) -> Index:
     return Index(label)
 
 
-def gathered_index(table, indices):
+def gathered_index(
+    table: AbstractIndexTable, indices: tuple[int | Index | GatheredIndex, ...]
+) -> GatheredIndex:
     return GatheredIndex(table, indices)

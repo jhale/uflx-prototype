@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from itertools import combinations
+from typing import TYPE_CHECKING
 
 from .arithmetic import divide, rank
 from .names import derived_indices
@@ -17,18 +20,25 @@ from .nodes import (
     Zero,
 )
 
+if TYPE_CHECKING:
+    from .nodes.indices import GatheredIndex, Index
 
-def tensor(entries):
+
+def tensor(entries: tuple[AbstractExpression, ...]) -> Tensor:
     return Tensor(entries)
 
 
-def indexed(expression, indices):
-    if indices == () and isinstance(expression, AbstractExpression) and expression.value_shape:
+def indexed(
+    expression: AbstractExpression, indices: tuple[int | Index | GatheredIndex, ...]
+) -> AbstractExpression:
+    if indices == () and expression.value_shape:
         raise IndexError("full indexing must cover every axis")
     return empty_indices(expression, indices) if indices == () else Indexed(expression, indices)
 
 
-def component_tensor(expression, indices):
+def component_tensor(
+    expression: AbstractExpression, indices: tuple[Index, ...]
+) -> AbstractExpression:
     return (
         empty_indices(expression, indices)
         if indices == ()
@@ -36,15 +46,15 @@ def component_tensor(expression, indices):
     )
 
 
-def index_sum(expression, indices):
+def index_sum(expression: AbstractExpression, indices: tuple[Index, ...]) -> AbstractExpression:
     return empty_indices(expression, indices) if indices == () else IndexSum(expression, indices)
 
 
-def inverse(A):
+def inverse(A: AbstractExpression) -> AbstractExpression:
     return Inverse(A)
 
 
-def identity(n):
+def identity(n: int) -> AbstractExpression:
     if n == 0:
         return Zero((0, 0), (), (), ScalarType.real)
     return Tensor(
@@ -52,9 +62,9 @@ def identity(n):
     )
 
 
-def permutation_tensor(n):
+def permutation_tensor(n: int) -> AbstractExpression:
     # The Levi-Civita symbol of rank n, the sign of each permutation and 0 elsewhere.
-    def entries(prefix):
+    def entries(prefix: tuple[int, ...]) -> AbstractExpression:
         if len(prefix) == n:
             return Integer(sign(prefix) if len(set(prefix)) == n else 0)
         return Tensor(tuple(entries((*prefix, k)) for k in range(n)))
@@ -62,12 +72,12 @@ def permutation_tensor(n):
     return entries(())
 
 
-def transpose(A):
+def transpose(A: AbstractExpression) -> AbstractExpression:
     k, l = derived_indices("uflx.transpose", (A,), 2)
     return ComponentTensor(Indexed(A, (k, l)), (l, k))
 
 
-def matrix_product(first, second):
+def matrix_product(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
     i, k, j = derived_indices("uflx.matrix_product", (first, second), 3)
     a = (i,) if rank(first) == 2 else ()
     b = (j,) if rank(second) == 2 else ()
@@ -75,8 +85,10 @@ def matrix_product(first, second):
     return ComponentTensor(contracted, a + b) if a + b else contracted
 
 
-def component(f, entries):
-    if not isinstance(f, AbstractExpression) or type(entries) is not tuple:
+def component(
+    f: AbstractExpression, entries: tuple[int | Index | GatheredIndex, ...]
+) -> AbstractExpression:
+    if type(entries) is not tuple:
         raise TypeError("component takes an expression and a tuple")
     if not entries:
         return f
@@ -86,24 +98,26 @@ def component(f, entries):
     return Indexed(f, entries)
 
 
-def norm(u):
+def norm(u: AbstractExpression) -> AbstractExpression:
     return SquareRoot(matrix_product(u, u))
 
 
-def unit(u):
+def unit(u: AbstractExpression) -> AbstractExpression:
     return divide(u, norm(u))
 
 
-def determinant(A):
+def determinant(A: AbstractExpression) -> AbstractExpression:
     return Determinant(A)
 
 
-def sign(p):
-    return (-1) ** sum(p[a] > p[b] for a, b in combinations(range(len(p)), 2))
+def sign(p: tuple[int, ...]) -> int:
+    return -1 if sum(p[a] > p[b] for a, b in combinations(range(len(p)), 2)) % 2 else 1
 
 
-def empty_indices(expression, indices):
-    if not isinstance(expression, AbstractExpression) or type(indices) is not tuple:
+def empty_indices(
+    expression: AbstractExpression, indices: tuple[int | Index | GatheredIndex, ...]
+) -> AbstractExpression:
+    if type(indices) is not tuple:
         raise TypeError("index notation takes an expression and a tuple")
     if expression.value_shape:
         raise ValueError("empty indices require a scalar")

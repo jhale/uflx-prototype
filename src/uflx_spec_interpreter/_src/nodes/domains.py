@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from functools import cached_property
-from typing import final
+from typing import TYPE_CHECKING, cast, final
 
+from ..interning import cached
 from .base import AbstractExpression, Base
 from .indices import GatheredIndex, Index
 from .scalar_types import ScalarType
 from .topology import AbstractCellType, AbstractTopology
+
+if TYPE_CHECKING:
+    from ..nodes.indices import AbstractExtent
+    from .domains import AbstractCoordinateDomain, AbstractDomain, DomainMap
 
 
 class AbstractDomain(Base):
@@ -27,20 +31,20 @@ class AbstractDomain(Base):
 
 class AbstractCoordinateDomain(AbstractDomain):
     @property
-    def ambient_domain(self):
+    def ambient_domain(self) -> AbstractDomain:
         return self
 
     @property
-    def ambient_coordinate_domain(self):
+    def ambient_coordinate_domain(self) -> AbstractCoordinateDomain:
         return self
 
 
 @final
 class RD(AbstractCoordinateDomain):
     identifier = "uflx.RD"
-    dimension: int
+    dimension: int  # pyright: ignore[reportIncompatibleMethodOverride]
 
-    def _validate(self):
+    def _validate(self) -> None:
         from ..validation import require
 
         if type(self.dimension) is not int:
@@ -60,23 +64,15 @@ class DomainMap(Base):
     parameterisation: AbstractExpression
     ambient_domain: AbstractCoordinateDomain
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.parameterisation.free_indices
 
-    def _validate(self):
-        from ..validation import require, typed
+    def _validate(self) -> None:
+        from ..validation import require
 
-        typed(
-            self.parameter_domain,
-            (AbstractCoordinateDomain, AbstractTopology),
-            "invalid parameter domain",
-        )
-        typed(
-            self.ambient_domain, AbstractCoordinateDomain, "map target must be a coordinate domain"
-        )
         f = self.parameterisation
-        typed(f, AbstractExpression, "parameterisation must be an expression")
         require(f.domain in (None, self.parameter_domain), "parameterisation domain differs")
         require(
             f.scalar_type == ScalarType.real
@@ -94,42 +90,46 @@ class DomainMap(Base):
 class Mesh(AbstractDomain):
     identifier = "uflx.Mesh"
     coordinate_function: AbstractExpression
-    ambient_domain: AbstractCoordinateDomain
+    ambient_domain: AbstractCoordinateDomain  # pyright: ignore[reportIncompatibleMethodOverride]
 
     @property
-    def topology(self):
-        return self.coordinate_function.domain
+    def topology(self) -> AbstractTopology:
+        domain = self.coordinate_function.domain
+        if not isinstance(domain, AbstractTopology):
+            raise TypeError("mesh coordinates require a topology")
+        return domain
 
     @property
-    def dimension(self):
+    def dimension(self) -> int:
         return self.topology.dimension
 
-    @cached_property
-    def pieces(self):
+    @property
+    @cached
+    def pieces(self) -> tuple[DomainMap, ...]:
         # Derived views for integration and the oracle, not construction arguments.
         from ..domains import cell_map
         from .calculus import PullBack
+        from .domains import DomainMap
 
+        cells = self.topology.cell_types
+        if not all(isinstance(cell, AbstractReferenceCell) for cell in cells):
+            raise TypeError("mesh cells must be reference cells")
         return tuple(
             DomainMap(
-                K,
+                cast("AbstractReferenceCell", K),
                 PullBack(self.coordinate_function, cell_map(self.topology, j)),
                 self.ambient_domain,
             )
             for j, K in enumerate(self.topology.cell_types)
         )
 
-    def _validate(self):
-        from ..validation import require, typed
+    def _validate(self) -> None:
+        from ..validation import require
 
-        typed(
-            self.ambient_domain, AbstractCoordinateDomain, "mesh target must be a coordinate domain"
-        )
         f = self.coordinate_function
-        typed(f, AbstractExpression, "coordinates must be an expression")
-        typed(f.domain, AbstractTopology, "coordinates must have a topology domain")
+        topology = self.topology
         require(
-            all(isinstance(K, AbstractReferenceCell) for K in f.domain.cell_types),
+            all(isinstance(K, AbstractReferenceCell) for K in topology.cell_types),
             "mesh cells must be reference cells",
         )
         require(not f.free_indices, "mesh coordinates must have no free indices")
@@ -141,7 +141,7 @@ class Mesh(AbstractDomain):
             "invalid mesh coordinates",
         )
         require(
-            f.domain.dimension <= self.ambient_domain.dimension,
+            topology.dimension <= self.ambient_domain.dimension,
             "mesh dimension exceeds ambient dimension",
         )
 
@@ -154,16 +154,20 @@ class CellMap(Base):
     entry: int | Index | GatheredIndex
 
     @property
-    def topology(self):
+    def topology(self) -> AbstractTopology:
         X = self.ambient_domain
         return X.topology if isinstance(X, Mesh) else X
 
     @property
-    def parameter_domain(self):
-        return self.topology.cell_types[self.cell_group]
+    def parameter_domain(self) -> AbstractReferenceCell:
+        cell = self.topology.cell_types[self.cell_group]
+        if not isinstance(cell, AbstractReferenceCell):
+            raise TypeError("cell must be a reference cell")
+        return cell
 
-    @cached_property
-    def parameterisation(self):
+    @property
+    @cached
+    def parameterisation(self) -> AbstractExpression:
         from .calculus import PullBack
 
         if not isinstance(self.ambient_domain, Mesh):
@@ -173,27 +177,24 @@ class CellMap(Base):
             CellMap(self.topology, self.cell_group, self.entry),
         )
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         if isinstance(self.entry, GatheredIndex):
             return self.entry.free_indices
-        if type(self.entry) is int:
+        if isinstance(self.entry, int):
             return ()
         return ((self.entry, self.topology.num_cells[self.cell_group]),)
 
-    def _validate(self):
-        from ..validation import require, typed
+    def _validate(self) -> None:
+        from ..validation import require
 
-        typed(self.ambient_domain, (AbstractTopology, Mesh), "cell map requires a topology or mesh")
         if type(self.cell_group) is not int:
             raise TypeError("cell group must be an integer")
         require(0 <= self.cell_group < len(self.topology.cell_types), "invalid cell group")
-        require(
-            isinstance(self.parameter_domain, AbstractReferenceCell),
-            "cell must be a reference cell",
-        )
+        self.parameter_domain  # Check that the selected cell is a reference cell.
         size = self.topology.num_cells[self.cell_group]
-        if type(self.entry) is int:
+        if isinstance(self.entry, int):
             require(
                 type(size) is int and 0 <= self.entry < size,
                 "cell selection is outside the group",
@@ -201,7 +202,7 @@ class CellMap(Base):
         elif isinstance(self.entry, GatheredIndex):
             require(self.entry.extent == size, "cell gather has the wrong extent")
         else:
-            typed(self.entry, Index, "invalid cell entry")
+            pass
 
 
 @final
@@ -213,21 +214,14 @@ class SideMap(Base):
     free_indices = ()
 
     @property
-    def side_topology(self):
+    def side_topology(self) -> AbstractTopology:
         P = self.parameter_domain
         return P if isinstance(P, AbstractTopology) else P.topology
 
-    def _validate(self):
-        from ..validation import require, typed
+    def _validate(self) -> None:
+        from ..validation import require
 
-        typed(self.side, str, "side must be a name")
-        typed(self.ambient_domain, (AbstractTopology, Mesh), "invalid side target")
-        P, X = (self.parameter_domain, self.ambient_domain)
-        typed(
-            P,
-            Mesh if isinstance(X, Mesh) else AbstractTopology,
-            "side source and target kinds differ",
-        )
+        X = self.ambient_domain
         S = self.side_topology
         T = X.topology if isinstance(X, Mesh) else X
         require(
@@ -237,7 +231,7 @@ class SideMap(Base):
         require(
             len(S.sides) == len(S.cell_types)
             and all(
-                any((name == self.side and U == T for name, U, j in sides)) for sides in S.sides
+                any((name == self.side and U == T for name, U, _ in sides)) for sides in S.sides
             ),
             "side is absent from a cell group",
         )

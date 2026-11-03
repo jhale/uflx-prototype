@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from functools import cached_property
-from typing import final
+from typing import TYPE_CHECKING, final
 
+from ..interning import cached
 from .base import Base
+
+if TYPE_CHECKING:
+    from ..types import Construction
 
 
 class AbstractExtent(Base):
@@ -15,24 +18,19 @@ class AbstractExtent(Base):
 @final
 class Index(Base):
     identifier = "uflx.Index"
-    label: str | tuple
+    label: str | tuple[Construction, ...]
     labels = ("label",)
-
-    def _validate(self):
-        from ..validation import typed
-
-        typed(self.label, (str, tuple), "index label must be a string or tuple")
 
 
 class AbstractIndexTable(Base):
     # A table of index values that the solver gives, which is not an expression.
     @property
     @abstractmethod
-    def extent(self) -> int: ...
+    def extent(self) -> int | AbstractExtent: ...
 
     @property
     @abstractmethod
-    def shape(self) -> tuple: ...
+    def shape(self) -> tuple[int | AbstractExtent, ...]: ...
 
 
 @final
@@ -44,17 +42,17 @@ class GatheredIndex(Base):
     indices: tuple[int | Index | GatheredIndex, ...]
 
     @property
-    def extent(self):
+    def extent(self) -> int | AbstractExtent:
         return self.table.extent
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         from ..validation import entries
 
         return entries(self.table.shape, self.indices)
 
-    def _validate(self):
-        from ..validation import entries, typed
+    def _validate(self) -> None:
+        from ..validation import entries
 
-        typed(self.table, AbstractIndexTable, "gather requires an index table")
         entries(self.table.shape, self.indices)

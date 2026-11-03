@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from functools import cached_property
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Literal, final
 
+from ..interning import cached
 from .base import AbstractExpression
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
-    pass
+    from ..nodes.domains import AbstractDomain
+    from ..nodes.indices import AbstractExtent, Index
+    from ..nodes.spaces import AbstractFunctionSpace
+    from ..nodes.topology import AbstractTopology
 
 
 @final
@@ -19,27 +22,34 @@ class Sum(AbstractExpression):
     first: AbstractExpression
     second: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.first.value_shape
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.first.argument_spaces
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.first, self.second)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.second.domain or self.first.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_scalar_arithmetic(self)
 
 
@@ -51,27 +61,34 @@ class Product(AbstractExpression):
     first: AbstractExpression
     second: AbstractExpression
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.first.argument_spaces + self.second.argument_spaces
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.first, self.second)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.second.domain or self.first.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_scalar_arithmetic(self)
 
 
@@ -84,27 +101,34 @@ class Division(AbstractExpression):
     first: AbstractExpression
     second: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.first.argument_spaces
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.first, self.second)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.second.domain or self.first.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_scalar_arithmetic(self)
 
 
@@ -116,27 +140,34 @@ class Power(AbstractExpression):
     first: AbstractExpression
     second: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.first, self.second)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.second.domain or self.first.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         _validate_scalar_arithmetic(self)
 
 
@@ -147,33 +178,35 @@ class Conjugate(AbstractExpression):
     commuting = ("operand",)
     operand: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.operand.value_shape
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         # The free functions import the nodes, so the import is local.
         from ..spaces import conjugated
 
-        return conjugated(self.operand.argument_spaces)
+        return tuple(conjugated(V) for V in self.operand.argument_spaces)
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.operand)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
-
-    def _validate(self):
-        from ..validation import typed
-
-        typed(self.operand, AbstractExpression, "operand must be an expression")
 
 
 @final
@@ -183,27 +216,34 @@ class RealPart(AbstractExpression):
     commuting = ("operand",)
     operand: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         from ..validation import scalar_operand
 
         scalar_operand(self.operand)
@@ -216,27 +256,34 @@ class ImaginaryPart(AbstractExpression):
     commuting = ("operand",)
     operand: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         from ..validation import scalar_operand
 
         scalar_operand(self.operand)
@@ -248,27 +295,34 @@ class Absolute(AbstractExpression):
     identifier = "uflx.Absolute"
     operand: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         from ..validation import scalar_operand
 
         scalar_operand(self.operand)
@@ -280,27 +334,34 @@ class SquareRoot(AbstractExpression):
     identifier = "uflx.SquareRoot"
     operand: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.operand)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         from ..validation import scalar_operand
 
         scalar_operand(self.operand)
@@ -312,37 +373,43 @@ class Logarithm(AbstractExpression):
     identifier = "uflx.Logarithm"
     operand: AbstractExpression
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.operand)
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
-    def _validate(self):
+    def _validate(self) -> None:
         from ..validation import scalar_operand
 
         scalar_operand(self.operand)
 
 
-def _validate_scalar_arithmetic(e):
-    from ..validation import require, typed
+def _validate_scalar_arithmetic(e: Sum | Product | Division | Power) -> None:
+    from ..validation import require
 
     for f in (e.first, e.second):
-        typed(f, AbstractExpression, "arithmetic operands must be expressions")
         require(f.value_shape == (), "scalar arithmetic requires scalar operands")
     if isinstance(e, Sum):
         require(e.first.argument_spaces == e.second.argument_spaces, "sum argument spaces differ")

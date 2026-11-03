@@ -1,22 +1,30 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from .nodes import Absolute, Gradient, Integer, Inverse, SquareRoot
 from .tensors import determinant, matrix_product, transpose
 
+if TYPE_CHECKING:
+    from .nodes.base import AbstractExpression
+    from .nodes.domains import AbstractCoordinateDomain, CellMap, DomainMap
 
-def jacobian(D):
-    geometric_map(D)
-    return Gradient(D.parameterisation, D.parameter_domain)
+
+def jacobian(D: DomainMap | CellMap) -> AbstractExpression:
+    source, _ = geometric_map(D)
+    return Gradient(D.parameterisation, source)
 
 
-def metric(D):
+def metric(D: DomainMap | CellMap) -> AbstractExpression:
     # JᵀJ, the metric that the parameterisation induces on its parameter domain.
     J = jacobian(D)
     return matrix_product(transpose(J), J)
 
 
-def density(D):
+def density(D: DomainMap | CellMap) -> AbstractExpression:
     # sqrt(det G), with the closed form |det J| for a cell of the ambient dimension.
-    geometric_map(D)
-    k, n = D.parameter_domain.dimension, D.ambient_domain.ambient_coordinate_domain.dimension
+    source, target = geometric_map(D)
+    k, n = source.dimension, target.dimension
     if k == 0:
         return Integer(1)
     if k == n:
@@ -24,17 +32,21 @@ def density(D):
     return SquareRoot(determinant(metric(D)))
 
 
-def inverse_jacobian(D):
+def inverse_jacobian(D: DomainMap | CellMap) -> AbstractExpression:
     # The pseudo-inverse of J, which is the inverse for a cell of the ambient dimension.
     return Inverse(jacobian(D))
 
 
-def geometric_map(D):
-    from .nodes import AbstractCoordinateDomain, CellMap, DomainMap, Mesh
+def geometric_map(
+    D: DomainMap | CellMap,
+) -> tuple[AbstractCoordinateDomain, AbstractCoordinateDomain]:
+    from .nodes import AbstractCoordinateDomain, Mesh
 
-    if not (
-        isinstance(D, DomainMap) or (isinstance(D, CellMap) and isinstance(D.ambient_domain, Mesh))
-    ):
-        raise TypeError("geometry requires a coordinate map or mesh cell map")
-    if not isinstance(D.parameter_domain, AbstractCoordinateDomain):
+    source, target = D.parameter_domain, D.ambient_domain
+    if not isinstance(source, AbstractCoordinateDomain):
         raise TypeError("geometry requires a coordinate parameter domain")
+    if isinstance(target, Mesh):
+        return source, target.ambient_coordinate_domain
+    if isinstance(target, AbstractCoordinateDomain):
+        return source, target
+    raise TypeError("geometry requires a coordinate map or mesh cell map")

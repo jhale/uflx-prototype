@@ -1,7 +1,5 @@
 """Diagnostic contracts are read-only checks, independent of lowering recipes."""
 
-import pytest
-
 from uflx_spec_interpreter import (
     RD,
     ScalarType,
@@ -82,9 +80,3 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
     assert not derivatives_expanded(e)
     assert reference_integration(e) == ((e, "mesh integral remains"),)
     assert core_normal_form(e) == ((e, "Integral is outside core normal form"),)
-
-
-@pytest.mark.parametrize("check", [derivatives_expanded, reference_integration, core_normal_form])
-def test_invalid_root_is_rejected(check):
-    with pytest.raises(TypeError, match="expression"):
-        check(3)

@@ -1,31 +1,46 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from .nodes import Complex, Float, Integer, Zero
+
+if TYPE_CHECKING:
+    from .nodes.base import AbstractExpression, Base
+    from .nodes.domains import AbstractDomain
+    from .nodes.indices import AbstractExtent, Index
+    from .nodes.spaces import AbstractFunctionSpace
+    from .nodes.topology import AbstractTopology
 
 
 # The free functions read the static type of an expression.
-def shape(e):
+def shape(e: AbstractExpression) -> tuple[int | AbstractExtent, ...]:
     return e.value_shape
 
 
-def free(e):
+def free(e: AbstractExpression) -> dict[Index, int | AbstractExtent]:
     return dict(e.free_indices)
 
 
-def arity(e):
+def arity(e: AbstractExpression) -> int:
     return len(e.argument_spaces)
 
 
-def support(e):
+def support(e: AbstractExpression) -> AbstractDomain | AbstractTopology | None:
     return e.domain
 
 
-def free_indices(*es):
-    merged = {}
+def free_indices(*es: AbstractExpression) -> tuple[tuple[Index, int | AbstractExtent], ...]:
+    merged: dict[Index, int | AbstractExtent] = {}
     for e in es:
         merged |= free(e)
     return tuple(merged.items())
 
 
-def zero_like(f, argument_spaces, *others):
+def zero_like(
+    f: AbstractExpression,
+    argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...],
+    *others: AbstractExpression,
+) -> Zero:
     return Zero(
         shape(f),
         free_indices(f, *others),
@@ -34,12 +49,14 @@ def zero_like(f, argument_spaces, *others):
     )
 
 
-def field_terminal(e):
+def field_terminal(e: Base) -> bool:
     # Literal terminals have their own evaluation rows; fields may remain unevaluated.
     return e.is_terminal and not isinstance(e, (Integer, Float, Complex, Zero))
 
 
-def complete_indices(original, replacement):
+def complete_indices(
+    original: AbstractExpression, replacement: AbstractExpression
+) -> AbstractExpression:
     """Restore a rewrite's lost family indices, rejecting incompatible signatures.
 
     Promote real replacements into the original complex arithmetic before
@@ -63,7 +80,7 @@ def complete_indices(original, replacement):
     return add(replacement, zero_like(original, original.argument_spaces))
 
 
-def promote(original, replacement):
+def promote(original: AbstractExpression, replacement: AbstractExpression) -> AbstractExpression:
     from .arithmetic import multiply
     from .nodes import Complex, Integer, ScalarType
 

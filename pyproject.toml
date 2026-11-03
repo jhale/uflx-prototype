@@ -11,7 +11,7 @@ dependencies = ["numpy"]
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-xdist", "coverage", "fenics-basix", "jax"]
-lint = ["ruff"]
+lint = ["ruff", "pyright"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -39,3 +39,10 @@ ignore = ["E731", "E741"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle", "uflx_compiler"]
+
+[tool.pyright]
+include = ["src/uflx_spec_interpreter"]
+exclude = ["src/uflx_compiler", "src/uflx_oracle", "src/uflx_toy", "test"]
+typeCheckingMode = "strict"
+pythonVersion = "3.11"
+reportUnnecessaryTypeIgnoreComment = "error"

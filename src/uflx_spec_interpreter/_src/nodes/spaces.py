@@ -1,33 +1,37 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from functools import cached_property
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Literal, final
 
+from ..interning import cached
 from ..tuples import members
 from .base import Base
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
-    from .domains import AbstractDomain
+    from ..nodes.domains import AbstractDomain
+    from ..nodes.indices import AbstractExtent
+    from ..nodes.topology import AbstractTopology
 
 
 class AbstractFunctionSpace(Base):
     @property
     @abstractmethod
-    def domain(self) -> AbstractDomain | None: ...
+    def domain(self) -> AbstractDomain | AbstractTopology | None: ...
 
     @property
     @abstractmethod
-    def value_shape(self) -> tuple: ...
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]: ...
 
     @property
     @abstractmethod
-    def scalar_type(self) -> str: ...
+    def scalar_type(self) -> Literal["real", "complex"]: ...
 
     @property
     @abstractmethod
-    def argument_spaces(self) -> tuple: ...
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]: ...
 
 
 @final
@@ -36,27 +40,28 @@ class ConjugateSpace(AbstractFunctionSpace):
     space: AbstractFunctionSpace
 
     @property
-    def domain(self):
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.space.domain
 
     @property
-    def value_shape(self):
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.space.value_shape
 
     @property
-    def scalar_type(self):
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.space.scalar_type
 
     @property
-    def argument_spaces(self):
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         from ..spaces import conjugated
 
-        return conjugated(self.space.argument_spaces)
+        return tuple(conjugated(V) for V in self.space.argument_spaces)
 
-    def _validate(self):
-        from ..validation import require, typed
+    def _validate(self) -> None:
+        from ..validation import require
 
-        typed(self.space, AbstractFunctionSpace, "conjugate requires a space")
         require(
             self.space.scalar_type == ScalarType.complex
             and (not isinstance(self.space, ConjugateSpace)),
@@ -69,29 +74,36 @@ class DualSpace(AbstractFunctionSpace):
     identifier = "uflx.DualSpace"
     # The antilinear forms on a space, or on the product of a tuple of spaces.
     space: AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...]
-    domain = None
-    value_shape = ()
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    def domain(self) -> None:
+        return None
+
+    @property
+    def value_shape(self) -> tuple[()]:
+        return ()
+
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         is_complex = any(s.scalar_type == ScalarType.complex for s in members(self.space))
         return ScalarType.complex if is_complex else ScalarType.real
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         # The free functions import the nodes, so the import is local.
         from ..spaces import conjugated
 
         return (conjugated(self.space),)
 
-    def _validate(self):
-        from ..validation import require, tuple_of, typed
+    def _validate(self) -> None:
+        from ..validation import require
 
-        tuple_of(members(self.space), AbstractFunctionSpace) if type(
-            self.space
-        ) is tuple else typed(self.space, AbstractFunctionSpace, "dual requires a space")
         require(not isinstance(self.space, DualSpace), "dual space is not canonical")
-        if type(self.space) is tuple:
+        if isinstance(self.space, tuple):
             require(
                 len(self.space) >= 2 and len({V.scalar_type for V in self.space}) == 1,
                 "dual product needs at least two spaces with one scalar type",

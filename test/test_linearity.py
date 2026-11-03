@@ -169,12 +169,8 @@ def test_argument_query_rejects_invalid_positions(position):
 
 def test_query_input_validation_and_inherited_argument_positions():
     u, v = (function(space("query-contract"), label) for label in ("u", "v"))
-    with pytest.raises(TypeError, match="expression"):
-        dependence(1, u)
     with pytest.raises(ValueError, match="distinct"):
         dependence(u, (u, u))
-    with pytest.raises(TypeError, match="explicit Form"):
-        argument_dependence(u, 0)
     assert dependence(u, (u,)) == "complex-linear"
     nested = form(form(u * conjugate(v), (u,)), (conjugate(v),))
     assert argument_dependence(nested, 0) == "complex-antilinear"

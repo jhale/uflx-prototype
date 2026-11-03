@@ -1,13 +1,22 @@
-# Private compatibility helpers for older interpreter examples and the shape extension.
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ._src.calculus import curl, divergence
-from ._src.domains import (
-    cell_domain,
-    cell_map,
-    coordinate_function,
-    image,
-    transformation_law,
-)
+from ._src.domains import cell_domain, cell_map, coordinate_function, image, transformation_law
+from ._src.domains import push_forward as _push_forward
+from ._src.domains import side_domain as _side_domain
+from ._src.domains import side_map as _side_map
 from ._src.extensions.shape import apply_shape_derivatives, shape_derivative
+
+if TYPE_CHECKING:
+    from ._src.nodes.base import AbstractExpression
+    from ._src.nodes.calculus import PushForward, TransformationLaw
+    from ._src.nodes.domains import Mesh, SideMap
+    from ._src.nodes.topology import AbstractTopology
+
+
+# Private compatibility helpers for older interpreter examples and the shape extension.
 
 __all__ = [
     "apply_shape_derivatives",
@@ -24,19 +33,28 @@ __all__ = [
 ]
 
 
-from ._src.domains import push_forward as _push_forward
-from ._src.domains import side_domain as _side_domain
-from ._src.domains import side_map as _side_map
+def push_forward(f: AbstractExpression, D: Mesh, m: TransformationLaw | None = None) -> PushForward:
+    from ._src.nodes.calculus import TransformationLaw
+    from ._src.nodes.forms import Function
+
+    if m is None:
+        if not isinstance(f, Function):
+            raise TypeError("an explicit law is required for this expression")
+        law: object = getattr(f.space, "law", None)
+        if not isinstance(law, TransformationLaw):
+            raise TypeError("the function space supplies no transformation law")
+        m = law
+    return _push_forward(f, D, m)
 
 
-def push_forward(f, D, m=None):
-    return _push_forward(f, D, f.space.law if m is None else m)
+def side_map(
+    X: Mesh | AbstractTopology, P: Mesh | AbstractTopology, s: str | None = None
+) -> SideMap:
+    from ._src.nodes.domains import Mesh
 
-
-def side_map(X, P, s=None):
-    S = P.topology if hasattr(P, "topology") else P
+    S = P.topology if isinstance(P, Mesh) else P
     return _side_map(X, P, S.sides[0][0][0] if s is None else s)
 
 
-def side_domain(D, S, s=None):
+def side_domain(D: Mesh, S: AbstractTopology, s: str | None = None) -> Mesh:
     return _side_domain(D, S, S.sides[0][0][0] if s is None else s)

@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from functools import cached_property
-from typing import final
+from typing import TYPE_CHECKING, Literal, final
 
+from ..interning import cached
 from ..nodes import AbstractExpression, Function
 from ..passes.derivatives import apply_derivatives, deriv
 from ..substitution import bottom_up
 from ..tuples import members
+
+if TYPE_CHECKING:
+    from ..nodes.domains import AbstractDomain
+    from ..nodes.indices import AbstractExtent, Index
+    from ..nodes.spaces import AbstractFunctionSpace
+    from ..nodes.topology import AbstractTopology
 
 
 @final
@@ -22,49 +28,61 @@ class ShapeDerivative(AbstractExpression):
     direction: AbstractExpression | tuple[AbstractExpression, ...]
     scope = ("expression", "variable")
 
-    def bound(self):
+    def bound(self) -> tuple[Function, ...]:
         return members(self.variable)
 
-    @cached_property
-    def value_shape(self):
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape
 
-    @cached_property
-    def free_indices(self):
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         edges = (self.expression, *members(self.direction))
         return tuple(dict(p for x in edges for p in x.free_indices).items())
 
-    @cached_property
-    def argument_spaces(self):
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
-    @cached_property
-    def scalar_type(self):
+    @property
+    @cached
+    def scalar_type(self) -> Literal["real", "complex"]:
         return self.expression.scalar_type
 
-    @cached_property
-    def domain(self):
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
 
-def shape_derivative(f, x, h):
+def shape_derivative(
+    f: AbstractExpression,
+    x: Function | tuple[Function, ...],
+    h: AbstractExpression | tuple[AbstractExpression, ...],
+) -> ShapeDerivative:
     return ShapeDerivative(f, x, h)
 
 
-def apply_shape_derivatives(f):
+def apply_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
     # After the pull-backs are expanded, the coordinate function occurs in the expression itself,
     # in the coordinates, the Jacobians and the densities, so the derivative is a directional
     # derivative with the domains fixed.
-    def lower(e):
+    def lower(e: AbstractExpression) -> AbstractExpression:
         match e:
             case ShapeDerivative(g, x, h):
                 return apply_derivatives(deriv(g, x, x, h))
-        return e
+            case _:
+                return e
 
     return bottom_up(f, lower)
 
 
-def lower_with_shape_derivatives(f):
+def lower_with_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
     """Expose geometry, differentiate it, then re-enter checked core lowering.
 
     Unlike core lower, this extension recipe permits ShapeDerivative nodes

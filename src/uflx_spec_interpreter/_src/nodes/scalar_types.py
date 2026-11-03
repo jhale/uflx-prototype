@@ -1,6 +1,10 @@
-"""Scalar-type names used in construction data and static signatures."""
+"""Literal['real', 'complex']-type names used in construction data and static signatures."""
+
+from __future__ import annotations
+
+from typing import Final
 
 
 class ScalarType:
-    real = "real"
-    complex = "complex"
+    real: Final = "real"
+    complex: Final = "complex"

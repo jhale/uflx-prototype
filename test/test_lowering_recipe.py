@@ -72,9 +72,7 @@ def test_checked_lowering_rejects_extension_and_accepts_completed_extension_reci
     assert np.isclose(evaluate(out, {x: 2, h: 3})(()), 12)
 
 
-def test_lowering_is_idempotent_and_checks_input():
+def test_lowering_is_idempotent():
     x = function(space("lower-idempotent"), "x")
     out = lower(directional_derivative(x * x, x, x, num(1)))
     assert lower(out) is out
-    with pytest.raises(TypeError, match="expression"):
-        lower(1)

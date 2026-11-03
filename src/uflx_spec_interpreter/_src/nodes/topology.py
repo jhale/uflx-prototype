@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import TYPE_CHECKING
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from ..nodes.base import AbstractExpression
+    from ..nodes.domains import DomainMap
+    from ..nodes.indices import AbstractExtent, AbstractIndexTable
+    from .topology import AbstractCellType, AbstractTopology
 
 
 class AbstractCellType(Base):
@@ -19,19 +26,21 @@ class AbstractTopology(Base):
     # A set of cells of given cell types, without coordinates.
     @property
     @abstractmethod
-    def cell_types(self) -> tuple: ...
+    def cell_types(self) -> tuple[AbstractCellType, ...]: ...
 
     @property
     @abstractmethod
-    def num_cells(self) -> tuple: ...
+    def num_cells(self) -> tuple[int | AbstractExtent, ...]: ...
 
     @property
     @abstractmethod
-    def sides(self) -> tuple: ...
+    def sides(self) -> tuple[tuple[tuple[str, AbstractTopology, int], ...], ...]: ...
 
     @abstractmethod
-    def side_tables(self, i, side): ...
+    def side_tables(
+        self, i: int, side: str
+    ) -> tuple[AbstractIndexTable, DomainMap, AbstractExpression | None]: ...
 
     @property
-    def dimension(self):
+    def dimension(self) -> int:
         return self.cell_types[0].dimension
