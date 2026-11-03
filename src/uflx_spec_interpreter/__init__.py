@@ -19,16 +19,12 @@ from ._src.calculus import (
     integral,
 )
 from ._src.domains import (
-    cell_domain_of_specification as cell_domain,
-)
-from ._src.domains import (
-    decomposed_domain,
-    gathered_cell_domain,
+    cell_domain,
+    cell_map,
+    image,
     normal,
     side_domain,
-)
-from ._src.domains import (
-    side_map_of_specification as side_map,
+    side_map,
 )
 from ._src.forms import action, form, function, gateaux_derivative
 from ._src.geometry import density, inverse_jacobian, jacobian
@@ -70,12 +66,12 @@ __all__ = [
     "apply_gradients",
     "cell_domain",
     "cell_index",
+    "cell_map",
     "component",
     "component_tensor",
     "conjugate",
     "conjugate_space",
     "coordinate",
-    "decomposed_domain",
     "density",
     "determinant",
     "directional_derivative",
@@ -88,9 +84,9 @@ __all__ = [
     "form",
     "function",
     "gateaux_derivative",
-    "gathered_cell_domain",
     "gathered_index",
     "gradient",
+    "image",
     "imaginary_part",
     "index",
     "index_sum",

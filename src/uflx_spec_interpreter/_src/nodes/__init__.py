@@ -29,8 +29,8 @@ from .domains import (
     AbstractDomain,
     AbstractReferenceCell,
     CellMap,
-    DecomposedDomain,
     DomainMap,
+    Mesh,
     SideMap,
 )
 from .forms import Action, Form, Function, GateauxDerivative
@@ -67,7 +67,6 @@ __all__ = [
     "ConjugateSpace",
     "Coordinate",
     "Curl",
-    "DecomposedDomain",
     "DirectionalDerivative",
     "Divergence",
     "Division",
@@ -89,6 +88,7 @@ __all__ = [
     "Integral",
     "Inverse",
     "Logarithm",
+    "Mesh",
     "Normal",
     "Power",
     "Product",

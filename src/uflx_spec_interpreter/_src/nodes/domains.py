@@ -49,7 +49,7 @@ class AbstractReferenceCell(AbstractCoordinateDomain, AbstractCellType):
 @final
 class DomainMap(Base):
     identifier = "uflx.DomainMap"
-    parameter_domain: AbstractDomain
+    parameter_domain: AbstractCoordinateDomain | AbstractTopology
     parameterisation: AbstractExpression
     ambient_domain: AbstractDomain
 
@@ -59,28 +59,43 @@ class DomainMap(Base):
 
 
 @final
-class DecomposedDomain(AbstractDomain):
-    identifier = "uflx.DecomposedDomain"
-    pieces: tuple[DomainMap, ...]
+class Mesh(AbstractDomain):
+    identifier = "uflx.Mesh"
+    coordinate_function: AbstractExpression
+    ambient_domain: AbstractDomain
+
+    def __init__(self, coordinate_function, ambient_domain):
+        if not isinstance(coordinate_function, AbstractExpression):
+            raise TypeError("mesh coordinates must be an expression")
+        if not isinstance(ambient_domain, AbstractDomain):
+            raise TypeError("a mesh must have an ambient domain")
+        if not isinstance(coordinate_function.support, AbstractTopology):
+            raise TypeError("mesh coordinates must be supported on a topology")
+        if coordinate_function.free_indices:
+            raise ValueError("mesh coordinates must have no free indices")
 
     @property
-    def ambient_domain(self):
-        return self.pieces[0].ambient_domain
+    def topology(self):
+        return self.coordinate_function.support
 
     @property
     def dimension(self):
-        return self.pieces[0].parameter_domain.dimension
+        return self.topology.dimension
 
     @cached_property
-    def topology(self):
-        # The topology of a mesh, the domain built from its coordinate function, and otherwise None.
-        from ..domains import image
+    def pieces(self):
+        # Derived views for integration and the oracle, not construction arguments.
+        from ..domains import cell_map
         from .calculus import PullBack
 
-        psi = self.pieces[0].parameterisation
-        if not (isinstance(psi, PullBack) and isinstance(psi.domain, CellMap)):
-            return None
-        return psi.domain.topology if self == image(psi.expression, self.ambient_domain) else None
+        return tuple(
+            DomainMap(
+                K,
+                PullBack(self.coordinate_function, cell_map(self.topology, j)),
+                self.ambient_domain,
+            )
+            for j, K in enumerate(self.topology.cell_types)
+        )
 
 
 @final
@@ -112,8 +127,8 @@ class SideMap(Base):
     identifier = "uflx.SideMap"
     # The restriction from a topology or a mesh to the cells of a topology with sides, through a
     # side of each group: to the side topology for a topology, and to a side domain for a mesh.
-    ambient_domain: DecomposedDomain | AbstractTopology
-    parameter_domain: DecomposedDomain | AbstractTopology
+    ambient_domain: Mesh | AbstractTopology
+    parameter_domain: Mesh | AbstractTopology
     sides: tuple
     opaque = ("sides",)
     free_indices = ()

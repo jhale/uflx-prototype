@@ -2,9 +2,9 @@ from .nodes import (
     AbstractTopology,
     CellMap,
     Coordinate,
-    DecomposedDomain,
     DomainMap,
     GatheredIndex,
+    Mesh,
     Normal,
     PullBack,
     PushForward,
@@ -17,17 +17,8 @@ from .topology import cell_index
 
 def cell_domain(D, j, e=None):
     # Piece j with the ambient domain D, and for a mesh cell e of group j through its cell map.
-    piece = D.pieces[j]
-    psi = piece.parameterisation
-    if e is not None:
-        x, c = psi.expression, psi.domain
-        psi = PullBack(x, CellMap(c.topology, c.group, e))
-    return DomainMap(piece.parameter_domain, psi, D)
-
-
-def cell_domain_of_specification(D, j):
-    # The signature of LANGUAGE.md, which the draft of coordinate functions extends with e.
-    return cell_domain(D, j)
+    T, x = D.topology, D.coordinate_function
+    return DomainMap(T.cell_types[j], PullBack(x, cell_map(T, j, e)), D)
 
 
 def cell_map(T, j, e=None):
@@ -35,14 +26,11 @@ def cell_map(T, j, e=None):
 
 
 def image(x, Q):
-    T = x.support
-    pieces = (DomainMap(K, PullBack(x, cell_map(T, j)), Q) for j, K in enumerate(T.cell_types))
-    return DecomposedDomain(tuple(pieces))
+    return Mesh(x, Q)
 
 
 def coordinate_function(D):
-    # The expression on a topology that a mesh is built from.
-    return D.pieces[0].parameterisation.expression
+    return D.coordinate_function
 
 
 IDENTITY = TransformationLaw((), 0)
@@ -61,18 +49,10 @@ def push_forward(f, D, m=None):
     return PushForward(f, D, m)
 
 
-def decomposed_domain(pieces):
-    return DecomposedDomain(tuple(pieces))
-
-
-def gathered_cell_domain(D, j, g):
-    return cell_domain(D, j, g)
-
-
 def cell_of(m):
     # The group and the entry of a cell of a mesh, read from its cell map.
     match m:
-        case DomainMap(_, PullBack(_, CellMap(_, j, e)), D) if m == cell_domain(D, j, e):
+        case DomainMap(_, PullBack(_, CellMap(_, j, e)), Mesh() as D) if m == cell_domain(D, j, e):
             return j, e
     return None
 
@@ -90,15 +70,10 @@ def side_map(X, P, s=None):
     return SideMap(X, P, names)
 
 
-def side_map_of_specification(D, E, s):
-    # The signature of LANGUAGE.md, which the draft extends with a topology for D and E.
-    return side_map(D, E, s)
-
-
-def side_domain(D, S):
+def side_domain(D, S, s=None):
     # The mesh of the trace of the coordinate function of D through the first side of each group.
     x = coordinate_function(D)
-    return image(PullBack(x, side_map(x.support, S)), D.ambient_domain)
+    return image(PullBack(x, side_map(x.support, S, s)), D.ambient_domain)
 
 
 def inclusion(X, S, i, s, e):

@@ -1,5 +1,11 @@
 # UFLx spec interpreter
 
+`image(x, Q)` constructs a `Mesh` from topology-supported coordinates with no
+free indices. Mesh integrals retain free integrand indices and sum over internal
+cell indices. Cell-dependent data are fields on the topology or mesh; use mapped
+reference-domain integrals and explicit index sums for other integration families.
+
+
 A toy implementation of the evaluation passes in the UFLx language specification
 (`design/LANGUAGE.md` in the uflx repository), tested against an independent oracle.
 
@@ -71,8 +77,8 @@ modules of `_src`:
 - `maps.py`: `domain_map` and `pull_back`
 - `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
 - `topology.py`: `cell_index`
-- `domains.py`: `decomposed_domain`, `cell_domain`, `side_domain`,
-  `gathered_cell_domain`, `side_map` and `normal`
+- `domains.py`: `image`, `cell_map`, `cell_domain`, `side_domain`,
+  `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`
 - `forms.py`: `function`, `form`, `action` and `gateaux_derivative`
 - `static.py`: the free functions that read the static type

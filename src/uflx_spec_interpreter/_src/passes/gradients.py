@@ -7,7 +7,6 @@ from ..nodes import (
     Conjugate,
     Coordinate,
     Curl,
-    DecomposedDomain,
     Divergence,
     Division,
     DomainMap,
@@ -24,6 +23,7 @@ from ..nodes import (
     Integral,
     Inverse,
     Logarithm,
+    Mesh,
     Normal,
     Power,
     Product,
@@ -140,7 +140,7 @@ def allowed(e):
         case Gradient(f, P):
             return remains(f, P)
         case Integral(_, P):
-            return not isinstance(P, DecomposedDomain)
+            return not isinstance(P, Mesh)
         case PullBack(f, m):
             return pulled_back_remains(f, m)
         case Action(Function(space, _), _, _):

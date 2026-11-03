@@ -7,7 +7,6 @@ from uflx_spec_interpreter import (
     cell_domain,
     conjugate_space,
     dual_space,
-    gathered_cell_domain,
 )
 from uflx_spec_interpreter._src import nodes
 from uflx_spec_interpreter._src.nodes import (
@@ -47,7 +46,7 @@ OTHERS = [
     "DualSpace",
     "GatheredIndex",
     "RD",
-    "DecomposedDomain",
+    "Mesh",
     "DomainMap",
     "SideMap",
 ]
@@ -174,7 +173,7 @@ def test_a_reference_cell_is_a_coordinate_domain_and_a_cell_type():
     assert K != nodes.RD(2) and reference_simplex(0) != nodes.RD(0)
 
 
-def test_cell_domains_are_domain_maps_into_the_decomposed_domain():
+def test_cell_domains_are_domain_maps_into_the_mesh():
     piece = D.pieces[0]
     cells = cell_domain(D, 0)
     assert cells == DomainMap(piece.parameter_domain, piece.parameterisation, D)
@@ -183,4 +182,4 @@ def test_cell_domains_are_domain_maps_into_the_decomposed_domain():
     # A cell of a mesh is piece j with the entry of its cell map in place of the cell index.
     x = piece.parameterisation.expression
     cell = PullBack(x, CellMap(x.support, 0, g))
-    assert gathered_cell_domain(D, 0, g) == DomainMap(piece.parameter_domain, cell, D)
+    assert cell_domain(D, 0, g) == DomainMap(piece.parameter_domain, cell, D)

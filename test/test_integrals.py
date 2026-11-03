@@ -12,8 +12,6 @@ from uflx_spec_interpreter import (
     cell_index,
     component_tensor,
     coordinate,
-    decomposed_domain,
-    domain_map,
     function,
     gradient,
     index,
@@ -61,30 +59,13 @@ T0, T1 = [(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]
 # The square as a mesh of the coordinates of its vertices, with the cell index c of SQUARE.
 D = vertex_mesh(SQUARE, [(0, 0), (1, 0), (1, 1), (0, 1)])
 
-# A family of three points in the square.
-Dp = decomposed_domain(
-    (
-        domain_map(
-            RD(0),
-            component_tensor(
-                indexed(
-                    tensor(
-                        tuple(
-                            tensor((num(a), num(b)))
-                            for a, b in [(0.2, 0.3), (0.5, 0.5), (0.9, 0.1)]
-                        )
-                    ),
-                    (index("q"), k),
-                ),
-                (k,),
-            ),
-            R2,
-        ),
-    )
-)
+# Point fields get an explicit topology of independent zero-dimensional cells.
+POINTS = static_topology((reference_simplex(0),), (((0,), (1,), (2,)),), ())
+Dp = vertex_mesh(POINTS, [(0.2, 0.3), (0.5, 0.5), (0.9, 0.1)])
 
-# The square as two pieces with no free index.
-D2 = decomposed_domain((domain_map(K, affine(T0, X), R2), domain_map(K, affine(T1, X), R2)))
+# Two independent triangle patches: no shared vertices or sides are required.
+PATCHES = static_topology((K,), (((0, 1, 2), (3, 4, 5)),), ())
+D2 = vertex_mesh(PATCHES, [*T0, *T1])
 
 V = space("V", domain=D)
 u = function(V, "u")

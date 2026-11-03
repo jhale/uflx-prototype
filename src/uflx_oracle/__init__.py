@@ -17,7 +17,6 @@ from uflx_spec_interpreter._src.nodes import (
     Conjugate,
     Coordinate,
     Curl,
-    DecomposedDomain,
     DirectionalDerivative,
     Divergence,
     Division,
@@ -38,6 +37,7 @@ from uflx_spec_interpreter._src.nodes import (
     Integral,
     Inverse,
     Logarithm,
+    Mesh,
     Normal,
     Power,
     Product,
@@ -600,7 +600,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                     for k in np.eye(len(p))
                 ]
                 g = np.stack(cols, axis=-1)
-                if isinstance(P, DecomposedDomain) and P.dimension < len(p):
+                if isinstance(P, Mesh) and P.dimension < len(p):
                     # The tangential gradient on a domain of lower dimension.
                     g = g @ tangent_projector(P, env)
                 return g
@@ -615,7 +615,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def piece_value(members, vals):
                 key = frozenset(members.items())
                 if key not in fs:
-                    fs[key] = evaluate(b, env, ienv | members, over)
+                    fs[key] = evaluate(b, env, ienv, over)
                 return fs[key](vals)
 
             return lambda vals: integrate(P, lambda members: piece_value(members, vals), env)

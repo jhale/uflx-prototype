@@ -13,11 +13,11 @@ from uflx_spec_interpreter import (
     add,
     component_tensor,
     coordinate,
-    decomposed_domain,
     domain_map,
     function,
     gradient,
     index,
+    index_sum,
     indexed,
     integral,
     multiply,
@@ -39,9 +39,7 @@ POINT = RD(0)
 
 def points(coordinates, Q, P=POINT):
     # A family of points in Q, with the free index i, each a domain map from P.
-    return decomposed_domain(
-        (domain_map(P, component_tensor(indexed(table(coordinates), (i, k)), (k,)), Q),)
-    )
+    return domain_map(P, component_tensor(indexed(table(coordinates), (i, k)), (k,)), Q)
 
 
 def on_surface(cell, X):
@@ -146,7 +144,7 @@ def main(trials):
             E, sm = side
             e = integral(pull_back(integrand(rnd, Q, f), sm), E)
         else:
-            e = integral(integrand(rnd, Q, f), family)
+            e = index_sum(integral(pull_back(integrand(rnd, Q, f), family), POINT), (i,))
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
         out = gradients.lower(integrals.expand_integrals(e))
         if contains(out4, needs_pass):

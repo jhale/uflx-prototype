@@ -8,7 +8,7 @@ from .base import AbstractExpression, Base
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
-    from .domains import AbstractDomain, CellMap, DecomposedDomain, DomainMap, SideMap
+    from .domains import AbstractDomain, CellMap, DomainMap, Mesh, SideMap
     from .forms import Function
 
 
@@ -215,7 +215,7 @@ class PushForward(AbstractExpression):
     commuting = ("expression",)
     # The field on a mesh of a function on its topology, carried by a transformation law.
     expression: AbstractExpression
-    domain: DecomposedDomain
+    domain: Mesh
     law: TransformationLaw
     objects = ("domain",)
 
@@ -257,9 +257,8 @@ class Integral(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        # The free indices of the pieces of P are summed over.
-        bound = {i for piece in getattr(self.domain, "pieces", ()) for i, _ in piece.free_indices}
-        return tuple((i, n) for i, n in self.expression.free_indices if i not in bound)
+        # Mesh integration binds its own cell index, never an integrand index.
+        return self.expression.free_indices
 
     @cached_property
     def scalar_type(self):

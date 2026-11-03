@@ -37,7 +37,7 @@ I = reference_simplex(1)
 k, e = index("k"), index("e")
 
 
-# The diagonal and the boundary of the square, as decomposed domains of their topologies.
+# The diagonal and the boundary of the square, as meshes of their topologies.
 E_int = side_domain(D, DIAGONAL)
 sides_int = {s: side_map(D, E_int, s) for s in ("+", "-")}
 E_bnd = side_domain(D, BOUNDARY)
