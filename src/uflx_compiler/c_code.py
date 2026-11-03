@@ -479,9 +479,15 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
                     inner[i] = loop
                 accumulate(n.expression, inner)
             return
+        emit_blocks([({}, n)], bound)
+
+    def emit_blocks(blocks, bound):
+        # Prepare all components together, then update adjacent entries in one
+        # basis-pair traversal. This exposes interleaved stores to the C compiler.
         with ExitStack() as stack:
             inner = bound | loop_names
-            prepare(n, inner)
+            for selected, n in blocks:
+                prepare(n, inner | selected)
             for i in loop_indices:
                 loop = inner[i]
                 stack.enter_context(
@@ -490,12 +496,14 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
                         index=loop,
                     )
                 )
-            result = entry(n, inner, ())
-            output = offset(
-                tuple(inner[i] for i in output_indices),
-                tuple(dict(e.free_indices)[i] for i in output_indices),
-            )
-            emit(_Accumulation(f"A[{output}]", render(result)))
+            for selected, n in blocks:
+                positions = inner | selected
+                result = entry(n, positions, ())
+                output = offset(
+                    tuple(positions[i] for i in output_indices),
+                    tuple(dict(e.free_indices)[i] for i in output_indices),
+                )
+                emit(_Accumulation(f"A[{output}]", render(result)))
 
     def accumulate_blocks(blocks, bound):
         # Share a common quadrature traversal across component blocks, so geometry
@@ -524,8 +532,11 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
                         inner[i] = loop
                     accumulate_blocks([(selected, n.expression) for selected, n in blocks], inner)
                 return
-        for selected, n in blocks:
-            accumulate(n, bound | selected)
+        if all(not isinstance(n, (Sum, IndexSum)) for _, n in blocks):
+            emit_blocks(blocks, bound)
+        else:
+            for selected, n in blocks:
+                accumulate(n, bound | selected)
 
     # Reusing loop names also lets prepared basis arrays match across component blocks.
     loop_names = {i: fresh("a") for i in loop_indices}

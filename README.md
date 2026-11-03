@@ -104,9 +104,9 @@ components consecutively, matching Basix/UFCx ordering. Arguments and
 coefficients use this layout on cells and both kinds of facets; a vector form
 produces one full local tensor in one kernel call. Basis and component indices
 remain separate: component choices are specialised before C emission, removing
-structural zeros and writing each block directly into the interleaved output.
-Symmetry-compressed tensor
-spaces and mixed elements are not supported.
+structural zeros. Component updates share a basis-pair loop and write directly
+into the interleaved output. Symmetry-compressed tensor spaces and mixed elements
+are not supported.
 
 The source targets the UFCx interface in FFCx 0.12; other versions need their own compatibility validation.
 

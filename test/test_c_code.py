@@ -381,6 +381,8 @@ def test_component_specialisation_skips_zero_blocks(tmp_path, quadrature):
     )
     # Two diagonal blocks are emitted; the two identically-zero blocks do no work.
     assert code.count("A[") == 2
+    # Both component updates share the same two basis loops.
+    assert len(re.findall(r"for \(int a\d+ =", code)) == 2
     source, library = tmp_path / "blocked.c", tmp_path / "blocked.so"
     source.write_text(
         "#include <math.h>\nint reads = 0;\n"
