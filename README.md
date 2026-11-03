@@ -47,7 +47,9 @@ checks:
   each argument of a form, so that the form evaluates to its assembled tensor
 
 The C emitter, `uflx_compiler.c_code.c_kernel`, emits scalar arithmetic with
-optional outer loops over `output_indices`. Index sums become nested C loops; input-independent subgraphs
+optional outer loops over `output_indices`. `index_bindings` maps remaining
+indices to C expressions, such as `entity_local_index[0]`. Index sums become
+nested C loops; input-independent subgraphs
 become constant multidimensional tables. Temporary expressions are shared only
 within scopes where their indices are defined. The runtime arrays keep the flat
 pointer interface: `read(label, offset)` must accept an integer or a C expression
@@ -64,24 +66,42 @@ order. Offsets count scalar entries in `w` and `c`.
 
 This backend tabulates directly in standard Basix element ordering. It does not
 use the toy mesh's global DOF map or tensor-product DOF reordering. A kernel
-computes one cell contribution, with outer loops over the local argument DOFs;
+computes one cell or exterior-facet contribution, with outer loops over the local argument DOFs;
 the solver packs cell-local coefficients and three-component coordinate DOFs,
 performs DOF transformations, and assembles the result. Mesh connectivity and
 coordinate values are absent from the generated kernel. Equivalent input graphs
 may still produce differently ordered arithmetic after canonicalisation.
 
-The supported UFCx subset is float64 cell integrals of rank 0, 1 or 2, on one
+The supported UFCx subset is float64 cell and exterior-facet integrals of rank
+0, 1 or 2, on one
 mesh with one Basix cell type. Geometry is a tensor of scalar Basix coordinate
 functions (including curved geometry), or vertex coordinates interpreted as P1.
 Element families and degrees follow the toy Basix spaces, with the equispaced
-variant; custom variants are not yet exposed. Facets, mixed arguments and complex
-inputs are rejected. Scalar and tensor
-constants are packed separately from coefficients. The source targets the UFCx
+variant; custom variants are not yet exposed. Interior facets (`dS`), mixed
+arguments and complex inputs are rejected. Scalar and tensor constants are packed separately from coefficients. The source targets the UFCx
 interface in FFCx 0.12; other versions need their own compatibility validation.
 
+For exterior facets (`ds`), construct the boundary with `side_domain` on a
+one-sided topology and pull the cell integrand back through its `side_map`:
+
+```python
+boundary = side_domain(mesh, boundary_topology, "inside")
+trace = pull_back(integrand, side_map(mesh, boundary, "inside"))
+code = compile_ufcx(integral(trace, boundary), mesh, degree=4)
+assert code.integral_type == "exterior_facet"
+```
+
+The generated kernel selects a reference facet using `entity_local_index[0]`
+in Basix local-facet numbering. Its facet tables, measure and outward normals
+come from reference geometry; the boundary topology's connectivity is not
+embedded. Exterior facets require no quadrature permutation. Compile cell and
+boundary contributions separately: one generated form currently has one
+integration domain and the default integral ID `-1`.
+
 `test/test_ufcx.py` compares generated local tensors and descriptors with FFCx,
-including higher-order elements, Piola maps and curved cells. It also contains a
-DOLFINx assembly test using the generated `ufcx_form` address directly. These tests
+including higher-order elements, Piola maps, curved cells and every local facet
+of triangles, quadrilaterals, tetrahedra and hexahedra. It also contains
+DOLFINx cell and exterior-facet assembly tests using the generated `ufcx_form` address directly. These tests
 skip when their optional dependencies are unavailable. With local FFCx and UFL
 checkouts on `PYTHONPATH`, run `pytest test/test_ufcx.py`; `UFCX_INCLUDE_DIR` can
 supply the header directory separately. Keep the compiled shared library alive

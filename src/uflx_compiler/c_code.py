@@ -29,7 +29,7 @@ from uflx_toy.nodes import RuntimeArray
 from .folding import fold
 
 
-def c_kernel(e, name, read, *, output_indices=()):
+def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
     # Scalar arithmetic with nested index sums and optional outer output-index loops.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 100000))
@@ -241,7 +241,7 @@ def c_kernel(e, name, read, *, output_indices=()):
     def call(name, f, a):
         return float(f(a)) if isinstance(a, float) else temp(f"{name}({a})")
 
-    bound = {i: 0 for i, _ in e.free_indices}
+    bound = {i: 0 for i, _ in e.free_indices} | (index_bindings or {})
     with ExitStack() as stack:
         for i in output_indices:
             loop = fresh("a")
