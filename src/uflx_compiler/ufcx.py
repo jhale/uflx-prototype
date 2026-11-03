@@ -18,6 +18,7 @@ from uflx_spec_interpreter import (
     image,
     index_sum,
     lower,
+    multiply,
     tensor,
 )
 from uflx_spec_interpreter._src.names import _derived_index
@@ -188,7 +189,22 @@ def compile_ufcx(
     coefficient_offsets = _offsets(width * n for n in dimensions[len(arguments) :])
     constant_offsets = _offsets(prod(c.value_shape) for c in constants)
     rows = tuple(_derived_index("compiler.ufcx.argument", i) for i in range(len(arguments)))
+    components = {
+        u: _derived_index("compiler.ufcx.component", i)
+        for i, u in enumerate(arguments)
+        if u.space.block_size > 1
+    }
     argument_rows = dict(zip(arguments, rows, strict=True))
+    output_indices = tuple(
+        index
+        for u, row in argument_rows.items()
+        for index in ((row, components[u]) if u in components else (row,))
+    )
+    output_extents = tuple(
+        extent
+        for u, E in zip(arguments, elements, strict=False)
+        for extent in ((width * E.dim, u.space.block_size) if u in components else (width * E.dim,))
+    )
     inputs = {
         u: runtime_array(("w", off), (width, E.dim, u.space.block_size))
         for u, E, off in zip(
@@ -213,6 +229,7 @@ def compile_ufcx(
         f,
         degree,
         argument_rows,
+        components,
         geometry,
         inputs,
         coordinate_element.dim,
@@ -220,16 +237,17 @@ def compile_ufcx(
         width,
         reference_values,
     )
-    expected_indices = tuple(zip(rows, shape, strict=True))
-    if set(dict(expression.free_indices)) - (set(rows) | bindings.keys()):
+    expected_indices = tuple(zip(output_indices, output_extents, strict=True))
+    if set(dict(expression.free_indices)) - (set(output_indices) | bindings.keys()):
         raise ValueError("local tensor has unexpected free indices")
-    if set(rows) - dict(expression.free_indices).keys():
+    if set(output_indices) - dict(expression.free_indices).keys():
         expression = add(expression, Zero((), expected_indices, (), "real"))
     kernel = c_kernel(
         expression,
         name + "_kernel",
         lambda label, off: f"{label[0]}[{label[1]} + ({off})]",
-        output_indices=rows,
+        output_indices=output_indices,
+        unroll_indices=tuple(components.values()),
         index_bindings=bindings,
     )
     source = _descriptors(
@@ -316,6 +334,7 @@ def _local_expression(
     f,
     degree,
     argument_rows,
+    components,
     geometry,
     inputs,
     coordinate_dimension,
@@ -349,7 +368,7 @@ def _local_expression(
         E = _element(u.space)
         dof = _derived_index("compiler.ufcx.dof", u, cell)
         block_size = u.space.block_size
-        if width == 1 and block_size == 1 and u in argument_rows:
+        if width == 1 and u in argument_rows:
             dof = argument_rows[u]
 
         def component(idx):
@@ -362,11 +381,12 @@ def _local_expression(
                 u.space, 0, E, points, idx[rank:], dof, 0 if u.space.block_shape else c
             )
             if u in argument_rows:
-                if width == 1 and block_size == 1:
-                    return value
-                return _argument_block(
-                    value, dof, argument_rows[u], cell, E.dim, width, block_size, component_number
-                )
+                if width == 2:
+                    value = _argument_block(value, dof, argument_rows[u], cell, E.dim)
+                if u in components:
+                    selector = constant(tuple(float(k == c) for k in range(block_size)))
+                    value = multiply(selector[components[u]], value)
+                return value
             data = (
                 coordinate_data[cell, dof, geometry.index(u)]
                 if u in geometry
@@ -384,13 +404,12 @@ def _local_expression(
     return simplify(_memoized(visit)(f))
 
 
-def _argument_block(value, dof, row, side, dimension, width, block_size, component):
-    # Components are interleaved within each side's DOFs, as in UFCx/Basix.
+def _argument_block(value, dof, row, side, dimension):
+    # Basis tables stay separate for each side; only their local DOF axis doubles.
     axes = [i for i, _ in value.free_indices]
     values = np.moveaxis(evaluate(value, {}), axes.index(dof), -1)
-    size = dimension * block_size
-    blocked = np.zeros((*values.shape[:-1], width * size))
-    blocked[..., side * size + component : (side + 1) * size : block_size] = values
+    blocked = np.zeros((*values.shape[:-1], 2 * dimension))
+    blocked[..., side * dimension : (side + 1) * dimension] = values
     indices = tuple(i for i in axes if i != dof)
     return constant(blocked)[(*indices, row)]
 

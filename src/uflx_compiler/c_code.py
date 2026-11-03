@@ -28,10 +28,12 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
+from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_spec_interpreter._src.traversal import _expressions
 from uflx_toy.nodes import RuntimeArray
 
 from .folding import fold
+from .simplification import simplify
 
 
 @dataclass
@@ -104,13 +106,24 @@ class _Scope:
         visit(self)
 
 
-def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
+def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_indices=()):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 100000))
     root = scope = _Scope()
     tables = {}
-    folded = fold(e, preserve_indices=(*output_indices, *(index_bindings or {})))
+    if not set(unroll_indices) <= set(output_indices):
+        raise ValueError("unrolled indices must be output indices")
+    extents = dict(e.free_indices)
+    # Specialise component choices before scheduling, exposing exact structural zeros.
+    expressions = []
+    folded = {}
+    for components in np.ndindex(tuple(extents[i] for i in unroll_indices)):
+        selected = dict(zip(unroll_indices, components, strict=True))
+        expression = simplify(_substitute(e, selected)) if selected else e
+        expressions.append((selected, expression))
+        folded.update(fold(expression, preserve_indices=(*output_indices, *(index_bindings or {}))))
+    loop_indices = tuple(i for i in output_indices if i not in unroll_indices)
     serial = 0
 
     def fresh(prefix):
@@ -396,7 +409,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
         # Materialise maximal computations reused across an output index.
         # Precomputing both sides also separates basis evaluation from contraction.
         # Arrays span only the indices the computation depends on.
-        if len(output_indices) < 2:
+        if len(loop_indices) < 2:
             return
         seen = set()
 
@@ -412,13 +425,13 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
                     if key in ancestor.expressions:
                         return
                     ancestor = ancestor.parent
-            axes = tuple(i for i in output_indices if i in free)
+            axes = tuple(i for i in loop_indices if i in free)
             if (
                 axes
                 and not n.value_shape
                 and free.keys() <= bound.keys()
                 and work(n) > 1
-                and any(dict(e.free_indices)[i] > 1 for i in output_indices if i not in free)
+                and any(dict(e.free_indices)[i] > 1 for i in loop_indices if i not in free)
             ):
                 name = fresh("cache")
                 emit(f"double {name}" + "".join(f"[{free[i]}]" for i in axes) + ";")
@@ -444,6 +457,8 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
         visit(n)
 
     def accumulate(n, bound):
+        if isinstance(n, Zero):
+            return
         # Integral sums surround argument loops. Other reductions remain scalar
         # computations, which entry() schedules at their earliest legal scope.
         if isinstance(n, Sum):
@@ -465,9 +480,9 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
                 accumulate(n.expression, inner)
             return
         with ExitStack() as stack:
-            inner = bound | {i: fresh("a") for i in output_indices}
+            inner = bound | loop_names
             prepare(n, inner)
-            for i in output_indices:
+            for i in loop_indices:
                 loop = inner[i]
                 stack.enter_context(
                     block(
@@ -482,9 +497,41 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
             )
             emit(_Accumulation(f"A[{output}]", render(result)))
 
+    def accumulate_blocks(blocks, bound):
+        # Share a common quadrature traversal across component blocks, so geometry
+        # and basis computations can be reused at each point.
+        blocks = [(selected, n) for selected, n in blocks if not isinstance(n, Zero)]
+        if not blocks:
+            return
+        first = blocks[0][1]
+        if isinstance(first, IndexSum):
+            extents = dict(first.expression.free_indices)
+            axes = tuple((i, extents[i]) for i in first.indices)
+            if all(
+                isinstance(n, IndexSum)
+                and tuple((i, dict(n.expression.free_indices)[i]) for i in n.indices) == axes
+                for _, n in blocks
+            ):
+                with ExitStack() as stack:
+                    inner = dict(bound)
+                    for i, size in axes:
+                        if size == 0:
+                            return
+                        loop = fresh("q")
+                        stack.enter_context(
+                            block(f"for (int {loop} = 0; {loop} < {size}; ++{loop})", index=loop)
+                        )
+                        inner[i] = loop
+                    accumulate_blocks([(selected, n.expression) for selected, n in blocks], inner)
+                return
+        for selected, n in blocks:
+            accumulate(n, bound | selected)
+
+    # Reusing loop names also lets prepared basis arrays match across component blocks.
+    loop_names = {i: fresh("a") for i in loop_indices}
     bound = {i: 0 for i, _ in e.free_indices} | (index_bindings or {})
     if all(dict(e.free_indices)[i] > 0 for i in output_indices):
-        accumulate(e, bound)
+        accumulate_blocks(expressions, bound)
     root.inline_products()
     body = "\n".join([declaration for _, declaration in tables.values()] + list(root.lines()))
     return (

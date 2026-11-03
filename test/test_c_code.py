@@ -23,6 +23,7 @@ from uflx_spec_interpreter import (
     integral,
     inverse,
     num,
+    square_root,
     tensor,
 )
 from uflx_toy.basix_cells import basix_cell
@@ -357,3 +358,45 @@ def test_precomputed_arrays_preserve_conditional_evaluation(tmp_path):
     np.testing.assert_allclose(result, np.arange(1, 5)[:, None] * data[1] ** 2)
     assert list((ctypes.c_int * 2).in_dll(lib, "reads")) == [0, 6]
     assert re.findall(r"double cache\d+(\[[^;]+);", code) == ["[3]"]
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("quadrature", [False, True])
+def test_component_specialisation_skips_zero_blocks(tmp_path, quadrature):
+    i, r, j, s = (index(name) for name in ("i", "r", "j", "s"))
+    basis = tensor((num(1), num(2), num(4)))
+    diagonal = tensor((tensor((num(1), num(0))), tensor((num(0), num(2)))))
+    scale = runtime_array("scale", ())
+    expression = square_root(scale) * basis[i] * basis[j] * diagonal[r, s]
+    if quadrature:
+        q = index("q")
+        scale = runtime_array("scale", (2,))
+        expression = index_sum(square_root(scale[q]) * basis[i] * basis[j] * diagonal[r, s], (q,))
+    code = c_kernel(
+        expression,
+        "blocked",
+        lambda label, offset: f"read_scale(w + ({offset}))",
+        output_indices=(i, r, j, s),
+        unroll_indices=(r, s),
+    )
+    # Two diagonal blocks are emitted; the two identically-zero blocks do no work.
+    assert code.count("A[") == 2
+    source, library = tmp_path / "blocked.c", tmp_path / "blocked.so"
+    source.write_text(
+        "#include <math.h>\nint reads = 0;\n"
+        "double read_scale(const double* w) { reads++; return w[0]; }\n" + code
+    )
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    lib = ctypes.CDLL(str(library))
+    data = np.array([9.0, 16.0])
+    result = np.full((6, 6), 7.0)
+    pointer = ctypes.POINTER(ctypes.c_double)
+    lib.blocked(
+        result.ctypes.data_as(pointer), data.ctypes.data_as(pointer), None, None, None, None, None
+    )
+    expected = 7 + (7 if quadrature else 3) * np.kron(
+        np.outer([1, 2, 4], [1, 2, 4]), np.diag([1, 2])
+    )
+    np.testing.assert_allclose(result, expected)
+    # Kernel-input computations are shared across specialised blocks, even without -O.
+    assert ctypes.c_int.in_dll(lib, "reads").value == (2 if quadrature else 1)
