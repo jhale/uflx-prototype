@@ -6,8 +6,9 @@ return offending nodes and diagnostic reasons without running transformations or
 checking later compiler capabilities.
 
 `gateaux_derivative(...)` constructs a `Form` from `DirectionalDerivative`
-expressions. There is no separate Gateaux node or pass. Linearity analysis is an
-optional internal optimization, not a requirement for declaring a form.
+expressions. There is no separate Gateaux node or pass.
+Form linearity is a declared mathematical precondition; the interpreter does not
+include a linearity analyser.
 
 `image(x, Q)` constructs a `Mesh` from topology-supported coordinates with no
 free indices. Mesh integrals retain free integrand indices and sum over internal
