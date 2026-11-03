@@ -4,7 +4,7 @@ from test_integrals import D, c
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import ScalarType, conjugate_space, dual_space
 from uflx_spec_interpreter._src import nodes
-from uflx_spec_interpreter._src.domains import _cell_domain
+from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Base,
@@ -23,7 +23,7 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_spec_interpreter._src.passes import pullbacks
 from uflx_spec_interpreter._src.static import _free
-from uflx_spec_interpreter._src.substitution import _rebuild
+from uflx_spec_interpreter._src.traversal import _rebuild
 from uflx_toy.cells import reference_simplex
 from uflx_toy.nodes import IndexTable
 from uflx_toy.spaces import space

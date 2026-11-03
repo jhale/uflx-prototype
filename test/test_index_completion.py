@@ -13,7 +13,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import Zero
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_spec_interpreter._src.static import _complete_indices
+from uflx_spec_interpreter._src.rewriting import _complete_indices
 from uflx_toy.spaces import space
 
 

@@ -11,28 +11,8 @@ from .arithmetic import (
     Sum,
 )
 from .base import AbstractExpression, Base
-from .calculus import (
-    Coordinate,
-    Curl,
-    DirectionalDerivative,
-    Divergence,
-    Gradient,
-    Integral,
-    Normal,
-    PullBack,
-    PushForward,
-    TransformationLaw,
-)
-from .domains import (
-    RD,
-    AbstractCoordinateDomain,
-    AbstractDomain,
-    AbstractReferenceCell,
-    CellMap,
-    DomainMap,
-    Mesh,
-    SideMap,
-)
+from .calculus import Coordinate, Curl, DirectionalDerivative, Divergence, Gradient, Integral
+from .domains import RD, AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
 from .forms import Action, Form, Function
 from .indices import (
     AbstractExtent,
@@ -41,6 +21,8 @@ from .indices import (
     Index,
 )
 from .literals import Complex, Float, Integer, Zero
+from .maps import DomainMap, PullBack
+from .meshes import CellMap, Mesh, Normal, PushForward, SideMap, TransformationLaw
 from .scalar_types import ScalarType
 from .spaces import AbstractFunctionSpace, ConjugateSpace, DualSpace
 from .tensors import ComponentTensor, Determinant, Indexed, IndexSum, Inverse, Tensor

@@ -6,7 +6,8 @@ from .nodes import DomainMap, PullBack
 
 if TYPE_CHECKING:
     from .nodes.base import AbstractExpression
-    from .nodes.domains import AbstractCoordinateDomain, CellMap, SideMap
+    from .nodes.domains import AbstractCoordinateDomain
+    from .nodes.meshes import CellMap, SideMap
     from .nodes.topology import AbstractTopology
 
 

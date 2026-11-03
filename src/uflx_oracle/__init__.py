@@ -5,7 +5,7 @@ import numpy as np
 
 from uflx_spec_interpreter import cell_index
 from uflx_spec_interpreter._src.calculus import _rotation_of_gradient, _trace_of_gradient
-from uflx_spec_interpreter._src.domains import _cell_of
+from uflx_spec_interpreter._src.meshes import _cell_of
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,

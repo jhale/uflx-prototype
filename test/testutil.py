@@ -1,7 +1,7 @@
 import numpy as np
 
-from uflx_spec_interpreter import RD, ScalarType, num, tensor
-from uflx_spec_interpreter._draft import image
+import uflx_spec_interpreter
+from uflx_spec_interpreter import RD, ScalarType, image, num, tensor
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Action,
@@ -17,12 +17,13 @@ from uflx_spec_interpreter._src.nodes import (
     Indexed,
     IndexSum,
     Integral,
+    Mesh,
     Product,
     PullBack,
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.substitution import _expressions, _nodes_in
+from uflx_spec_interpreter._src.traversal import _expressions, _nodes_in
 from uflx_toy.nodes import VertexCoordinates
 
 
@@ -163,3 +164,23 @@ def vertex_mesh(T, vertices, Q=None):
     # The mesh of T with the vertices at the given coordinates, mapped by degree 1 on each cell.
     vertices = tuple(tuple(float(c) for c in v) for v in np.asarray(vertices, dtype=float))
     return image(VertexCoordinates(T, vertices), RD(len(vertices[0])) if Q is None else Q)
+
+
+def push_forward(f, domain, law=None):
+    """Use the toy function space's law when an example omits it."""
+    return uflx_spec_interpreter.push_forward(f, domain, f.space.law if law is None else law)
+
+
+def side_map(domain, side, selection=None):
+    """Use the first side selection when an example omits it."""
+    topology = side.topology if isinstance(side, Mesh) else side
+    return uflx_spec_interpreter.side_map(
+        domain, side, topology.sides[0][0][0] if selection is None else selection
+    )
+
+
+def side_domain(domain, topology, selection=None):
+    """Use the first side selection when an example omits it."""
+    return uflx_spec_interpreter.side_domain(
+        domain, topology, topology.sides[0][0][0] if selection is None else selection
+    )

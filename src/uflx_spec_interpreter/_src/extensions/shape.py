@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, final
 from ..interning import _cached
 from ..nodes import AbstractExpression, Function
 from ..passes.derivatives import _deriv, apply_derivatives
-from ..substitution import _bottom_up
+from ..traversal import _bottom_up
 from ..tuples import _members
 
 if TYPE_CHECKING:
@@ -94,9 +94,8 @@ def _lower_with_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
     core-normal-form contract.
     """
     from ..passes.actions import apply_actions
-    from ..passes.gradients import _lower
     from ..passes.integrals import expand_integrals
-    from ..passes.lowering import lower
+    from ..passes.lowering import _lower_spatial, lower
 
-    exposed = _lower(expand_integrals(apply_derivatives(apply_actions(f))))
+    exposed = _lower_spatial(expand_integrals(apply_derivatives(apply_actions(f))))
     return lower(_apply_shape_derivatives(exposed))

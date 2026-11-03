@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, cast
 
 from ..arithmetic import divide, multiply, square_root
 from ..calculus import _rotation_of_gradient, _trace_of_gradient
-from ..domains import _cell_of, _inclusion, _is_cell
 from ..geometry import _geometric_map, density, inverse_jacobian, jacobian
+from ..meshes import _cell_of, _inclusion, _is_cell
 from ..names import _derived_index
 from ..nodes import (
     Action,
@@ -26,10 +26,12 @@ from ..nodes import (
     SideMap,
     TransformationLaw,
 )
-from ..static import _complete_indices, _field_terminal, _shape, _support
-from ..substitution import _bottom_up, _everywhere, _freshen, _map_values, _memoized, _substitute
+from ..rewriting import _complete_indices
+from ..static import _field_terminal, _shape, _support
+from ..substitution import _freshen, _substitute
 from ..tensors import determinant, transpose
 from ..topology import cell_index
+from ..traversal import _bottom_up, _everywhere, _map_values, _memoized
 from .actions import apply_actions
 from .piola import _piola_law
 
@@ -39,7 +41,7 @@ if TYPE_CHECKING:
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_in_n5", "_remains", "_transformed", "expand_pull_backs"]
+__all__ = ["_pull_backs_expanded", "_remains", "_transformed", "expand_pull_backs"]
 
 
 def _rule(
@@ -248,5 +250,5 @@ def _remains(f: AbstractExpression, m: DomainMap | CellMap | SideMap) -> bool:
     )
 
 
-def _in_n5(e: AbstractExpression) -> bool:
+def _pull_backs_expanded(e: AbstractExpression) -> bool:
     return _everywhere(e, lambda n: not isinstance(n, PullBack) or _remains(n.expression, n.map))

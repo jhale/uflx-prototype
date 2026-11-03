@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
-from ..substitution import _freshen, _map_values
+from ..substitution import _freshen
+from ..traversal import _map_values
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression

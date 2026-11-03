@@ -22,6 +22,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import Action
 from uflx_spec_interpreter._src.passes import actions
+from uflx_spec_interpreter._src.passes.actions import _actions_complete
 from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
@@ -118,8 +119,8 @@ def main(trials):
             lambda n: isinstance(n, Action) and not pairing(n),
         ):
             lazy += 1
-            rejected += not actions._in_n2(e)
-        if not actions._in_n2(out):
+            rejected += not _actions_complete(e)
+        if not _actions_complete(out):
             not_n1 += 1
     print(
         f"{trials} expressions with {n_actions} actions: {failures} values changed, "

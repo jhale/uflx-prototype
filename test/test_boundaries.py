@@ -88,22 +88,22 @@ def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
     [
         ("import uflx_oracle as oracle", "uflx_spec_interpreter.example", False, "uflx_oracle"),
         (
-            "from uflx_spec_interpreter import _draft",
+            "from uflx_spec_interpreter import _src",
             "uflx_toy.example",
             False,
-            "uflx_spec_interpreter._draft",
+            "uflx_spec_interpreter._src",
         ),
         (
-            "from . import _draft",
+            "from . import _src",
             "uflx_spec_interpreter.example",
             False,
-            "uflx_spec_interpreter._draft",
+            "uflx_spec_interpreter._src",
         ),
         (
-            "from .. import _draft",
+            "from .. import _src",
             "uflx_spec_interpreter._src.example",
             False,
-            "uflx_spec_interpreter._draft",
+            "uflx_spec_interpreter._src",
         ),
         (
             "from ._src import nodes",
@@ -161,3 +161,29 @@ def test_implementation_definitions_are_public_or_underscore_prefixed():
                 if not name.startswith("_") and (module, name) not in public:
                     violations.append(f"{path.relative_to(SOURCE)}:{node.lineno}: rename {name}")
     assert not violations, "\n".join(violations)
+
+
+@pytest.mark.parametrize(
+    ("module", "forbidden"),
+    [
+        ("static", {"rewriting", "substitution", "traversal", "passes", "contracts"}),
+        ("traversal", {"rewriting", "substitution", "passes", "contracts"}),
+        ("rewriting", {"substitution", "passes", "contracts"}),
+        ("substitution", {"passes", "contracts"}),
+        ("passes.actions", {"contracts", "passes.lowering"}),
+        ("passes.derivatives", {"contracts", "passes.lowering"}),
+        ("passes.integrals", {"contracts", "passes.lowering"}),
+        ("passes.gradients", {"contracts", "passes.lowering"}),
+        ("passes.pullbacks", {"contracts", "passes.lowering"}),
+        ("contracts", {"passes.lowering"}),
+    ],
+)
+def test_core_dependency_layers(module, forbidden):
+    """Queries and transformations must not depend on their callers or recipes."""
+    prefix = "uflx_spec_interpreter._src."
+    path = SOURCE.joinpath(*(prefix + module).split(".")).with_suffix(".py")
+    for dependency in imported(path):
+        assert not any(
+            dependency == prefix + name or dependency.startswith(prefix + name + ".")
+            for name in forbidden
+        ), (module, dependency)

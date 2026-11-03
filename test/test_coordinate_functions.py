@@ -2,7 +2,7 @@ import basix
 import numpy as np
 from test_basix import square
 from test_compiler import functionals, runtime_mesh
-from testutil import vertex_mesh
+from testutil import push_forward, side_map, vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
@@ -10,9 +10,11 @@ from uflx_spec_interpreter import (
     RD,
     apply_gradients,
     cell_index,
+    cell_map,
     expand_integrals,
     function,
     gathered_index,
+    image,
     index,
     index_sum,
     integral,
@@ -20,18 +22,11 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
-from uflx_spec_interpreter._draft import (
-    _cell_domain,
-    _coordinate_function,
-    cell_map,
-    image,
-    push_forward,
-    side_map,
-)
-from uflx_spec_interpreter._src.domains import _is_cell
+from uflx_spec_interpreter._src.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.meshes import _cell_domain, _coordinate_function, _is_cell
 from uflx_spec_interpreter._src.nodes import CellMap, Division, Gradient, PullBack
-from uflx_spec_interpreter._src.passes import gradients
-from uflx_spec_interpreter._src.substitution import _everywhere
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.traversal import _everywhere
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.indices import index_table
@@ -95,8 +90,8 @@ def test_a_p1_coordinate_function_gives_the_values_of_the_explicit_mesh():
 def test_the_jacobian_of_a_mesh_is_the_reference_gradient_of_the_coordinate_function():
     D, _ = p1_mesh()
     u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
-    out = gradients._lower(expand_integrals(functionals(D, u)[3]))
-    assert gradients._in_n6(out)
+    out = _lower_spatial(expand_integrals(functionals(D, u)[3]))
+    assert _in_core_normal_form(out)
     # The Jacobian is the reference gradient of the reads of x0 and x1 through the cell maps.
     gradients_of_reads = [
         n.expression.expression.label
@@ -164,7 +159,7 @@ def test_a_gathered_cell_of_a_mesh_reads_the_cells_that_the_entry_selects():
     value = evaluate(compile_form(gathered, 4), env)
     assert np.isclose(value, evaluate(compile_form(plain, 4), env))
     assert np.isclose(value, oracle(gathered, geometry | {u.expression: U})(()))
-    assert gradients._in_n6(apply_gradients(gathered))
+    assert _in_core_normal_form(apply_gradients(gathered))
 
 
 def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
@@ -172,7 +167,7 @@ def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
     # form are cells of the mesh of the user, and its function is the function of the user.
     D, _ = p1_mesh()
     uT = function(basix_space("V", T, P, 2), "u")
-    out = gradients._lower(expand_integrals(functionals(D, push_forward(uT, D))[3]))
+    out = _lower_spatial(expand_integrals(functionals(D, push_forward(uT, D))[3]))
     # The function of the user is read through the cell maps of the topology of the user.
     reads = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == uT]
     assert reads and all(n.map.ambient_domain == T for n in reads)

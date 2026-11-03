@@ -26,9 +26,12 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.domains import _cell_domain
+from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import Function
 from uflx_spec_interpreter._src.passes import actions, derivatives, integrals
+from uflx_spec_interpreter._src.passes.actions import _actions_complete
+from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
+from uflx_spec_interpreter._src.passes.integrals import _integrals_expanded
 from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
@@ -99,7 +102,7 @@ def main(trials):
             if bad["value"] <= 3:
                 print("value changed, seed", seed, before, after)
         bad["grammar"] += not (
-            actions._in_n2(out) and derivatives._in_n3(out) and integrals._in_n4(out)
+            _actions_complete(out) and _derivatives_complete(out) and _integrals_expanded(out)
         )
     print(f"{trials} forms on a mesh: {bad['value']} values changed, {bad['grammar']} outside N4")
     return bad

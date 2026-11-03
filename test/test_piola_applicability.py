@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from testutil import push_forward
 
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
@@ -9,18 +10,20 @@ from uflx_spec_interpreter import (
     ScalarType,
     apply_gradients,
     coordinate,
+    curl,
+    divergence,
     expand_pull_backs,
     function,
     image,
     pull_back,
     tensor,
+    transformation_law,
 )
-from uflx_spec_interpreter._draft import curl, divergence, push_forward, transformation_law
-from uflx_spec_interpreter._src.domains import _cell_domain
+from uflx_spec_interpreter._src.contracts import _allowed_in_core_normal_form
+from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import Curl, Divergence, Gradient, PullBack, PushForward
-from uflx_spec_interpreter._src.passes.gradients import _allowed
 from uflx_spec_interpreter._src.passes.piola import _piola_law
-from uflx_spec_interpreter._src.substitution import _everywhere
+from uflx_spec_interpreter._src.traversal import _everywhere
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology
@@ -43,7 +46,7 @@ def test_divergence_identity_and_noncell_reads_agree_across_passes(k, n):
     e = divergence(f, D)
     assert _piola_law(e) is transformation_law((), 1)
     assert apply_gradients(e) is e
-    assert _allowed(e)
+    assert _allowed_in_core_normal_form(e)
     out = expand_pull_backs(pull_back(e, _cell_domain(D, 0)))
     assert _everywhere(out, lambda node: not isinstance(node, Divergence | PushForward))
     # The identity must not differentiate the geometric Jacobian.
@@ -58,10 +61,10 @@ def test_curl_eligibility_observes_the_dimension_restriction(k, n):
         expected = transformation_law(("contravariant",) if n == 3 else (), 1)
         assert _piola_law(e) is expected
         assert apply_gradients(e) is e
-        assert _allowed(e)
+        assert _allowed_in_core_normal_form(e)
     else:
         assert _piola_law(e) is None
-        assert not _allowed(e)
+        assert not _allowed_in_core_normal_form(e)
         assert _everywhere(apply_gradients(e), lambda node: not isinstance(node, Curl))
 
 

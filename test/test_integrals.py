@@ -21,7 +21,11 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
+from uflx_spec_interpreter._src.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.passes import integrals
+from uflx_spec_interpreter._src.passes.integrals import _integrals_expanded
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
 from uflx_spec_interpreter._src.static import _free, _shape
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
@@ -112,8 +116,8 @@ def main(trials):
         kind = rnd.choice(["domain", "ambient", "none"])
         e = integral(integrand(rnd, dom, kind), dom)
         out3 = integrals.expand_integrals(e)
-        out = gradients._lower(out3)
-        rejected += not integrals._in_n4(e)
+        out = _lower_spatial(out3)
+        rejected += not _integrals_expanded(e)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
@@ -126,10 +130,10 @@ def main(trials):
                     (_shape(out), _free(out)),
                 )
         bad["grammar"] += not (
-            integrals._in_n4(out3)
-            and integrals._in_n4(out)
-            and pullbacks._in_n5(out)
-            and gradients._in_n6(out)
+            _integrals_expanded(out3)
+            and _integrals_expanded(out)
+            and _pull_backs_expanded(out)
+            and _in_core_normal_form(out)
         )
         fr = _free(e)
         for combo in itertools.product(*(range(n) for n in fr.values())):

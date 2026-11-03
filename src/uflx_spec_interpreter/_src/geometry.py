@@ -7,7 +7,9 @@ from .tensors import determinant, matrix_product, transpose
 
 if TYPE_CHECKING:
     from .nodes.base import AbstractExpression
-    from .nodes.domains import AbstractCoordinateDomain, CellMap, DomainMap
+    from .nodes.domains import AbstractCoordinateDomain
+    from .nodes.maps import DomainMap
+    from .nodes.meshes import CellMap
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.

@@ -15,9 +15,10 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
+from uflx_spec_interpreter._src.contracts import _in_core_normal_form
 from uflx_spec_interpreter._src.nodes import Inverse
-from uflx_spec_interpreter._src.passes import gradients
-from uflx_spec_interpreter._src.substitution import _everywhere
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.traversal import _everywhere
 from uflx_toy.basix_cells import basix_cell
 
 K = basix_cell(basix.CellType.triangle)
@@ -26,7 +27,7 @@ X, k = coordinate(D), index("k")
 
 
 def core(e):
-    return gradients._lower(expand_integrals(e))
+    return _lower_spatial(expand_integrals(e))
 
 
 def nodes(e):
@@ -42,7 +43,7 @@ def test_a_gradient_pulled_back_by_a_map_that_is_not_a_cell_needs_no_inverse():
     phi = domain_map(P, component_tensor(x[k] + num(0.1) * x[0] * x[1], (k,)), P)
     f = pull_back(gradient(x[0] * x[0] * x[1], P), phi)[0]
     out = core(f)
-    assert gradients._in_n6(out) and not any(isinstance(n, Inverse) for n in nodes(out))
+    assert _in_core_normal_form(out) and not any(isinstance(n, Inverse) for n in nodes(out))
     from uflx_oracle import at
 
     assert np.isclose(
@@ -55,5 +56,5 @@ def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
     # Gradients on the mesh come before the pull-backs by its cells, so K never meets J.
     f = integral(gradient(X[0] * X[0] * X[1], D)[0], D)
     out = core(f)
-    assert gradients._in_n6(out) and not any(isinstance(n, Inverse) for n in nodes(out))
+    assert _in_core_normal_form(out) and not any(isinstance(n, Inverse) for n in nodes(out))
     assert np.isclose(oracle(out, {})(()), oracle(f, {})(()))

@@ -5,11 +5,11 @@ import subprocess
 import basix
 import numpy as np
 import pytest
+from testutil import push_forward
 
 from uflx_compiler import compile_form, evaluate
 from uflx_compiler.c_code import c_kernel
-from uflx_spec_interpreter import RD, function, gradient, integral, tensor
-from uflx_spec_interpreter._draft import divergence, image, push_forward
+from uflx_spec_interpreter import RD, divergence, function, gradient, image, integral, tensor
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology

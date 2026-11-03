@@ -1,10 +1,12 @@
 # The classic FEniCS layer of EXAMPLES.md, for functions on a topology. A function of the layer
 # is the push-forward of a function on the topology, so a user script has one name for each.
 import basix
+from testutil import push_forward, side_map
 
 from uflx_spec_interpreter import (
     ScalarType,
     conjugate,
+    divergence,
     form,
     function,
     gradient,
@@ -16,7 +18,6 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
-from uflx_spec_interpreter._draft import divergence, push_forward, side_map
 from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, Function
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.spaces import space

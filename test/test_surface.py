@@ -13,6 +13,7 @@ from uflx_spec_interpreter import (
     coordinate,
     function,
     gradient,
+    image,
     index,
     index_sum,
     indexed,
@@ -25,7 +26,7 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
-from uflx_spec_interpreter._draft import image
+from uflx_spec_interpreter._src.contracts import _in_core_normal_form
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
     Coordinate,
@@ -34,7 +35,9 @@ from uflx_spec_interpreter._src.nodes import (
     Normal,
     PullBack,
 )
-from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
+from uflx_spec_interpreter._src.passes import integrals
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.nodes import VertexCoordinates
 from uflx_toy.spaces import space
@@ -130,7 +133,7 @@ def edge_integrand(rnd, D, E, sides):
 
 def check(name, e, env, bad, rows):
     out3 = integrals.expand_integrals(e)
-    out = gradients._lower(out3)
+    out = _lower_spatial(out3)
     if contains(
         out3,
         lambda n: (
@@ -140,11 +143,11 @@ def check(name, e, env, bad, rows):
         ),
     ):
         bad["lazy"] += 1
-        bad["rejected"] += not pullbacks._in_n5(out3)
+        bad["rejected"] += not _pull_backs_expanded(out3)
     check_types(bad, e, out)
     if not keeps_static_type(e, out):
         bad["static"] += 1
-    bad["grammar"] += not (pullbacks._in_n5(out) and gradients._in_n6(out))
+    bad["grammar"] += not (_pull_backs_expanded(out) and _in_core_normal_form(out))
     before, after = evaluate(e, env)(()), evaluate(out, env)(())
     if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
         bad["value"] += 1

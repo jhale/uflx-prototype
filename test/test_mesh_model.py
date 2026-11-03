@@ -2,7 +2,7 @@
 
 import basix
 import numpy as np
-from testutil import table, vertex_mesh
+from testutil import push_forward, table, vertex_mesh
 
 from uflx_compiler import compile_form
 from uflx_compiler import evaluate as compiled_value
@@ -15,6 +15,7 @@ from uflx_spec_interpreter import (
     domain_map,
     function,
     gradient,
+    image,
     index,
     index_sum,
     integral,
@@ -23,9 +24,9 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._draft import _cell_domain, image, push_forward
+from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import Mesh
-from uflx_spec_interpreter._src.passes.gradients import _lower
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
 from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
@@ -44,7 +45,7 @@ def test_integrate_members_then_sum_only_the_selected_index():
     assert dict(members.free_indices) == {i: 3, configuration: 2}
     assert dict(total.free_indices) == {configuration: 2}
     for c, expected in enumerate((10, 20)):
-        assert np.isclose(evaluate(_lower(total), {}, {configuration: c})(()), expected)
+        assert np.isclose(evaluate(_lower_spatial(total), {}, {configuration: c})(()), expected)
 
 
 def test_integration_patches_need_no_field_domain():
@@ -56,7 +57,7 @@ def test_integration_patches_need_no_field_domain():
     )
     f = coordinate(RD(1))[0]
     expression = sum((integral(pull_back(f, M) * density(M), P) for M in patches), num(0))
-    assert np.isclose(evaluate(_lower(expression), {})(()), 12.5)
+    assert np.isclose(evaluate(_lower_spatial(expression), {})(()), 12.5)
 
 
 def test_coincident_cells_keep_independent_finite_element_fields():
@@ -148,5 +149,5 @@ def test_mesh_integral_retains_integrand_indices_across_substitution():
     assert inserted.free_indices == first.free_indices == second.free_indices == ((c, 2),)
     for n, expected in enumerate((4, 14)):
         for form in (inserted, first, second):
-            assert np.isclose(evaluate(_lower(form), {}, {c: n})(()), expected)
+            assert np.isclose(evaluate(_lower_spatial(form), {}, {c: n})(()), expected)
     assert expand_integrals(inserted) is first

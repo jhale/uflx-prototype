@@ -26,9 +26,9 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.contracts import _core_normal_form
 from uflx_spec_interpreter._src.nodes import AbstractDomain, AbstractFunctionSpace, Action, SideMap
-from uflx_spec_interpreter._src.passes.actions import _in_n2
-from uflx_spec_interpreter._src.passes.gradients import _lower as lower_spatial
-from uflx_spec_interpreter._src.passes.pullbacks import _in_n5
+from uflx_spec_interpreter._src.passes.actions import _actions_complete
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial as lower_spatial
+from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 
@@ -92,7 +92,7 @@ def test_partial_applications_of_transformed_operators_remain_and_are_accepted()
     u, v = function(V, "u"), function(V, "v")
     e = action(action(gradient(A, P), 1, u), 0, v)
     assert apply_actions(e) is e
-    assert _in_n2(e)
+    assert _actions_complete(e)
     assert not _core_normal_form(e)
     assert lower(e) is e
 
@@ -113,13 +113,13 @@ def test_side_pullback_transforms_output_before_deferral_and_keeps_tuple_family(
     k = index("argument-family")
     g = (tensor((u, v))[k], v)
     original = pull_back(action(A, 0, g), sm)
-    assert not _in_n5(original)
+    assert not _pull_backs_expanded(original)
     out = expand_pull_backs(original)
     assert isinstance(out, Action)
     assert out.argument is g
     assert out.form is pull_back(A, sm)
     assert out.free_indices == original.free_indices
-    assert _in_n5(out) and not _core_normal_form(out)
+    assert _pull_backs_expanded(out) and not _core_normal_form(out)
     assert apply_actions(out) is out
 
 

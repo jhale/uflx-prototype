@@ -12,6 +12,7 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
+from uflx_spec_interpreter._src.contracts import _in_core_normal_form
 from uflx_spec_interpreter._src.nodes import PullBack
 from uflx_spec_interpreter._src.passes import (
     actions,
@@ -57,7 +58,7 @@ def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():
         pullbacks.expand_pull_backs,
     ):
         out = apply(out)
-    assert gradients._in_n6(out)
+    assert _in_core_normal_form(out)
     assert contains(e, lambda n: isinstance(n, PullBack))
     assert not contains(out, lambda n: isinstance(n, PullBack))
 

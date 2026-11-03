@@ -4,16 +4,11 @@ import numpy as np
 import pytest
 from test_basix import quadrilaterals
 from test_compiler import functionals
-from testutil import contains, vertex_mesh
+from testutil import contains, push_forward, vertex_mesh
 
 from uflx_compiler import compile_form, evaluate, fold, tabulation
 from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
-    function,
-    gradient,
-    integral,
-)
-from uflx_spec_interpreter._draft import push_forward
+from uflx_spec_interpreter import function, gradient, integral
 from uflx_spec_interpreter._src.nodes import GatheredIndex
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space

@@ -1,25 +1,27 @@
 import basix
 import numpy as np
-from testutil import vertex_mesh
+from testutil import push_forward, vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
     coordinate,
+    curl,
+    divergence,
     expand_integrals,
     function,
     gradient,
+    image,
     index,
     index_sum,
     integral,
     num,
     tensor,
 )
-from uflx_spec_interpreter._draft import curl, divergence, image, push_forward
 from uflx_spec_interpreter._src.nodes import Gradient, PushForward
-from uflx_spec_interpreter._src.passes import gradients
-from uflx_spec_interpreter._src.substitution import _everywhere
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.traversal import _everywhere
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
@@ -92,7 +94,7 @@ def second_derivatives(e):
     # The gradients of gradients in the lowered form, such as the derivative of the Jacobian.
     found = []
     _everywhere(
-        gradients._lower(expand_integrals(e)),
+        _lower_spatial(expand_integrals(e)),
         lambda n: (
             not (isinstance(n, Gradient) and isinstance(n.expression, Gradient))
             or not found.append(n)

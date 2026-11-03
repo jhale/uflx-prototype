@@ -17,8 +17,9 @@ from ..nodes import (
     Product,
     SquareRoot,
 )
-from ..substitution import _freshen, _map_values
+from ..substitution import _freshen
 from ..tensors import transpose
+from ..traversal import _map_values
 from ..tuples import _each, _members
 
 if TYPE_CHECKING:

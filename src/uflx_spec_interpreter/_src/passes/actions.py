@@ -6,8 +6,10 @@ from typing import TYPE_CHECKING, TypeVar, cast
 from ..arithmetic import multiply
 from ..nodes import Action, Conjugate, Form, Function, Gradient, Product, PullBack, Zero
 from ..nodes.forms import _entry_function
-from ..static import _arity, _complete_indices, _field_terminal, _free_indices, _promote
-from ..substitution import _everywhere, _freshen, _lowered, _map_values, _memoized, _substitute
+from ..rewriting import _complete_indices, _promote
+from ..static import _arity, _field_terminal, _free_indices
+from ..substitution import _freshen, _substitute
+from ..traversal import _everywhere, _lowered, _map_values, _memoized
 from ..tuples import _members
 from .commuting import _commute
 
@@ -19,7 +21,7 @@ _T = TypeVar("_T")
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_in_n2", "_retained", "apply_actions"]
+__all__ = ["_actions_complete", "_retained", "apply_actions"]
 
 
 def _rule(
@@ -109,5 +111,5 @@ def _retained(form: AbstractExpression) -> bool:
     return isinstance(form, Function | Gradient | PullBack | Action) or _field_terminal(form)
 
 
-def _in_n2(e: AbstractExpression) -> bool:
+def _actions_complete(e: AbstractExpression) -> bool:
     return _everywhere(e, lambda n: not isinstance(n, Action) or _retained(n.form))

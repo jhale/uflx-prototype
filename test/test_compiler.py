@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from test_basix import mixed, quadrilaterals, square
-from testutil import contains
+from testutil import contains, push_forward
 
 from uflx_compiler import (
     assemble,
@@ -27,6 +27,7 @@ from uflx_spec_interpreter import (
     form,
     function,
     gradient,
+    image,
     index,
     index_sum,
     integral,
@@ -36,8 +37,7 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
-from uflx_spec_interpreter._draft import _coordinate_function, image, push_forward
-from uflx_spec_interpreter._src.domains import _cell_domain
+from uflx_spec_interpreter._src.meshes import _cell_domain, _coordinate_function
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     Division,
@@ -47,7 +47,7 @@ from uflx_spec_interpreter._src.nodes import (
     Power,
     PullBack,
 )
-from uflx_spec_interpreter._src.substitution import _everywhere, _expressions, _memoized
+from uflx_spec_interpreter._src.traversal import _everywhere, _expressions, _memoized
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.runtime import runtime_array, runtime_extent

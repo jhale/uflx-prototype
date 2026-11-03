@@ -28,6 +28,7 @@ from uflx_spec_interpreter import (
     side_domain,
     side_map,
 )
+from uflx_spec_interpreter._src.contracts import _in_core_normal_form
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
     Coordinate,
@@ -35,7 +36,9 @@ from uflx_spec_interpreter._src.nodes import (
     Gradient,
     PullBack,
 )
-from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
+from uflx_spec_interpreter._src.passes import integrals, pullbacks
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
@@ -166,14 +169,14 @@ def main(trials):
                 (i,),
             )
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
-        out = gradients._lower(integrals.expand_integrals(e))
+        out = _lower_spatial(integrals.expand_integrals(e))
         if contains(out4, needs_pass):
             bad["lazy"] += 1
-            bad["rejected"] += not gradients._in_n6(out4)
+            bad["rejected"] += not _in_core_normal_form(out4)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
-        bad["grammar"] += not (pullbacks._in_n5(out) and gradients._in_n6(out))
+        bad["grammar"] += not (_pull_backs_expanded(out) and _in_core_normal_form(out))
         if restricted:
             # Through the restriction, every pull-back reads a library value on a cell.
             bad["restricted"] += 1

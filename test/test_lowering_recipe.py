@@ -18,7 +18,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.contracts import _core_normal_form, _derivatives_expanded
 from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative
-from uflx_spec_interpreter._src.substitution import _everywhere
+from uflx_spec_interpreter._src.traversal import _everywhere
 from uflx_toy.spaces import space
 
 
@@ -59,8 +59,10 @@ def test_point_substitution_exposes_action_and_another_derivative():
 
 
 def test_checked_lowering_rejects_extension_and_accepts_completed_extension_recipe():
-    from uflx_spec_interpreter._draft import _shape_derivative
-    from uflx_spec_interpreter._src.extensions.shape import _lower_with_shape_derivatives
+    from uflx_spec_interpreter._src.extensions.shape import (
+        _lower_with_shape_derivatives,
+        _shape_derivative,
+    )
 
     x, h = (function(space("shape-recipe"), name) for name in ("x", "h"))
     e = _shape_derivative(x * x, x, h)

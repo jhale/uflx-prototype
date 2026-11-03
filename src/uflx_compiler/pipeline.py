@@ -1,7 +1,7 @@
 from uflx_spec_interpreter import apply_actions, apply_derivatives
 from uflx_spec_interpreter._src.extensions.shape import _lower_with_shape_derivatives
-from uflx_spec_interpreter._src.passes.algebra import _normalizer
 
+from .algebra import _normalizer
 from .quadrature import apply_quadrature
 from .simplification import simplify
 from .tabulation import tabulate

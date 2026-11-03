@@ -16,8 +16,8 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.domains import _cell_domain
-from uflx_spec_interpreter._src.passes.gradients import _in_n6
+from uflx_spec_interpreter._src.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_toy.runtime import runtime_array
 from uflx_toy.spaces import space
 
@@ -39,7 +39,7 @@ def test_the_core_normal_form_allows_the_classes_of_its_table():
         action(l, 0, conjugate(w)),
         runtime_array("q", (2,)),
     ):
-        assert _in_n6(e), e
+        assert _in_core_normal_form(e), e
 
 
 def test_the_core_normal_form_rejects_what_its_table_leaves_out():
@@ -55,4 +55,4 @@ def test_the_core_normal_form_rejects_what_its_table_leaves_out():
         action(form(multiply(v, w), (v,)), 0, w),
         add(num(1), integral(u, D)),
     ):
-        assert not _in_n6(e), e
+        assert not _in_core_normal_form(e), e

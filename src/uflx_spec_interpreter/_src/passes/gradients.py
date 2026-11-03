@@ -5,51 +5,28 @@ from typing import TYPE_CHECKING
 
 from ..arithmetic import multiply
 from ..calculus import _rotation_of_gradient, _trace_of_gradient
-from ..domains import _is_cell
+from ..meshes import _is_cell
 from ..names import _derived_index, _derived_indices
 from ..nodes import (
-    Absolute,
     Action,
-    Complex,
     ComponentTensor,
-    Conjugate,
     Coordinate,
     Curl,
-    Determinant,
     Divergence,
-    Division,
     DomainMap,
-    Float,
-    Form,
-    Function,
     Gradient,
-    ImaginaryPart,
     Indexed,
     IndexSum,
-    Integer,
-    Integral,
-    Inverse,
-    Logarithm,
-    Mesh,
-    Normal,
-    Power,
-    Product,
     PullBack,
     PushForward,
-    RealPart,
-    SquareRoot,
-    Sum,
-    Tensor,
     Zero,
 )
 from ..static import _field_terminal, _free_indices, _shape, _support
-from ..substitution import _bottom_up, _everywhere, _memoized
 from ..tensors import _identity
-from .actions import _retained, apply_actions
+from ..traversal import _bottom_up, _memoized
+from .actions import apply_actions
 from .derivative_table import _derivative_of_node
 from .piola import _piola_law
-from .pullbacks import _remains as _pulled_back_remains
-from .pullbacks import expand_pull_backs
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
@@ -58,7 +35,7 @@ if TYPE_CHECKING:
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_allowed", "_in_n6", "_lower", "apply_gradients"]
+__all__ = ["_remains", "apply_gradients"]
 
 
 def _rule(
@@ -143,63 +120,3 @@ def apply_gradients(f: AbstractExpression) -> AbstractExpression:
                 return e
 
     return _bottom_up(f, evaluate)
-
-
-def _allowed(e: AbstractExpression) -> bool:
-    # The core normal form, the output grammar N6.
-    match e:
-        case (
-            Integer()
-            | Float()
-            | Complex()
-            | Zero()
-            | Sum()
-            | Product()
-            | Division()
-            | Power()
-            | Absolute()
-            | Conjugate()
-            | RealPart()
-            | ImaginaryPart()
-            | SquareRoot()
-            | Logarithm()
-            | Tensor()
-            | Indexed()
-            | ComponentTensor()
-            | IndexSum()
-            | Inverse()
-            | Determinant()
-            | Coordinate()
-            | Normal()
-            | Function()
-            | Form()
-            | PushForward()
-        ):
-            return True
-        case _ if _field_terminal(e):
-            return True
-        case Divergence() | Curl():
-            return _piola_law(e) is not None
-        case Gradient(f, p):
-            return _remains(f, p)
-        case Integral(_, p):
-            return not isinstance(p, Mesh)
-        case PullBack(f, m):
-            return _pulled_back_remains(f, m)
-        case Action(A, _, _):
-            return _retained(A)
-        case _:
-            return False
-
-
-def _lower(f: AbstractExpression) -> AbstractExpression:
-    # apply_gradients and expand_pull_backs until neither rewrites, the stage of the core after
-    # expand_integrals. A graph that the passes leave unchanged is the same object. Gradients on
-    # the domains of the forms come first, so a gradient of the coordinates is the identity.
-    while (g := expand_pull_backs(apply_gradients(f))) is not f:
-        f = g
-    return f
-
-
-def _in_n6(e: AbstractExpression) -> bool:
-    return _everywhere(e, _allowed)

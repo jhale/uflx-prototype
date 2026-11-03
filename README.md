@@ -53,7 +53,7 @@ The standard recipe in `_src/passes/lowering.py` coordinates:
 | Apply actions | `passes/actions.py` |
 | Expand derivatives and finish resulting actions | `passes/derivatives.py` |
 | Expand mesh integrals | `passes/integrals.py` |
-| Alternate gradients and pull-backs until stable | `passes/gradients.py`, `passes/pullbacks.py` |
+| Alternate gradients and pull-backs until stable | `passes/lowering.py`, using `gradients.py` and `pullbacks.py` |
 | Check core normal form | `contracts.py` |
 
 The shape extension uses its own recipe: expose geometry, apply shape derivatives,
@@ -90,7 +90,7 @@ modules of `_src`:
 - `maps.py`: `domain_map` and `pull_back`
 - `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
 - `topology.py`: `cell_index`
-- `domains.py`: `image`, `cell_map`, `side_domain`,
+- `meshes.py`: `image`, `cell_map`, `side_domain`,
   `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`
 - `forms.py`: `function`, `form`, `action` and `gateaux_derivative`
@@ -106,13 +106,16 @@ The private modules of `_src`:
   Every concrete class is `@final`, and the abstract classes are contracts.
 - `nodes/literals.py`, `nodes/arithmetic.py`, `nodes/indices.py`,
   `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py`,
+  `nodes/maps.py`, `nodes/meshes.py`,
   `nodes/topology.py`, `nodes/spaces.py` and `nodes/forms.py`: the node classes,
   by section of the specification, most with a module of the same name for
   their free functions
 - `interning.py`: the table of nodes, their canonical text and the seed-free
   digest
-- `substitution.py`: traversal, rebuilding, freshening and simultaneous
-  substitution
+- `traversal.py`: graph traversal and reconstruction
+- `substitution.py`: capture-avoiding freshening and simultaneous substitution
+- `rewriting.py`: replacement compatibility, index completion and promotion
+- `contracts.py`: evaluation-stage requirements, including core normal form
 - `passes/commuting.py`: the commuting node classes, into which an evaluated
   node moves
 - `passes/derivative_table.py`: the derivatives of the node classes, shared by
@@ -167,8 +170,8 @@ evaluation traverses only value operands. Rewrite completion preserves complex
 arithmetic and family indices. The oracle and compiler handle complex literals,
 determinants and explicit cell reads independently of the rewrite rules.
 
-`_draft` retains private convenience wrappers used by older examples. Its optional
-transformation-law and side selection are not part of the public core API.
+Test utilities supply the default transformation laws and side selections used
+by older examples. The public core API takes these arguments explicitly.
 `num` is likewise an explicit interpreter convenience: core factories and
 operator overloads never convert Python numbers.
 
@@ -186,7 +189,7 @@ Unknown extension operations require an extension recipe before core lowering.
 
 Directional differentiation evaluates undifferentiated operands at the point and
 inserts directions unchanged. `apply_derivatives` does not collect scalar algebra.
-The compiler explicitly requests the optional `passes/algebra.py` normalizer.
+The compiler explicitly requests the optional `uflx_compiler/algebra.py` normalizer.
 Both that optimizer and compiler simplification complete each rewritten child's
 static type before rebuilding its parent. Compiler index instantiation uses the
 core's capture-avoiding value substitution, followed by folding known toy tables.
@@ -250,7 +253,9 @@ The ordinary test suite also checks three source conventions:
   `from package import submodule`, local imports and imports under
   `TYPE_CHECKING`. It enforces the existing package dependency direction and
   prevents core implementation modules from importing the public facade,
-  `_draft`, or `_src/extensions`. Extension modules may depend on the core.
+  `_draft`, or `_src/extensions`. Extension modules may depend on the core. It also keeps static queries,
+  traversal, rewrite completion and substitution independent of passes and
+  contracts, and prevents transformations from importing their lowering recipe.
 - `test/test_overloads.py` checks that expression operator methods return calls
   to their designated free functions with the correct operand order. Indexing
   preserves the `_members(entries)` conversion. Returning `NotImplemented` for
@@ -279,7 +284,7 @@ Other module-level functions, implementation classes, constants and typing
 helpers begin with `_`, including helpers shared between implementation
 modules. Internal `__all__` lists explicitly permit that sharing without
 weakening strict Pyright's private-access checks; they do not expand the
-package's public API. `_draft` remains a private compatibility facade.
+package's public API. Private convenience helpers live in their implementation modules.
 
 Node fields and protocol methods retain their existing names because they
 form the extension/reconstruction interface. Nested functions and local

@@ -7,8 +7,8 @@ from .base import Base
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
-    from ..nodes.domains import DomainMap
     from ..nodes.indices import AbstractExtent, AbstractIndexTable
+    from .maps import DomainMap
     from .topology import AbstractCellType, AbstractTopology
 
 

@@ -106,10 +106,10 @@ def test_direction_must_not_be_free_at_the_evaluation_point():
 def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomorphic):
     import basix
     from test_basix import square
+    from testutil import push_forward
 
     from uflx_compiler import assemble
     from uflx_spec_interpreter import gradient, integral
-    from uflx_spec_interpreter._draft import push_forward
     from uflx_toy.basix_cells import basix_cell
     from uflx_toy.basix_spaces import basix_space
 
@@ -148,11 +148,11 @@ def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomo
 def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphic):
     import basix
     from test_basix import square
+    from testutil import push_forward
 
     from uflx_compiler import compile_form
     from uflx_compiler import evaluate as compiled_value
     from uflx_spec_interpreter import gradient, integral
-    from uflx_spec_interpreter._draft import push_forward
     from uflx_toy.basix_cells import basix_cell
     from uflx_toy.basix_spaces import basix_space
 

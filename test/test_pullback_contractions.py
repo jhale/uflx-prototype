@@ -15,9 +15,9 @@ from uflx_spec_interpreter import (
     jacobian,
     pull_back,
 )
-from uflx_spec_interpreter._src.domains import _cell_domain, _cell_of
+from uflx_spec_interpreter._src.meshes import _cell_domain, _cell_of
 from uflx_spec_interpreter._src.nodes import CellMap, Gradient, TransformationLaw
-from uflx_spec_interpreter._src.passes.gradients import _lower as lower_spatial
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial as lower_spatial
 from uflx_spec_interpreter._src.passes.pullbacks import _transformed
 from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_toy.cells import reference_simplex

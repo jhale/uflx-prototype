@@ -11,15 +11,60 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .nodes import AbstractExpression, DirectionalDerivative, Integral, Mesh
-from .passes.gradients import _allowed
-from .substitution import _expressions
+from .nodes import (
+    Absolute,
+    AbstractExpression,
+    Action,
+    Complex,
+    ComponentTensor,
+    Conjugate,
+    Coordinate,
+    Curl,
+    Determinant,
+    DirectionalDerivative,
+    Divergence,
+    Division,
+    Float,
+    Form,
+    Function,
+    Gradient,
+    ImaginaryPart,
+    Indexed,
+    IndexSum,
+    Integer,
+    Integral,
+    Inverse,
+    Logarithm,
+    Mesh,
+    Normal,
+    Power,
+    Product,
+    PullBack,
+    PushForward,
+    RealPart,
+    SquareRoot,
+    Sum,
+    Tensor,
+    Zero,
+)
+from .passes.actions import _retained
+from .passes.gradients import _remains
+from .passes.piola import _piola_law
+from .passes.pullbacks import _remains as _pulled_back_remains
+from .static import _field_terminal
+from .traversal import _everywhere, _expressions
 
 _Violation = tuple[AbstractExpression, str]
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_core_normal_form", "_derivatives_expanded", "_reference_integration"]
+__all__ = [
+    "_allowed_in_core_normal_form",
+    "_core_normal_form",
+    "_derivatives_expanded",
+    "_in_core_normal_form",
+    "_reference_integration",
+]
 
 
 def _violations(
@@ -83,6 +128,59 @@ def _core_normal_form(expression: AbstractExpression) -> tuple[_Violation, ...]:
     return _violations(
         expression,
         lambda node: (
-            None if _allowed(node) else f"{type(node).__name__} is outside core normal form"
+            None
+            if _allowed_in_core_normal_form(node)
+            else f"{type(node).__name__} is outside core normal form"
         ),
     )
+
+
+def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
+    # The core normal form of the Evaluation chapter.
+    match e:
+        case (
+            Integer()
+            | Float()
+            | Complex()
+            | Zero()
+            | Sum()
+            | Product()
+            | Division()
+            | Power()
+            | Absolute()
+            | Conjugate()
+            | RealPart()
+            | ImaginaryPart()
+            | SquareRoot()
+            | Logarithm()
+            | Tensor()
+            | Indexed()
+            | ComponentTensor()
+            | IndexSum()
+            | Inverse()
+            | Determinant()
+            | Coordinate()
+            | Normal()
+            | Function()
+            | Form()
+            | PushForward()
+        ):
+            return True
+        case _ if _field_terminal(e):
+            return True
+        case Divergence() | Curl():
+            return _piola_law(e) is not None
+        case Gradient(f, p):
+            return _remains(f, p)
+        case Integral(_, p):
+            return not isinstance(p, Mesh)
+        case PullBack(f, m):
+            return _pulled_back_remains(f, m)
+        case Action(A, _, _):
+            return _retained(A)
+        case _:
+            return False
+
+
+def _in_core_normal_form(e: AbstractExpression) -> bool:
+    return _everywhere(e, _allowed_in_core_normal_form)

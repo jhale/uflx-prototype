@@ -1,6 +1,6 @@
 import numpy as np
 
-from uflx_spec_interpreter._src.substitution import _expressions, _memoized
+from uflx_spec_interpreter._src.traversal import _expressions, _memoized
 
 from .evaluation import evaluate
 from .inputs import arrays

@@ -14,10 +14,10 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.contracts import (
     _core_normal_form,
     _derivatives_expanded,
+    _in_core_normal_form,
     _reference_integration,
 )
 from uflx_spec_interpreter._src.nodes import DirectionalDerivative
-from uflx_spec_interpreter._src.passes.gradients import _in_n6
 from uflx_toy.runtime import runtime_array
 from uflx_toy.spaces import space
 
@@ -55,7 +55,7 @@ def test_nonexpanded_gradient_is_allowed_at_earlier_boundaries():
     assert not _derivatives_expanded(e)
     assert not _reference_integration(e)
     assert _core_normal_form(e) == ((e, "Gradient is outside core normal form"),)
-    assert bool(_core_normal_form(e)) == (not _in_n6(e))
+    assert bool(_core_normal_form(e)) == (not _in_core_normal_form(e))
     assert not _core_normal_form(gradient(u, P))
 
 
@@ -63,7 +63,7 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
     import basix
     from test_basix import square
 
-    from uflx_spec_interpreter._src.domains import image
+    from uflx_spec_interpreter._src.meshes import image
     from uflx_toy.basix_cells import basix_cell
 
     D = square(basix_cell(basix.CellType.triangle))[0]

@@ -19,14 +19,10 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.static import _complete_indices
-from uflx_spec_interpreter._src.substitution import (
-    _lowered,
-    _map_fields,
-    _memoized,
-    _substitute_values,
-)
+from uflx_spec_interpreter._src.rewriting import _complete_indices
+from uflx_spec_interpreter._src.substitution import _substitute_values
 from uflx_spec_interpreter._src.tensors import determinant
+from uflx_spec_interpreter._src.traversal import _lowered, _map_fields, _memoized
 
 
 def simplify(f):

@@ -1,5 +1,6 @@
 import basix
 import numpy as np
+from testutil import push_forward
 
 from uflx_compiler import assemble, compile_form, evaluate
 from uflx_spec_interpreter import (
@@ -8,6 +9,7 @@ from uflx_spec_interpreter import (
     form,
     function,
     gradient,
+    image,
     index,
     index_sum,
     integral,
@@ -15,7 +17,7 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
-from uflx_spec_interpreter._draft import _shape_derivative, image, push_forward
+from uflx_spec_interpreter._src.extensions.shape import _shape_derivative
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology

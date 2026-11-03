@@ -19,7 +19,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.geometry import _metric
 from uflx_spec_interpreter._src.nodes import Function, Index
-from uflx_spec_interpreter._src.passes.gradients import _lower
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
 from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_toy.spaces import space
 
@@ -72,11 +72,11 @@ def test_geometry_identity_follows_parameterisation(factory):
 )
 def test_lowering_paths_converge_structurally(factory, source, target):
     original = factory(source)
-    lowered = _lower(original)
-    expected = _lower(factory(target))
-    assert _lower(original) is lowered
-    assert _lower(lowered) is lowered
-    assert _lower(_substitute(original, {source: target})) is expected
+    lowered = _lower_spatial(original)
+    expected = _lower_spatial(factory(target))
+    assert _lower_spatial(original) is lowered
+    assert _lower_spatial(lowered) is lowered
+    assert _lower_spatial(_substitute(original, {source: target})) is expected
     assert _substitute(lowered, {source: target}) is expected
 
 

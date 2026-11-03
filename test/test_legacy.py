@@ -14,7 +14,7 @@ from legacy import (
     grad,
     inner,
 )
-from testutil import vertex_mesh
+from testutil import push_forward, side_map, vertex_mesh
 
 from uflx_compiler import assemble
 from uflx_spec_interpreter import (
@@ -29,7 +29,6 @@ from uflx_spec_interpreter import (
     pull_back,
     side_domain,
 )
-from uflx_spec_interpreter._draft import push_forward, side_map
 from uflx_spec_interpreter._src.nodes import Conjugate, Integer, Product, Sum
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space

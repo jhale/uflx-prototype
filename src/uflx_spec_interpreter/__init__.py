@@ -20,7 +20,12 @@ from ._src.calculus import (
     gradient,
     integral,
 )
-from ._src.domains import (
+from ._src.forms import action, form, function, gateaux_derivative
+from ._src.geometry import density, inverse_jacobian, jacobian
+from ._src.indices import gathered_index, index
+from ._src.literals import num
+from ._src.maps import domain_map, pull_back
+from ._src.meshes import (
     cell_map,
     image,
     normal,
@@ -29,11 +34,6 @@ from ._src.domains import (
     side_map,
     transformation_law,
 )
-from ._src.forms import action, form, function, gateaux_derivative
-from ._src.geometry import density, inverse_jacobian, jacobian
-from ._src.indices import gathered_index, index
-from ._src.literals import num
-from ._src.maps import domain_map, pull_back
 from ._src.nodes import RD, Complex, Float, Integer, ScalarType, Zero
 from ._src.passes.actions import apply_actions
 from ._src.passes.derivatives import apply_derivatives

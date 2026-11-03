@@ -2,11 +2,13 @@ import basix
 import numpy as np
 import pytest
 from test_basix import mixed, square
+from testutil import push_forward
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import function, gradient, integral, pull_back, side_map
-from uflx_spec_interpreter._draft import push_forward
-from uflx_spec_interpreter._src.passes import gradients, integrals
+from uflx_spec_interpreter._src.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.passes import integrals
+from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -30,8 +32,8 @@ def interpolate(V, f, coordinates):
 
 
 def value(e, env):
-    out = gradients._lower(integrals.expand_integrals(e))
-    assert gradients._in_n6(out)
+    out = _lower_spatial(integrals.expand_integrals(e))
+    assert _in_core_normal_form(out)
     before, after = evaluate(e, env)(()), evaluate(out, env)(())
     assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
     return np.real(after)

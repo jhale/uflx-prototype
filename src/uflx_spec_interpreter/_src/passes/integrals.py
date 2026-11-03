@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..arithmetic import _total, multiply
-from ..domains import _cell_domain
 from ..geometry import density
+from ..meshes import _cell_domain
 from ..names import _derived_indices
 from ..nodes import (
     ComponentTensor,
@@ -17,15 +17,16 @@ from ..nodes import (
     PullBack,
 )
 from ..static import _shape, _support
-from ..substitution import _bottom_up, _everywhere, _freshen
+from ..substitution import _freshen
 from ..topology import cell_index
+from ..traversal import _bottom_up, _everywhere
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_in_n4", "expand_integrals"]
+__all__ = ["_integrals_expanded", "expand_integrals"]
 
 
 def _rule(e: AbstractExpression) -> AbstractExpression:
@@ -62,7 +63,7 @@ def expand_integrals(f: AbstractExpression) -> AbstractExpression:
     return _bottom_up(f, _rule)
 
 
-def _in_n4(e: AbstractExpression) -> bool:
+def _integrals_expanded(e: AbstractExpression) -> bool:
     def holds(n: AbstractExpression) -> bool:
         match n:
             case Integral(_, Mesh()):

@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from uflx_compiler.algebra import _normalizer
 from uflx_compiler.evaluation import evaluate as evaluate_array
 from uflx_compiler.simplification import instantiated, simplify
 from uflx_oracle import evaluate
@@ -19,7 +20,6 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.literals import _zero
 from uflx_spec_interpreter._src.nodes import Complex, Product, Sum, Zero
-from uflx_spec_interpreter._src.passes.algebra import _normalizer
 from uflx_toy.spaces import space
 
 

@@ -35,6 +35,8 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.literals import _zero
 from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative
 from uflx_spec_interpreter._src.passes import actions, derivatives
+from uflx_spec_interpreter._src.passes.actions import _actions_complete
+from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
 from uflx_spec_interpreter._src.static import _arity, _free, _shape
 from uflx_toy.spaces import space
 
@@ -273,8 +275,8 @@ def main(trials):
             ),
         ):
             lazy += 1
-            rejected += not (actions._in_n2(e) and derivatives._in_n3(e))
-        if not (actions._in_n2(out) and derivatives._in_n3(out)):
+            rejected += not (_actions_complete(e) and _derivatives_complete(e))
+        if not (_actions_complete(out) and _derivatives_complete(out)):
             bad["grammar"] += 1
         vals = tuple(entry_value(rng, s) for s in specs)
         fr = _free(e)

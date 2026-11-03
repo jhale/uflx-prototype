@@ -103,7 +103,7 @@ class Base(ABC):
 
 class AbstractExpression(Base):
     def _validate_type(self) -> None:
-        from ..substitution import _expressions
+        from ..traversal import _expressions
         from ..validation import _merge_indices, _require
 
         _require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")

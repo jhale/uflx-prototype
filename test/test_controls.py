@@ -4,8 +4,9 @@ import test_pipeline
 import test_random
 
 from uflx_spec_interpreter import ScalarType, action, form, function, multiply, num
-from uflx_spec_interpreter._src import static, substitution
+from uflx_spec_interpreter._src import substitution
 from uflx_spec_interpreter._src.passes import actions, derivatives
+from uflx_spec_interpreter._src.rewriting import _zero_like
 from uflx_toy.spaces import space
 
 
@@ -35,7 +36,7 @@ def test_sequential_substitution_captures(monkeypatch):
 def test_a_zero_without_argument_spaces_is_ill_typed(monkeypatch):
     # The values do not change, so only the check of the argument spaces notices.
     def without_spaces(f, spaces, *others):
-        return static._zero_like(f, (), *others)
+        return _zero_like(f, (), *others)
 
     monkeypatch.setattr(derivatives, "_zero_like", without_spaces)
     with pytest.raises(ValueError):

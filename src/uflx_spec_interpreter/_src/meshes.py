@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, TypeGuard, cast
 
-from .nodes import (
+from uflx_spec_interpreter._src.nodes import (
     AbstractTopology,
     CellMap,
     GatheredIndex,
@@ -13,13 +13,15 @@ from .nodes import (
     SideMap,
     TransformationLaw,
 )
-from .substitution import _substitute
-from .topology import cell_index
+from uflx_spec_interpreter._src.substitution import _substitute
+from uflx_spec_interpreter._src.topology import cell_index
 
 if TYPE_CHECKING:
-    from .nodes.base import AbstractExpression
-    from .nodes.domains import AbstractCoordinateDomain, DomainMap
-    from .nodes.indices import Index
+    from uflx_spec_interpreter._src.nodes.base import AbstractExpression
+    from uflx_spec_interpreter._src.nodes.indices import Index
+
+    from .nodes.domains import AbstractCoordinateDomain
+    from .nodes.maps import DomainMap
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.

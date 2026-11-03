@@ -29,6 +29,8 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.passes import actions, derivatives
+from uflx_spec_interpreter._src.passes.actions import _actions_complete
+from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
 from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
@@ -139,8 +141,8 @@ def main(trials):
             counts["changed"] += 1
             if counts["changed"] <= 3:
                 print("value changed, seed", seed, before, after)
-        counts["not_n1"] += not actions._in_n2(out1)
-        counts["not_n2"] += not (actions._in_n2(out2) and derivatives._in_n3(out2))
+        counts["not_n1"] += not _actions_complete(out1)
+        counts["not_n2"] += not (_actions_complete(out2) and _derivatives_complete(out2))
     print(
         f"{trials} expressions, {counts['actions']} actions, {counts['derivatives']} derivatives:",
         f"{counts['changed']} values changed, {counts['not_n1']} not in N2 after pass 1,",

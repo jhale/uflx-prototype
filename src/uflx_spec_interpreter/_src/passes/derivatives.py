@@ -5,8 +5,9 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 from ..nodes import DirectionalDerivative
-from ..static import _complete_indices, _promote, _zero_like
-from ..substitution import _bottom_up, _everywhere, _memoized, _occurs, _substitute_values
+from ..rewriting import _complete_indices, _promote, _zero_like
+from ..substitution import _occurs, _substitute_values
+from ..traversal import _bottom_up, _everywhere, _memoized
 from ..tuples import _members
 from .actions import apply_actions
 from .derivative_table import _derivative_of_node
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_deriv", "apply_derivatives"]
+__all__ = ["_deriv", "_derivatives_complete", "apply_derivatives"]
 
 
 def _deriv(
@@ -65,8 +66,8 @@ def apply_derivatives(f: AbstractExpression) -> AbstractExpression:
 
     # Applying a newly exposed action can reveal another derivative.
     out = apply_actions(_bottom_up(f, evaluate))
-    return out if _in_n3(out) else apply_derivatives(out)
+    return out if _derivatives_complete(out) else apply_derivatives(out)
 
 
-def _in_n3(e: AbstractExpression) -> bool:
+def _derivatives_complete(e: AbstractExpression) -> bool:
     return _everywhere(e, lambda n: not isinstance(n, DirectionalDerivative))
