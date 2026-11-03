@@ -104,6 +104,8 @@ def loop_examples():
     v = runtime_array("a", (2,))
     choices = tensor((v[0] * v[0], v[1] + num(3)))
     yield "tensor_selection", index_sum(choices[i], (i,)), np.array([2.0, 4.0])
+    contraction = index_sum(choices[i], (i,))
+    yield "tensor_contraction", contraction * contraction, np.array([2.0, 4.0])
     empty = runtime_array("a", (0,))
     yield "empty", index_sum(empty[i], (i,)), np.empty(0)
 
@@ -125,6 +127,9 @@ def test_nested_loops_match_array_evaluation(tmp_path, name, expression, data):
         result.ctypes.data_as(pointer), data.ctypes.data_as(pointer), None, None, None, None, None
     )
     assert np.isclose(result[0], 7.0 + evaluate(expression, {"a": data}))
+    if name == "tensor_contraction":
+        assert "switch" not in code
+        assert "for (" not in code
     if name == "nested":
         assert re.search(r"for \([^\n]+\) \{\n    for ", code)
     if name in ("constant_table", "gather"):
@@ -144,7 +149,8 @@ def test_loop_body_does_not_grow_with_extent():
 
 
 @pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
-def test_scheduling_shares_equal_reductions_and_hoists_invariants(tmp_path):
+@pytest.mark.parametrize("late_weights", [False, True])
+def test_scheduling_shares_equal_reductions_and_hoists_invariants(tmp_path, late_weights):
     q, k, i, j = (index(name) for name in ("q", "k", "i", "j"))
     coefficients = runtime_array("coefficients", (2, 4))
     scale = runtime_array("scale", ())
@@ -153,6 +159,9 @@ def test_scheduling_shares_equal_reductions_and_hoists_invariants(tmp_path):
     assert first == second
     basis = tensor((tensor((num(1), num(2), num(3))), tensor((num(4), num(5), num(6)))))
     expression = index_sum((first * second + scale * scale) * basis[q, i] * basis[q, j], (q,))
+
+    if late_weights:
+        expression = index_sum(first * second * basis[q, i] * basis[q, j] * scale * scale, (q,))
 
     def counted_read(label, offset):
         counter, start = (0, 0) if label == "coefficients" else (1, 8)
@@ -181,7 +190,8 @@ def test_scheduling_shares_equal_reductions_and_hoists_invariants(tmp_path):
         None,
     )
     B = np.array([[1, 2, 3], [4, 5, 6]])
-    factors = np.sum(data[:8].reshape(2, 4) ** 2, axis=1) ** 2 + data[8] ** 2
+    factors = np.sum(data[:8].reshape(2, 4) ** 2, axis=1) ** 2
+    factors = factors * data[8] ** 2 if late_weights else factors + data[8] ** 2
     np.testing.assert_allclose(result, 7 + B.T @ (factors[:, None] * B))
     # Each squared input is read twice, once per required point/DOF; the
     # structurally equal reduction and all nine matrix entries share the result.

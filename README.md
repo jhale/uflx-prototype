@@ -56,8 +56,12 @@ equal expressions share temporaries; entire reductions and partial products move
 outside loops they do not depend on. Runtime geometry independent of quadrature
 is computed once per invocation, while coefficient evaluation at each point is
 shared across argument DOFs. Computations remain inside conditional branches
-unless a reusable value is already available in an enclosing scope. This scheduling
-does not reassociate products or factor structurally different expressions. The runtime arrays keep the flat
+unless a reusable value is already available in an enclosing scope. Scalar products
+are regrouped by the scope where their factors become available, so quadrature weights and geometry can be multiplied before basis
+products. Small reductions (up to three entries) that select explicit tensor
+components are expanded to expose shared geometry; DOF and quadrature loops are
+retained. Product regrouping can change floating-point rounding. Algebraic
+factorisation across sums is not performed. The runtime arrays keep the flat
 pointer interface: `read(label, offset)` must accept an integer or a C expression
 for the offset, for example `f"w[{offset}]"`. The backend retains its real-valued,
 static-extent arithmetic subset. With no output indices it accumulates into `A[0]`.

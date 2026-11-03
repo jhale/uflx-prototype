@@ -2,6 +2,7 @@ import re
 import sys
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
+from functools import cache
 
 import numpy as np
 
@@ -26,6 +27,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
+from uflx_spec_interpreter._src.traversal import _expressions
 from uflx_toy.nodes import RuntimeArray
 
 from .folding import fold
@@ -41,6 +43,10 @@ class _Scope:
     conditional: bool = False
     statements: list = field(default_factory=list)
     expressions: dict = field(default_factory=dict)
+
+    @property
+    def depth(self):
+        return 0 if self.parent is None else self.parent.depth + 1
 
     def lines(self, depth=1):
         for statement in self.statements:
@@ -88,15 +94,20 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
         emit(f"const double {name} = {code};")
         return name
 
-    def entry(n, bound, comp):
-        nonlocal scope
-        positions = tuple(bound[i] for i, _ in n.free_indices)
-        key = (n, positions, comp)
+    def placement(n, bound, comp=()):
         # Bound positions may be C expressions, including gathered table indices.
+        positions = tuple(bound[i] for i, _ in n.free_indices)
         names = set(re.findall(r"[A-Za-z_][A-Za-z_0-9]*", " ".join(map(str, positions + comp))))
         target = scope
         while target.parent is not None and not target.conditional and target.index not in names:
             target = target.parent
+        return target
+
+    def entry(n, bound, comp):
+        nonlocal scope
+        positions = tuple(bound[i] for i, _ in n.free_indices)
+        key = (n, positions, comp)
+        target = placement(n, bound, comp)
         ancestor = target
         while ancestor is not None:
             if key in ancestor.expressions:
@@ -137,6 +148,36 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
                 result = f"({result} * {n} + {i})"
         return result
 
+    def ordered_product(n, bound):
+        factors = []
+
+        def collect(x):
+            if isinstance(x, Product) and not x.value_shape:
+                collect(x.first)
+                collect(x.second)
+            else:
+                factors.append(x)
+
+        collect(n)
+        # Multiply factors available in outer scopes first, exposing reusable
+        # weights and geometry before argument-dependent basis products.
+        factors.sort(key=lambda factor: placement(factor, bound).depth)
+        result = factors[0]
+        for factor in factors[1:]:
+            result = Product(result, factor)
+        return result
+
+    @cache
+    def selected_indices(n):
+        if n in folded:
+            return frozenset()
+        indices = set()
+        if isinstance(n, Indexed) and isinstance(n.expression, Tensor):
+            indices.update(i for i in n.indices if isinstance(i, Index))
+        for child in _expressions(n):
+            indices.update(selected_indices(child))
+        return frozenset(indices)
+
     def scalar(n, bound, comp):
         if n in folded:
             indices = tuple(bound[i] for i, _ in n.free_indices) + comp
@@ -153,6 +194,10 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
             case Product(a, b) if a.value_shape:
                 return multiply(entry(a, bound, comp), entry(b, bound, ()))
             case Product(a, b):
+                if not n.value_shape:
+                    ordered = ordered_product(n, bound)
+                    if ordered != n:
+                        return entry(ordered, bound, comp)
                 return multiply(entry(a, bound, ()), entry(b, bound, comp))
             case Division(a, b):
                 return divide(entry(a, bound, comp), entry(b, bound, ()))
@@ -190,17 +235,25 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None):
                     return 0.0
                 total = fresh("sum")
                 emit(f"double {total} = 0.0;")
-                inner = dict(bound)
-                with ExitStack() as stack:
-                    for i in indices:
+
+                def reduce(indices, inner):
+                    if not indices:
+                        emit(f"{total} += {render(entry(x, inner, comp))};")
+                        return
+                    i, *rest = indices
+                    # Resolve small spatial component selections before scheduling;
+                    # quadrature and DOF reductions retain their loops.
+                    if extent[i] <= 3 and i in selected_indices(x):
+                        for k in range(extent[i]):
+                            reduce(rest, inner | {i: k})
+                    else:
                         name = fresh("i")
-                        stack.enter_context(
-                            block(
-                                f"for (int {name} = 0; {name} < {extent[i]}; ++{name})", index=name
-                            )
-                        )
-                        inner[i] = name
-                    emit(f"{total} += {render(entry(x, inner, comp))};")
+                        with block(
+                            f"for (int {name} = 0; {name} < {extent[i]}; ++{name})", index=name
+                        ):
+                            reduce(rest, inner | {i: name})
+
+                reduce(indices, bound)
                 return total
             case Determinant(a):
                 size = a.value_shape[0]
