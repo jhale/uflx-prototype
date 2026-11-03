@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from math import prod
 from typing import final
 
 import basix
@@ -69,6 +70,7 @@ class BasixSpace(AbstractFunctionSpace):
     degree: int
     discontinuous_value: int
     scalar_type: str
+    block_shape: tuple[int, ...]
     argument_spaces = ()
 
     @property
@@ -105,8 +107,12 @@ class BasixSpace(AbstractFunctionSpace):
         return tuple(out)
 
     @property
+    def block_size(self):
+        return prod(self.block_shape)
+
+    @property
     def value_shape(self):
-        return tuple(self.element(0).value_shape)
+        return self.block_shape or tuple(self.element(0).value_shape)
 
     @property
     def law(self):
@@ -151,7 +157,9 @@ class BasixSpace(AbstractFunctionSpace):
                             first[key], count = count, count + len(local)
                         for m, dof in enumerate(local):
                             row[dof] = first[key] + m
-                rows.append(tuple(row))
+                rows.append(
+                    tuple(self.block_size * dof + c for dof in row for c in range(self.block_size))
+                )
             dofmap.append(tuple(rows))
         return tuple(dofmap)
 

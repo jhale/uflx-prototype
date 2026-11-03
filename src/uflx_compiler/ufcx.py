@@ -126,7 +126,8 @@ def compile_ufcx(
     vertex coordinates (P1). Explicit coefficient/constant sequences set input
     order; otherwise construction order is used. A side_domain with one side
     selects exterior facets; two sides named + and - select interior facets.
-    Mixed arguments are rejected.
+    Blocked scalar elements support vector/tensor arguments and coefficients
+    with interleaved components. Mixed arguments are rejected.
     The caller compiles the returned source with FFCx's ``ufcx.h``.
     """
     if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name) is None:
@@ -179,13 +180,17 @@ def compile_ufcx(
     elements = tuple(_element(u.space) for u in (*arguments, *coefficients))
     if any(u.domain != mesh.topology for u in (*arguments, *coefficients)):
         raise NotImplementedError("all fields must belong to the integration mesh topology")
-    shape = tuple(width * E.dim for E in elements[: len(arguments)])
-    coefficient_offsets = _offsets(width * E.dim for E in elements[len(arguments) :])
+    dimensions = tuple(
+        E.dim * u.space.block_size
+        for u, E in zip((*arguments, *coefficients), elements, strict=True)
+    )
+    shape = tuple(width * n for n in dimensions[: len(arguments)])
+    coefficient_offsets = _offsets(width * n for n in dimensions[len(arguments) :])
     constant_offsets = _offsets(prod(c.value_shape) for c in constants)
     rows = tuple(_derived_index("compiler.ufcx.argument", i) for i in range(len(arguments)))
     argument_rows = dict(zip(arguments, rows, strict=True))
     inputs = {
-        u: runtime_array(("w", off), (width, E.dim))
+        u: runtime_array(("w", off), (width, E.dim, u.space.block_size))
         for u, E, off in zip(
             coefficients, elements[len(arguments) :], coefficient_offsets, strict=True
         )
@@ -343,28 +348,33 @@ def _local_expression(
             raise NotImplementedError("expected a local Basix field read")
         E = _element(u.space)
         dof = _derived_index("compiler.ufcx.dof", u, cell)
-        if width == 1 and u in argument_rows:
+        block_size = u.space.block_size
+        if width == 1 and block_size == 1 and u in argument_rows:
             dof = argument_rows[u]
-        if u in geometry:
-            data = coordinate_data[cell, dof, geometry.index(u)]
-        elif u in argument_rows:
-            data = None
-        else:
-            data = inputs[u][cell, dof]
 
         def component(idx):
-            rank = len(E.value_shape)
+            rank = len(u.value_shape)
             c = 0
-            for i, n in zip(idx[:rank], E.value_shape, strict=True):
+            for i, n in zip(idx[:rank], u.value_shape, strict=True):
                 c = c * n + i
-            value = table_read(u.space, 0, E, points, idx[rank:], dof, c)
-            if data is not None:
-                return index_sum(data * value, (dof,))
-            return (
-                value if width == 1 else _argument_block(value, dof, argument_rows[u], cell, E.dim)
+            component_number = c if u.space.block_shape else 0
+            value = table_read(
+                u.space, 0, E, points, idx[rank:], dof, 0 if u.space.block_shape else c
             )
+            if u in argument_rows:
+                if width == 1 and block_size == 1:
+                    return value
+                return _argument_block(
+                    value, dof, argument_rows[u], cell, E.dim, width, block_size, component_number
+                )
+            data = (
+                coordinate_data[cell, dof, geometry.index(u)]
+                if u in geometry
+                else inputs[u][cell, dof, component_number]
+            )
+            return index_sum(data * value, (dof,))
 
-        return arrayed((*E.value_shape, *(points.value_shape[0],) * order), component)
+        return arrayed((*u.value_shape, *(points.value_shape[0],) * order), component)
 
     # Replace whole field reads before visiting their Function operands.
     def visit(visit, node):
@@ -374,15 +384,15 @@ def _local_expression(
     return simplify(_memoized(visit)(f))
 
 
-def _argument_block(value, dof, row, side, dimension):
-    # Basis tables stay separate for each side; only their local DOF axis doubles.
+def _argument_block(value, dof, row, side, dimension, width, block_size, component):
+    # Components are interleaved within each side's DOFs, as in UFCx/Basix.
     axes = [i for i, _ in value.free_indices]
     values = np.moveaxis(evaluate(value, {}), axes.index(dof), -1)
-    padded = np.pad(
-        values, [(0, 0)] * (values.ndim - 1) + [(side * dimension, (1 - side) * dimension)]
-    )
+    size = dimension * block_size
+    blocked = np.zeros((*values.shape[:-1], width * size))
+    blocked[..., side * size + component : (side + 1) * size : block_size] = values
     indices = tuple(i for i in axes if i != dof)
-    return constant(padded)[(*indices, row)]
+    return constant(blocked)[(*indices, row)]
 
 
 def _descriptors(

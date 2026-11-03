@@ -98,6 +98,13 @@ Basix coordinate functions (including curved geometry), or vertex coordinates in
 Element families and degrees follow the toy Basix spaces, with the equispaced
 variant; custom variants are not yet exposed. Mixed arguments and complex inputs
 are rejected. Scalar and tensor constants are packed separately from coefficients.
+Blocked vector and tensor spaces use `basix_space(..., shape=(d,))` or
+`shape=(d, d)` with a scalar base element. Each scalar basis DOF carries the
+components consecutively, matching Basix/UFCx ordering. Arguments and
+coefficients use this layout on cells and both kinds of facets; a vector form
+produces one full local tensor in one kernel call. Symmetry-compressed tensor
+spaces and mixed elements are not supported.
+
 The source targets the UFCx interface in FFCx 0.12; other versions need their own compatibility validation.
 
 For exterior facets (`ds`), construct the boundary with `side_domain` on a

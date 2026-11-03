@@ -84,17 +84,17 @@ def values(u, found_cell, order, points):
     else:
         factors = [(V.element(j), points, tuple(range(dimension)))]
     i = _derived_indices("compiler.tabulation", (u, entry, points), len(factors))
-    rows = np.asarray(V.dofmap[j]).reshape(-1, *(F.dim for F, _, _ in factors))
-    coefficient = coefficients(u)[GatheredIndex(IndexTable(nested(rows), V.num_dofs), (entry, *i))]
+    rows = np.asarray(V.dofmap[j]).reshape(-1, *(F.dim for F, _, _ in factors), V.block_size)
+    dofs = tuple(IndexTable(nested(rows[..., c]), V.num_dofs) for c in range(V.block_size))
 
     def term(idx):
         # Component c of Basix and the directions of the derivative, for each factor its own.
         rank = len(V.value_shape)
         c, directions = int(np.ravel_multi_index(idx[:rank], V.value_shape)), idx[rank:]
-        out = coefficient
+        out = coefficients(u)[GatheredIndex(dofs[c if V.block_shape else 0], (entry, *i))]
         for k, (F, X, covered) in enumerate(factors):
             own = tuple(covered.index(m) for m in directions if m in covered)
-            out = out * table_read(V, j, F, X, own, i[k], c)
+            out = out * table_read(V, j, F, X, own, i[k], 0 if V.block_shape else c)
         return index_sum(out, i)
 
     return arrayed((*V.value_shape, *(dimension,) * order), term)
