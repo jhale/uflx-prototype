@@ -10,10 +10,10 @@ from fractions import Fraction
 from ..nodes import (
     AbstractExpression,
     Action,
+    Complex,
     Conjugate,
     Division,
     Form,
-    ImaginaryUnit,
     Integer,
     Product,
     Sum,
@@ -38,8 +38,8 @@ def number(e):
     match e:
         case Integer(n):
             return Fraction(n), Fraction(0)
-        case ImaginaryUnit():
-            return Fraction(0), Fraction(1)
+        case Complex(a, b):
+            return Fraction(a.value), Fraction(b.value)
         case Division(Integer(n), Integer(d)) if d:
             return Fraction(n, d), Fraction(0)
         case Sum(a, b) | Product(a, b):
@@ -57,7 +57,11 @@ def literal(value):
     real, imag = value
     if not imag:
         return rational(real)
-    imaginary = ImaginaryUnit() if imag == 1 else Product(rational(imag), ImaginaryUnit())
+    imaginary = (
+        Complex(Integer(0), Integer(1))
+        if imag == 1
+        else Product(rational(imag), Complex(Integer(0), Integer(1)))
+    )
     return imaginary if not real else Sum(rational(real), imaginary)
 
 

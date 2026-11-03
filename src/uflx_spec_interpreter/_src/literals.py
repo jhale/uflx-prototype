@@ -1,12 +1,11 @@
-from .arithmetic import add, multiply
-from .nodes import Float, ImaginaryUnit, Integer, Zero
+from .nodes import Complex, Float, Integer, Zero
 
 
 def num(value):
-    # A literal of the specification: an Integer, a Float, or a complex number as a composition.
-    if isinstance(value, complex):
-        return add(num(value.real), multiply(ImaginaryUnit(), num(value.imag)))
-    return Integer(value) if isinstance(value, int) else Float(value)
+    # A convenience for the interpreter examples; expression factories never convert numbers.
+    if type(value) is complex:
+        return Complex(Float(value.real), Float(value.imag))
+    return Integer(value) if type(value) is int else Float(value)
 
 
 def zero(value_shape, free_indices, argument_spaces, scalar_type):

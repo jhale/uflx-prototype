@@ -3,6 +3,7 @@ from functools import reduce
 from .names import derived_indices
 from .nodes import (
     Absolute,
+    AbstractExpression,
     ComponentTensor,
     Conjugate,
     Division,
@@ -19,14 +20,16 @@ from .nodes import (
 
 
 def rank(f):
+    if not isinstance(f, AbstractExpression):
+        raise TypeError("operand must be an expression")
     return len(f.value_shape)
 
 
 def add(first, second):
-    if rank(first) and rank(second):
-        K = derived_indices("uflx.add", (first, second), rank(first))
-        return ComponentTensor(Sum(Indexed(first, K), Indexed(second, K)), K)
-    return Sum(first, second)
+    from .tensors import component_tensor, indexed
+
+    K = derived_indices("uflx.add", (first, second), rank(first))
+    return component_tensor(Sum(indexed(first, K), indexed(second, K)), K)
 
 
 def multiply(first, second):
@@ -40,7 +43,7 @@ def multiply(first, second):
 
 
 def divide(first, second):
-    if rank(first) and not rank(second):
+    if rank(first):
         K = derived_indices("uflx.divide", (first, second), rank(first))
         return ComponentTensor(Division(Indexed(first, K), second), K)
     return Division(first, second)

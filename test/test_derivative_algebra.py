@@ -9,6 +9,7 @@ import pytest
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    Integer,
     action,
     apply_actions,
     apply_derivatives,
@@ -92,8 +93,8 @@ class LibraryValue(AbstractExpression):
         return self.operand.argument_spaces
 
     @property
-    def support(self):
-        return self.operand.support
+    def domain(self):
+        return self.operand.domain
 
     @property
     def scalar_type(self):
@@ -124,8 +125,8 @@ class LibraryJVP(AbstractExpression):
         return self.direction.argument_spaces
 
     @property
-    def support(self):
-        return self.point.support or self.direction.support
+    def domain(self):
+        return self.point.domain or self.direction.domain
 
     @property
     def scalar_type(self):
@@ -188,10 +189,10 @@ def test_zero_action_keeps_family_indices_and_argument_shape(shape):
 
 
 def test_complex_coefficients_have_a_stable_collected_representation():
-    from uflx_spec_interpreter._src.nodes import ImaginaryUnit
+    from uflx_spec_interpreter._src.nodes import Complex
 
     u = function(space("complex-coefficients"), "u")
-    i = ImaginaryUnit()
+    i = Complex(Integer(0), Integer(1))
     first = normalizer()(u + i * u)
     second = normalizer()((num(1) + i) * u)
     assert first is second

@@ -78,7 +78,10 @@ def core():
     gu, gv = gradient(uD, D), gradient(vD, D)
     a = form(integral(kappa * index_sum(gu[i] * conjugate(gv[i]), (i,)), D), (conjugate(v), u))
     div_q = gradient(qD[0], D)[0] + gradient(qD[1], D)[1]
-    lower, left = side_domain(D, LOWER), side_domain(D, LEFT)
+    lower, left = (
+        side_domain(D, LOWER, LOWER.sides[0][0][0]),
+        side_domain(D, LEFT, LEFT.sides[0][0][0]),
+    )
     on_lower, on_left = side_map(D, lower, "inside"), side_map(D, left, "inside")
     n = normal(on_left)
     flux = pull_back(qD[0], on_left) * n[0] + pull_back(qD[1], on_left) * n[1]
@@ -110,4 +113,4 @@ def test_the_classic_poisson_script_gives_the_forms_of_the_core():
 def test_the_arguments_of_a_classic_form_are_the_functions_on_the_topology():
     a, _ = demo()
     v, u = a.arguments
-    assert isinstance(v, Conjugate) and v.operand.support == T and u.support == T
+    assert isinstance(v, Conjugate) and v.operand.domain == T and u.domain == T

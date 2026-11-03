@@ -27,8 +27,8 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._draft import image
 from uflx_spec_interpreter._src.nodes import (
+    CellMap,
     Coordinate,
-    DomainMap,
     Function,
     Gradient,
     Normal,
@@ -73,7 +73,10 @@ C = image(deform(FOLD), R3)
 
 def sides(D):
     # The fold and the boundary of the surface D, from the topologies of the square.
-    E_int, E_bnd = side_domain(D, DIAGONAL), side_domain(D, BOUNDARY)
+    E_int, E_bnd = (
+        side_domain(D, DIAGONAL, DIAGONAL.sides[0][0][0]),
+        side_domain(D, BOUNDARY, BOUNDARY.sides[0][0][0]),
+    )
     interior = {s: side_map(D, E_int, s) for s in ("+", "-")}
     return [(E_int, interior), (E_bnd, {"inside": side_map(D, E_bnd, "inside")})]
 
@@ -132,7 +135,7 @@ def check(name, e, env, bad, rows):
         out3,
         lambda n: (
             isinstance(n, PullBack)
-            and isinstance(n.domain, DomainMap)
+            and isinstance(n.map, CellMap)
             and not isinstance(n.expression, (Function, Normal, Coordinate, PullBack, Gradient))
         ),
     ):

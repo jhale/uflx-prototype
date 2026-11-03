@@ -4,6 +4,7 @@ import pytest
 
 from uflx_spec_interpreter import (
     RD,
+    ScalarType,
     apply_derivatives,
     directional_derivative,
     function,
@@ -68,7 +69,9 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
     from uflx_toy.basix_cells import basix_cell
 
     D = square(basix_cell(basix.CellType.triangle))[0]
-    q = function(space("coordinates", value_shape=(2,), domain=D.topology), "q")
+    q = function(
+        space("coordinates", value_shape=(2,), domain=D.topology, scalar_type=ScalarType.real), "q"
+    )
     coordinates = directional_derivative(q, q, D.coordinate_function, q)
     geometry = image(coordinates, D.ambient_domain)
     u = function(space("geometry-contract", domain=geometry), "u")

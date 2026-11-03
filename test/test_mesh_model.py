@@ -9,6 +9,7 @@ from uflx_compiler import evaluate as compiled_value
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     RD,
+    ScalarType,
     coordinate,
     density,
     domain_map,
@@ -75,7 +76,7 @@ def test_coincident_cells_keep_independent_finite_element_fields():
 def test_mesh_identity_and_geometry_follow_coordinate_replacement():
     K = reference_simplex(1)
     T = static_topology((K,), (((0, 1),),), ())
-    V = space("coordinate", value_shape=(1,), domain=T)
+    V = space("coordinate", value_shape=(1,), domain=T, scalar_type=ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
     D, E = image(x, RD(1)), image(y, RD(1))
     assert isinstance(D, Mesh)
@@ -123,7 +124,7 @@ def test_mesh_rejects_free_coordinate_indices_but_keeps_symbolic_coordinates():
     with pytest.raises(ValueError, match="no free indices"):
         Mesh(coordinates, RD(1))
     # A symbolic scalar parameter is fine; only an unbound family index is excluded.
-    scale = function(space("scale"), "scale")
+    scale = function(space("scale", scalar_type=ScalarType.real), "scale")
     symbolic = image(scale * D.coordinate_function, RD(1))
     assert substitute(symbolic, {scale: num(2)}) is image(num(2) * D.coordinate_function, RD(1))
     with pytest.raises(ValueError, match="no free indices"):

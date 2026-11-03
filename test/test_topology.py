@@ -30,15 +30,15 @@ def test_the_side_tables_of_the_diagonal_of_the_example():
 
 def test_a_mesh_and_its_sides_have_topologies():
     assert c == cell_index(SQUARE, 0) and D.topology == SQUARE
-    E = side_domain(D, DIAGONAL)
+    E = side_domain(D, DIAGONAL, DIAGONAL.sides[0][0][0])
     assert E.topology == DIAGONAL and E.dimension == 1 and E.ambient_domain == D.ambient_domain
 
 
 def test_a_restriction_is_a_pull_back_by_a_side_map():
-    E = side_domain(D, DIAGONAL)
+    E = side_domain(D, DIAGONAL, DIAGONAL.sides[0][0][0])
     u = function(space("V", domain=D), "u")
     f = pull_back(u, side_map(D, E, "+"))
-    assert isinstance(f.domain, SideMap) and f.support == E and f.free_indices == ()
+    assert isinstance(f.map, SideMap) and f.domain == E and f.free_indices == ()
 
 
 def test_a_side_domain_takes_the_side_on_the_topology_of_the_domain():
@@ -47,5 +47,5 @@ def test_a_side_domain_takes_the_side_on_the_topology_of_the_domain():
     S = static_topology(
         (interval,), (((0, 1), (1, 2)),), ((("submesh", other, 0), ("mesh", SQUARE, 0)),)
     )
-    E = side_domain(D, S)
+    E = side_domain(D, S, "mesh")
     assert E.topology == S and E.ambient_domain == D.ambient_domain

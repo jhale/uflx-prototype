@@ -1,7 +1,7 @@
 import weakref
 
 from .names import is_renamed_label, renamed_label
-from .nodes import AbstractExpression, Base, EllipsisIndex, Function, Index
+from .nodes import AbstractExpression, Base, Function, Index
 
 
 def operands(e, names=None):
@@ -35,6 +35,13 @@ def nodes_in(e, names):
 def rebuild(e, **changes):
     # An unknown name adds an argument, which the class rejects.
     values = dict(zip(e.argument_names, e.construction_arguments)) | changes
+    from .nodes import ConjugateSpace, DualSpace
+    from .spaces import conjugate_space, dual_space
+
+    if isinstance(e, ConjugateSpace):
+        return conjugate_space(values["space"])
+    if isinstance(e, DualSpace):
+        return dual_space(values["space"])
     return type(e)(*values.values())
 
 
@@ -45,7 +52,7 @@ def traversed(e):
 
 def expressions(e):
     # The operands of e that are expressions, which a grammar restricts.
-    return [x for x in operands(e) if isinstance(x, AbstractExpression)]
+    return [x for x in nodes_in(e, lowered(e)) if isinstance(x, AbstractExpression)]
 
 
 def map_fields(e, fn, names=None):
@@ -71,7 +78,8 @@ def occurs(r, e):
 
 def scoped(r, e):
     # The arguments of e in which r can be free, without the scope if r names a bound name.
-    names = traversed(e)
+    names = list(e.argument_names) if isinstance(r, Index) else lowered(e)
+    names = [n for n in names if n not in e.labels]
     if any(occurs(n, r) for n in e.bound()):
         names = [n for n in names if n not in e.scope]
     return names
@@ -80,7 +88,7 @@ def scoped(r, e):
 def rename(node, name, avoid):
     # The label refers to the bound operands and to avoid, never to the binding node.
     label = renamed_label(node, name, avoid)
-    if isinstance(name, Index | EllipsisIndex):
+    if isinstance(name, Index):
         return type(name)(label)
     if isinstance(name, Function):
         return Function(name.space, label)
@@ -89,32 +97,62 @@ def rename(node, name, avoid):
 
 def freshen(e, avoid):
     # Rename the bound names of e that are free in an expression of avoid.
-    for n in e.bound():
-        if any(occurs(n, s) for s in avoid):
-            m = rename(e, n, avoid)
-            e = map_fields(e, lambda x: substitute(x, {n: m}), e.scope)
-    return e
+    renames = {n: rename(e, n, avoid) for n in e.bound() if any(occurs(n, s) for s in avoid)}
+    return map_fields(e, lambda x: substitute(x, renames), e.scope) if renames else e
 
 
 def substitute(e, mapping):
     # Simultaneous capture-avoiding substitution of mapping[r] for each r in e.
-    return memoized(substituted)(e, tuple(mapping.items()))
+    return memoized(substituted)(e, tuple(sorted(mapping.items(), key=lambda item: item[0].digest)))
 
 
-def substituted(walk, e, items):
+def substituted(walk, e, items, dependencies=True):
     mapping = dict(items)
     if e in mapping:
         return mapping[e]
+    from .nodes import GatheredIndex, Zero
+    from .validation import merge_indices
+
+    if isinstance(e, Zero) and dependencies:
+        # Zero's free-index signature changes when an index is selected or gathered.
+        pairs = []
+        for i, extent in e.free_indices:
+            entry = walk(i, items)
+            size = walk(extent, items) if isinstance(extent, Base) else extent
+            if isinstance(entry, Index):
+                pairs.append(((entry, size),))
+            elif isinstance(entry, GatheredIndex):
+                if entry.extent != size:
+                    raise IndexError("replacement gather has the wrong extent")
+                pairs.append(entry.free_indices)
+            elif type(entry) is not int:
+                raise TypeError("replacement of an index must be an index entry")
+            elif type(size) is not int or not 0 <= entry < size:
+                raise IndexError("replacement index is outside the axis")
+        new = map_fields(
+            e, lambda x: walk(x, items), ("value_shape", "argument_spaces", "scalar_type")
+        )
+        return rebuild(new, free_indices=merge_indices(*pairs))
     if e.labels:
+        if not dependencies:
+            return e
         # A derived name with a replaced object in its label is rebuilt, and a renamed name is not.
         if is_renamed_label(e.label):
-            return e
-        return map_fields(e, lambda x: walk(x, items), e.labels)
+            return map_fields(
+                e, lambda x: walk(x, items), [n for n in e.argument_names if n not in e.labels]
+            )
+        return map_fields(
+            e,
+            lambda x: walk(x, items),
+            e.argument_names,
+        )
     if not e.scope:
-        return map_fields(e, lambda x: walk(x, items))
+        return map_fields(
+            e, lambda x: walk(x, items), e.argument_names if dependencies else lowered(e)
+        )
     inner = {r: s for r, s in mapping.items() if not any(occurs(n, r) for n in e.bound())}
     e = freshen(e, list(inner.values()))
-    outside = [n for n in traversed(e) if n not in e.scope]
+    outside = [n for n in (e.argument_names if dependencies else lowered(e)) if n not in e.scope]
     e = map_fields(e, lambda x: walk(x, items), outside)
     return map_fields(e, lambda x: walk(x, tuple(inner.items())), e.scope)
 
@@ -133,7 +171,14 @@ def memoized(rule):
 
 def lowered(e):
     # The arguments that a lowering pass rewrites, without the domains, maps and spaces.
-    return [n for n in traversed(e) if n not in e.objects]
+    return [
+        n
+        for n in traversed(e)
+        if n not in e.objects
+        and n not in e.labels
+        and not (n in e.scope and n != "expression")
+        and any(isinstance(x, AbstractExpression) for x in nodes_in(e, [n]))
+    ]
 
 
 def bottom_up(f, rewrite):
@@ -144,3 +189,18 @@ def bottom_up(f, rewrite):
 def everywhere(e, holds):
     # Whether holds is true at every node of the graph of e.
     return memoized(lambda walk, n: holds(n) and all(map(walk, expressions(n))))(e)
+
+
+def replace(e, mapping):
+    """Substitute simultaneously through construction dependencies, respecting binding."""
+    if not isinstance(e, Base) or type(mapping) is not dict:
+        raise TypeError("replace takes a graph object and a dictionary")
+    if not all(isinstance(key, Base) for key in mapping):
+        raise TypeError("replacement keys must be graph objects")
+    return substitute(e, mapping)
+
+
+def substitute_values(e, mapping):
+    # Differentiation holds geometry and identity metadata fixed.
+    items = tuple(sorted(mapping.items(), key=lambda item: item[0].digest))
+    return memoized(lambda walk, node, pairs: substituted(walk, node, pairs, False))(e, items)

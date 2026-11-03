@@ -3,6 +3,7 @@ from ..nodes import (
     Absolute,
     Action,
     Conjugate,
+    Determinant,
     Division,
     Integer,
     Inverse,
@@ -35,6 +36,12 @@ def derivative_of_node(f, d, constant, avoid):
             return Division(d(b), Product(Integer(2), f))
         case Logarithm(b):
             return Division(d(b), b)
+        case Determinant(A):
+            from ..names import derived_indices
+            from ..tensors import index_sum, indexed
+
+            i, j = derived_indices("uflx.derivative", (f,), 2)
+            return f * index_sum(indexed(Inverse(A), (i, j)) * indexed(d(A), (j, i)), (i, j))
         case Inverse(A):
             return inverse_derivative(A, d(A))
         case Action(l, p, w):
@@ -55,5 +62,8 @@ def abs_derivative(b, db):
 
 def inverse_derivative(A, dA):
     # The identity-free form -A⁺ dA A⁺ + A⁺ (A⁺)ᵀ (dAᵀ - dAᵀ A A⁺).
-    Ai, dAt = Inverse(A), transpose(dA)
+    Ai = Inverse(A)
+    if A.value_shape[0] == A.value_shape[1]:
+        return -(Ai @ dA @ Ai)
+    dAt = transpose(dA)
     return -(Ai @ dA @ Ai) + Ai @ transpose(Ai) @ (dAt - dAt @ A @ Ai)

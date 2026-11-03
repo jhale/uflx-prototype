@@ -14,24 +14,27 @@ from ._src.arithmetic import (
 )
 from ._src.calculus import (
     coordinate,
+    curl,
     directional_derivative,
+    divergence,
     gradient,
     integral,
 )
 from ._src.domains import (
-    cell_domain,
     cell_map,
     image,
     normal,
+    push_forward,
     side_domain,
     side_map,
+    transformation_law,
 )
 from ._src.forms import action, form, function, gateaux_derivative
 from ._src.geometry import density, inverse_jacobian, jacobian
-from ._src.indices import ellipsis_index, gathered_index, index
+from ._src.indices import gathered_index, index
 from ._src.literals import num
 from ._src.maps import domain_map, pull_back
-from ._src.nodes import RD, ScalarType
+from ._src.nodes import RD, Complex, Float, Integer, ScalarType, Zero
 from ._src.passes.actions import apply_actions
 from ._src.passes.derivatives import apply_derivatives
 from ._src.passes.gradients import apply_gradients
@@ -39,6 +42,7 @@ from ._src.passes.integrals import expand_integrals
 from ._src.passes.lowering import lower
 from ._src.passes.pullbacks import expand_pull_backs
 from ._src.spaces import conjugate_space, dual_space
+from ._src.substitution import replace
 from ._src.tensors import (
     component,
     component_tensor,
@@ -56,14 +60,17 @@ from ._src.topology import cell_index
 # short name num.
 __all__ = [
     "RD",
+    "Complex",
+    "Float",
+    "Integer",
     "ScalarType",
+    "Zero",
     "absolute",
     "action",
     "add",
     "apply_actions",
     "apply_derivatives",
     "apply_gradients",
-    "cell_domain",
     "cell_index",
     "cell_map",
     "component",
@@ -71,13 +78,14 @@ __all__ = [
     "conjugate",
     "conjugate_space",
     "coordinate",
+    "curl",
     "density",
     "determinant",
     "directional_derivative",
+    "divergence",
     "divide",
     "domain_map",
     "dual_space",
-    "ellipsis_index",
     "expand_integrals",
     "expand_pull_backs",
     "form",
@@ -103,11 +111,14 @@ __all__ = [
     "num",
     "power",
     "pull_back",
+    "push_forward",
     "real_part",
+    "replace",
     "side_domain",
     "side_map",
     "square_root",
     "subtract",
     "tensor",
+    "transformation_law",
     "transpose",
 ]

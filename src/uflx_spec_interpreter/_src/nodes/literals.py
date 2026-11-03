@@ -17,7 +17,7 @@ class Integer(AbstractExpression):
     value: int
     opaque = ("value",)
 
-    def __new__(cls, value):
+    def __new__(cls, value, /):
         # An exact int, as rule 1 asks, so not a bool.
         if type(value) is not int:
             raise TypeError(f"Integer takes an int, not {value!r}")
@@ -40,7 +40,7 @@ class Integer(AbstractExpression):
         return ScalarType.real
 
     @cached_property
-    def support(self):
+    def domain(self):
         return None
 
 
@@ -50,7 +50,7 @@ class Float(AbstractExpression):
     value: float
     opaque = ("value",)
 
-    def __new__(cls, value):
+    def __new__(cls, value, /):
         # An exact finite float, as rule 1 asks.
         if type(value) is not float:
             raise TypeError(f"Float takes a float, not {value!r}")
@@ -75,13 +75,16 @@ class Float(AbstractExpression):
         return ScalarType.real
 
     @cached_property
-    def support(self):
+    def domain(self):
         return None
 
 
 @final
-class ImaginaryUnit(AbstractExpression):
-    identifier = "uflx.ImaginaryUnit"
+class Complex(AbstractExpression):
+    identifier = "uflx.Complex"
+    real: Integer | Float
+    imag: Integer | Float
+    opaque = ("real", "imag")
 
     @cached_property
     def value_shape(self):
@@ -100,7 +103,7 @@ class ImaginaryUnit(AbstractExpression):
         return ScalarType.complex
 
     @cached_property
-    def support(self):
+    def domain(self):
         return None
 
 
@@ -114,11 +117,11 @@ class Zero(AbstractExpression):
     scalar_type: ScalarType
     opaque = ("value_shape", "free_indices", "argument_spaces", "scalar_type")
 
-    def __new__(cls, value_shape, free_indices, argument_spaces, scalar_type):
+    def __new__(cls, value_shape, free_indices, argument_spaces, scalar_type, /):
         if not isinstance(scalar_type, ScalarType):
             raise TypeError("Zero takes a ScalarType")
         return super().__new__(cls, value_shape, free_indices, argument_spaces, scalar_type)
 
     @cached_property
-    def support(self):
+    def domain(self):
         return None

@@ -1,7 +1,7 @@
 from ..linearity import dependence
-from ..nodes import DirectionalDerivative, Function, ImaginaryUnit, Integer, Product
-from ..static import complete_indices, zero_like
-from ..substitution import bottom_up, everywhere, memoized, occurs, substitute
+from ..nodes import Complex, DirectionalDerivative, Function, Integer, Product
+from ..static import complete_indices, promote, zero_like
+from ..substitution import bottom_up, everywhere, memoized, occurs, substitute_values
 from ..tuples import each, members
 from .actions import apply_actions
 from .algebra import normalizer
@@ -11,9 +11,13 @@ from .derivative_table import derivative_of_node
 def deriv(f, x, a, h, normalize=None):
     # The rules give the derivative at x, so the point is substituted for x afterwards.
     xs, at, hs = members(x), members(a), members(h)
+    at = tuple(promote(v, p) for v, p in zip(xs, at, strict=True))
+    hs = tuple(promote(v, h) for v, h in zip(xs, hs, strict=True))
     normalize = normalizer() if normalize is None else normalize
-    out = memoized(lambda d, g: normalize(rules(d, g, xs, at, hs)))(f)
-    out = substitute(out, dict(zip(xs, at, strict=True)))
+    variables = tuple(Function(v.space, ("uflx.derivative", v, f, x, a, h)) for v in xs)
+    body = substitute_values(f, dict(zip(xs, variables, strict=True)))
+    out = memoized(lambda d, g: normalize(rules(d, g, variables, at, hs)))(body)
+    out = substitute_values(out, dict(zip(variables, at, strict=True)))
     return complete_indices(DirectionalDerivative(f, x, a, h), out)
 
 
@@ -41,7 +45,7 @@ def apply_derivatives(f):
         hs = members(h)
         if all(
             isinstance(v, Product)
-            and isinstance(v.first, ImaginaryUnit)
+            and v.first == Complex(Integer(0), Integer(1))
             and isinstance(v.second, Function)
             for v in hs
         ):
@@ -51,7 +55,7 @@ def apply_derivatives(f):
                 result = differential(g, x, a, base)
                 kind = dependence(result, base)
                 if kind in ("zero", "complex-linear", "complex-antilinear"):
-                    factor = ImaginaryUnit()
+                    factor = Complex(Integer(0), Integer(1))
                     if kind == "complex-antilinear":
                         factor = Product(Integer(-1), factor)
                     out = normalize(Product(factor, result))

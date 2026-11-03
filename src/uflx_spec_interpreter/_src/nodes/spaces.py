@@ -49,7 +49,9 @@ class ConjugateSpace(AbstractFunctionSpace):
 
     @property
     def argument_spaces(self):
-        return self.space.argument_spaces
+        from ..spaces import conjugated
+
+        return conjugated(self.space.argument_spaces)
 
 
 @final

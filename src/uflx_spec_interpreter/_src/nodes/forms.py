@@ -45,7 +45,7 @@ class Function(AbstractExpression):
         return self.space.scalar_type
 
     @cached_property
-    def support(self):
+    def domain(self):
         return self.space.domain
 
     @cached_property
@@ -83,8 +83,8 @@ class Form(AbstractExpression):
         return self.expression.scalar_type
 
     @cached_property
-    def support(self):
-        return self.expression.support
+    def domain(self):
+        return self.expression.domain
 
 
 @final
@@ -114,5 +114,5 @@ class Action(AbstractExpression):
         return self.form.scalar_type
 
     @cached_property
-    def support(self):
-        return self.form.support
+    def domain(self):
+        return self.form.domain

@@ -51,7 +51,7 @@ class DomainMap(Base):
     identifier = "uflx.DomainMap"
     parameter_domain: AbstractCoordinateDomain | AbstractTopology
     parameterisation: AbstractExpression
-    ambient_domain: AbstractDomain
+    ambient_domain: AbstractCoordinateDomain
 
     @cached_property
     def free_indices(self):
@@ -62,21 +62,11 @@ class DomainMap(Base):
 class Mesh(AbstractDomain):
     identifier = "uflx.Mesh"
     coordinate_function: AbstractExpression
-    ambient_domain: AbstractDomain
-
-    def __init__(self, coordinate_function, ambient_domain):
-        if not isinstance(coordinate_function, AbstractExpression):
-            raise TypeError("mesh coordinates must be an expression")
-        if not isinstance(ambient_domain, AbstractDomain):
-            raise TypeError("a mesh must have an ambient domain")
-        if not isinstance(coordinate_function.support, AbstractTopology):
-            raise TypeError("mesh coordinates must be supported on a topology")
-        if coordinate_function.free_indices:
-            raise ValueError("mesh coordinates must have no free indices")
+    ambient_domain: AbstractCoordinateDomain
 
     @property
     def topology(self):
-        return self.coordinate_function.support
+        return self.coordinate_function.domain
 
     @property
     def dimension(self):
@@ -101,36 +91,45 @@ class Mesh(AbstractDomain):
 @final
 class CellMap(Base):
     identifier = "uflx.CellMap"
-    # The characteristic map of the cells of group j of a topology that the entry selects.
-    topology: AbstractTopology
-    group: int
-    entry: Index | GatheredIndex
-    opaque = ("group",)
+    ambient_domain: AbstractTopology | Mesh
+    cell_group: int
+    entry: int | Index | GatheredIndex
+
+    @property
+    def topology(self):
+        X = self.ambient_domain
+        return X.topology if isinstance(X, Mesh) else X
 
     @property
     def parameter_domain(self):
-        return self.topology.cell_types[self.group]
+        return self.topology.cell_types[self.cell_group]
 
-    @property
-    def ambient_domain(self):
-        return self.topology
+    @cached_property
+    def parameterisation(self):
+        from .calculus import PullBack
+
+        if not isinstance(self.ambient_domain, Mesh):
+            raise TypeError("a topology cell has no parameterisation")
+        return PullBack(
+            self.ambient_domain.coordinate_function,
+            CellMap(self.topology, self.cell_group, self.entry),
+        )
 
     @cached_property
     def free_indices(self):
         if isinstance(self.entry, GatheredIndex):
             return self.entry.free_indices
-        return ((self.entry, self.topology.num_cells[self.group]),)
+        if type(self.entry) is int:
+            return ()
+        return ((self.entry, self.topology.num_cells[self.cell_group]),)
 
 
 @final
 class SideMap(Base):
     identifier = "uflx.SideMap"
-    # The restriction from a topology or a mesh to the cells of a topology with sides, through a
-    # side of each group: to the side topology for a topology, and to a side domain for a mesh.
     ambient_domain: Mesh | AbstractTopology
     parameter_domain: Mesh | AbstractTopology
-    sides: tuple
-    opaque = ("sides",)
+    side: str
     free_indices = ()
 
     @property

@@ -36,15 +36,14 @@ from .domains import (
 from .forms import Action, Form, Function
 from .indices import (
     AbstractExtent,
-    AbstractIndexValue,
-    EllipsisIndex,
+    AbstractIndexTable,
     GatheredIndex,
     Index,
 )
-from .literals import Float, ImaginaryUnit, Integer, Zero
+from .literals import Complex, Float, Integer, Zero
 from .scalar_types import ScalarType
 from .spaces import AbstractFunctionSpace, ConjugateSpace, DualSpace
-from .tensors import ComponentTensor, Indexed, IndexSum, Inverse, Tensor
+from .tensors import ComponentTensor, Determinant, Indexed, IndexSum, Inverse, Tensor
 from .topology import AbstractCellType, AbstractTopology
 
 __all__ = [
@@ -56,30 +55,30 @@ __all__ = [
     "AbstractExpression",
     "AbstractExtent",
     "AbstractFunctionSpace",
-    "AbstractIndexValue",
+    "AbstractIndexTable",
     "AbstractReferenceCell",
     "AbstractTopology",
     "Action",
     "Base",
     "CellMap",
+    "Complex",
     "ComponentTensor",
     "Conjugate",
     "ConjugateSpace",
     "Coordinate",
     "Curl",
+    "Determinant",
     "DirectionalDerivative",
     "Divergence",
     "Division",
     "DomainMap",
     "DualSpace",
-    "EllipsisIndex",
     "Float",
     "Form",
     "Function",
     "GatheredIndex",
     "Gradient",
     "ImaginaryPart",
-    "ImaginaryUnit",
     "Index",
     "IndexSum",
     "Indexed",

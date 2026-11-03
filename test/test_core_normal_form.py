@@ -3,7 +3,6 @@ from test_integrals import D, K, u
 from uflx_spec_interpreter import (
     action,
     add,
-    cell_domain,
     conjugate,
     coordinate,
     directional_derivative,
@@ -17,6 +16,7 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
+from uflx_spec_interpreter._src.domains import cell_domain
 from uflx_spec_interpreter._src.passes.gradients import in_n6
 from uflx_toy.runtime import runtime_array
 from uflx_toy.spaces import space

@@ -35,6 +35,8 @@ from .piola import piola_law
 def rule(pb, f, m):
     # The rule table of expand_pull_backs, for PullBack(f, m).
     match f:
+        case Form():
+            return pointwise(f, m, pb)
         case Action(A, p, g):
             return apply_actions(Action(pb(A, m), p, g))
         case _ if isinstance(m, SideMap) and support(f) is not None:
@@ -92,7 +94,7 @@ def composed(phi, m, pb):
 def lowered_copy(pb, e):
     # The parameterisation of a map that a row builds is lowered as the row builds it, because
     # a lowering pass does not enter maps.
-    return bottom_up(e, lambda n: pb(n.expression, n.domain) if isinstance(n, PullBack) else n)
+    return bottom_up(e, lambda n: pb(n.expression, n.map) if isinstance(n, PullBack) else n)
 
 
 def pointwise(f, m, pb):
@@ -127,7 +129,7 @@ def transformed(ghat, law, C):
     lead = tuple(derived_axis(ghat, C, ("lead", n)) for n in range(r - p))
     out = tuple(derived_axis(ghat, C, ("out", n)) for n in range(p))
     summed = tuple(derived_axis(ghat, C, ("sum", n)) for n in range(p))
-    value = Indexed(ghat, (*lead, *summed))
+    value = Indexed(ghat, (*lead, *summed)) if lead or summed else ghat
     for variance, i, s in zip(law.variances, out, summed, strict=True):
         M = Indexed(K, (s, i)) if variance == "covariant" else Indexed(J, (i, s))
         value = Product(value, M)
@@ -137,6 +139,8 @@ def transformed(ghat, law, C):
     scale = determinant(jacobian(C)) if k == n else density(C)
     for _ in range(law.weight):
         value = Division(value, scale)
+    for _ in range(-law.weight):
+        value = Product(value, scale)
     axes = (*lead, *out)
     return ComponentTensor(value, axes) if axes else value
 
@@ -145,13 +149,13 @@ def side_cell(sm, m):
     # The group and the entry of m as a cell of the parameter domain of the side map: a cell
     # map of the side topology, or a cell of the side domain.
     if isinstance(m, CellMap):
-        return (m.group, m.entry) if m.topology == sm.side_topology else None
+        return (m.cell_group, m.entry) if m.topology == sm.side_topology else None
     return cell_of(m) if m.ambient_domain == sm.parameter_domain else None
 
 
 def side_maps(sm, i, e):
     # B and A of cell e of group i, and the reference normal of the side tables.
-    S, s = sm.side_topology, sm.sides[i]
+    S, s = sm.side_topology, sm.side
     B, A = inclusion(sm.ambient_domain, S, i, s, e)
     m_hat = S.side_tables(i, s)[2]
     return B, A, None if m_hat is None else substitute(m_hat, {cell_index(S, i): e})
@@ -179,15 +183,15 @@ def expand_pull_backs(f):
 
 def remains(f, m):
     # The pull-backs that no row of expand_pull_backs rewrites, which a library reads.
-    return not isinstance(f, Action) and (
+    return not isinstance(f, Action | Form) and (
         isinstance(m, SideMap)
         or terminal(f)
         or isinstance(f, PushForward)
-        or (isinstance(f, PullBack) and kept(f.domain))
+        or (isinstance(f, PullBack) and kept(f.map))
         or (isinstance(f, Gradient) and not is_cell(m))
         or (piola_law(f) is not None and (not is_cell(m) or m.ambient_domain != f.domain))
     )
 
 
 def in_n5(e):
-    return everywhere(e, lambda n: not isinstance(n, PullBack) or remains(n.expression, n.domain))
+    return everywhere(e, lambda n: not isinstance(n, PullBack) or remains(n.expression, n.map))

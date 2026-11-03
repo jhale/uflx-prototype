@@ -4,6 +4,7 @@ import pytest
 
 from uflx_spec_interpreter import (
     RD,
+    ScalarType,
     add,
     domain_map,
     form,
@@ -25,7 +26,7 @@ from uflx_toy.spaces import space
 P = RD(2)
 V = space("identity-matrix", value_shape=(2, 2), domain=P)
 A, B, C = (function(V, label) for label in ("A", "B", "C"))
-W = space("identity-coordinate", value_shape=(2,), domain=P)
+W = space("identity-coordinate", value_shape=(2,), domain=P, scalar_type=ScalarType.real)
 x, y = function(W, "x"), function(W, "y")
 D, E = domain_map(P, x, P), domain_map(P, y, P)
 

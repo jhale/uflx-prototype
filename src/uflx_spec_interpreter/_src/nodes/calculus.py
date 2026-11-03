@@ -44,9 +44,8 @@ class DirectionalDerivative(AbstractExpression):
         return self.expression.scalar_type
 
     @cached_property
-    def support(self):
-        edges = (*members(self.direction), *members(self.point), self.expression)
-        return next((x.support for x in edges if x.support is not None), None)
+    def domain(self):
+        return self.expression.domain
 
 
 @final
@@ -62,10 +61,6 @@ class Coordinate(AbstractExpression):
     @cached_property
     def scalar_type(self):
         return ScalarType.real
-
-    @cached_property
-    def support(self):
-        return self.domain
 
     @cached_property
     def free_indices(self):
@@ -93,10 +88,6 @@ class Gradient(AbstractExpression):
         return self.joined_scalar_type(self.expression)
 
     @cached_property
-    def support(self):
-        return self.domain
-
-    @cached_property
     def free_indices(self):
         return self.expression.free_indices
 
@@ -121,10 +112,6 @@ class Divergence(AbstractExpression):
     @cached_property
     def scalar_type(self):
         return self.joined_scalar_type(self.expression)
-
-    @cached_property
-    def support(self):
-        return self.domain
 
     @cached_property
     def free_indices(self):
@@ -155,10 +142,6 @@ class Curl(AbstractExpression):
         return self.joined_scalar_type(self.expression)
 
     @cached_property
-    def support(self):
-        return self.domain
-
-    @cached_property
     def free_indices(self):
         return self.expression.free_indices
 
@@ -172,8 +155,8 @@ class PullBack(AbstractExpression):
     identifier = "uflx.PullBack"
     commuting = ("expression",)
     expression: AbstractExpression
-    domain: DomainMap | SideMap | CellMap
-    objects = ("domain",)
+    map: DomainMap | SideMap | CellMap
+    objects = ("map",)
 
     @cached_property
     def value_shape(self):
@@ -181,15 +164,15 @@ class PullBack(AbstractExpression):
 
     @cached_property
     def free_indices(self):
-        return tuple((dict(self.expression.free_indices) | dict(self.domain.free_indices)).items())
+        return tuple((dict(self.expression.free_indices) | dict(self.map.free_indices)).items())
 
     @cached_property
     def scalar_type(self):
         return self.joined_scalar_type(self.expression)
 
     @cached_property
-    def support(self):
-        return self.domain.parameter_domain
+    def domain(self):
+        return self.map.parameter_domain
 
     @cached_property
     def argument_spaces(self):
@@ -215,15 +198,15 @@ class PushForward(AbstractExpression):
     commuting = ("expression",)
     # The field on a mesh of a function on its topology, carried by a transformation law.
     expression: AbstractExpression
-    domain: Mesh
+    mesh: Mesh
     law: TransformationLaw
-    objects = ("domain",)
+    objects = ("mesh",)
 
     @cached_property
     def value_shape(self):
         # A covariant or a contravariant axis has the extent k on the reference cell and n on D.
         shape, p = self.expression.value_shape, len(self.law.variances)
-        n = self.domain.ambient_domain.ambient_coordinate_domain.dimension
+        n = self.mesh.ambient_domain.ambient_coordinate_domain.dimension
         return (*shape[: len(shape) - p], *(n for _ in range(p)))
 
     @cached_property
@@ -235,8 +218,8 @@ class PushForward(AbstractExpression):
         return self.joined_scalar_type(self.expression)
 
     @cached_property
-    def support(self):
-        return self.domain
+    def domain(self):
+        return self.mesh
 
     @cached_property
     def argument_spaces(self):
@@ -248,8 +231,8 @@ class Integral(AbstractExpression):
     identifier = "uflx.Integral"
     commuting = ("expression",)
     expression: AbstractExpression
-    domain: AbstractDomain
-    opaque = ("domain",)
+    integration_domain: AbstractDomain
+    opaque = ("integration_domain",)
 
     @cached_property
     def value_shape(self):
@@ -265,7 +248,7 @@ class Integral(AbstractExpression):
         return self.joined_scalar_type(self.expression)
 
     @cached_property
-    def support(self):
+    def domain(self):
         return None
 
     @cached_property
@@ -288,7 +271,7 @@ class Normal(AbstractExpression):
         return ScalarType.real
 
     @cached_property
-    def support(self):
+    def domain(self):
         return self.side_map.parameter_domain
 
     @cached_property

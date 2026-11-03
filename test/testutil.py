@@ -56,9 +56,9 @@ def keeps_static_type(e, out):
         dict(out.free_indices),
         out.argument_spaces,
     )
-    # A Zero is real with no support, so the scalar type may become real and the support none.
-    scalar = out.scalar_type in (e.scalar_type, ScalarType.real)
-    return same and scalar and out.support in (e.support, None)
+    # Rewrites preserve scalar arithmetic, but may lose the domain of a constant.
+    scalar = out.scalar_type == e.scalar_type
+    return same and scalar and out.domain in (e.domain, None)
 
 
 def passed(n):

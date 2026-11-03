@@ -6,8 +6,8 @@ import pytest
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
     RD,
+    ScalarType,
     apply_gradients,
-    cell_domain,
     coordinate,
     domain_map,
     expand_pull_backs,
@@ -18,10 +18,10 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._draft import curl, divergence, push_forward, transformation_law
+from uflx_spec_interpreter._src.domains import cell_domain
 from uflx_spec_interpreter._src.nodes import Curl, Divergence, Gradient, PullBack, PushForward
 from uflx_spec_interpreter._src.passes.gradients import allowed
 from uflx_spec_interpreter._src.passes.piola import piola_law
-from uflx_spec_interpreter._src.passes.pullbacks import remains
 from uflx_spec_interpreter._src.substitution import everywhere
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
@@ -31,7 +31,9 @@ from uflx_toy.topology import static_topology
 def mapped(k, n, variance, weight):
     K = reference_simplex(k)
     T = static_topology((K,), ((tuple(range(k + 1)),),), ())
-    x = function(space("piola-coordinates", value_shape=(n,), domain=T), "x")
+    x = function(
+        space("piola-coordinates", value_shape=(n,), domain=T, scalar_type=ScalarType.real), "x"
+    )
     D = image(x, RD(n))
     f = function(space("piola-field", value_shape=(k,), domain=T), "f")
     return D, push_forward(f, D, transformation_law((variance,), weight))
@@ -44,10 +46,9 @@ def test_divergence_identity_and_noncell_reads_agree_across_passes(k, n):
     assert piola_law(e) is transformation_law((), 1)
     assert apply_gradients(e) is e
     assert allowed(e)
-    m = domain_map(RD(0), tensor(tuple(num(0) for _ in range(n))), D)
-    read = pull_back(e, m)
-    assert expand_pull_backs(read) is read
-    assert remains(e, m)
+    # Coordinate-only maps into a mesh cannot select a cell.
+    with pytest.raises(TypeError):
+        domain_map(RD(0), tensor(tuple(num(0) for _ in range(n))), D)
     out = expand_pull_backs(pull_back(e, cell_domain(D, 0)))
     assert everywhere(out, lambda node: not isinstance(node, Divergence | PushForward))
     # The identity must not differentiate the geometric Jacobian.

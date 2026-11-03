@@ -62,7 +62,7 @@ def test_pullback_keeps_the_original_field_argument_and_value():
     e = pull_back(action(gradient(A, P), 0, g), psi)
     out = expand_pull_backs(e)
     assert isinstance(out, Action)
-    assert out.argument is g and out.argument.support is P
+    assert out.argument is g and out.argument.domain is P
     assert out.argument_spaces == e.argument_spaces
     np.testing.assert_allclose(value(out, K, 0.3), [3 * 1.6**2], atol=1e-6)
     np.testing.assert_allclose(value(out, K, 0.3), value(e, K, 0.3), atol=1e-6)
@@ -105,7 +105,7 @@ def test_side_pullback_transforms_output_before_deferral_and_keeps_tuple_family(
     from uflx_toy.basix_cells import basix_cell
 
     D, E, _ = square(basix_cell(basix.CellType.triangle))
-    sm = side_map(D, E)
+    sm = side_map(D, E, (E.topology if hasattr(E, "topology") else E).sides[0][0][0])
     assert isinstance(sm, SideMap)
     V = space("tuple-input", domain=D, scalar_type=ScalarType.real)
     A = function(OperatorSpace(D, ((V, V),)), "tuple-operator")

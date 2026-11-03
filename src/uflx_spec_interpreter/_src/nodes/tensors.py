@@ -4,10 +4,10 @@ from functools import cached_property
 from typing import TYPE_CHECKING, final
 
 from .base import AbstractExpression
-from .indices import EllipsisIndex, GatheredIndex, Index
+from .indices import GatheredIndex, Index
 
 if TYPE_CHECKING:
-    from .indices import EllipsisIndex, GatheredIndex, Index
+    from .indices import GatheredIndex, Index
 
 
 @final
@@ -33,8 +33,8 @@ class Tensor(AbstractExpression):
         return self.joined_scalar_type(*self.entries)
 
     @cached_property
-    def support(self):
-        return next((x.support for x in reversed(self.entries) if x.support), None)
+    def domain(self):
+        return next((x.domain for x in reversed(self.entries) if x.domain), None)
 
 
 @final
@@ -42,27 +42,15 @@ class Indexed(AbstractExpression):
     identifier = "uflx.Indexed"
     commuting = ("expression",)
     expression: AbstractExpression
-    indices: tuple[int | Index | GatheredIndex | EllipsisIndex, ...]
+    indices: tuple[int | Index | GatheredIndex | ...]
 
     @cached_property
     def free_indices(self):
-        # An Index takes the extent of its axis, an EllipsisIndex the extents of every axis that
-        # the other entries leave, and a gathered index states its own.
-        shape = self.expression.value_shape
-        covered = len(shape) - len(self.indices) + 1
-        out = dict(self.expression.free_indices)
-        k = 0
-        for i in self.indices:
-            if isinstance(i, EllipsisIndex):
-                out[i] = tuple(shape[k : k + covered])
-                k += covered
-                continue
-            if isinstance(i, Index):
-                out[i] = shape[k]
-            elif isinstance(i, GatheredIndex):
-                out |= dict(i.free_indices)
-            k += 1
-        return tuple(out.items())
+        from ..validation import entries, merge_indices
+
+        return merge_indices(
+            self.expression.free_indices, entries(self.expression.value_shape, self.indices)
+        )
 
     @cached_property
     def value_shape(self):
@@ -77,8 +65,8 @@ class Indexed(AbstractExpression):
         return self.joined_scalar_type(self.expression)
 
     @cached_property
-    def support(self):
-        return self.expression.support
+    def domain(self):
+        return self.expression.domain
 
 
 @final
@@ -86,7 +74,7 @@ class ComponentTensor(AbstractExpression):
     identifier = "uflx.ComponentTensor"
     commuting = ("expression",)
     expression: AbstractExpression
-    indices: tuple[Index | EllipsisIndex, ...]
+    indices: tuple[Index | ...]
     scope = ("expression", "indices")
 
     def bound(self):
@@ -94,13 +82,8 @@ class ComponentTensor(AbstractExpression):
 
     @cached_property
     def value_shape(self):
-        # An EllipsisIndex gives one axis for each of its extents.
         free = dict(self.expression.free_indices)
-        return tuple(
-            n
-            for i in self.indices
-            for n in (free[i] if isinstance(i, EllipsisIndex) else (free[i],))
-        )
+        return tuple(free[i] for i in self.indices)
 
     @cached_property
     def free_indices(self):
@@ -115,8 +98,8 @@ class ComponentTensor(AbstractExpression):
         return self.joined_scalar_type(self.expression)
 
     @cached_property
-    def support(self):
-        return self.expression.support
+    def domain(self):
+        return self.expression.domain
 
 
 @final
@@ -124,7 +107,7 @@ class IndexSum(AbstractExpression):
     identifier = "uflx.IndexSum"
     commuting = ("expression",)
     expression: AbstractExpression
-    indices: tuple[Index | EllipsisIndex, ...]
+    indices: tuple[Index | ...]
     scope = ("expression", "indices")
 
     def bound(self):
@@ -147,8 +130,8 @@ class IndexSum(AbstractExpression):
         return self.joined_scalar_type(self.expression)
 
     @cached_property
-    def support(self):
-        return self.expression.support
+    def domain(self):
+        return self.expression.domain
 
 
 @final
@@ -173,5 +156,31 @@ class Inverse(AbstractExpression):
         return self.joined_scalar_type(self.operand)
 
     @cached_property
-    def support(self):
-        return self.operand.support
+    def domain(self):
+        return self.operand.domain
+
+
+@final
+class Determinant(AbstractExpression):
+    identifier = "uflx.Determinant"
+    operand: AbstractExpression
+
+    @cached_property
+    def value_shape(self):
+        return ()
+
+    @cached_property
+    def free_indices(self):
+        return self.operand.free_indices
+
+    @cached_property
+    def argument_spaces(self):
+        return ()
+
+    @cached_property
+    def scalar_type(self):
+        return self.joined_scalar_type(self.operand)
+
+    @cached_property
+    def domain(self):
+        return self.operand.domain

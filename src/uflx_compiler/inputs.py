@@ -1,11 +1,15 @@
-from typing import NamedTuple
+from __future__ import annotations
 
-from uflx_spec_interpreter._src.nodes import AbstractExtent
+from typing import final
+
+from uflx_spec_interpreter._src.nodes import AbstractExtent, Base
 from uflx_spec_interpreter._src.substitution import expressions, memoized
 from uflx_toy.nodes import RuntimeArray
 
 
-class Basis(NamedTuple):
+@final
+class Basis(Base):
+    identifier = "compiler.Basis"
     # The label of a basis table at points known only at assembly, which runtime_tables fills.
     space: object
     piece: int

@@ -34,8 +34,8 @@ class Sum(AbstractExpression):
         return self.joined_scalar_type(self.first, self.second)
 
     @cached_property
-    def support(self):
-        return self.second.support or self.first.support
+    def domain(self):
+        return self.second.domain or self.first.domain
 
 
 @final
@@ -61,8 +61,8 @@ class Product(AbstractExpression):
         return self.joined_scalar_type(self.first, self.second)
 
     @cached_property
-    def support(self):
-        return self.second.support or self.first.support
+    def domain(self):
+        return self.second.domain or self.first.domain
 
 
 @final
@@ -89,8 +89,8 @@ class Division(AbstractExpression):
         return self.joined_scalar_type(self.first, self.second)
 
     @cached_property
-    def support(self):
-        return self.second.support or self.first.support
+    def domain(self):
+        return self.second.domain or self.first.domain
 
 
 @final
@@ -116,8 +116,8 @@ class Power(AbstractExpression):
         return self.joined_scalar_type(self.first, self.second)
 
     @cached_property
-    def support(self):
-        return self.second.support or self.first.support
+    def domain(self):
+        return self.second.domain or self.first.domain
 
 
 @final
@@ -146,8 +146,8 @@ class Conjugate(AbstractExpression):
         return self.joined_scalar_type(self.operand)
 
     @cached_property
-    def support(self):
-        return self.operand.support
+    def domain(self):
+        return self.operand.domain
 
 
 @final
@@ -173,8 +173,8 @@ class RealPart(AbstractExpression):
         return ScalarType.real
 
     @cached_property
-    def support(self):
-        return self.operand.support
+    def domain(self):
+        return self.operand.domain
 
 
 @final
@@ -200,8 +200,8 @@ class ImaginaryPart(AbstractExpression):
         return ScalarType.real
 
     @cached_property
-    def support(self):
-        return self.operand.support
+    def domain(self):
+        return self.operand.domain
 
 
 @final
@@ -226,8 +226,8 @@ class Absolute(AbstractExpression):
         return ScalarType.real
 
     @cached_property
-    def support(self):
-        return self.operand.support
+    def domain(self):
+        return self.operand.domain
 
 
 @final
@@ -252,8 +252,8 @@ class SquareRoot(AbstractExpression):
         return self.joined_scalar_type(self.operand)
 
     @cached_property
-    def support(self):
-        return self.operand.support
+    def domain(self):
+        return self.operand.domain
 
 
 @final
@@ -278,5 +278,5 @@ class Logarithm(AbstractExpression):
         return self.joined_scalar_type(self.operand)
 
     @cached_property
-    def support(self):
-        return self.operand.support
+    def domain(self):
+        return self.operand.domain

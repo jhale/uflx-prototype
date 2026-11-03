@@ -1,35 +1,43 @@
-from functools import reduce
-from itertools import combinations, permutations
+from itertools import combinations
 
-from .arithmetic import divide, rank, total
+from .arithmetic import divide, rank
 from .names import derived_indices
 from .nodes import (
+    AbstractExpression,
     ComponentTensor,
-    EllipsisIndex,
+    Determinant,
     Indexed,
     IndexSum,
     Integer,
     Inverse,
     Product,
+    ScalarType,
     SquareRoot,
     Tensor,
+    Zero,
 )
 
 
 def tensor(entries):
-    return Tensor(tuple(entries))
+    return Tensor(entries)
 
 
 def indexed(expression, indices):
-    return Indexed(expression, tuple(indices))
+    if indices == () and isinstance(expression, AbstractExpression) and expression.value_shape:
+        raise IndexError("full indexing must cover every axis")
+    return empty_indices(expression, indices) if indices == () else Indexed(expression, indices)
 
 
 def component_tensor(expression, indices):
-    return ComponentTensor(expression, tuple(indices))
+    return (
+        empty_indices(expression, indices)
+        if indices == ()
+        else ComponentTensor(expression, indices)
+    )
 
 
 def index_sum(expression, indices):
-    return IndexSum(expression, tuple(indices))
+    return empty_indices(expression, indices) if indices == () else IndexSum(expression, indices)
 
 
 def inverse(A):
@@ -37,6 +45,8 @@ def inverse(A):
 
 
 def identity(n):
+    if n == 0:
+        return Zero((0, 0), (), (), ScalarType.real)
     return Tensor(
         tuple(Tensor(tuple(Integer(1 if r == c else 0) for c in range(n))) for r in range(n))
     )
@@ -66,7 +76,11 @@ def matrix_product(first, second):
 
 
 def component(f, entries):
-    if len(entries) < rank(f) and not any(isinstance(e, EllipsisIndex) for e in entries):
+    if not isinstance(f, AbstractExpression) or type(entries) is not tuple:
+        raise TypeError("component takes an expression and a tuple")
+    if not entries:
+        return f
+    if len(entries) < rank(f):
         K = derived_indices("uflx.component", (f, entries), rank(f) - len(entries))
         return ComponentTensor(Indexed(f, (*entries, *K)), K)
     return Indexed(f, entries)
@@ -81,13 +95,16 @@ def unit(u):
 
 
 def determinant(A):
-    # The Leibniz formula, for the int extent n of the square matrix A.
-    n = A.value_shape[0]
-    return total(
-        reduce(Product, (Indexed(A, (r, p[r])) for r in range(n)), Integer(sign(p)))
-        for p in permutations(range(n))
-    )
+    return Determinant(A)
 
 
 def sign(p):
     return (-1) ** sum(p[a] > p[b] for a, b in combinations(range(len(p)), 2))
+
+
+def empty_indices(expression, indices):
+    if not isinstance(expression, AbstractExpression) or type(indices) is not tuple:
+        raise TypeError("index notation takes an expression and a tuple")
+    if expression.value_shape:
+        raise ValueError("empty indices require a scalar")
+    return expression

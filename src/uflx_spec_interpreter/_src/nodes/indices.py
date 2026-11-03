@@ -20,16 +20,7 @@ class Index(Base):
     labels = ("label",)
 
 
-@final
-class EllipsisIndex(Base):
-    identifier = "uflx.EllipsisIndex"
-    # An index that covers any number of axes, whose extent is a tuple of extents.
-    label: str | tuple
-    opaque = ("label",)
-    labels = ("label",)
-
-
-class AbstractIndexValue(Base):
+class AbstractIndexTable(Base):
     # A table of index values that the solver gives, which is not an expression.
     @property
     @abstractmethod
@@ -44,7 +35,7 @@ class AbstractIndexValue(Base):
 class GatheredIndex(Base):
     identifier = "uflx.GatheredIndex"
     # An index read from a table at the given entries, an int or an Index for each axis.
-    table: AbstractIndexValue
+    table: AbstractIndexTable
     indices: tuple[int | Index | GatheredIndex, ...]
 
     @property
@@ -53,11 +44,6 @@ class GatheredIndex(Base):
 
     @cached_property
     def free_indices(self):
-        # Each Index entry takes the extent of its axis of the table, and a nested gather its own.
-        out = {}
-        for m, j in enumerate(self.indices):
-            if isinstance(j, Index):
-                out[j] = self.table.shape[m]
-            elif isinstance(j, GatheredIndex):
-                out |= dict(j.free_indices)
-        return tuple(out.items())
+        from ..validation import entries
+
+        return entries(self.table.shape, self.indices)

@@ -67,7 +67,11 @@ def square(K):
     D = vertex_mesh(T, [(0, 0), (1, 0), (1, 1), (0, 1)])
     diagonal = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     boundary = static_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", T, 0),),))
-    return D, side_domain(D, diagonal), side_domain(D, boundary)
+    return (
+        D,
+        side_domain(D, diagonal, diagonal.sides[0][0][0]),
+        side_domain(D, boundary, boundary.sides[0][0][0]),
+    )
 
 
 def facet_integrals(K):
@@ -101,7 +105,7 @@ def test_a_basix_cell_gives_its_facet_normals_as_a_table():
     for K, constant in ((basix_cell(basix.CellType.triangle), True), (reference_simplex(2), False)):
         _, E, _ = square(K)
         _, _, m = E.topology.side_tables(0, "+")
-        assert (m.support is None) == constant and m.value_shape == (2,)
+        assert (m.domain is None) == constant and m.value_shape == (2,)
 
 
 def quadrilaterals():
@@ -113,7 +117,11 @@ def quadrilaterals():
     boundary = static_topology(
         (I,), (((0, 1), (1, 2), (2, 5), (5, 4), (4, 3), (3, 0)),), ((("inside", T, 0),),)
     )
-    return D, side_domain(D, interior), side_domain(D, boundary)
+    return (
+        D,
+        side_domain(D, interior, interior.sides[0][0][0]),
+        side_domain(D, boundary, boundary.sides[0][0][0]),
+    )
 
 
 def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
@@ -159,7 +167,11 @@ def mixed():
         (((0, 1), (4, 3), (3, 0)), ((1, 2), (2, 5), (5, 4))),
         ((("inside", T, 0),), (("inside", T, 1),)),
     )
-    return D, side_domain(D, interior), side_domain(D, boundary)
+    return (
+        D,
+        side_domain(D, interior, interior.sides[0][0][0]),
+        side_domain(D, boundary, boundary.sides[0][0][0]),
+    )
 
 
 def test_a_mesh_of_triangles_and_a_quadrilateral():

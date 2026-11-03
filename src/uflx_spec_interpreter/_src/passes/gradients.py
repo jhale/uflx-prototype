@@ -4,10 +4,12 @@ from ..names import derived_index, derived_indices
 from ..nodes import (
     Absolute,
     Action,
+    Complex,
     ComponentTensor,
     Conjugate,
     Coordinate,
     Curl,
+    Determinant,
     Divergence,
     Division,
     DomainMap,
@@ -16,7 +18,6 @@ from ..nodes import (
     Function,
     Gradient,
     ImaginaryPart,
-    ImaginaryUnit,
     Indexed,
     IndexSum,
     Integer,
@@ -86,7 +87,7 @@ def gradient(f, P, partial):
 
 def chained(f):
     # A pull-back by a domain map that is not a cell, whose gradient is the chain rule.
-    return isinstance(f, PullBack) and isinstance(f.domain, DomainMap) and not is_cell(f.domain)
+    return isinstance(f, PullBack) and isinstance(f.map, DomainMap) and not is_cell(f.map)
 
 
 def remains(f, P):
@@ -120,7 +121,7 @@ def allowed(e):
         case (
             Integer()
             | Float()
-            | ImaginaryUnit()
+            | Complex()
             | Zero()
             | Sum()
             | Product()
@@ -137,6 +138,7 @@ def allowed(e):
             | ComponentTensor()
             | IndexSum()
             | Inverse()
+            | Determinant()
             | Coordinate()
             | Normal()
             | Function()

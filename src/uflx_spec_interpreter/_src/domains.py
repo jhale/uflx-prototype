@@ -1,8 +1,6 @@
 from .nodes import (
     AbstractTopology,
     CellMap,
-    Coordinate,
-    DomainMap,
     GatheredIndex,
     Mesh,
     Normal,
@@ -16,13 +14,13 @@ from .topology import cell_index
 
 
 def cell_domain(D, j, e=None):
-    # Piece j with the ambient domain D, and for a mesh cell e of group j through its cell map.
-    T, x = D.topology, D.coordinate_function
-    return DomainMap(T.cell_types[j], PullBack(x, cell_map(T, j, e)), D)
+    # Private compatibility spelling; both topology and mesh cells are CellMaps.
+    return cell_map(D, j, e)
 
 
-def cell_map(T, j, e=None):
-    return CellMap(T, j, cell_index(T, j) if e is None else e)
+def cell_map(X, j, e=None):
+    T = X.topology if isinstance(X, Mesh) else X
+    return CellMap(X, j, cell_index(T, j) if e is None else e)
 
 
 def image(x, Q):
@@ -40,40 +38,29 @@ def transformation_law(variances, weight):
     return TransformationLaw(variances, weight)
 
 
-def push_forward(f, D, m=None):
-    # By the law of the space of a function, or by the law m. The coordinate function of D by
-    # the identity is coordinate(D), equal in value, which the gradient of a coordinate reads.
-    m = f.space.law if m is None else m
-    if m == IDENTITY and f == coordinate_function(D):
-        return Coordinate(D)
+def push_forward(f, D, m):
     return PushForward(f, D, m)
 
 
 def cell_of(m):
-    # The group and the entry of a cell of a mesh, read from its cell map.
-    match m:
-        case DomainMap(_, PullBack(_, CellMap(_, j, e)), Mesh() as D) if m == cell_domain(D, j, e):
-            return j, e
-    return None
+    return (
+        (m.cell_group, m.entry)
+        if isinstance(m, CellMap) and isinstance(m.ambient_domain, Mesh)
+        else None
+    )
 
 
 def is_cell(m):
     return cell_of(m) is not None
 
 
-def side_map(X, P, s=None):
-    # To the side topology P from a topology, or to a side domain P from a mesh, through the side
-    # s of every group, or through the first side of each group on the topology of X.
-    T = X if isinstance(X, AbstractTopology) else X.topology
-    S = P if isinstance(P, AbstractTopology) else P.topology
-    names = tuple(s or next(n for n, U, _ in sides if U == T) for sides in S.sides)
-    return SideMap(X, P, names)
+def side_map(X, P, s):
+    return SideMap(X, P, s)
 
 
-def side_domain(D, S, s=None):
-    # The mesh of the trace of the coordinate function of D through the first side of each group.
+def side_domain(D, S, s):
     x = coordinate_function(D)
-    return image(PullBack(x, side_map(x.support, S, s)), D.ambient_domain)
+    return image(PullBack(x, side_map(x.domain, S, s)), D.ambient_domain)
 
 
 def inclusion(X, S, i, s, e):

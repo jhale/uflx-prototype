@@ -10,7 +10,6 @@ from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     action,
     add,
-    cell_domain,
     conjugate,
     coordinate,
     density,
@@ -27,6 +26,7 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
+from uflx_spec_interpreter._src.domains import cell_domain
 from uflx_spec_interpreter._src.nodes import Function
 from uflx_spec_interpreter._src.passes import actions, derivatives, integrals
 from uflx_spec_interpreter._src.static import arity

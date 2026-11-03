@@ -69,7 +69,7 @@ def functionals():
         "area": integral(num(1), D),
         "energy": integral(g[0] * g[0] + g[1] * g[1], D),
         "field in the coordinates": integral(y[0] * y[0] * y[1], D),
-        "perimeter": integral(num(1), side_domain(D, BOUNDARY)),
+        "perimeter": integral(num(1), side_domain(D, BOUNDARY, BOUNDARY.sides[0][0][0])),
         "mass of a Raviart-Thomas function": integral(w[0] * w[0] + w[1] * w[1], D),
     }
 

@@ -35,7 +35,7 @@ def tabulate(f):
     # inclusion of a facet, becomes its gathered coefficients times the tabulated basis.
     def rewrite(e):
         # A function with no domain is a constant, which a consumer passes by its label.
-        if isinstance(e, Function) and e.support is None:
+        if isinstance(e, Function) and e.domain is None:
             return runtime_array(f"coefficients:{e.label}", e.value_shape)
         found = leaf(e)
         if found and isinstance(found[0], VertexCoordinates):
@@ -71,7 +71,7 @@ def read(x, points):
 
 def cell(C):
     # The group and the entry of a cell map, or of a cell of a mesh.
-    return (C.group, C.entry) if isinstance(C, CellMap) else cell_of(C)
+    return (C.cell_group, C.entry) if isinstance(C, CellMap) else cell_of(C)
 
 
 def values(u, found_cell, order, points):

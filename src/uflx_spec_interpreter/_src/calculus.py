@@ -22,12 +22,12 @@ def gradient(f, P):
     return Gradient(f, P)
 
 
-def divergence(f, P):
-    return Divergence(f, P)
+def divergence(u, P):
+    return Divergence(u, P)
 
 
-def curl(f, P):
-    return Curl(f, P)
+def curl(u, P):
+    return Curl(u, P)
 
 
 def directional_derivative(f, x, a, h):

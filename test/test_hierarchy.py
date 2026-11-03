@@ -2,13 +2,9 @@ import pytest
 from test_integrals import D, c
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
-    ScalarType,
-    cell_domain,
-    conjugate_space,
-    dual_space,
-)
+from uflx_spec_interpreter import ScalarType, conjugate_space, dual_space
 from uflx_spec_interpreter._src import nodes
+from uflx_spec_interpreter._src.domains import cell_domain
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Base,
@@ -16,7 +12,6 @@ from uflx_spec_interpreter._src.nodes import (
     Conjugate,
     ConjugateSpace,
     Coordinate,
-    DomainMap,
     Form,
     Function,
     GatheredIndex,
@@ -34,11 +29,11 @@ from uflx_toy.nodes import IndexTable
 from uflx_toy.spaces import space
 
 EXPRESSIONS = (
-    "Integer Float ImaginaryUnit Zero Sum Product Division Power Absolute Conjugate RealPart "
+    "Integer Float Complex Zero Sum Product Division Power Absolute Conjugate RealPart "
     "ImaginaryPart SquareRoot Logarithm Tensor Indexed ComponentTensor IndexSum Inverse "
     "Coordinate Gradient DirectionalDerivative Integral PullBack Normal Function Form Action "
 ).split()
-STATIC_TYPE = {"value_shape", "free_indices", "argument_spaces", "support", "scalar_type"}
+STATIC_TYPE = {"value_shape", "free_indices", "argument_spaces", "domain", "scalar_type"}
 OTHERS = [
     "Index",
     "ConjugateSpace",
@@ -95,7 +90,7 @@ def test_a_dual_space_has_the_conjugate_argument_space():
     l = Function(dual_space(V), "l")
     assert l.argument_spaces == (ConjugateSpace(V),) and l.value_shape == ()
     assert dual_space((V, Q)).argument_spaces == ((ConjugateSpace(V), ConjugateSpace(Q)),)
-    assert dual_space(dual_space(V)).argument_spaces == (ConjugateSpace(dual_space(V)),)
+    assert dual_space(dual_space(V)) is V
 
 
 def test_every_expression_class_states_its_static_type():
@@ -153,7 +148,7 @@ def test_a_gathered_index_reads_an_index_value_and_gathers_nest():
     assert table.shape == (2, 2) and table.extent == 2
     assert not isinstance(table, AbstractExpression)
     with pytest.raises(TypeError):
-        nodes.AbstractIndexValue()
+        nodes.AbstractIndexTable()
     inner = nodes.GatheredIndex(IndexTable((1, 0), 2), (j,))
     g = nodes.GatheredIndex(table, (i, inner))
     assert g.extent == 2 and g.free_indices == ((i, 2), (j, 2))
@@ -175,10 +170,10 @@ def test_a_reference_cell_is_a_coordinate_domain_and_a_cell_type():
 def test_cell_domains_are_domain_maps_into_the_mesh():
     piece = D.pieces[0]
     cells = cell_domain(D, 0)
-    assert cells == DomainMap(piece.parameter_domain, piece.parameterisation, D)
+    assert cells == CellMap(D, 0, nodes.Index(("uflx.cell_index", D.topology, 0, 0)))
     assert dict(cells.free_indices) == dict(piece.parameterisation.free_indices)
     g = GatheredIndex(IndexTable((1, 0), 2), (Index("e"),))
     # A cell of a mesh is piece j with the entry of its cell map in place of the cell index.
     x = piece.parameterisation.expression
-    cell = PullBack(x, CellMap(x.support, 0, g))
-    assert cell_domain(D, 0, g) == DomainMap(piece.parameter_domain, cell, D)
+    cell = PullBack(x, CellMap(x.domain, 0, g))
+    assert cell_domain(D, 0, g).parameterisation == cell

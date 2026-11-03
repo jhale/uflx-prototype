@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import ellipsis_index, imaginary_part, index, num, real_part, tensor
+from uflx_spec_interpreter import imaginary_part, index, num, real_part, tensor
 from uflx_spec_interpreter._src.nodes import ComponentTensor, Indexed, Integer, Power, Product, Sum
 
 RNG = np.random.default_rng(1)
@@ -57,12 +57,11 @@ def test_an_overload_is_one_free_function_and_never_regroups():
     assert -(a**b) == Product(Integer(-1), Power(a, b))
 
 
-def test_partial_indexing_is_a_component_tensor_and_an_ellipsis_is_not():
+def test_partial_indexing_is_a_component_tensor():
     M = array(A)
     assert isinstance(M[1], ComponentTensor) and M[1].value_shape == (3,)
     assert M[1] == M[1]
-    r = ellipsis_index("r")
-    assert isinstance(M[r], Indexed)
+    assert isinstance(M[1, 0], Indexed)
 
 
 def test_python_numbers_are_rejected():

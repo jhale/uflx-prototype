@@ -5,14 +5,15 @@ import numpy as np
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractExtent,
+    Complex,
     ComponentTensor,
     Conjugate,
     Coordinate,
+    Determinant,
     Division,
     Float,
     GatheredIndex,
     ImaginaryPart,
-    ImaginaryUnit,
     Index,
     Indexed,
     IndexSum,
@@ -81,8 +82,8 @@ def node(n, value, env, xp):
     match n:
         case Integer(v) | Float(v):
             return xp.asarray(v)
-        case ImaginaryUnit():
-            return xp.asarray(1j)
+        case Complex(a, b):
+            return xp.asarray(complex(a.value, b.value))
         case Zero():
             return xp.zeros(
                 full_shape(n, order, env),
@@ -112,6 +113,8 @@ def node(n, value, env, xp):
             return xp.imag(value(a))
         case Coordinate(P) if P.dimension == 0:
             return xp.zeros((0,))
+        case Determinant(a):
+            return xp.linalg.det(value(a))
         case Inverse(a) if a.value_shape[0] == a.value_shape[1]:
             return xp.linalg.inv(value(a))
         case Inverse(a):
@@ -128,6 +131,11 @@ def node(n, value, env, xp):
             return indexed(n, x, indices, value, env, xp)
         case ComponentTensor(x, indices):
             return operand(x, order + list(indices))
+        case IndexSum(x, indices) if any(size(dict(x.free_indices)[i], env) == 0 for i in indices):
+            return xp.zeros(
+                full_shape(n, order, env),
+                dtype=complex if n.scalar_type.value == "complex" else float,
+            )
         case IndexSum(Product() as x, indices):
             return contracted(n, x, value, xp)
         case IndexSum(x, indices):

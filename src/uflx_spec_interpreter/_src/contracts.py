@@ -45,7 +45,7 @@ def _derivative(node):
 def _reference_integral(node):
     if reason := _derivative(node):
         return reason
-    if isinstance(node, Integral) and isinstance(node.domain, Mesh):
+    if isinstance(node, Integral) and isinstance(node.integration_domain, Mesh):
         return "mesh integral remains"
     return None
 

@@ -1,13 +1,13 @@
 from .nodes import (
     AbstractExpression,
     Action,
+    Complex,
     Conjugate,
     DirectionalDerivative,
     Division,
     DualSpace,
     Form,
     Function,
-    ImaginaryUnit,
     Integer,
     Product,
     ScalarType,
@@ -28,7 +28,7 @@ def function(V, label):
 
 
 def form(expression, arguments):
-    return Form(expression, tuple(arguments))
+    return Form(expression, arguments)
 
 
 def action(f, position, g):
@@ -107,7 +107,7 @@ def gateaux_derivative(
             point.value_shape != variable.value_shape
             or point.argument_spaces != variable.argument_spaces
             or point.scalar_type not in (variable.scalar_type, ScalarType.real)
-            or point.support not in (None, variable.support)
+            or point.domain not in (None, variable.domain)
         ):
             raise ValueError("evaluation point is not admissible for the variable space")
     extents = {}
@@ -121,8 +121,10 @@ def gateaux_derivative(
     delta = DirectionalDerivative(F, x, a, directions)
     if xs[0].space.scalar_type == ScalarType.real:
         return Form(delta, (w,))
-    i = ImaginaryUnit()
-    rotated = each(lambda v: Product(i, v), directions)
+    i = Complex(Integer(0), Integer(1))
+    from .arithmetic import multiply
+
+    rotated = each(lambda v: multiply(i, v), directions)
     sign = i if isinstance(entries[0], Conjugate) else Product(Integer(-1), i)
     second = Product(sign, DirectionalDerivative(F, x, a, rotated))
     return Form(Product(Division(Integer(1), Integer(2)), Sum(delta, second)), (w,))

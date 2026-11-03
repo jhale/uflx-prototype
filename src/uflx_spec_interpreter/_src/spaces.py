@@ -1,12 +1,18 @@
-from .nodes import ConjugateSpace, DualSpace, ScalarType
+from .nodes import AbstractFunctionSpace, ConjugateSpace, DualSpace, ScalarType
 
 
 def conjugate_space(V):
-    return V if V.scalar_type == ScalarType.real else ConjugateSpace(V)
+    if not isinstance(V, AbstractFunctionSpace):
+        raise TypeError("conjugation requires a function space")
+    return (
+        V
+        if V.scalar_type == ScalarType.real
+        else (V.space if isinstance(V, ConjugateSpace) else ConjugateSpace(V))
+    )
 
 
 def dual_space(S):
-    return DualSpace(S)
+    return S.space if isinstance(S, DualSpace) else DualSpace(S)
 
 
 def conjugated(S):

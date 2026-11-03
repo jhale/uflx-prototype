@@ -22,8 +22,8 @@ from uflx_spec_interpreter import (
     side_map,
 )
 from uflx_spec_interpreter._src.nodes import (
+    CellMap,
     Coordinate,
-    DomainMap,
     Function,
     Gradient,
     Normal,
@@ -38,9 +38,9 @@ k, e = index("k"), index("e")
 
 
 # The diagonal and the boundary of the square, as meshes of their topologies.
-E_int = side_domain(D, DIAGONAL)
+E_int = side_domain(D, DIAGONAL, DIAGONAL.sides[0][0][0])
 sides_int = {s: side_map(D, E_int, s) for s in ("+", "-")}
-E_bnd = side_domain(D, BOUNDARY)
+E_bnd = side_domain(D, BOUNDARY, BOUNDARY.sides[0][0][0])
 sides_bnd = {"inside": side_map(D, E_bnd, "inside")}
 
 V = space("V", domain=D)
@@ -105,7 +105,7 @@ def main(trials):
             out3,
             lambda n: (
                 isinstance(n, PullBack)
-                and isinstance(n.domain, DomainMap)
+                and isinstance(n.map, CellMap)
                 and not isinstance(n.expression, (Function, Normal, Coordinate, PullBack, Gradient))
             ),
         ):

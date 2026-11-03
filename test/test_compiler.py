@@ -21,7 +21,6 @@ from uflx_compiler.inputs import arrays
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
-    cell_domain,
     cell_index,
     coordinate,
     domain_map,
@@ -38,6 +37,7 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._draft import coordinate_function, image, push_forward
+from uflx_spec_interpreter._src.domains import cell_domain
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     Division,

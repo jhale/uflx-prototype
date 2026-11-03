@@ -13,22 +13,22 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractTopology,
     Action,
     CellMap,
+    Complex,
     ComponentTensor,
     Conjugate,
     Coordinate,
     Curl,
+    Determinant,
     DirectionalDerivative,
     Divergence,
     Division,
     DualSpace,
-    EllipsisIndex,
     Float,
     Form,
     Function,
     GatheredIndex,
     Gradient,
     ImaginaryPart,
-    ImaginaryUnit,
     Index,
     Indexed,
     IndexSum,
@@ -93,7 +93,7 @@ def jacobian_of(chart, X):
 
 def index_value(i, ienv):
     # The value of an entry: an int, an Index from the environment, or a read of a table.
-    if isinstance(i, Index | EllipsisIndex):
+    if isinstance(i, Index):
         return ienv[i]
     if isinstance(i, GatheredIndex):
         values = i.table.values
@@ -135,8 +135,8 @@ def side_cell(sm):
     # map, through the side tables.
     E, S = sm.parameter_domain, sm.side_topology
     i = POINTS.get(("piece", E), 0)
-    (_, _, j) = next(s for s in S.sides[i] if s[0] == sm.sides[i])
-    return j, S.side_tables(i, sm.sides[i])[0].values[POINTS[("cell", E)]]
+    (_, _, j) = next(s for s in S.sides[i] if s[0] == sm.side)
+    return j, S.side_tables(i, sm.side)[0].values[POINTS[("cell", E)]]
 
 
 def on_cell(D, piece, cell, fn):
@@ -334,8 +334,8 @@ def evaluate_uncached(e, env, ienv=None, over=None):
     match e:
         case Integer(v) | Float(v):
             return lambda vals: v
-        case ImaginaryUnit():
-            return lambda vals: 1j
+        case Complex(a, b):
+            return lambda vals: complex(a.value, b.value)
         case PushForward(g, D, law):
             fg = ev(g)
 
@@ -387,7 +387,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: env[e]
         case Zero(s, _, _, scalar_type):
             dtype = complex if scalar_type.value == "complex" else float
-            return lambda vals: np.zeros(s, dtype=dtype) if s else dtype(0)
+            return lambda vals: (
+                np.zeros(tuple(size(n, env) for n in s), dtype=dtype) if s else dtype(0)
+            )
         case Sum(a, b):
             fa, fb = ev(a), ev(b)
             return lambda vals: fa(vals) + fb(vals)
@@ -399,7 +401,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: fa(vals) / fc(())
         case Conjugate(a):
             fa = ev(a)
-            return lambda vals: np.conj(fa(vals))
+            return lambda vals: np.conj(fa(tuple(conjugated_value(v) for v in vals)))
         case RealPart(a):
             return complex_operation(np.real, ev(a))
         case ImaginaryPart(a):
@@ -410,6 +412,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return complex_operation(np.sqrt, ev(a))
         case Logarithm(a):
             return complex_operation(np.log, ev(a))
+        case Determinant(a):
+            fa = ev(a)
+            return lambda vals: np.linalg.det(fa(vals))
         case Inverse(a):
             fa = ev(a)
             return lambda vals: np.linalg.pinv(np.asarray(fa(vals), dtype=complex))
@@ -422,12 +427,12 @@ def evaluate_uncached(e, env, ienv=None, over=None):
         case Indexed(x, idx):
             fx = ev(x)
 
-            # The value of an EllipsisIndex is a tuple, one entry for each axis that it covers.
+            # Every index selects one value axis.
             values = [index_value(i, ienv) for i in idx]
             key = tuple(k for v in values for k in members(v))
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
-            # An EllipsisIndex ranges over the tuples of values of the axes that it covers.
+            # Enumerate the bound axes independently.
             extents = [size(free(x)[i], env) for i in idx]
             ranges = [
                 list(itertools.product(*map(range, n))) if isinstance(n, tuple) else range(n)
@@ -491,13 +496,13 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: (fp(vals) - fm(vals)) / (2 * EPS)
         case Coordinate(P):
             return lambda vals: np.asarray(POINTS[P], dtype=complex)
-        case PullBack(b, SideMap(AbstractTopology() as T, S, sides) as sm):
+        case PullBack(b, SideMap(AbstractTopology() as T, S, side) as sm):
             fb = ev(b)
 
             def restricted_on_topology(vals):
                 # The reference point of the cell on the side, through the inclusion A of the cell.
                 i, e = POINTS.get(("piece", S), 0), POINTS[("cell", S)]
-                _, A, _ = S.side_tables(i, sides[i])
+                _, A, _ = S.side_tables(i, side)
                 inside = evaluate(A.parameterisation, env, {cell_index(S, i): e})
                 X = at(A.parameter_domain, POINTS[S], lambda: np.real(np.asarray(inside(()))))
                 j, cell = side_cell(sm)
@@ -513,7 +518,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return on_cell(Dd, j, cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
 
             return restricted
-        case PullBack(b, CellMap(T, j, entry) as m):
+        case PullBack(b, CellMap(AbstractTopology() as T, j, entry) as m):
             fb = ev(b)
 
             def read(vals):
@@ -601,3 +606,11 @@ def size(n, env):
     if isinstance(n, tuple):
         return tuple(size(m, env) for m in n)
     return lookup(env, n, n.label) if isinstance(n, AbstractExtent) else n
+
+
+def conjugated_value(value):
+    if isinstance(value, tuple):
+        return tuple(conjugated_value(v) for v in value)
+    if callable(value):
+        return lambda *args: np.conj(value(*args))
+    return np.conj(value)

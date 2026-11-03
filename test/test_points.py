@@ -11,10 +11,12 @@ from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     RD,
     add,
+    cell_map,
     component_tensor,
     coordinate,
     domain_map,
     function,
+    gathered_index,
     gradient,
     index,
     index_sum,
@@ -26,7 +28,13 @@ from uflx_spec_interpreter import (
     side_domain,
     side_map,
 )
-from uflx_spec_interpreter._src.nodes import Coordinate, DomainMap, Function, Gradient, PullBack
+from uflx_spec_interpreter._src.nodes import (
+    CellMap,
+    Coordinate,
+    Function,
+    Gradient,
+    PullBack,
+)
 from uflx_spec_interpreter._src.passes import gradients, integrals, pullbacks
 from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
@@ -51,8 +59,6 @@ def on_surface(cell, X):
 
 SQUARE = [(0.2, 0.3), (0.7, 0.4), (0.35, 0.8), (0.9, 0.95)]
 SURFACE = [(0, (0.3, 0.2)), (1, (0.25, 0.5))]
-SQUARE_POINTS = points(SQUARE, D)
-SURFACE_POINTS = points([on_surface(c, X) for c, X in SURFACE], M)
 
 
 def in_square(x):
@@ -63,6 +69,17 @@ def in_square(x):
         if np.all(X > -1e-12) and X.sum() < 1 + 1e-12:
             return cell, tuple(float(c) for c in X)
     raise ValueError(x)
+
+
+def selected_points(Q, located):
+    cells = index_table(tuple(c for c, _ in located), Q.topology.num_cells[0])
+    return cell_map(Q, 0, gathered_index(cells, (i,))), points(
+        [X for _, X in located], Q.topology.cell_types[0]
+    )
+
+
+SQUARE_POINTS = selected_points(D, [in_square(x) for x in SQUARE])
+SURFACE_POINTS = selected_points(M, SURFACE)
 
 
 def topology_of_points(Q, label, located):
@@ -77,7 +94,7 @@ def topology_of_points(Q, label, located):
         ((("inside", SQUARE_TOPOLOGY, 0),),),
         (((cells, positions),),),
     )
-    E = side_domain(Q, S)
+    E = side_domain(Q, S, S.sides[0][0][0])
     return E, side_map(Q, E, "inside")
 
 
@@ -122,9 +139,9 @@ def by_the_points(n):
     # A gathered cell domain also maps into the mesh, but from a reference cell, not a point.
     return (
         isinstance(n, PullBack)
-        and isinstance(n.domain, DomainMap)
-        and n.domain.ambient_domain in (D, M)
-        and n.domain.parameter_domain == POINT
+        and isinstance(n.map, CellMap)
+        and n.map.ambient_domain in (D, M)
+        and n.map.parameter_domain == POINT
     )
 
 
@@ -144,7 +161,10 @@ def main(trials):
             E, sm = side
             e = integral(pull_back(integrand(rnd, Q, f), sm), E)
         else:
-            e = index_sum(integral(pull_back(integrand(rnd, Q, f), family), POINT), (i,))
+            e = index_sum(
+                integral(pull_back(pull_back(integrand(rnd, Q, f), family[0]), family[1]), POINT),
+                (i,),
+            )
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
         out = gradients.lower(integrals.expand_integrals(e))
         if contains(out4, needs_pass):

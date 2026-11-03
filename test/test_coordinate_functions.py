@@ -70,7 +70,7 @@ def nodes(e):
 def test_a_mesh_from_a_coordinate_function_has_the_topology_and_the_cells_of_the_draft():
     D, _ = p1_mesh()
     x = coordinate_function(D)
-    assert D.topology == T and x.support == T
+    assert D.topology == T and x.domain == T
     g = gathered_index(index_table((1, 0), 2), (index("i"),))
     C = cell_domain(D, 0, g)
     assert C.parameterisation == pull_back(x, CellMap(T, 0, g)) and is_cell(C)
@@ -103,7 +103,7 @@ def test_the_jacobian_of_a_mesh_is_the_reference_gradient_of_the_coordinate_func
         for n in nodes(out)
         if isinstance(n, Gradient)
         and isinstance(n.expression, PullBack)
-        and isinstance(n.expression.domain, CellMap)
+        and isinstance(n.expression.map, CellMap)
     ]
     assert {"x0", "x1"} <= set(gradients_of_reads)
 
@@ -175,7 +175,7 @@ def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
     out = gradients.lower(expand_integrals(functionals(D, push_forward(uT, D))[3]))
     # The function of the user is read through the cell maps of the topology of the user.
     reads = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == uT]
-    assert reads and all(n.domain.ambient_domain == T for n in reads)
+    assert reads and all(n.map.ambient_domain == T for n in reads)
 
 
 def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
@@ -204,9 +204,12 @@ def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():
     D, _ = p1_mesh()
     I = basix_cell(basix.CellType.interval)
     S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
-    E = side_domain(D, S)
+    E = side_domain(D, S, S.sides[0][0][0])
     assert E.topology == S
-    assert coordinate_function(E) == pull_back(coordinate_function(D), side_map(T, S))
+    assert coordinate_function(E) == pull_back(
+        coordinate_function(D),
+        side_map(T, S, (S.topology if hasattr(S, "topology") else S).sides[0][0][0]),
+    )
 
 
 def test_the_jump_of_a_function_on_a_topology_across_a_facet():

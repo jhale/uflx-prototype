@@ -23,8 +23,12 @@ from uflx_spec_interpreter._src.nodes import (
 class BasixCell(AbstractReferenceCell):
     identifier = "toy.BasixCell"
     # A reference cell of Basix, whose vertices and facet normals Basix tabulates.
-    cell_type: basix.CellType
+    cell_type_value: int
     opaque = ("cell_type",)
+
+    @property
+    def cell_type(self):
+        return basix.CellType(self.cell_type_value)
 
     @property
     def dimension(self):
@@ -62,12 +66,20 @@ class BasixSpace(AbstractFunctionSpace):
     # element of Basix that the toy builds is Piola equivalent, so the space is on a topology.
     label: str
     domain: AbstractTopology
-    family: basix.ElementFamily
+    family_value: int
     degree: int
-    discontinuous: bool
+    discontinuous_value: int
     scalar_type: ScalarType
     opaque = ("label", "domain", "family", "degree", "discontinuous", "scalar_type")
     argument_spaces = ()
+
+    @property
+    def family(self):
+        return basix.ElementFamily(self.family_value)
+
+    @property
+    def discontinuous(self):
+        return bool(self.discontinuous_value)
 
     def element(self, j):
         return self.elements[j][0]

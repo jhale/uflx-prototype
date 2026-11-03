@@ -30,7 +30,7 @@ T = static_topology((K,), (TRIANGLES,), ())
 M = static_topology((I,), (INTERVALS,), ())
 D, DM = vertex_mesh(T, VERTICES), vertex_mesh(M, VERTICES)
 S = static_topology((I,), (INTERVALS,), ((("mesh", T, 0), ("submesh", M, 0)),))
-E = side_domain(D, S)
+E = side_domain(D, S, S.sides[0][0][0])
 V, L = basix_space("V", T, P, 2), basix_space("L", M, P, 1, discontinuous=True)
 
 

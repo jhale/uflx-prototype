@@ -7,6 +7,7 @@ from uflx_compiler.evaluation import evaluate as evaluate_array
 from uflx_compiler.simplification import instantiated, simplify
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
+    Integer,
     ScalarType,
     action,
     apply_actions,
@@ -17,12 +18,12 @@ from uflx_spec_interpreter import (
     num,
 )
 from uflx_spec_interpreter._src.literals import zero
-from uflx_spec_interpreter._src.nodes import ImaginaryUnit, Product, Sum, Zero
+from uflx_spec_interpreter._src.nodes import Complex, Product, Sum, Zero
 from uflx_spec_interpreter._src.passes.algebra import normalizer
 from uflx_toy.spaces import space
 
 
-@pytest.mark.parametrize("scalar_type", list(ScalarType))
+@pytest.mark.parametrize("scalar_type", (ScalarType.real, ScalarType.complex))
 def test_zero_construction_and_reconstruction(scalar_type):
     k = index("typed-zero")
     V = space("slot")
@@ -56,7 +57,7 @@ def test_zero_rejects_invalid_scalar_type(bad):
 
 
 def test_cancellation_and_zero_products_preserve_complex_type():
-    i = ImaginaryUnit()
+    i = Complex(Integer(0), Integer(1))
     for e in (Sum(i, Product(num(-1), i)), Product(num(0), i)):
         out = normalizer()(e)
         assert out is zero((), (), (), ScalarType.complex)
@@ -68,7 +69,7 @@ def test_cancellation_and_zero_products_preserve_complex_type():
     assert normalizer()(normalized) is normalized
 
 
-@pytest.mark.parametrize("scalar_type", list(ScalarType))
+@pytest.mark.parametrize("scalar_type", (ScalarType.real, ScalarType.complex))
 def test_constant_derivative_preserves_output_type_not_direction_type(scalar_type):
     k = index("derivative-family")
     V = space("complex-variable")

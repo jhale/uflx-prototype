@@ -10,14 +10,15 @@ import pytest
 from test_surface import M
 from testutil import contains
 
-from uflx_spec_interpreter import cell_domain, density, inverse_jacobian
+from uflx_spec_interpreter import density, inverse_jacobian
+from uflx_spec_interpreter._src.domains import cell_domain
 from uflx_spec_interpreter._src.geometry import jacobian
 from uflx_spec_interpreter._src.interning import digest_of
 from uflx_spec_interpreter._src.nodes import (
     Base,
+    Complex,
     Float,
     Function,
-    ImaginaryUnit,
     Index,
     Indexed,
     Integer,
@@ -39,9 +40,9 @@ def test_equal_constructions_are_one_object():
 
 
 def test_literals_take_exact_types():
-    values = [Integer(1), Float(1.0), Float(0.0), Float(-0.0), ImaginaryUnit()]
+    values = [Integer(1), Float(1.0), Float(0.0), Float(-0.0), Complex(Integer(0), Integer(1))]
     assert len({id(v) for v in values}) == 5
-    assert ImaginaryUnit() is ImaginaryUnit()
+    assert Complex(Integer(0), Integer(1)) is Complex(Integer(0), Integer(1))
     with pytest.raises(TypeError):
         Integer(True)
     with pytest.raises(TypeError):
@@ -113,6 +114,6 @@ def test_indexed_expressions_are_interned():
 
 def test_labels_that_read_alike_are_distinct():
     # The text of the encoding delimits strings, tuples and numbers, so none run together.
-    labels = [("a,b",), ("a", "b"), "1", 1, (1,), ((1,),), "(1)", None, "None", 1 + 0j, "#0"]
+    labels = [("a,b",), ("a", "b"), "1", (1,), ((1,),), "(1)", "None", "#0"]
     functions = [Function(V, label) for label in labels]
     assert len({id(f) for f in functions}) == len(labels)

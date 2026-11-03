@@ -6,6 +6,7 @@ from uflx_spec_interpreter._src.nodes import (
     Absolute,
     ComponentTensor,
     Conjugate,
+    Determinant,
     Division,
     Float,
     GatheredIndex,
@@ -84,6 +85,11 @@ def c_kernel(e, name, read):
                     inner = bound | dict(zip(indices, map(int, values), strict=True))
                     total = add(total, entry(x, inner, comp))
                 return total
+            case Determinant(a):
+                size = a.value_shape[0]
+                return determinant(
+                    [[entry(a, bound, (i, j)) for j in range(size)] for i in range(size)]
+                )
             case Inverse(a) if a.value_shape in ((1, 1), (2, 2), (3, 3)):
                 return inverse(a, bound, comp)
         raise TypeError(f"the C backend cannot write {type(n).__name__}")

@@ -42,8 +42,8 @@ class ShapeDerivative(AbstractExpression):
         return self.expression.scalar_type
 
     @cached_property
-    def support(self):
-        return self.expression.support
+    def domain(self):
+        return self.expression.domain
 
 
 def shape_derivative(f, x, h):

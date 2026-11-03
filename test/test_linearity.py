@@ -3,6 +3,7 @@
 import pytest
 
 from uflx_spec_interpreter import (
+    Integer,
     action,
     conjugate,
     dual_space,
@@ -13,7 +14,7 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.linearity import argument_dependence, dependence
-from uflx_spec_interpreter._src.nodes import DirectionalDerivative, ImaginaryUnit, RealPart
+from uflx_spec_interpreter._src.nodes import Complex, DirectionalDerivative, RealPart
 from uflx_spec_interpreter._src.passes import derivatives
 from uflx_toy.spaces import space
 
@@ -93,9 +94,11 @@ def test_direction_occurring_at_point_does_not_use_shortcut(monkeypatch):
         return original(*args, **kwargs)
 
     monkeypatch.setattr(derivatives, "deriv", record)
-    derivatives.apply_derivatives(DirectionalDerivative(u * u, u, h, ImaginaryUnit() * h))
+    derivatives.apply_derivatives(
+        DirectionalDerivative(u * u, u, h, Complex(Integer(0), Integer(1)) * h)
+    )
     assert len(calls) == 1
-    assert calls[0][3] is ImaginaryUnit() * h
+    assert calls[0][3] is Complex(Integer(0), Integer(1)) * h
 
 
 def test_real_variables_are_reported_as_real_linear():

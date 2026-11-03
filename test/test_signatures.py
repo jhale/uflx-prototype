@@ -8,13 +8,15 @@ import pytest
 import uflx_spec_interpreter
 
 SPEC = Path(
-    os.environ.get("UFLX_SPEC_PATH", Path(__file__).parents[2] / "uflx" / "design" / "LANGUAGE.md")
+    os.environ.get("UFLX_SPEC_PATH", Path(__file__).parents[2] / "uflx" / "design" / "language.md")
 )
 
 
 def spec_signatures():
     # The free functions of the table rows of the specification, with their parameter names.
     source = SPEC.read_text()
+    chapters = re.findall(r"\]\((language/[^)]+\.md)\)", source)
+    source += "\n" + "\n".join((SPEC.parent / chapter).read_text() for chapter in chapters)
     table = source.split("<!-- generated: free-functions", 1)[1]
     table = table.split("<!-- end generated: free-functions", 1)[0]
     rows = re.findall(r"\[`([a-z_]+)\(([^`)]*)\)`", table)
@@ -30,7 +32,8 @@ def spec_signatures():
 @pytest.mark.skipif(not SPEC.exists(), reason="the uflx repository is not beside this one")
 def test_the_public_free_functions_take_the_parameters_of_the_specification():
     spec = spec_signatures()
-    stand_ins = {"num"}
+    assert set(spec) <= set(uflx_spec_interpreter.__all__)
+    stand_ins = {"num", "replace"}
     for name in uflx_spec_interpreter.__all__:
         if name in stand_ins:
             continue

@@ -16,7 +16,7 @@ reference-domain integrals and explicit index sums for other integration familie
 
 
 A toy implementation of the evaluation passes in the UFLx language specification
-(`design/LANGUAGE.md` in the uflx repository), tested against an independent oracle.
+(`design/language.md` in the uflx repository), tested against an independent oracle.
 
 The repository has four packages in `src/`, and imports go only from the oracle
 and the compiler to the extension to the core, which `test/test_boundaries.py`
@@ -63,7 +63,7 @@ The core splits a public API from a private one, as JAX does with `jax._src`.
 
 The public API is `uflx_spec_interpreter/__init__.py`, which re-exports the
 free functions of the specification and declares them in `__all__`, with the
-stand-in `coordinate_domain` and the short name `num`. A user,
+literal classes, `RD`, scalar types and the convenience helper `num`. A user,
 and a test that builds expressions, imports only these, as in
 `from uflx_spec_interpreter import add, index`. `AbstractExpression` also has
 the operator overloads of the specification, which call these free functions
@@ -75,12 +75,12 @@ extension, the oracle and the white-box tests import. The toy imports only
 modules of `_src`:
 
 - `literals.py`: `num`, which builds the literal of an `int` or a `float`, and a
-  complex number as a composition with `ImaginaryUnit`, and `zero`
+  complex `Complex` literal, and `zero`
 - `arithmetic.py`: `add`, `subtract`, `negate`, `multiply`, `divide`, `power`,
   the elementary functions and `total`, where `add`, `multiply`, `divide`,
   `real_part` and `imaginary_part` read the ranks and build the compositions of
   tensor arithmetic as the specification says
-- `indices.py`: `index`, `ellipsis_index` and `gathered_index`
+- `indices.py`: `index` and `gathered_index`
 - `tensors.py`: `tensor`, `indexed`, `component`, `component_tensor`,
   `index_sum`, `inverse`, and the matrix compositions such as `transpose`,
   `matrix_product` and `determinant`
@@ -89,7 +89,7 @@ modules of `_src`:
 - `maps.py`: `domain_map` and `pull_back`
 - `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
 - `topology.py`: `cell_index`
-- `domains.py`: `image`, `cell_map`, `cell_domain`, `side_domain`,
+- `domains.py`: `image`, `cell_map`, `side_domain`,
   `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`
 - `forms.py`: `function`, `form`, `action` and `gateaux_derivative`
@@ -128,7 +128,7 @@ The tests in `test/` check on random expressions that a pass keeps the value
 and the static type, that its output is in its grammar, and that the grammar
 rejects its inputs. The construction rules of the argument spaces are checked in the
 tests, by `ill_typed` in `test/testutil.py`, on the input and the output of
-every pass, since the constructors do not validate. `test_controls.py` breaks the passes on purpose and checks
+every pass, in addition to construction validation. `test_controls.py` breaks the passes on purpose and checks
 that the tests notice. Each random test also runs as a script, with the number
 of trials as its argument, and prints its counts.
 
@@ -140,14 +140,38 @@ coverage run -m pytest && coverage report
 python test/test_full.py 100
 ```
 
-## Differences from the specification
+## Following the specification
 
-The classes, their fields, the passes and the helpers use the names of the
-specification. The core still simplifies the specification in these places,
-which the toy replaces with the classes of the specification one at a time:
+The implementation follows `uflx/design/language.md` and its linked chapters,
+in their listed order. The signature test reads those chapters, checks that all
+specified free functions are exported, and verifies their parameter names. Set
+`UFLX_SPEC_PATH` to the specification's entry page for an isolated checkout.
 
-- The constructors do not validate their arguments (rule 8).
+The static type uses `domain`. A pull-back stores its `map`, an integral stores
+its `integration_domain`, and a push-forward stores its `mesh`. Topology and mesh
+cells both use `CellMap`, retaining the selected cell through substitution.
+`Complex` and `Determinant` are nodes; tensor indexing uses ordinary index tuples,
+including the specified empty-tuple factory identities.
 
-The signature test reads the sibling `uflx/design/LANGUAGE.md` by default.
-For an isolated checkout, set `UFLX_SPEC_PATH` to the specification path to run
-that check instead of skipping it.
+`_src/validation.py` checks construction arguments and the structural rules of
+core nodes in chapter order. These checks do not prove mathematical hypotheses
+or form linearity. Downstream libraries remain responsible for their own leaf
+contracts. Scalar types are immutable symbolic objects, so they satisfy the
+construction-argument whitelist. The toy's factories encode external enum values
+and optional domains using permitted graph arguments.
+
+`replace` traverses construction dependencies and preserves lexical binding;
+evaluation traverses only value operands. Rewrite completion preserves complex
+arithmetic and family indices. The oracle and compiler handle complex literals,
+determinants and explicit cell reads independently of the rewrite rules.
+
+`_draft` retains private convenience wrappers used by older examples. Its optional
+transformation-law and side selection are not part of the public core API.
+`num` is likewise an explicit interpreter convenience: core factories and
+operator overloads never convert Python numbers.
+
+This remains a small interpreter, not a production implementation. Some derived
+properties are computed lazily and cached rather than eagerly during construction;
+the existing pass functions implement their rule tables directly rather than
+exposing a general extension-table dispatcher. Library topology contracts and
+numerical capabilities are tested through the supplied toy implementations.

@@ -8,7 +8,7 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     AbstractExtent,
     AbstractFunctionSpace,
-    AbstractIndexValue,
+    AbstractIndexTable,
     AbstractReferenceCell,
     AbstractTopology,
     Integer,
@@ -21,7 +21,7 @@ from .inclusions import side_tables, vertex_rows
 
 
 @final
-class IndexTable(AbstractIndexValue):
+class IndexTable(AbstractIndexTable):
     identifier = "toy.IndexTable"
     # The toy knows the values, which the specification leaves to a library.
     values: tuple
@@ -54,7 +54,7 @@ class RuntimeArray(AbstractExpression):
     opaque = ("label", "value_shape")
     free_indices = ()
     argument_spaces = ()
-    support = None
+    domain = None
     scalar_type = ScalarType.real
 
 
@@ -64,10 +64,14 @@ class Space(AbstractFunctionSpace):
     # A space of fields, whose functions the oracle reads from its environment.
     name: str
     value_shape: tuple
-    domain: AbstractDomain | None
+    domain_data: AbstractDomain | tuple
     scalar_type: str
     opaque = ("name", "value_shape", "domain", "scalar_type")
     argument_spaces = ()
+
+    @property
+    def domain(self):
+        return self.domain_data or None
 
 
 @final
@@ -87,7 +91,7 @@ class VertexCoordinates(AbstractExpression):
         return (len(self.vertices[0]),)
 
     @property
-    def support(self):
+    def domain(self):
         return self.topology
 
 

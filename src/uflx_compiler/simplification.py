@@ -5,7 +5,6 @@ from uflx_spec_interpreter._src.nodes import (
     ComponentTensor,
     Conjugate,
     Division,
-    EllipsisIndex,
     Float,
     GatheredIndex,
     ImaginaryPart,
@@ -161,7 +160,7 @@ def instantiated(x, mapping):
 
 def moved(i, n, mapping):
     k = mapping.get(i, i)
-    if isinstance(k, Index | EllipsisIndex):
+    if isinstance(k, Index):
         return ((k, n),)
     if isinstance(k, GatheredIndex):
         return k.free_indices

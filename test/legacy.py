@@ -75,11 +75,11 @@ def is_facet_normal(obj):
 
 
 def grad(f):
-    return gradient(f, f.support)
+    return gradient(f, f.domain)
 
 
 def div(w):
-    return divergence(w, w.support)
+    return divergence(w, w.domain)
 
 
 def inner(a, b):
@@ -120,13 +120,13 @@ def arguments(expression):
 
 def restrict(obj, E):
     if is_facet_normal(obj):
-        return normal(side_map(obj.support, E, "inside"))
+        return normal(side_map(obj.domain, E, "inside"))
     if isinstance(obj, tuple):
         return tuple(restrict(item, E) for item in obj)
-    if not isinstance(obj, AbstractExpression) or obj.support is None:
+    if not isinstance(obj, AbstractExpression) or obj.domain is None:
         return obj
     if not contains(obj, is_facet_normal):
-        return pull_back(obj, side_map(obj.support, E, "inside"))
+        return pull_back(obj, side_map(obj.domain, E, "inside"))
     return obj.__class__(*restrict(obj.construction_arguments, E))
 
 
@@ -148,12 +148,16 @@ class Measure:
     def __rmul__(self, integrand):
         mesh = self.domain
         if self.subdomain_id != "everywhere":
-            E = side_domain(mesh.domain, self.subdomain_data[self.subdomain_id])
+            E = side_domain(
+                mesh.domain,
+                self.subdomain_data[self.subdomain_id],
+                self.subdomain_data[self.subdomain_id].sides[0][0][0],
+            )
         elif self.integral_type == "ds":
-            E = side_domain(mesh.domain, mesh.boundary)
+            E = side_domain(mesh.domain, mesh.boundary, mesh.boundary.sides[0][0][0])
         else:
-            E = integrand.support if mesh is None else mesh.domain
-        if E != integrand.support:
+            E = integrand.domain if mesh is None else mesh.domain
+        if E != integrand.domain:
             integrand = restrict(integrand, E)
         expression = integral(integrand, E)
         args = arguments(expression)

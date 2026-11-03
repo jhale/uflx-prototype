@@ -6,7 +6,6 @@ from typing import ClassVar, dataclass_transform
 
 from ..interning import digest_of, table
 from ..tuples import members
-from .scalar_types import ScalarType
 
 
 @dataclass_transform(frozen_default=True, eq_default=False)
@@ -49,12 +48,17 @@ class Base(ABC):
             raise TypeError(f"{cls.__name__} states no identifier")
         if len(args) != len(cls.argument_names):
             raise TypeError(f"{cls.__name__} takes the arguments {cls.argument_names}")
+        from ..validation import construction_arguments, validate
+
+        construction_arguments(args)
         digest = digest_of(cls.identifier, args)
-        node = table.get(digest)
+        key = (cls, digest)
+        node = table.get(key)
         if node is None:
             node = super().__new__(cls)
             vars(node).update(construction_arguments=args, digest=digest)
-            table[digest] = node
+            validate(node)
+            table[key] = node
         return node
 
     def __setattr__(self, name, value):
@@ -86,7 +90,7 @@ class AbstractExpression(Base):
 
     @property
     @abstractmethod
-    def support(self): ...
+    def domain(self): ...
 
     @property
     @abstractmethod
@@ -95,6 +99,8 @@ class AbstractExpression(Base):
     @staticmethod
     def joined_scalar_type(*operands):
         # The default rule, complex if and only if an edge is a complex expression.
+        from .scalar_types import ScalarType
+
         flat = [m for x in operands for m in members(x)]
         return (
             ScalarType.complex
@@ -106,7 +112,6 @@ class AbstractExpression(Base):
     def __add__(self, other):
         from ..arithmetic import add
 
-        # A Python number is rejected, as Python raises TypeError with no reflected overload.
         if not isinstance(other, AbstractExpression):
             return NotImplemented
         return add(self, other)
