@@ -77,9 +77,11 @@ def inverse(A: AbstractExpression) -> AbstractExpression:
 def _identity(n: int) -> AbstractExpression:
     if n == 0:
         return Zero((0, 0), (), (), ScalarType.real)
-    return Tensor(
-        tuple(Tensor(tuple(Integer(1 if r == c else 0) for c in range(n))) for r in range(n))
-    )
+    rows: list[Tensor] = []
+    for row in range(n):
+        entries = tuple(Integer(1 if row == column else 0) for column in range(n))
+        rows.append(Tensor(entries))
+    return Tensor(tuple(rows))
 
 
 def _permutation_tensor(n: int) -> AbstractExpression:
@@ -129,7 +131,9 @@ def determinant(A: AbstractExpression) -> AbstractExpression:
 
 
 def _sign(p: tuple[int, ...]) -> int:
-    return -1 if sum(p[a] > p[b] for a, b in combinations(range(len(p)), 2)) % 2 else 1
+    pairs = combinations(range(len(p)), 2)
+    inversions = sum(p[first] > p[second] for first, second in pairs)
+    return -1 if inversions % 2 else 1
 
 
 def _empty_indices(expression: AbstractExpression) -> AbstractExpression:

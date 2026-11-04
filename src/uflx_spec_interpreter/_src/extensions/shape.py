@@ -100,5 +100,8 @@ def _lower_with_shape_derivatives(f: AbstractExpression) -> AbstractExpression:
     from ..passes.integrals import expand_integrals
     from ..passes.lowering import _lower_spatial, lower
 
-    exposed = _lower_spatial(expand_integrals(apply_derivatives(apply_actions(f))))
+    exposed = apply_actions(f)
+    exposed = apply_derivatives(exposed)
+    exposed = expand_integrals(exposed)
+    exposed = _lower_spatial(exposed)
     return lower(_apply_shape_derivatives(exposed))

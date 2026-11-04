@@ -12,7 +12,7 @@ Paths below are relative to `src/uflx_spec_interpreter/_src/`.
 
 | Rules | Implementation | Main tests in `test/` |
 | --- | --- | --- |
-| ST01 | `rules/structural.py::_structural`, `_commute` | `test_actions.py`, `test_tensor_gateaux.py`, `test_broadcast.py`, `test_rule_groups.py` |
+| ST01 | `rules/structural.py::_structural_fields`, `_commute` | `test_actions.py`, `test_tensor_gateaux.py`, `test_broadcast.py`, `test_rule_groups.py` |
 | ST02 | `passes/actions.py::_rule` | `test_actions.py`, `test_mixed.py` |
 | ST03–ST05 | `rules/structural.py::_action_retained`; shared with `contracts.py` | `test_action_spatial.py`, `test_core_normal_form.py` |
 | ST06 | `nodes/forms.py::Action._validate` | `test_signatures.py` |

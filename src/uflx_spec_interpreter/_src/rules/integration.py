@@ -33,7 +33,9 @@ def _mesh_integral(e: AbstractExpression) -> AbstractExpression:
     match e:
         case Integral(f, Mesh() as d) if f.value_shape:
             K = _derived_indices("uflx.expand_integrals", (f, d), len(f.value_shape))
-            return ComponentTensor(_mesh_integral(Integral(Indexed(f, K), d)), K)
+            component_integral = Integral(Indexed(f, K), d)
+            expanded = _mesh_integral(component_integral)
+            return ComponentTensor(expanded, K)
         case Integral(f, Mesh() as d):
             return _total(_piece_integral(f, d, j) for j in range(len(d.topology.cell_types)))
         case _:
@@ -53,5 +55,6 @@ def _piece_integral(f: AbstractExpression, D: Mesh, j: int) -> AbstractExpressio
     P = cells.parameter_domain
     piece = DomainMap(P, cells.parameterisation, D.ambient_domain)
     g = PullBack(f, piece if f.domain == D.ambient_domain else cells)
-    term = _mesh_integral(Integral(multiply(g, density(cells)), P))
+    reference_integrand = multiply(g, density(cells))
+    term = _mesh_integral(Integral(reference_integrand, P))
     return IndexSum(term, (entry,))

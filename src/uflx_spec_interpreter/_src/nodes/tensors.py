@@ -51,10 +51,12 @@ class BroadcastTo(AbstractExpression):
             _extent(n)
         source = self.value.value_shape
         _require(len(source) <= len(self.value_shape), "broadcast target has too few axes")
-        _require(
-            all(a == b or a == 1 for a, b in zip(reversed(source), reversed(self.value_shape))),
-            "broadcast axes must match or have source extent one",
+        aligned_axes = zip(reversed(source), reversed(self.value_shape))
+        compatible = all(
+            source_extent == target_extent or source_extent == 1
+            for source_extent, target_extent in aligned_axes
         )
+        _require(compatible, "broadcast axes must match or have source extent one")
 
 
 @final

@@ -128,7 +128,8 @@ class Form(AbstractExpression):
                     not f.argument_spaces or isinstance(f.space, DualSpace),
                     "function is not bindable",
                 )
-        _require(len(set(self.bound())) == len(self.bound()), "form binders must be distinct")
+        binders = self.bound()
+        _require(len(set(binders)) == len(binders), "form binders must be distinct")
 
 
 @final

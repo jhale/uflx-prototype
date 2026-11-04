@@ -155,4 +155,6 @@ def gateaux_derivative(
     rotated = _each(rotate, directions)
     sign = i if isinstance(entries[0], Conjugate) else multiply(Integer(-1), i)
     second = multiply(sign, DirectionalDerivative(F, x, a, rotated))
-    return Form(multiply(divide(Integer(1), Integer(2)), add(delta, second)), (w,))
+    half = divide(Integer(1), Integer(2))
+    projected_derivative = multiply(half, add(delta, second))
+    return Form(projected_derivative, (w,))

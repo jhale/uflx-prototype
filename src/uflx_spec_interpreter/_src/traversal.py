@@ -128,11 +128,6 @@ def _map_values(
     names: Sequence[str] | None = None,
 ) -> AbstractExpression:
     # The node declares these fields to contain expressions, including tuple members.
-    return cast(
-        "AbstractExpression",
-        _map_fields(
-            e,
-            lambda child: fn(cast("AbstractExpression", child)),
-            e.value_fields if names is None else names,
-        ),
-    )
+    fields = e.value_fields if names is None else names
+    mapped = _map_fields(e, lambda child: fn(cast("AbstractExpression", child)), fields)
+    return cast("AbstractExpression", mapped)

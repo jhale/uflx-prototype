@@ -77,9 +77,8 @@ def _freshen(node: _T, avoid: Sequence[_Construction]) -> _T:
 
 def _substitute(node: Base, mapping: Mapping[_K, _Construction]) -> _Construction:
     # Sort once so dictionary insertion order cannot affect fresh names.
-    return _memoized(_substituted)(
-        node, tuple(sorted(mapping.items(), key=lambda item: item[0].digest))
-    )
+    ordered = sorted(mapping.items(), key=lambda pair: pair[0].digest)
+    return _memoized(_substituted)(node, tuple(ordered))
 
 
 def _substitute_zero(node: Zero, replace: Callable[[Base], _Construction]) -> _Construction:
@@ -123,7 +122,8 @@ def _substituted(
     node = _freshen(node, list(scoped_pairs.values()))
     unbound_fields = [name for name in fields if name not in node.scope]
     node = cast("Base", _map_fields(node, lambda child: walk(child, pairs), unbound_fields))
-    return _map_fields(node, lambda child: walk(child, tuple(scoped_pairs.items())), node.scope)
+    inner_pairs = tuple(scoped_pairs.items())
+    return _map_fields(node, lambda child: walk(child, inner_pairs), node.scope)
 
 
 def replace(e: Base, mapping: dict[Base, _Construction]) -> _Construction:

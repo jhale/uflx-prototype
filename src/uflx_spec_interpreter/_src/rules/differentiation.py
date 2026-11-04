@@ -83,9 +83,10 @@ def _derivative_of_node(
             from ..tensors import index_sum, indexed
 
             i, j = _derived_indices("uflx.derivative", (f,), 2)
-            return at(f) * index_sum(
-                indexed(Inverse(at(a)), (i, j)) * indexed(d(a), (j, i)), (i, j)
-            )
+            inverse_matrix = Inverse(at(a))
+            matrix_derivative = d(a)
+            entry = indexed(inverse_matrix, (i, j)) * indexed(matrix_derivative, (j, i))
+            return at(f) * index_sum(entry, (i, j))
         case Inverse(a):
             return _inverse_derivative(at(a), d(a))
         case Action(l, p, w):

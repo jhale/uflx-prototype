@@ -77,8 +77,7 @@ def _rotation_of_gradient(f: AbstractExpression, P: AbstractDomain) -> AbstractE
     # the permutation tensor of rank n, so a vector for n = 3 and a scalar for n = 2.
     n = P.ambient_coordinate_domain.dimension
     *out, j, k = _derived_indices("uflx.curl", (f, P), n)
-    entry = IndexSum(
-        multiply(Indexed(_permutation_tensor(n), (*out, j, k)), Indexed(Gradient(f, P), (k, j))),
-        (j, k),
-    )
+    orientation = Indexed(_permutation_tensor(n), (*out, j, k))
+    gradient_entry = Indexed(Gradient(f, P), (k, j))
+    entry = IndexSum(multiply(orientation, gradient_entry), (j, k))
     return ComponentTensor(entry, tuple(out)) if out else entry

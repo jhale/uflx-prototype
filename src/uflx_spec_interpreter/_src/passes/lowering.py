@@ -25,7 +25,10 @@ def lower(f: AbstractExpression) -> AbstractExpression:
             An unsupported output carries offending nodes and diagnostic reasons
             in the exception's second argument.
     """
-    out = _lower_spatial(expand_integrals(apply_derivatives(apply_actions(f))))
+    out = apply_actions(f)
+    out = apply_derivatives(out)
+    out = expand_integrals(out)
+    out = _lower_spatial(out)
     violations = _core_normal_form(out)
     if violations:
         reasons = "; ".join(dict.fromkeys(reason for _, reason in violations))

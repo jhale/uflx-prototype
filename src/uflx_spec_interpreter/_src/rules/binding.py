@@ -19,12 +19,8 @@ def _bind(
     remaining_arguments = form.arguments[:position] + form.arguments[position + 1 :]
     remaining_form = _freshen(Form(form.expression, remaining_arguments), _members(argument))
     pairs = zip(_members(form.arguments[position]), _members(argument), strict=True)
-    replaced_body = cast(
-        "AbstractExpression",
-        _substitute(
-            remaining_form.expression, dict(_binding(entry, value) for entry, value in pairs)
-        ),
-    )
+    replacements = dict(_binding(entry, value) for entry, value in pairs)
+    replaced_body = cast("AbstractExpression", _substitute(remaining_form.expression, replacements))
     return (
         Form(replaced_body, remaining_form.arguments) if remaining_form.arguments else replaced_body
     )

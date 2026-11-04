@@ -44,14 +44,12 @@ class Mesh(AbstractDomain):
         cells = self.topology.cell_types
         if not all(isinstance(cell, AbstractReferenceCell) for cell in cells):
             raise TypeError("mesh cells must be reference cells")
-        return tuple(
-            DomainMap(
-                cast("AbstractReferenceCell", K),
-                PullBack(self.coordinate_function, cell_map(self.topology, j)),
-                self.ambient_domain,
-            )
-            for j, K in enumerate(self.topology.cell_types)
-        )
+        pieces: list[DomainMap] = []
+        for group, cell in enumerate(cells):
+            reference_cell = cast("AbstractReferenceCell", cell)
+            coordinates = PullBack(self.coordinate_function, cell_map(self.topology, group))
+            pieces.append(DomainMap(reference_cell, coordinates, self.ambient_domain))
+        return tuple(pieces)
 
     def _validate(self) -> None:
         from ..validation import _require
