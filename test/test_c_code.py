@@ -402,3 +402,103 @@ def test_component_specialisation_skips_zero_blocks(tmp_path, quadrature):
     np.testing.assert_allclose(result, expected)
     # Kernel-input computations are shared across specialised blocks, even without -O.
     assert ctypes.c_int.in_dll(lib, "reads").value == (2 if quadrature else 1)
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("nonlinear", [False, True])
+def test_material_factoring_preserves_rectangular_contractions(tmp_path, nonlinear):
+    i, j = index("i"), index("j")
+    x = tensor(tuple(num(v) for v in (1, -2, 3)))
+    y = tensor(tuple(num(v) for v in (2, 0, -1)))
+    u = tensor(tuple(num(v) for v in (3, -1, 2, 4)))
+    v = tensor(tuple(num(v) for v in (-2, 1, 0, 5)))
+    material = runtime_array("material", (3,))
+    lam, mu, weight = (material[k] for k in range(3))
+    expression = weight * (mu * (num(2) * x[i] * u[j] + y[i] * v[j]) + lam * x[i] * u[j])
+    if nonlinear:
+        # Products of two trial-dependent sums must remain valid, without assuming linearity.
+        expression = expression * (u[j] + v[j])
+    code = c_kernel(expression, "factored", lambda label, off: f"w[{off}]", output_indices=(i, j))
+    source, library = tmp_path / "factored.c", tmp_path / "factored.so"
+    source.write_text(code)
+    subprocess.run(["cc", "-O2", "-shared", "-fPIC", source, "-o", library], check=True)
+    lib = ctypes.CDLL(str(library))
+    pointer = ctypes.POINTER(ctypes.c_double)
+    for data in np.random.default_rng(23).normal(size=(5, 3)):
+        result = np.full((3, 4), 7.0)
+        lib.factored(
+            result.ctypes.data_as(pointer),
+            data.ctypes.data_as(pointer),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        expected = data[2] * (
+            (data[0] + 2 * data[1]) * np.outer([1, -2, 3], [3, -1, 2, 4])
+            + data[1] * np.outer([2, 0, -1], [-2, 1, 0, 5])
+        )
+        if nonlinear:
+            expected *= np.array([1, 0, 2, 9])
+        np.testing.assert_allclose(result, 7 + expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("curved", [False, True])
+def test_geometry_contraction_is_prepared_at_its_invariant_scope(tmp_path, curved):
+    from uflx_compiler.quadrature import constant
+
+    counts = []
+    for nq in (4, 7):
+        q, i, j, a, b = (index(name) for name in ("q", "i", "j", "a", "b"))
+        rng = np.random.default_rng(23)
+        left, right = rng.normal(size=(2, nq, 4)), rng.normal(size=(2, nq, 5))
+        weights = rng.uniform(0.1, 1, size=nq)
+        geometry = rng.normal(size=(nq, 2, 2) if curved else (2, 2))
+        B = runtime_array("geometry", geometry.shape)
+        D, E = constant(left), constant(right)
+        terms = []
+        for k in range(2):
+            first = B[q, k, a] if curved else B[k, a]
+            second = B[q, k, b] if curved else B[k, b]
+            terms.append(index_sum(first * D[a, q, i], (a,)) * index_sum(second * E[b, q, j], (b,)))
+        expression = index_sum(constant(weights)[q] * sum(terms, num(0)), (q,))
+        code = c_kernel(
+            expression,
+            "metric",
+            lambda label, off: f"geometry_read(w, {off})",
+            output_indices=(i, j),
+        )
+        source, library = tmp_path / f"metric{nq}.c", tmp_path / f"metric{nq}.so"
+        source.write_text(
+            "int reads = 0;\n"
+            "double geometry_read(const double* w, int k) { reads++; return w[k]; }\n" + code
+        )
+        # Disable C optimisation to measure the placement performed by our emitter.
+        subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+        lib = ctypes.CDLL(str(library))
+        result = np.zeros((4, 5))
+        pointer = ctypes.POINTER(ctypes.c_double)
+        lib.metric(
+            result.ctypes.data_as(pointer),
+            geometry.ctypes.data_as(pointer),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        expected = np.zeros_like(result)
+        for point in range(nq):
+            transform = geometry[point] if curved else geometry
+            expected += (
+                weights[point] * (transform @ left[:, point]).T @ (transform @ right[:, point])
+            )
+        np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
+        counts.append(ctypes.c_int.in_dll(lib, "reads").value)
+    assert counts[0] > 0
+    if curved:
+        assert counts[0] * 7 == counts[1] * 4
+    else:
+        assert counts[0] == counts[1]

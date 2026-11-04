@@ -32,6 +32,7 @@ from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_spec_interpreter._src.traversal import _expressions
 from uflx_toy.nodes import RuntimeArray
 
+from .contractions import _factor_contraction
 from .folding import fold
 from .simplification import simplify
 
@@ -482,6 +483,22 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
         emit_blocks([({}, n)], bound)
 
     def emit_blocks(blocks, bound):
+        if len(loop_indices) == 2:
+            outer_indices = tuple(i for i in bound if i not in output_indices)
+            # Coupled component blocks share physical derivatives; independently
+            # forming a metric for every block would duplicate that preparation.
+            combine_geometry = len(blocks) == 1
+            blocks = [
+                (
+                    selected,
+                    _factor_contraction(
+                        n, loop_indices, outer_indices, combine_geometry=combine_geometry
+                    ),
+                )
+                for selected, n in blocks
+            ]
+            for _, n in blocks:
+                folded.update(fold(n, preserve_indices=(*output_indices, *(index_bindings or {}))))
         # Prepare all components together, then update adjacent entries in one
         # basis-pair traversal. This exposes interleaved stores to the C compiler.
         with ExitStack() as stack:

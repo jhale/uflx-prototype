@@ -105,8 +105,15 @@ coefficients use this layout on cells and both kinds of facets; a vector form
 produces one full local tensor in one kernel call. Basis and component indices
 remain separate: component choices are specialised before C emission, removing
 structural zeros. Component updates share a basis-pair loop and write directly
-into the interleaved output. Symmetry-compressed tensor spaces and mixed elements
-are not supported.
+into the interleaved output. Scalar contractions collect repeated trial factors
+and prepare their material/geometry-scaled coefficients outside the basis-pair
+loop. Quadrature-invariant basis contractions retain their existing grouping
+to preserve hoisting. In single-block kernels, small spatial contractions with
+invariant transformation coefficients are collected into geometry metrics before basis evaluation;
+for affine Poisson this computes the symmetric metric outside quadrature.
+Varying transformations and coupled component blocks retain their existing
+evaluation order. Symmetry-compressed tensor spaces and mixed elements are not
+supported.
 
 The source targets the UFCx interface in FFCx 0.12; other versions need their own compatibility validation.
 
