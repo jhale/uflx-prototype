@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, TypeVar, cast
 from ..arithmetic import multiply
 from ..nodes import Action, Conjugate, Form, Function, Gradient, Product, PullBack, Zero
 from ..nodes.forms import _entry_function
-from ..rewriting import _complete_indices, _promote
+from ..rewriting import _promote, _rewrite
 from ..static import _arity, _field_terminal, _free_indices
 from ..substitution import _freshen, _substitute
-from ..traversal import _everywhere, _lowered, _map_values, _memoized
+from ..traversal import _everywhere, _memoized
 from ..tuples import _members
 from .commuting import _commute
 
@@ -91,18 +91,14 @@ def apply_actions(f: AbstractExpression) -> AbstractExpression:
     # Inner actions first, then the rule for the form of each action.
     act = _memoized(_rule)
 
-    def apply(
-        walk: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression
-    ) -> AbstractExpression:
-        e = _map_values(e, walk, _lowered(e))
+    def apply(e: AbstractExpression) -> AbstractExpression:
         match e:
             case Action(form, p, g):
-                out = _complete_indices(e, act(form, p, g))
-                return out if out is e else walk(out)
+                return act(form, p, g)
             case _:
                 return e
 
-    return _memoized(apply)(f)
+    return _rewrite(f, apply)
 
 
 def _retained(form: AbstractExpression) -> bool:

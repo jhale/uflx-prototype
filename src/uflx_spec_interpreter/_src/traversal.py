@@ -56,6 +56,8 @@ def _nodes_in(e: Base, names: Sequence[str]) -> tuple[Base, ...]:
 def _rebuild(e: Base, **changes: _Construction) -> _Construction:
     # An unknown name adds an argument, which the class rejects.
     values = dict(zip(e.argument_names, e.construction_arguments)) | changes
+    if tuple(values) == e.argument_names and tuple(values.values()) == e.construction_arguments:
+        return e
     from .nodes import ConjugateSpace, DualSpace
     from .spaces import conjugate_space, dual_space
 

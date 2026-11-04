@@ -15,6 +15,7 @@ from .nodes import (
     Absolute,
     AbstractExpression,
     Action,
+    BroadcastTo,
     Complex,
     ComponentTensor,
     Conjugate,
@@ -153,6 +154,7 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
             | ImaginaryPart()
             | SquareRoot()
             | Logarithm()
+            | BroadcastTo()
             | Tensor()
             | Indexed()
             | ComponentTensor()

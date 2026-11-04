@@ -12,6 +12,7 @@ from uflx_compiler import compile_form, evaluate
 from uflx_compiler.c_code import c_kernel
 from uflx_spec_interpreter import (
     RD,
+    broadcast_to,
     component_tensor,
     divergence,
     function,
@@ -116,6 +117,9 @@ def loop_examples():
         product + index_sum(product * v[i], (i,)),
         np.array([2.0, 3.0, 5.0]),
     )
+    repeated = broadcast_to(runtime_array("a", (2, 1)), (3, 2, 4))
+    k = index("k")
+    yield "broadcast", index_sum(repeated[k, i, j], (k, i, j)), np.array([[2.0], [5.0]])
     empty = runtime_array("a", (0,))
     yield "empty", index_sum(empty[i], (i,)), np.empty(0)
 

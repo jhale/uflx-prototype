@@ -25,7 +25,7 @@ from .maps import DomainMap, PullBack
 from .meshes import CellMap, Mesh, Normal, PushForward, SideMap, TransformationLaw
 from .scalar_types import ScalarType
 from .spaces import AbstractFunctionSpace, ConjugateSpace, DualSpace
-from .tensors import ComponentTensor, Determinant, Indexed, IndexSum, Inverse, Tensor
+from .tensors import BroadcastTo, ComponentTensor, Determinant, Indexed, IndexSum, Inverse, Tensor
 from .topology import AbstractCellType, AbstractTopology
 
 __all__ = [
@@ -42,6 +42,7 @@ __all__ = [
     "AbstractTopology",
     "Action",
     "Base",
+    "BroadcastTo",
     "CellMap",
     "Complex",
     "ComponentTensor",

@@ -5,9 +5,9 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 from ..nodes import DirectionalDerivative
-from ..rewriting import _complete_indices, _promote, _zero_like
+from ..rewriting import _complete_indices, _promote, _rewrite, _zero_like
 from ..substitution import _occurs, _substitute_values
-from ..traversal import _bottom_up, _everywhere, _memoized
+from ..traversal import _everywhere, _memoized
 from ..tuples import _members
 from .actions import apply_actions
 from .derivative_table import _derivative_of_node
@@ -65,8 +65,13 @@ def apply_derivatives(f: AbstractExpression) -> AbstractExpression:
                 return e
 
     # Applying a newly exposed action can reveal another derivative.
-    out = apply_actions(_bottom_up(f, evaluate))
-    return out if _derivatives_complete(out) else apply_derivatives(out)
+    seen: set[AbstractExpression] = set()
+    while f not in seen:
+        seen.add(f)
+        f = apply_actions(_rewrite(f, evaluate))
+        if _derivatives_complete(f):
+            return f
+    raise ValueError("derivative rewriting made no progress", f)
 
 
 def _derivatives_complete(e: AbstractExpression) -> bool:

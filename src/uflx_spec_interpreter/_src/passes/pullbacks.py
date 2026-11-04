@@ -9,21 +9,35 @@ from ..geometry import _geometric_map, density, inverse_jacobian, jacobian
 from ..meshes import _cell_of, _inclusion, _is_cell
 from ..names import _derived_index
 from ..nodes import (
+    Absolute,
     Action,
+    BroadcastTo,
     CellMap,
     ComponentTensor,
+    Conjugate,
     Coordinate,
     Curl,
+    Determinant,
     Divergence,
+    Division,
     DomainMap,
     Form,
     Gradient,
+    ImaginaryPart,
     Indexed,
     IndexSum,
+    Inverse,
+    Logarithm,
     Normal,
+    Power,
+    Product,
     PullBack,
     PushForward,
+    RealPart,
     SideMap,
+    SquareRoot,
+    Sum,
+    Tensor,
     TransformationLaw,
 )
 from ..rewriting import _complete_indices
@@ -92,8 +106,29 @@ def _rule(
             return _pushed_forward(g, law, m, pb)
         case _ if _field_terminal(f) or isinstance(f, PushForward):
             return PullBack(f, m)
-        case _:
+        case (
+            Sum()
+            | Product()
+            | Division()
+            | Power()
+            | Absolute()
+            | Conjugate()
+            | RealPart()
+            | ImaginaryPart()
+            | SquareRoot()
+            | Logarithm()
+            | Inverse()
+            | Determinant()
+            | Tensor()
+            | BroadcastTo()
+            | Indexed()
+            | ComponentTensor()
+            | IndexSum()
+        ):
+            # PB06. Only these operations preserve pointwise values under pull-back.
             return _pointwise(f, m, pb)
+        case _:
+            raise TypeError(f"no pull-back rule for {type(f).__name__}")
 
 
 def _kept(m: DomainMap | CellMap | SideMap) -> bool:

@@ -1,6 +1,7 @@
 import numpy as np
 
 from uflx_spec_interpreter._src.nodes import (
+    BroadcastTo,
     ComponentTensor,
     Conjugate,
     Division,
@@ -43,6 +44,10 @@ def zero(e):
 
 
 def literal(e):
+    if isinstance(e, Indexed) and isinstance(e.expression, BroadcastTo):
+        value = e.expression.value
+        if not value.value_shape:
+            return literal(value)
     if isinstance(e, Sum):
         if isinstance(e.first, Zero):
             return literal(e.second)

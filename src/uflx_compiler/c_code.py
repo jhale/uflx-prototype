@@ -9,6 +9,7 @@ import numpy as np
 
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
+    BroadcastTo,
     ComponentTensor,
     Conjugate,
     Determinant,
@@ -273,6 +274,12 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
                 return call("sqrt", np.sqrt, entry(a, bound, comp))
             case Conjugate(a) | RealPart(a):
                 return entry(a, bound, comp)
+            case BroadcastTo(x, _):
+                leading = len(comp) - len(x.value_shape)
+                selected = tuple(
+                    0 if n == 1 else comp[leading + k] for k, n in enumerate(x.value_shape)
+                )
+                return entry(x, bound, selected)
             case Tensor(entries):
                 if isinstance(comp[0], int):
                     return entry(entries[comp[0]], bound, comp[1:])

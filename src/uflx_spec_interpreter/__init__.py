@@ -44,6 +44,7 @@ from ._src.passes.pullbacks import expand_pull_backs
 from ._src.spaces import conjugate_space, dual_space
 from ._src.substitution import replace
 from ._src.tensors import (
+    broadcast_to,
     component,
     component_tensor,
     determinant,
@@ -71,6 +72,7 @@ __all__ = [
     "apply_actions",
     "apply_derivatives",
     "apply_gradients",
+    "broadcast_to",
     "cell_index",
     "cell_map",
     "component",

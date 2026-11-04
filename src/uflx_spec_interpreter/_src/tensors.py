@@ -7,6 +7,7 @@ from .arithmetic import _rank, divide, multiply
 from .names import _derived_indices
 from .nodes import (
     AbstractExpression,
+    BroadcastTo,
     ComponentTensor,
     Determinant,
     Indexed,
@@ -20,7 +21,7 @@ from .nodes import (
 )
 
 if TYPE_CHECKING:
-    from .nodes.indices import GatheredIndex, Index
+    from .nodes.indices import AbstractExtent, GatheredIndex, Index
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
@@ -28,6 +29,7 @@ __all__ = [
     "_identity",
     "_permutation_tensor",
     "_unit",
+    "broadcast_to",
     "component",
     "component_tensor",
     "determinant",
@@ -38,6 +40,12 @@ __all__ = [
     "tensor",
     "transpose",
 ]
+
+
+def broadcast_to(
+    value: AbstractExpression, value_shape: tuple[int | AbstractExtent, ...]
+) -> BroadcastTo:
+    return BroadcastTo(value, value_shape)
 
 
 def tensor(entries: tuple[AbstractExpression, ...]) -> Tensor:

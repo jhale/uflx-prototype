@@ -5,6 +5,7 @@ import numpy as np
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractExtent,
+    BroadcastTo,
     Complex,
     ComponentTensor,
     Conjugate,
@@ -122,6 +123,14 @@ def node(n, value, env, xp):
             A = value(a)
             At = xp.swapaxes(A, -1, -2)
             return xp.linalg.inv(At @ A) @ At
+        case BroadcastTo(x, _):
+            shape = full_shape(n, order, env)
+            if 0 in shape:
+                return xp.empty(shape, dtype=complex if n.scalar_type == "complex" else float)
+            leading = len(n.value_shape) - len(x.value_shape)
+            source = operand(x)
+            expanded = source.shape[: len(order)] + (1,) * leading + source.shape[len(order) :]
+            return xp.broadcast_to(xp.reshape(source, expanded), shape)
         case Tensor(entries):
             # The entries, each over every free index of n, stacked as the first axis of the value.
             lengths = [extents(n, env)[i] for i in order]

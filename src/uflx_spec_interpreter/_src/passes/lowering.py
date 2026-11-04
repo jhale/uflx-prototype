@@ -37,6 +37,14 @@ def _lower_spatial(f: AbstractExpression) -> AbstractExpression:
     # apply_gradients and expand_pull_backs until neither rewrites, the stage of the core after
     # expand_integrals. A graph that the passes leave unchanged is the same object. Gradients on
     # the domains of the forms come first, so a gradient of the coordinates is the identity.
-    while (g := expand_pull_backs(apply_gradients(f))) is not f:
-        f = g
-    return f
+    seen = {f}
+    while True:
+        gradients = apply_gradients(f)
+        pulled_back = expand_pull_backs(gradients)
+        out = apply_derivatives(apply_actions(pulled_back))
+        if gradients == f and pulled_back == gradients and out == pulled_back:
+            return out
+        if out in seen:
+            raise ValueError("spatial lowering cycle", out)
+        seen.add(out)
+        f = out

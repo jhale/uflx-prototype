@@ -14,6 +14,51 @@ if TYPE_CHECKING:
 
 
 @final
+class BroadcastTo(AbstractExpression):
+    """Repeat a value along leading and singleton axes."""
+
+    identifier = "uflx.BroadcastTo"
+    value_fields = ("value",)
+    commuting = ("value",)
+    value: AbstractExpression
+    value_shape: tuple[int | AbstractExtent, ...]  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    @property
+    @_cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
+        return self.value.free_indices
+
+    @property
+    @_cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+        return self.value.argument_spaces
+
+    @property
+    @_cached
+    def scalar_type(self) -> Literal["real", "complex"]:
+        return self.value.scalar_type
+
+    @property
+    @_cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
+        return self.value.domain
+
+    def _validate(self) -> None:
+        from ..validation import _extent, _require
+
+        for n in self.value_shape:
+            _extent(n)
+        source = self.value.value_shape
+        _require(len(source) <= len(self.value_shape), "broadcast target has too few axes")
+        _require(
+            all(a == b or a == 1 for a, b in zip(reversed(source), reversed(self.value_shape))),
+            "broadcast axes must match or have source extent one",
+        )
+
+
+@final
 class Tensor(AbstractExpression):
     matching_domains = True
     value_fields = ("entries",)

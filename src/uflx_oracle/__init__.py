@@ -12,6 +12,7 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractExtent,
     AbstractTopology,
     Action,
+    BroadcastTo,
     CellMap,
     Complex,
     ComponentTensor,
@@ -422,6 +423,13 @@ def evaluate_uncached(e, env, ienv=None, over=None):
         case Power(a, c):
             fa, fc = ev(a), ev(c)
             return lambda vals: np.power(complex(fa(vals)), complex(fc(())))
+        case BroadcastTo(x, shape):
+            target = tuple(size(n, env) for n in shape)
+            if 0 in target:
+                dtype = complex if e.scalar_type == "complex" else float
+                return lambda vals: np.empty(target, dtype=dtype)
+            fx = ev(x)
+            return lambda vals: np.broadcast_to(fx(vals), target)
         case Tensor(es):
             fs = [ev(x) for x in es]
             return lambda vals: np.array([f(vals) for f in fs])

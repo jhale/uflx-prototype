@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from .nodes import AbstractExpression, Zero
 from .static import _free, _free_indices, _shape
+from .traversal import _map_values
 
 if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
-__all__ = ["_complete_indices", "_promote", "_zero_like"]
+__all__ = ["_complete_indices", "_promote", "_rewrite", "_zero_like"]
 
 
 def _zero_like(
@@ -46,9 +48,20 @@ def _complete_indices(
     replacement = _promote(original, replacement)
     if actual.keys() == expected.keys():
         return replacement
-    from .arithmetic import add
+    from .names import _derived_indices
+    from .tensors import broadcast_to, component_tensor, indexed
 
-    return add(replacement, _zero_like(original, original.argument_spaces))
+    # SH06. Selecting a repeated value preserves an index without introducing a sum.
+    for i, n in original.free_indices:
+        if i not in actual:
+            axes = _derived_indices(
+                "uflx.complete_indices", (original, replacement, i), len(replacement.value_shape)
+            )
+            replacement = component_tensor(
+                indexed(broadcast_to(replacement, (n, *replacement.value_shape)), (i, *axes)),
+                axes,
+            )
+    return replacement
 
 
 def _promote(original: AbstractExpression, replacement: AbstractExpression) -> AbstractExpression:
@@ -60,3 +73,32 @@ def _promote(original: AbstractExpression, replacement: AbstractExpression) -> A
     if original.scalar_type != replacement.scalar_type:
         raise ValueError("a rewrite changes scalar type")
     return replacement
+
+
+def _rewrite(
+    f: AbstractExpression, rule: Callable[[AbstractExpression], AbstractExpression]
+) -> AbstractExpression:
+    """SH19-SH21. Visit operands, then complete and visit replacements.
+
+    Returning the node retains it for this visit. The memo and cycle check belong
+    to this invocation; they add no state to expression nodes.
+    """
+    done: dict[AbstractExpression, AbstractExpression] = {}
+    active: set[AbstractExpression] = set()
+
+    def visit(e: AbstractExpression) -> AbstractExpression:
+        if e in done:
+            return done[e]
+        if e in active:
+            raise ValueError("rewrite cycle", e)
+        active.add(e)
+        rebuilt = _map_values(e, visit)
+        replacement = rule(rebuilt)
+        if replacement != rebuilt:
+            replacement = _complete_indices(rebuilt, replacement)
+        out = rebuilt if replacement == rebuilt else visit(replacement)
+        active.remove(e)
+        done[e] = out
+        return out
+
+    return visit(f)

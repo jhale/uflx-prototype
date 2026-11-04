@@ -98,10 +98,13 @@ def _remains(f: AbstractExpression, P: AbstractDomain) -> bool:
     # Field and spatial-operator gradients remain, except the coordinate identity
     # and the chain rule.
     identity = isinstance(f, Coordinate) and P.dimension == P.ambient_coordinate_domain.dimension
-    leaf = _field_terminal(f) or isinstance(
-        f, PullBack | Gradient | PushForward | Divergence | Curl
+    leaf = _field_terminal(f) or isinstance(f, PullBack | Gradient | PushForward)
+    return (
+        _support(f) is not None
+        and (leaf or _piola_law(f) is not None)
+        and not identity
+        and not _chained(f)
     )
-    return leaf and not identity and not _chained(f)
 
 
 def apply_gradients(f: AbstractExpression) -> AbstractExpression:
