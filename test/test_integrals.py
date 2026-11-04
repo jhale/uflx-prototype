@@ -22,10 +22,10 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.passes import integrals
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
-from uflx_spec_interpreter._src.passes.integrals import _integrals_expanded
-from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
-from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
+from uflx_spec_interpreter._src.passes.integrals import integrals_expanded
+from uflx_spec_interpreter._src.passes.lowering import lower_spatial
+from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology
@@ -115,8 +115,8 @@ def main(trials):
         kind = rnd.choice(["domain", "ambient", "none"])
         e = integral(integrand(rnd, dom, kind), dom)
         out3 = integrals.expand_integrals(e)
-        out = _lower_spatial(out3)
-        rejected += not _integrals_expanded(e)
+        out = lower_spatial(out3)
+        rejected += not integrals_expanded(e)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
@@ -129,10 +129,10 @@ def main(trials):
                     (out.value_shape, dict(out.free_indices)),
                 )
         bad["grammar"] += not (
-            _integrals_expanded(out3)
-            and _integrals_expanded(out)
-            and _pull_backs_expanded(out)
-            and _in_core_normal_form(out)
+            integrals_expanded(out3)
+            and integrals_expanded(out)
+            and pull_backs_expanded(out)
+            and in_core_normal_form(out)
         )
         fr = dict(e.free_indices)
         for combo in itertools.product(*(range(n) for n in fr.values())):

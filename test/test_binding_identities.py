@@ -17,10 +17,10 @@ from uflx_spec_interpreter import (
     num,
     transpose,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import _substitute
+from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.geometry import _metric
 from uflx_spec_interpreter._src.nodes import Function, Index
-from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_toy.spaces import space
 
 P = RD(2)
@@ -45,15 +45,15 @@ def test_factory_and_substitution_share_the_same_node(factory):
     original = factory(A)
     expected = factory(B)
     assert factory(A) is original
-    assert _substitute(original, {A: B}) is expected
-    assert _substitute(_substitute(original, {A: B}), {B: C}) is factory(C)
+    assert substitute(original, {A: B}) is expected
+    assert substitute(substitute(original, {A: B}), {B: C}) is factory(C)
 
 
 @pytest.mark.parametrize("factory", [jacobian, _metric])
 def test_geometry_identity_follows_parameterisation(factory):
     original = factory(D)
     assert factory(D) is original
-    assert _substitute(original, {x: y}) is factory(E)
+    assert substitute(original, {x: y}) is factory(E)
 
 
 @pytest.mark.parametrize(
@@ -72,18 +72,18 @@ def test_geometry_identity_follows_parameterisation(factory):
 )
 def test_lowering_paths_converge_structurally(factory, source, target):
     original = factory(source)
-    lowered = _lower_spatial(original)
-    expected = _lower_spatial(factory(target))
-    assert _lower_spatial(original) is lowered
-    assert _lower_spatial(lowered) is lowered
-    assert _lower_spatial(_substitute(original, {source: target})) is expected
-    assert _substitute(lowered, {source: target}) is expected
+    lowered = lower_spatial(original)
+    expected = lower_spatial(factory(target))
+    assert lower_spatial(original) is lowered
+    assert lower_spatial(lowered) is lowered
+    assert lower_spatial(substitute(original, {source: target})) is expected
+    assert substitute(lowered, {source: target}) is expected
 
 
 def test_independent_intermediate_construction_shares_nodes():
     intermediate = transpose(A)
     first = matrix_product(intermediate, A)
-    second = matrix_product(_substitute(transpose(B), {B: A}), A)
+    second = matrix_product(substitute(transpose(B), {B: A}), A)
     assert first is second
     assert add(first, second).first is first
 
@@ -92,18 +92,18 @@ def test_capture_renaming_is_repeatable_and_then_fixed():
     V = space("identity-scalar")
     u, v, w = (function(V, name) for name in ("u", "v", "w"))
     expression = form(u * v, (v,))
-    renamed = _substitute(expression, {u: v})
-    assert _substitute(expression, {u: v}) is renamed
+    renamed = substitute(expression, {u: v})
+    assert substitute(expression, {u: v}) is renamed
     bound = renamed.arguments[0]
     assert bound is Function(
         V, ("uflx.rename", v, (expression.expression, expression.arguments), (v,))
     )
-    changed = _substitute(renamed, {v: w})
+    changed = substitute(renamed, {v: w})
     assert changed.arguments[0] is bound
     # A fixed label still permits direct substitution of the named object itself.
-    assert _substitute(bound, {bound: w}) is w
+    assert substitute(bound, {bound: w}) is w
 
 
 def test_derived_index_dependencies_rewrite_without_changing_layout():
     i = index(("uflx.transpose", A, 0))
-    assert _substitute(i, {A: B}) is Index(("uflx.transpose", B, 0))
+    assert substitute(i, {A: B}) is Index(("uflx.transpose", B, 0))

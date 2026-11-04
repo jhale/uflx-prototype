@@ -16,15 +16,15 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.meshes import _cell_domain
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.meshes import cell_map
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_toy.runtime import runtime_array
 from uflx_toy.spaces import space
 
 V = space("V")
 v, w = function(V, "v"), function(V, "w")
 l = function(dual_space(V), "l")
-cells = _cell_domain(D, 0)
+cells = cell_map(D, 0)
 
 
 def test_the_core_normal_form_allows_the_classes_of_its_table():
@@ -39,7 +39,7 @@ def test_the_core_normal_form_allows_the_classes_of_its_table():
         action(l, 0, conjugate(w)),
         runtime_array("q", (2,)),
     ):
-        assert _in_core_normal_form(e), e
+        assert in_core_normal_form(e), e
 
 
 def test_the_core_normal_form_rejects_what_its_table_leaves_out():
@@ -55,4 +55,4 @@ def test_the_core_normal_form_rejects_what_its_table_leaves_out():
         action(form(multiply(v, w), (v,)), 0, w),
         add(num(1), integral(u, D)),
     ):
-        assert not _in_core_normal_form(e), e
+        assert not in_core_normal_form(e), e

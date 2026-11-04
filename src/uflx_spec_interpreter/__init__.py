@@ -43,6 +43,7 @@ from ._src.passes.gradients import apply_gradients
 from ._src.passes.integrals import expand_integrals
 from ._src.passes.lowering import lower
 from ._src.passes.pullbacks import expand_pull_backs
+from ._src.rules.integration import reference_integral
 from ._src.spaces import conjugate_space, dual_space
 from ._src.tensors import (
     broadcast_to,
@@ -117,6 +118,7 @@ __all__ = [
     "pull_back",
     "push_forward",
     "real_part",
+    "reference_integral",
     "replace",
     "side_domain",
     "side_map",

@@ -26,8 +26,8 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import _edges, _expressions
 from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, IndexSum
+from uflx_spec_interpreter._src.nodes.structure import expression_operands, operands
 from uflx_toy.spaces import space
 
 
@@ -94,11 +94,11 @@ def test_construction_dependencies_and_value_operands_are_distinct():
     V = space("dependencies")
     source = function(V, "source")
     f = function(V, ("derived", source))
-    assert _edges(f) == (V, source)
-    assert _expressions(f) == []
+    assert operands(f) == [V, source]
+    assert expression_operands(f) == []
     c = Complex(Integer(1), Integer(2))
-    assert _edges(c) == (Integer(1), Integer(2))
-    assert _expressions(c) == []
+    assert operands(c) == [Integer(1), Integer(2)]
+    assert expression_operands(c) == []
 
 
 def test_at_point_derivative_does_not_substitute_into_inserted_direction():

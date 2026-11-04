@@ -16,9 +16,9 @@ from uflx_spec_interpreter import (
     lower,
     num,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import _everywhere
+from uflx_spec_interpreter._src.algorithms.traversal import everywhere
 from uflx_spec_interpreter._src.nodes import Division, Product, Sum
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_toy.runtime import runtime_array, runtime_extent
 from uflx_toy.spaces import space
 
@@ -33,10 +33,10 @@ def test_arithmetic_preserves_nodes_and_lowers_values(shape):
     for expression, node in zip(expressions, (Sum, Product, Product, Division), strict=True):
         assert isinstance(expression, node)
         assert expression.value_shape == shape
-        assert not _in_core_normal_form(expression)
+        assert not in_core_normal_form(expression)
         expanded = expand_arithmetic(expression)
         assert expanded.value_shape == shape
-        assert _everywhere(
+        assert everywhere(
             expanded,
             lambda e: not isinstance(e, Sum | Product | Division) or not e.value_shape,
         )

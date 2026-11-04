@@ -19,9 +19,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.literals import _zero
+from uflx_spec_interpreter._src.literals import zero
 from uflx_spec_interpreter._src.passes import actions
-from uflx_spec_interpreter._src.passes.actions import _actions_complete
+from uflx_spec_interpreter._src.passes.actions import actions_complete
 from uflx_toy.spaces import space
 
 rng = np.random.default_rng(2)
@@ -50,7 +50,7 @@ def check(name, e, ienv=None, vals=None):
     before = evaluate(e, env, ienv)(vals)
     after = evaluate(out, env, ienv)(vals)
     assert np.allclose(before, after, atol=1e-5), name
-    assert _actions_complete(out), name
+    assert actions_complete(out), name
     assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))
 
 
@@ -62,7 +62,7 @@ def test_cases():
     for kk in range(2):
         check(
             f"zero form, argument with family index i = {kk}",
-            action(_zero((), (), (V, V), ScalarType.real), 1, multiply(indexed(c, (i,)), w)),
+            action(zero((), (), (V, V), ScalarType.real), 1, multiply(indexed(c, (i,)), w)),
             {i: kk},
         )
     check("form divided by a scalar", action(divide(F, num(3)), 0, z))

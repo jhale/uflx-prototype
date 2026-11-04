@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .algorithms.names import _derived_index
+from .algorithms.names import derived_index
 
 if TYPE_CHECKING:
     from .nodes.indices import Index
@@ -15,4 +15,4 @@ def cell_index(T: AbstractTopology, j: int) -> Index:
         raise TypeError("cell_index takes a topology and an integer")
     if not 0 <= j < len(T.cell_types):
         raise ValueError("invalid cell group")
-    return _derived_index("uflx.cell_index", T, j, 0)
+    return derived_index("uflx.cell_index", T, j, 0)

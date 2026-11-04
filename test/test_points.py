@@ -37,9 +37,9 @@ from uflx_spec_interpreter._src.nodes import (
     PullBack,
 )
 from uflx_spec_interpreter._src.passes import integrals, pullbacks
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
-from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
+from uflx_spec_interpreter._src.passes.lowering import lower_spatial
+from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
@@ -171,15 +171,15 @@ def main(trials):
             )
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
         out4 = expand_arithmetic(out4)
-        out = _lower_spatial(integrals.expand_integrals(e))
+        out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
         if contains(out4, needs_pass):
             bad["lazy"] += 1
-            bad["rejected"] += not _in_core_normal_form(out4)
+            bad["rejected"] += not in_core_normal_form(out4)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
-        bad["grammar"] += not (_pull_backs_expanded(out) and _in_core_normal_form(out))
+        bad["grammar"] += not (pull_backs_expanded(out) and in_core_normal_form(out))
         if restricted:
             # Through the restriction, every pull-back reads a library value on a cell.
             bad["restricted"] += 1

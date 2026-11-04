@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from ..algorithms.traversal import _everywhere, _expressions
+from ..algorithms.traversal import everywhere
 from ..nodes import (
     Absolute,
     AbstractExpression,
@@ -49,10 +49,11 @@ from ..nodes import (
     Tensor,
     Zero,
 )
-from ..nodes.static import _field_terminal
-from ..rules.coordinates import _piola_law
-from ..rules.pullback_algebra import _pullback_remains
-from ..rules.structural import _action_retained, _gradient_remains
+from ..nodes.static import field_terminal
+from ..nodes.structure import expression_operands
+from ..rules.coordinates import piola_law
+from ..rules.pullback_algebra import pullback_remains
+from ..rules.structural import action_retained, gradient_remains
 
 _Violation = tuple[AbstractExpression, str]
 
@@ -70,7 +71,7 @@ def _violations(
         reason = rule(node)
         if reason is not None:
             found.append((node, reason))
-        for child in _expressions(node):
+        for child in expression_operands(node):
             visit(child)
 
     visit(expression)
@@ -89,7 +90,7 @@ def _reference_integral(node: AbstractExpression) -> str | None:
     return None
 
 
-def _derivatives_expanded(expression: AbstractExpression) -> tuple[_Violation, ...]:
+def derivatives_expanded(expression: AbstractExpression) -> tuple[_Violation, ...]:
     """Check that no directional derivatives remain in expression operands.
 
     Actions, spatial operators and mesh integrals are permitted. This does not
@@ -98,7 +99,7 @@ def _derivatives_expanded(expression: AbstractExpression) -> tuple[_Violation, .
     return _violations(expression, _derivative)
 
 
-def _reference_integration(expression: AbstractExpression) -> tuple[_Violation, ...]:
+def reference_integration(expression: AbstractExpression) -> tuple[_Violation, ...]:
     """Check the derivative-free boundary after mesh integral expansion.
 
     No mesh integrals or directional derivatives may remain. Other core integral
@@ -109,7 +110,7 @@ def _reference_integration(expression: AbstractExpression) -> tuple[_Violation, 
     return _violations(expression, _reference_integral)
 
 
-def _core_normal_form(expression: AbstractExpression) -> tuple[_Violation, ...]:
+def core_normal_form(expression: AbstractExpression) -> tuple[_Violation, ...]:
     """Diagnose violations of the interpreter's existing core normal form.
 
     Delegate allowed-node patterns to the existing predicate. Accepted terminal
@@ -156,21 +157,21 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
             return True
         case Sum() | Product() | Division():
             return not e.value_shape
-        case _ if _field_terminal(e):
+        case _ if field_terminal(e):
             return True
         case Divergence() | Curl():
-            return _piola_law(e) is not None
+            return piola_law(e) is not None
         case Gradient(f, p):
-            return _gradient_remains(f, p)
+            return gradient_remains(f, p)
         case Integral(_, p):
             return not isinstance(p, Mesh)
         case PullBack(f, m):
-            return _pullback_remains(f, m)
+            return pullback_remains(f, m)
         case Action(A, _, _):
-            return _action_retained(A)
+            return action_retained(A)
         case _:
             return False
 
 
-def _in_core_normal_form(e: AbstractExpression) -> bool:
-    return _everywhere(e, _allowed_in_core_normal_form)
+def in_core_normal_form(e: AbstractExpression) -> bool:
+    return everywhere(e, _allowed_in_core_normal_form)

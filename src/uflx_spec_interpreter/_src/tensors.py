@@ -3,8 +3,8 @@ from __future__ import annotations
 from itertools import combinations
 from typing import TYPE_CHECKING
 
-from .algorithms.names import _derived_indices
-from .arithmetic import divide, multiply
+from .algorithms.names import derived_indices
+from .arithmetic import multiply
 from .nodes import (
     AbstractExpression,
     BroadcastTo,
@@ -15,7 +15,6 @@ from .nodes import (
     Integer,
     Inverse,
     ScalarType,
-    SquareRoot,
     Tensor,
     Zero,
 )
@@ -56,7 +55,7 @@ def inverse(A: AbstractExpression) -> AbstractExpression:
     return Inverse(A)
 
 
-def _identity(n: int) -> AbstractExpression:
+def identity(n: int) -> AbstractExpression:
     if n == 0:
         return Zero((0, 0), (), (), ScalarType.real)
     rows: list[Tensor] = []
@@ -66,7 +65,7 @@ def _identity(n: int) -> AbstractExpression:
     return Tensor(tuple(rows))
 
 
-def _permutation_tensor(n: int) -> AbstractExpression:
+def permutation_tensor(n: int) -> AbstractExpression:
     # The Levi-Civita symbol of rank n, the sign of each permutation and 0 elsewhere.
     def entries(prefix: tuple[int, ...]) -> AbstractExpression:
         if len(prefix) == n:
@@ -77,12 +76,12 @@ def _permutation_tensor(n: int) -> AbstractExpression:
 
 
 def transpose(A: AbstractExpression) -> AbstractExpression:
-    k, l = _derived_indices("uflx.transpose", (A,), 2)
+    k, l = derived_indices("uflx.transpose", (A,), 2)
     return ComponentTensor(Indexed(A, (k, l)), (l, k))
 
 
 def matrix_product(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
-    i, k, j = _derived_indices("uflx.matrix_product", (first, second), 3)
+    i, k, j = derived_indices("uflx.matrix_product", (first, second), 3)
     a = (i,) if len(first.value_shape) == 2 else ()
     b = (j,) if len(second.value_shape) == 2 else ()
     contracted = IndexSum(multiply(Indexed(first, (*a, k)), Indexed(second, (k, *b))), (k,))
@@ -95,17 +94,9 @@ def component(
     if not entries:
         return f
     if len(entries) < len(f.value_shape):
-        K = _derived_indices("uflx.component", (f, entries), len(f.value_shape) - len(entries))
+        K = derived_indices("uflx.component", (f, entries), len(f.value_shape) - len(entries))
         return ComponentTensor(Indexed(f, (*entries, *K)), K)
     return Indexed(f, entries)
-
-
-def _norm(u: AbstractExpression) -> AbstractExpression:
-    return SquareRoot(matrix_product(u, u))
-
-
-def _unit(u: AbstractExpression) -> AbstractExpression:
-    return divide(u, _norm(u))
 
 
 def determinant(A: AbstractExpression) -> AbstractExpression:

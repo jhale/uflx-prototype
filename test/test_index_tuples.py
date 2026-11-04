@@ -12,9 +12,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import _substitute
+from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.passes import derivatives
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_toy.spaces import space
 
 r = tuple(index(f"r{n}") for n in range(3))
@@ -70,7 +70,7 @@ def test_substitution_renames_a_bound_index_tuple():
     # The replacement brings a free r, which the binder of r must not capture.
     y = function(space("V"), "y")
     e = component_tensor(multiply(y, indexed(array(T), r)), r)
-    out = _substitute(e, {y: indexed(array(U), (r[0],))})
+    out = substitute(e, {y: indexed(array(U), (r[0],))})
     assert out.value_shape == (2, 3, 2) and out.free_indices == ((r[0], 2),)
     for m in range(2):
         assert np.allclose(value(out, {r[0]: m}), U[m] * T)
@@ -87,5 +87,5 @@ def test_a_gradient_of_a_tensor_built_with_index_tuples():
     f = component_tensor(multiply(xy, indexed(array(T), r)), r)
     e = integral(indexed(gradient(f, K), (1, 2, 0, 1)), K)
     out = gradients.apply_gradients(e)
-    assert _in_core_normal_form(out) and not _in_core_normal_form(e)
+    assert in_core_normal_form(out) and not in_core_normal_form(e)
     assert np.isclose(evaluate(e, {})(()), evaluate(out, {})(()), rtol=1e-6)

@@ -6,41 +6,14 @@ from collections.abc import Callable, Sequence
 from typing import Concatenate, ParamSpec, TypeVar, cast
 
 from ..nodes import AbstractExpression, AbstractFunctionSpace, Base
-from ..nodes.types import _Construction
+from ..nodes.structure import expression_operands
+from ..nodes.types import Construction
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 
 
-def _operands(e: Base, names: Sequence[str] | None = None) -> list[Base]:
-    # The nodes on the edges of e, in order, through tuples, or those of the named arguments.
-    return list(_edges(e) if names is None else _nodes_in(e, names))
-
-
-def _edges(e: Base) -> tuple[Base, ...]:
-    # All construction dependencies, including spaces, maps, labels and literal parts.
-    memo = vars(e)
-    if "edges" not in memo:
-        memo["edges"] = _nodes_in(e, e.argument_names)
-    return cast("tuple[Base, ...]", memo["edges"])
-
-
-def _nodes_in(e: Base, names: Sequence[str]) -> tuple[Base, ...]:
-    out: list[Base] = []
-
-    def walk(x: _Construction) -> None:
-        if isinstance(x, Base):
-            out.append(x)
-        elif isinstance(x, tuple):
-            for y in x:
-                walk(y)
-
-    for name in names:
-        walk(getattr(e, name))
-    return tuple(out)
-
-
-def _rebuild(e: Base, **changes: _Construction) -> _Construction:
+def rebuild(e: Base, **changes: Construction) -> Construction:
     # An unknown name adds an argument, which the class rejects.
     values = dict(zip(e.argument_names, e.construction_arguments)) | changes
     if tuple(values) == e.argument_names and tuple(values.values()) == e.construction_arguments:
@@ -57,16 +30,11 @@ def _rebuild(e: Base, **changes: _Construction) -> _Construction:
     return type(e)(*values.values())
 
 
-def _expressions(e: Base) -> list[AbstractExpression]:
-    # The operands of e that are expressions, which a grammar restricts.
-    return [x for x in _nodes_in(e, e.value_fields) if isinstance(x, AbstractExpression)]
-
-
-def _map_fields(
-    e: Base, fn: Callable[[Base], _Construction], names: Sequence[str] | None = None
-) -> _Construction:
+def map_fields(
+    e: Base, fn: Callable[[Base], Construction], names: Sequence[str] | None = None
+) -> Construction:
     # Rebuild e with fn applied to every node in the named fields.
-    def walk(x: _Construction) -> _Construction:
+    def walk(x: Construction) -> Construction:
         if isinstance(x, Base):
             return fn(x)
         if isinstance(x, tuple):
@@ -74,10 +42,10 @@ def _map_fields(
         return x
 
     names = e.argument_names if names is None else names
-    return _rebuild(e, **{n: walk(getattr(e, n)) for n in names})
+    return rebuild(e, **{n: walk(getattr(e, n)) for n in names})
 
 
-def _memoized(rule: Callable[Concatenate[Callable[_P, _R], _P], _R]) -> Callable[_P, _R]:
+def memoized(rule: Callable[Concatenate[Callable[_P, _R], _P], _R]) -> Callable[_P, _R]:
     # The recursion of rule through one memo, which lasts as long as the returned function.
     memo: dict[tuple[object, ...], _R] = {}
 
@@ -90,32 +58,32 @@ def _memoized(rule: Callable[Concatenate[Callable[_P, _R], _P], _R]) -> Callable
     return recurse
 
 
-def _bottom_up(
+def bottom_up(
     f: AbstractExpression, rewrite: Callable[[AbstractExpression], AbstractExpression]
 ) -> AbstractExpression:
     # Rewrite each node after its operands, once for each node of the graph of f.
     def visit(
         walk: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression
     ) -> AbstractExpression:
-        return rewrite(_map_values(e, walk))
+        return rewrite(map_values(e, walk))
 
-    return _memoized(visit)(f)
+    return memoized(visit)(f)
 
 
-def _everywhere(e: AbstractExpression, holds: Callable[[AbstractExpression], bool]) -> bool:
+def everywhere(e: AbstractExpression, holds: Callable[[AbstractExpression], bool]) -> bool:
     # Whether holds is true at every node of the graph of e.
     def visit(walk: Callable[[AbstractExpression], bool], n: AbstractExpression) -> bool:
-        return holds(n) and all(map(walk, _expressions(n)))
+        return holds(n) and all(map(walk, expression_operands(n)))
 
-    return _memoized(visit)(e)
+    return memoized(visit)(e)
 
 
-def _map_values(
+def map_values(
     e: AbstractExpression,
     fn: Callable[[AbstractExpression], AbstractExpression],
     names: Sequence[str] | None = None,
 ) -> AbstractExpression:
     # The node declares these fields to contain expressions, including tuple members.
     fields = e.value_fields if names is None else names
-    mapped = _map_fields(e, lambda child: fn(cast("AbstractExpression", child)), fields)
+    mapped = map_fields(e, lambda child: fn(cast("AbstractExpression", child)), fields)
     return cast("AbstractExpression", mapped)

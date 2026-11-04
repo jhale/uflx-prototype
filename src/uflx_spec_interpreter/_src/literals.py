@@ -17,7 +17,7 @@ def num(value: int | float | complex) -> AbstractExpression:
     return Integer(value) if isinstance(value, int) else Float(value)
 
 
-def _zero(
+def zero(
     value_shape: tuple[int | AbstractExtent, ...],
     free_indices: tuple[tuple[Index, int | AbstractExtent], ...],
     argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...],

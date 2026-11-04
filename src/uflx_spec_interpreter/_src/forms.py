@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .algorithms.substitution import _occurs
+from .algorithms.substitution import occurs
 from .arithmetic import add, divide, multiply
 from .nodes import (
     AbstractExpression,
@@ -16,23 +16,16 @@ from .nodes import (
     Integer,
     ScalarType,
 )
-from .nodes.arguments import _argument_members, _map_argument
-from .nodes.forms import _entry_function
-from .nodes.validation import _admissible, _merge_indices
+from .nodes.arguments import argument_members, map_argument
+from .nodes.forms import entry_function
+from .nodes.validation import admissible, merge_indices
 
 if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
-    from .nodes.types import _Construction
+    from .nodes.types import Construction
 
 
-def _entry_fns(
-    entry: Function | Conjugate | tuple[Function | Conjugate, ...],
-) -> tuple[Function, ...]:
-    # The functions of an entry, without the conjugate of an entry conjugate(v).
-    return tuple(_entry_function(m) for m in _argument_members(entry))
-
-
-def function(V: AbstractFunctionSpace, label: str | tuple[_Construction, ...]) -> Function:
+def function(V: AbstractFunctionSpace, label: str | tuple[Construction, ...]) -> Function:
     return Function(V, label)
 
 
@@ -55,7 +48,7 @@ def _validate_derivative_variables(
     w: Function | Conjugate | tuple[Function | Conjugate, ...],
 ) -> None:
     # Variable identity and the matching tuple structure of point and direction.
-    xs, points, entries = _argument_members(x), _argument_members(a), _argument_members(w)
+    xs, points, entries = argument_members(x), argument_members(a), argument_members(w)
     if isinstance(x, tuple) and len(x) < 2:
         raise ValueError("a tuple variable must have at least two members")
     if any(v.argument_spaces and not isinstance(v.space, DualSpace) for v in xs):
@@ -123,14 +116,14 @@ def gateaux_derivative(
     admissibility uses static signatures rather than proving space membership.
     """
     _validate_derivative_variables(x, a, w)
-    xs, points, entries = _argument_members(x), _argument_members(a), _argument_members(w)
-    directions = _map_argument(_entry_function, w)
-    ws = _argument_members(directions)
+    xs, points, entries = argument_members(x), argument_members(a), argument_members(w)
+    directions = map_argument(entry_function, w)
+    ws = argument_members(directions)
     _validate_derivative_directions(xs, entries, ws)
     for variable, point in zip(xs, points, strict=True):
-        _admissible(variable.space, point)
-    _merge_indices(F.free_indices, *(point.free_indices for point in points))
-    if any(_occurs(v, e) for v in ws for e in (F, *points)):
+        admissible(variable.space, point)
+    merge_indices(F.free_indices, *(point.free_indices for point in points))
+    if any(occurs(v, e) for v in ws for e in (F, *points)):
         raise ValueError("direction binders must not be free in the expression or point")
     delta = DirectionalDerivative(F, x, a, directions)
     if xs[0].space.scalar_type == ScalarType.real:
@@ -140,7 +133,7 @@ def gateaux_derivative(
     def rotate(v: Function) -> AbstractExpression:
         return multiply(i, v)
 
-    rotated = _map_argument(rotate, directions)
+    rotated = map_argument(rotate, directions)
     sign = i if isinstance(entries[0], Conjugate) else multiply(Integer(-1), i)
     second = multiply(sign, DirectionalDerivative(F, x, a, rotated))
     half = divide(Integer(1), Integer(2))

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
 
 
-def _linear_fields(expression: AbstractExpression) -> tuple[str, ...] | None:
+def linear_fields(expression: AbstractExpression) -> tuple[str, ...] | None:
     """L01-L04. Operands through which a linear operation can commute."""
     match expression:
         case Sum():

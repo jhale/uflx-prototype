@@ -3,10 +3,10 @@ from __future__ import annotations
 from functools import cache
 from typing import TYPE_CHECKING
 
-from ..algorithms.rewriting import _rewrite
-from ..algorithms.traversal import _everywhere
+from ..algorithms.rewriting import rewrite
+from ..algorithms.traversal import everywhere
 from ..nodes import DirectionalDerivative
-from ..rules.differentiation import _deriv
+from ..rules.differentiation import deriv
 from .actions import apply_actions
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 def apply_derivatives(f: AbstractExpression) -> AbstractExpression:
     # Derivative evaluation does no optional algebraic collection.
-    differential = cache(_deriv)
+    differential = cache(deriv)
 
     def evaluate(e: AbstractExpression) -> AbstractExpression:
         match e:
@@ -28,11 +28,11 @@ def apply_derivatives(f: AbstractExpression) -> AbstractExpression:
     seen: set[AbstractExpression] = set()
     while f not in seen:
         seen.add(f)
-        f = apply_actions(_rewrite(f, evaluate))
+        f = apply_actions(rewrite(f, evaluate))
         if _derivatives_complete(f):
             return f
     raise ValueError("derivative rewriting made no progress", f)
 
 
 def _derivatives_complete(e: AbstractExpression) -> bool:
-    return _everywhere(e, lambda n: not isinstance(n, DirectionalDerivative))
+    return everywhere(e, lambda n: not isinstance(n, DirectionalDerivative))

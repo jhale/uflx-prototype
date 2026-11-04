@@ -17,7 +17,7 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
-from uflx_spec_interpreter._src.extensions.shape import _shape_derivative
+from uflx_spec_interpreter._src.extensions.shape import shape_derivative
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology
@@ -60,7 +60,7 @@ def difference(f, step=1e-6):
 
 
 def shape(f):
-    return value(_shape_derivative(f, (x0, x1), (v0, v1)), COORDINATES)
+    return value(shape_derivative(f, (x0, x1), (v0, v1)), COORDINATES)
 
 
 def functionals():
@@ -91,7 +91,7 @@ def test_the_shape_derivative_of_the_area_is_the_integral_of_the_divergence():
 def test_the_shape_gradient_assembles_to_the_derivative_in_each_dof():
     f = functionals()["energy"]
     z = function(X, "z")
-    gradient_x0 = assemble(form(_shape_derivative(f, (x0, x1), (z, num(0))), (z,)), 8)(
+    gradient_x0 = assemble(form(shape_derivative(f, (x0, x1), (z, num(0))), (z,)), 8)(
         env(COORDINATES)
     )
     step = 1e-6

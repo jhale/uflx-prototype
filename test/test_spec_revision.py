@@ -38,8 +38,8 @@ from uflx_spec_interpreter import (
     replace,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import _expressions
 from uflx_spec_interpreter._src.nodes import Base, Determinant, Function, Index, Indexed
+from uflx_spec_interpreter._src.nodes.structure import expression_operands
 from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.runtime import runtime_array, runtime_extent
@@ -75,7 +75,7 @@ def test_constructor_arguments_are_positional_and_typed():
 
 def test_complex_is_a_terminal_and_stays_complex():
     z = Complex(Integer(2), Float(-3.0))
-    assert _expressions(z) == []
+    assert expression_operands(z) == []
     assert z.scalar_type is ScalarType.complex
     assert evaluate(z, {})(()) == 2 - 3j
     assert lower(Complex(Integer(1), Integer(0))).scalar_type is ScalarType.complex

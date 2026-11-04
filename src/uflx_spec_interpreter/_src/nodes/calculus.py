@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from .arguments import _argument_members
-from .caching import _cached
+from .arguments import argument_members
+from .caching import cached
 from .expressions import AbstractExpression
 from .scalar_types import ScalarType
 from .spaces import DualSpace
@@ -28,64 +28,64 @@ class DirectionalDerivative(AbstractExpression):
     scope = ("expression", "variable")
 
     def bound(self) -> tuple[Function, ...]:
-        return _argument_members(self.variable)
+        return argument_members(self.variable)
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         edges = (
             self.expression,
-            *_argument_members(self.point),
-            *_argument_members(self.direction),
+            *argument_members(self.point),
+            *argument_members(self.direction),
         )
-        from .static import _free_indices
+        from .static import free_indices
 
-        return _free_indices(*edges)
+        return free_indices(*edges)
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.expression.scalar_type
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
     def _validate(self) -> None:
-        from .validation import _admissible, _require
+        from .validation import admissible, require
 
-        xs = _argument_members(self.variable)
+        xs = argument_members(self.variable)
         for x in xs:
-            _require(
+            require(
                 not x.argument_spaces or isinstance(x.space, DualSpace),
                 "derivative variable is not bindable",
             )
-        _require(len(set(xs)) == len(xs), "derivative variables must be distinct")
-        _require(
+        require(len(set(xs)) == len(xs), "derivative variables must be distinct")
+        require(
             type(self.variable) is not tuple or len(xs) >= 2,
             "tuple derivative needs at least two variables",
         )
         for values in (self.point, self.direction):
-            _require(
+            require(
                 isinstance(values, tuple) == isinstance(self.variable, tuple)
-                and len(_argument_members(values)) == len(xs),
+                and len(argument_members(values)) == len(xs),
                 "derivative tuple structure differs",
             )
-            for x, value in zip(xs, _argument_members(values), strict=True):
-                _admissible(x.space, value)
+            for x, value in zip(xs, argument_members(values), strict=True):
+                admissible(x.space, value)
 
 
 @final
@@ -101,22 +101,22 @@ class Coordinate(AbstractExpression):
         return self._domain
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return (self.domain.ambient_coordinate_domain.dimension,)
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
@@ -139,22 +139,22 @@ class Gradient(AbstractExpression):
         return self._domain
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return (*self.expression.value_shape, self.domain.ambient_coordinate_domain.dimension)
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.expression.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
@@ -178,22 +178,22 @@ class Divergence(AbstractExpression):
         return self._domain
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape[:-1]
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.expression.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
@@ -217,24 +217,24 @@ class Curl(AbstractExpression):
         return self._domain
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         # The axes of the permutation tensor that the curl leaves, n - 2 of them.
         n = self.domain.ambient_coordinate_domain.dimension
         return (n,) * (n - 2)
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.expression.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
@@ -252,28 +252,28 @@ class Integral(AbstractExpression):
     integration_domain: AbstractDomain
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.expression.value_shape
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         # Mesh integration binds its own cell index, never an integrand index.
         return self.expression.free_indices
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return None
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
@@ -285,7 +285,7 @@ class Integral(AbstractExpression):
 
 def _validate_calculus(e: Coordinate | Gradient | Divergence | Curl | Integral) -> None:
     from .meshes import Mesh
-    from .validation import _require
+    from .validation import require
 
     P = e.integration_domain if isinstance(e, Integral) else e.domain
     if isinstance(e, Coordinate):
@@ -296,15 +296,15 @@ def _validate_calculus(e: Coordinate | Gradient | Divergence | Curl | Integral) 
         if isinstance(e, Integral) and isinstance(P, Mesh)
         else (None, P)
     )
-    _require(f.domain in domains, "expression and domain are not a valid pair")
+    require(f.domain in domains, "expression and domain are not a valid pair")
     dim = P.ambient_coordinate_domain.dimension
     if isinstance(e, Divergence):
-        _require(
+        require(
             bool(f.value_shape) and f.value_shape[-1] == dim,
             "divergence requires a last axis in the ambient frame",
         )
     if isinstance(e, Curl):
-        _require(
+        require(
             dim in (2, 3) and f.value_shape == (dim,),
             "curl requires a vector in dimension two or three",
         )

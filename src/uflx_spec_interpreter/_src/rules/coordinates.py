@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from ..algorithms.names import _derived_index, _derived_indices
+from ..algorithms.names import derived_index, derived_indices
 from ..arithmetic import divide, multiply
-from ..geometry import _geometric_map, density, inverse_jacobian, jacobian
-from ..meshes import _is_cell
+from ..geometry import density, geometric_map, inverse_jacobian, jacobian
+from ..meshes import is_cell
 from ..nodes import (
     CellMap,
     Curl,
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from ..nodes.indices import Index
 
 
-def _piola_law(expression: AbstractExpression) -> TransformationLaw | None:
+def piola_law(expression: AbstractExpression) -> TransformationLaw | None:
     """Return the output transformation law, or None when no identity applies.
 
     This inspects the differential and mapped field only. A pull-back must
@@ -45,12 +45,12 @@ def _piola_law(expression: AbstractExpression) -> TransformationLaw | None:
             return None
 
 
-def _chained(f: AbstractExpression) -> bool:
+def chained(f: AbstractExpression) -> bool:
     # A pull-back by a domain map that is not a cell, whose gradient is the chain rule.
-    return isinstance(f, PullBack) and isinstance(f.map, DomainMap) and not _is_cell(f.map)
+    return isinstance(f, PullBack) and isinstance(f.map, DomainMap) and not is_cell(f.map)
 
 
-def _chain_partial(
+def chain_partial(
     f: AbstractExpression,
     g: AbstractExpression,
     phi: DomainMap,
@@ -59,8 +59,8 @@ def _chain_partial(
     partial: Callable[[AbstractExpression, AbstractDomain, Index], AbstractExpression],
 ) -> AbstractExpression:
     """CC01. Transport a component derivative through a domain map."""
-    axes = _derived_indices("uflx.apply_gradients", (f, P), len(f.value_shape))
-    r = _derived_index("uflx.apply_gradients", f, P, "r")
+    axes = derived_indices("uflx.apply_gradients", (f, P), len(f.value_shape))
+    r = derived_index("uflx.apply_gradients", f, P, "r")
     outer = indexed(PullBack(Gradient(g, phi.ambient_domain), phi), (*axes, r))
     inner = indexed(partial(phi.parameterisation, P, j), (r,))
     return component_tensor(index_sum(outer * inner, (r,)), axes)
@@ -70,12 +70,10 @@ def _derived_axis(
     f: AbstractExpression, m: DomainMap | CellMap | SideMap, axis: tuple[str, int]
 ) -> Index:
     """Identify a pull-back axis using the shared structural naming rule."""
-    return _derived_index("uflx.expand_pull_backs", f, m, axis)
+    return derived_index("uflx.expand_pull_backs", f, m, axis)
 
 
-def _transformed(
-    ghat: AbstractExpression, law: TransformationLaw, C: CellMap
-) -> AbstractExpression:
+def transformed(ghat: AbstractExpression, law: TransformationLaw, C: CellMap) -> AbstractExpression:
     # K^T on each covariant axis and J on each contravariant axis of ghat, divided by det J, or
     # by the density on a cell of lower dimension, to the weight.
     J, K = jacobian(C), inverse_jacobian(C)
@@ -92,7 +90,7 @@ def _transformed(
             entry = indexed(J, (output_axis, summed_axis))
         value = multiply(value, entry)
     value = index_sum(value, summed)
-    source, target = _geometric_map(C)
+    source, target = geometric_map(C)
     k, n = source.dimension, target.dimension
     scale = determinant(jacobian(C)) if k == n else density(C)
     for _ in range(law.weight):

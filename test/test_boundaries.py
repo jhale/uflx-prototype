@@ -130,42 +130,35 @@ def test_import_spellings(source, module, is_package, expected):
     assert list(imports_in(source, module, is_package)) == [expected]
 
 
-def test_implementation_definitions_are_public_or_underscore_prefixed():
-    root = SOURCE / "uflx_spec_interpreter"
-    public = set()
-    for facade, package in (
-        (root / "__init__.py", "uflx_spec_interpreter"),
-        (root / "_src/nodes/__init__.py", "uflx_spec_interpreter._src.nodes"),
-    ):
-        for node in ast.parse(facade.read_text()).body:
-            if isinstance(node, ast.ImportFrom):
-                module = resolve_name("." * node.level + (node.module or ""), package)
-                public.update((module, name.name) for name in node.names)
+def test_private_helpers_stay_in_their_module():
+    """Shared interfaces have ordinary names inside the private package."""
     violations = []
-    for path in (root / "_src").rglob("*.py"):
+    for path in SOURCE.rglob("*.py"):
         module = ".".join(path.relative_to(SOURCE).with_suffix("").parts)
-        for node in ast.parse(path.read_text()).body:
-            names = []
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-                names = [node.name]
-            elif isinstance(node, ast.Assign):
-                names = [
-                    n.id
-                    for target in node.targets
-                    for n in ast.walk(target)
-                    if isinstance(n, ast.Name)
-                ]
-            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-                names = [node.target.id]
-            for name in names:
-                if not name.startswith("_") and (module, name) not in public:
-                    violations.append(f"{path.relative_to(SOURCE)}:{node.lineno}: rename {name}")
+        package = (
+            module.removesuffix(".__init__")
+            if path.name == "__init__.py"
+            else module.rpartition(".")[0]
+        )
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            origin = resolve_name("." * node.level + (node.module or ""), package)
+            if not origin.startswith("uflx_spec_interpreter._src"):
+                continue
+            violations.extend(
+                f"{path.relative_to(SOURCE)}:{node.lineno}: private import {name.name}"
+                for name in node.names
+                if name.name.startswith("_") and origin != module
+            )
     assert not violations, "\n".join(violations)
 
 
 @pytest.mark.parametrize(
     ("module", "forbidden"),
     [
+        ("nodes.expressions", {"algorithms", "rules", "passes"}),
+        ("nodes.structure", {"algorithms", "rules", "passes"}),
         (
             "nodes.static",
             {

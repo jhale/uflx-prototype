@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ..algorithms.names import _derived_indices
-from ..algorithms.rewriting import _rewrite
+from ..algorithms.names import derived_indices
+from ..algorithms.rewriting import rewrite
 from ..nodes import AbstractExpression, ComponentTensor, Division, Indexed, Product, Sum
 
 
@@ -13,7 +13,7 @@ def expand_arithmetic(f: AbstractExpression) -> AbstractExpression:
     def expand(e: AbstractExpression) -> AbstractExpression:
         if not isinstance(e, Sum | Product | Division) or not e.value_shape:
             return e
-        indices = _derived_indices("uflx.expand_arithmetic", (e,), len(e.value_shape))
+        indices = derived_indices("uflx.expand_arithmetic", (e,), len(e.value_shape))
         first, second = e.first, e.second
         if first.value_shape:
             first = Indexed(first, indices)
@@ -22,4 +22,4 @@ def expand_arithmetic(f: AbstractExpression) -> AbstractExpression:
         scalar = type(e)(first, second)
         return ComponentTensor(scalar, indices)
 
-    return _rewrite(f, expand)
+    return rewrite(f, expand)

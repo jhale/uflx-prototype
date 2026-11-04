@@ -3,9 +3,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Literal, final
 
-from .arguments import _argument_members
+from .arguments import argument_members
 from .base import Base
-from .caching import _cached
+from .caching import cached
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
@@ -55,14 +55,14 @@ class ConjugateSpace(AbstractFunctionSpace):
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
-        from ..spaces import _conjugated
+        from ..spaces import conjugated
 
-        return tuple(_conjugated(V) for V in self.space.argument_spaces)
+        return tuple(conjugated(V) for V in self.space.argument_spaces)
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
-        _require(
+        require(
             self.space.scalar_type == ScalarType.complex
             and (not isinstance(self.space, ConjugateSpace)),
             "conjugate space is not canonical",
@@ -84,27 +84,27 @@ class DualSpace(AbstractFunctionSpace):
         return ()
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
-        is_complex = any(s.scalar_type == ScalarType.complex for s in _argument_members(self.space))
+        is_complex = any(s.scalar_type == ScalarType.complex for s in argument_members(self.space))
         return ScalarType.complex if is_complex else ScalarType.real
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         # The free functions import the nodes, so the import is local.
-        from ..spaces import _conjugated
+        from ..spaces import conjugated
 
-        return (_conjugated(self.space),)
+        return (conjugated(self.space),)
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
-        _require(not isinstance(self.space, DualSpace), "dual space is not canonical")
+        require(not isinstance(self.space, DualSpace), "dual space is not canonical")
         if isinstance(self.space, tuple):
-            _require(
+            require(
                 len(self.space) >= 2 and len({V.scalar_type for V in self.space}) == 1,
                 "dual product needs at least two spaces with one scalar type",
             )

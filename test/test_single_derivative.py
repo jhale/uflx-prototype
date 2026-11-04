@@ -16,7 +16,7 @@ from uflx_spec_interpreter import (
     gateaux_derivative,
     num,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import _substitute
+from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.nodes import DirectionalDerivative, Form
 from uflx_toy.spaces import space
 
@@ -32,7 +32,7 @@ def test_factory_is_interned_and_point_substitution_commutes(complex_):
     F = u * u
     e = gateaux_derivative(F, u, a, w)
     assert gateaux_derivative(F, u, a, w) is e
-    assert _substitute(e, {a: b}) is gateaux_derivative(F, u, b, w)
+    assert substitute(e, {a: b}) is gateaux_derivative(F, u, b, w)
     if not complex_:
         assert e is Form(DirectionalDerivative(F, u, a, w), (w,))
 
@@ -78,7 +78,7 @@ def test_substitution_avoids_capturing_a_form_direction():
     V = space("capture", scalar_type=ScalarType.real)
     u, z, w = (function(V, label) for label in ("u", "z", "w"))
     e = gateaux_derivative(u * z, u, u, w)
-    changed = _substitute(e, {z: w})
+    changed = substitute(e, {z: w})
     assert changed.arguments[0] is not w
     assert np.isclose(evaluate(lower(changed), {u: 2, w: 3})((7,)), 21)
 

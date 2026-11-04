@@ -4,8 +4,8 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import cell_index
-from uflx_spec_interpreter._src.calculus import _rotation_of_gradient, _trace_of_gradient
-from uflx_spec_interpreter._src.meshes import _cell_of
+from uflx_spec_interpreter._src.calculus import rotation_of_gradient, trace_of_gradient
+from uflx_spec_interpreter._src.meshes import cell_of
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
@@ -50,7 +50,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.nodes.arguments import _argument_members
+from uflx_spec_interpreter._src.nodes.arguments import argument_members
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.meshes import shape_functions
 from uflx_toy.nodes import RuntimeArray, VertexCoordinates
@@ -105,7 +105,7 @@ def index_value(i, ienv):
 
 def cell_value(m, ienv):
     # The group and the cell that a cell reads, as a library.
-    found = _cell_of(m)
+    found = cell_of(m)
     return None if found is None else (found[0], index_value(found[1], ienv))
 
 
@@ -439,7 +439,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             # Every index selects one value axis.
             values = [index_value(i, ienv) for i in idx]
-            key = tuple(k for v in values for k in _argument_members(v))
+            key = tuple(k for v in values for k in argument_members(v))
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
             # Enumerate the bound axes independently.
@@ -451,10 +451,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             fs = {
                 combo: ev(x, ienv | dict(zip(idx, combo))) for combo in itertools.product(*ranges)
             }
-            shape = tuple(m for n in extents for m in _argument_members(n))
+            shape = tuple(m for n in extents for m in argument_members(n))
 
             def flat(combo):
-                return tuple(k for v in combo for k in _argument_members(v))
+                return tuple(k for v in combo for k in argument_members(v))
 
             def value(vals):
                 out = {combo: f(vals) for combo, f in fs.items()}
@@ -492,8 +492,8 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: ff((*tuple(vals[:p]), gv, *tuple(vals[p:])))
         case DirectionalDerivative(f, x, a, h):
             # Every member of a tuple variable moves at once, along its member of the direction.
-            xs = _argument_members(x)
-            fa, fh = [ev(m) for m in _argument_members(a)], [ev(m) for m in _argument_members(h)]
+            xs = argument_members(x)
+            fa, fh = [ev(m) for m in argument_members(a)], [ev(m) for m in argument_members(h)]
 
             def moved(step):
                 return {
@@ -574,9 +574,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return normal
         case Divergence(b, P):
-            return ev(_trace_of_gradient(b, P))
+            return ev(trace_of_gradient(b, P))
         case Curl(b, P):
-            return ev(_rotation_of_gradient(b, P))
+            return ev(rotation_of_gradient(b, P))
         case Gradient(b, P):
             fb = ev(b)
 

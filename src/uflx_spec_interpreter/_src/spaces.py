@@ -20,13 +20,13 @@ def dual_space(
 
 
 @overload
-def _conjugated(S: AbstractFunctionSpace) -> AbstractFunctionSpace: ...
+def conjugated(S: AbstractFunctionSpace) -> AbstractFunctionSpace: ...
 @overload
-def _conjugated(S: tuple[AbstractFunctionSpace, ...]) -> tuple[AbstractFunctionSpace, ...]: ...
-def _conjugated(
+def conjugated(S: tuple[AbstractFunctionSpace, ...]) -> tuple[AbstractFunctionSpace, ...]: ...
+def conjugated(
     S: AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...],
 ) -> AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...]:
     # The conjugate of an argument space, so that conjugating twice gives the space back.
     if isinstance(S, tuple):
-        return tuple(_conjugated(V) for V in S)
+        return tuple(conjugated(V) for V in S)
     return S.space if isinstance(S, ConjugateSpace) else conjugate_space(S)

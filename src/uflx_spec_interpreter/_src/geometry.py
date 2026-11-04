@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 def jacobian(D: DomainMap | CellMap) -> AbstractExpression:
-    source, _ = _geometric_map(D)
+    source, _ = geometric_map(D)
     return Gradient(D.parameterisation, source)
 
 
@@ -25,7 +25,7 @@ def _metric(D: DomainMap | CellMap) -> AbstractExpression:
 
 def density(D: DomainMap | CellMap) -> AbstractExpression:
     # sqrt(det G), with the closed form |det J| for a cell of the ambient dimension.
-    source, target = _geometric_map(D)
+    source, target = geometric_map(D)
     k, n = source.dimension, target.dimension
     if k == 0:
         return Integer(1)
@@ -39,7 +39,7 @@ def inverse_jacobian(D: DomainMap | CellMap) -> AbstractExpression:
     return Inverse(jacobian(D))
 
 
-def _geometric_map(
+def geometric_map(
     D: DomainMap | CellMap,
 ) -> tuple[AbstractCoordinateDomain, AbstractCoordinateDomain]:
     from .nodes import AbstractCoordinateDomain, Mesh

@@ -31,9 +31,9 @@ from uflx_spec_interpreter._src.nodes import (
     PullBack,
 )
 from uflx_spec_interpreter._src.passes import integrals
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
-from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
+from uflx_spec_interpreter._src.passes.lowering import lower_spatial
+from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 
@@ -104,7 +104,7 @@ def main(trials):
         E, sides = rnd.choice([(E_int, sides_int), (E_bnd, sides_bnd)])
         e_int = integral(integrand(rnd, E, sides), E)
         out3 = integrals.expand_integrals(e_int)
-        out = _lower_spatial(out3)
+        out = lower_spatial(out3)
         out = expand_arithmetic(out)
         if contains(
             out3,
@@ -115,11 +115,11 @@ def main(trials):
             ),
         ):
             lazy += 1
-            rejected += not _pull_backs_expanded(out3)
+            rejected += not pull_backs_expanded(out3)
         check_types(bad, e_int, out)
         if not keeps_static_type(e_int, out):
             bad["static"] += 1
-        bad["grammar"] += not (_pull_backs_expanded(out) and _in_core_normal_form(out))
+        bad["grammar"] += not (pull_backs_expanded(out) and in_core_normal_form(out))
         before, after = evaluate(e_int, env)(()), evaluate(out, env)(())
         if not np.allclose(before, after, rtol=1e-5, atol=1e-7):
             bad["value"] += 1

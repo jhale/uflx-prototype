@@ -8,4 +8,4 @@ if TYPE_CHECKING:
     from .base import Base
 
 
-_Construction: TypeAlias = "Base | int | float | str | tuple[_Construction, ...]"
+Construction: TypeAlias = "Base | int | float | str | tuple[Construction, ...]"

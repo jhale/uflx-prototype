@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, TypeGuard, cast
 
-from uflx_spec_interpreter._src.algorithms.substitution import _substitute
+from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.nodes import (
     AbstractTopology,
     CellMap,
@@ -22,13 +22,6 @@ if TYPE_CHECKING:
 
     from .nodes.domains import AbstractCoordinateDomain
     from .nodes.maps import DomainMap
-
-
-def _cell_domain(
-    D: AbstractTopology | Mesh, j: int, e: int | Index | GatheredIndex | None = None
-) -> CellMap:
-    # Private compatibility spelling; both topology and mesh cells are CellMaps.
-    return cell_map(D, j, e)
 
 
 def cell_map(
@@ -52,7 +45,7 @@ def push_forward(f: AbstractExpression, D: Mesh, m: TransformationLaw) -> PushFo
     return PushForward(f, D, m)
 
 
-def _cell_of(m: DomainMap | CellMap | SideMap) -> tuple[int, int | Index | GatheredIndex] | None:
+def cell_of(m: DomainMap | CellMap | SideMap) -> tuple[int, int | Index | GatheredIndex] | None:
     return (
         (m.cell_group, m.entry)
         if isinstance(m, CellMap) and isinstance(m.ambient_domain, Mesh)
@@ -60,8 +53,8 @@ def _cell_of(m: DomainMap | CellMap | SideMap) -> tuple[int, int | Index | Gathe
     )
 
 
-def _is_cell(m: DomainMap | CellMap | SideMap) -> TypeGuard[CellMap]:
-    return _cell_of(m) is not None
+def is_cell(m: DomainMap | CellMap | SideMap) -> TypeGuard[CellMap]:
+    return cell_of(m) is not None
 
 
 def side_map(X: Mesh | AbstractTopology, P: Mesh | AbstractTopology, s: str) -> SideMap:
@@ -73,7 +66,7 @@ def side_domain(D: Mesh, S: AbstractTopology, s: str) -> Mesh:
     return image(PullBack(x, side_map(D.topology, S, s)), D.ambient_domain)
 
 
-def _inclusion(
+def inclusion(
     X: Mesh | AbstractTopology, S: AbstractTopology, i: int, s: str, e: int | Index | GatheredIndex
 ) -> tuple[CellMap, DomainMap]:
     # B, the cell on the side s of cell e of group i, and A, the inclusion of cell e into it.
@@ -82,7 +75,7 @@ def _inclusion(
     c = cell_index(S, i)
     g = GatheredIndex(cells, (e,))
     B = CellMap(X, j, g)
-    return B, cast("DomainMap", _substitute(A, {c: e}))
+    return B, cast("DomainMap", substitute(A, {c: e}))
 
 
 def normal(sm: SideMap) -> Normal:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from functools import reduce
 
-from .algorithms.names import _derived_indices
+from .algorithms.names import derived_indices
 from .nodes import (
     Absolute,
     AbstractExpression,
@@ -59,7 +59,7 @@ def _entrywise(
 ) -> AbstractExpression:
     if not len(f.value_shape):
         return op(f)
-    k = _derived_indices(name, (f,), len(f.value_shape))
+    k = derived_indices(name, (f,), len(f.value_shape))
     return ComponentTensor(op(Indexed(f, k)), k)
 
 
@@ -79,5 +79,5 @@ def logarithm(f: AbstractExpression) -> AbstractExpression:
     return Logarithm(f)
 
 
-def _total(es: Iterable[AbstractExpression]) -> AbstractExpression:
+def total(es: Iterable[AbstractExpression]) -> AbstractExpression:
     return reduce(Sum, es)

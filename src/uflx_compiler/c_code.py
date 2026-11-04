@@ -7,8 +7,7 @@ from functools import cache
 
 import numpy as np
 
-from uflx_spec_interpreter._src.algorithms.substitution import _substitute
-from uflx_spec_interpreter._src.algorithms.traversal import _expressions
+from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     BroadcastTo,
@@ -31,6 +30,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
+from uflx_spec_interpreter._src.nodes.structure import expression_operands
 from uflx_toy.nodes import RuntimeArray
 
 from .contractions import _factor_contraction
@@ -122,7 +122,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
     folded = {}
     for components in np.ndindex(tuple(extents[i] for i in unroll_indices)):
         selected = dict(zip(unroll_indices, components, strict=True))
-        expression = simplify(_substitute(e, selected)) if selected else e
+        expression = simplify(substitute(e, selected)) if selected else e
         expressions.append((selected, expression))
         folded.update(fold(expression, preserve_indices=(*output_indices, *(index_bindings or {}))))
     loop_indices = tuple(i for i in output_indices if i not in unroll_indices)
@@ -235,7 +235,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
         indices = set()
         if isinstance(n, Indexed) and isinstance(n.expression, Tensor):
             indices.update(i for i in n.indices if isinstance(i, Index))
-        for child in _expressions(n):
+        for child in expression_operands(n):
             indices.update(selected_indices(child))
         return frozenset(indices)
 
@@ -411,7 +411,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
         if n in folded or isinstance(n, RuntimeArray):
             return 0
         arithmetic = isinstance(n, (Sum, Product, Division, Power, IndexSum, Inverse, Determinant))
-        return int(arithmetic) + sum(work(child) for child in _expressions(n))
+        return int(arithmetic) + sum(work(child) for child in expression_operands(n))
 
     def prepare(n, bound):
         # Materialise maximal computations reused across an output index.
@@ -459,7 +459,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
                 return
             if isinstance(n, (Tensor, IndexSum, ComponentTensor)):
                 return  # Do not cross conditional branches or local index bindings.
-            for child in _expressions(n):
+            for child in expression_operands(n):
                 visit(child)
 
         visit(n)

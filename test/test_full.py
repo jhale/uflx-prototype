@@ -32,10 +32,10 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.literals import _zero
+from uflx_spec_interpreter._src.literals import zero
 from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative
 from uflx_spec_interpreter._src.passes import actions, derivatives
-from uflx_spec_interpreter._src.passes.actions import _actions_complete
+from uflx_spec_interpreter._src.passes.actions import actions_complete
 from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
 from uflx_toy.spaces import space
 
@@ -217,7 +217,7 @@ def random_form(rnd, specs, depth):
         return leaf_form(rnd, specs) if specs else scalar(rnd, 2)
     op = rnd.randrange(9)
     if op == 8:
-        return _zero((), (), tuple(spaces(spec) for spec in specs), ScalarType.real)
+        return zero((), (), tuple(spaces(spec) for spec in specs), ScalarType.real)
     if op == 0:
         return add(random_form(rnd, specs, depth - 1), random_form(rnd, specs, depth - 1))
     if op == 1:
@@ -278,8 +278,8 @@ def main(trials):
             ),
         ):
             lazy += 1
-            rejected += not (_actions_complete(e) and _derivatives_complete(e))
-        if not (_actions_complete(out) and _derivatives_complete(out)):
+            rejected += not (actions_complete(e) and _derivatives_complete(e))
+        if not (actions_complete(out) and _derivatives_complete(out)):
             bad["grammar"] += 1
         vals = tuple(entry_value(rng, s) for s in specs)
         fr = dict(e.free_indices)

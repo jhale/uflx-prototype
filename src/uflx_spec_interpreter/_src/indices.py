@@ -6,10 +6,10 @@ from .nodes import GatheredIndex, Index
 
 if TYPE_CHECKING:
     from .nodes.indices import AbstractIndexTable
-    from .nodes.types import _Construction
+    from .nodes.types import Construction
 
 
-def index(label: str | tuple[_Construction, ...]) -> Index:
+def index(label: str | tuple[Construction, ...]) -> Index:
     return Index(label)
 
 

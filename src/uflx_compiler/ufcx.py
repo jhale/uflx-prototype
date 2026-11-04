@@ -19,16 +19,12 @@ from uflx_spec_interpreter import (
     index_sum,
     lower,
     multiply,
+    reference_integral,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.names import _derived_index
-from uflx_spec_interpreter._src.algorithms.substitution import _substitute
-from uflx_spec_interpreter._src.algorithms.traversal import (
-    _bottom_up,
-    _map_fields,
-    _memoized,
-    _operands,
-)
+from uflx_spec_interpreter._src.algorithms.names import derived_index
+from uflx_spec_interpreter._src.algorithms.substitution import substitute
+from uflx_spec_interpreter._src.algorithms.traversal import bottom_up, map_fields, memoized
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Form,
@@ -41,7 +37,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.rules.integration import _piece_integral
+from uflx_spec_interpreter._src.nodes.structure import operands
 from uflx_toy.basix_nodes import BasixSpace
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.nodes import VertexCoordinates
@@ -84,7 +80,7 @@ def _nodes(expression):
         if node not in seen:
             seen.add(node)
             yield node
-            for child in _operands(node):
+            for child in operands(node):
                 yield from visit(child)
 
     return visit(expression)
@@ -148,13 +144,13 @@ def compile_ufcx(
         # or symbolic input topologies. User inputs are returned in their original identity.
         local = tabulated_topology("ufcx_pair", mesh.topology.cell_types, (2,), (), ())
         mapping = {mesh.topology: local}
-        originals = {_substitute(u, mapping): u for u in _nodes(f) if isinstance(u, Function)}
-        f, mesh, domain = (_substitute(n, mapping) for n in (f, mesh, domain))
-        geometry = tuple(_substitute(n, mapping) for n in geometry)
+        originals = {substitute(u, mapping): u for u in _nodes(f) if isinstance(u, Function)}
+        f, mesh, domain = (substitute(n, mapping) for n in (f, mesh, domain))
+        geometry = tuple(substitute(n, mapping) for n in geometry)
         if coefficients is not None:
-            coefficients = tuple(_substitute(n, mapping) for n in coefficients)
+            coefficients = tuple(substitute(n, mapping) for n in coefficients)
         if constants is not None:
-            constants = tuple(_substitute(n, mapping) for n in constants)
+            constants = tuple(substitute(n, mapping) for n in constants)
     f = normalize(f)
     arguments = ()
     while isinstance(f, Form):
@@ -187,9 +183,9 @@ def compile_ufcx(
     shape = tuple(width * n for n in dimensions[: len(arguments)])
     coefficient_offsets = _offsets(width * n for n in dimensions[len(arguments) :])
     constant_offsets = _offsets(prod(c.value_shape) for c in constants)
-    rows = tuple(_derived_index("compiler.ufcx.argument", i) for i in range(len(arguments)))
+    rows = tuple(derived_index("compiler.ufcx.argument", i) for i in range(len(arguments)))
     components = {
-        u: _derived_index("compiler.ufcx.component", i)
+        u: derived_index("compiler.ufcx.component", i)
         for i, u in enumerate(arguments)
         if u.space.block_size > 1
     }
@@ -223,7 +219,7 @@ def compile_ufcx(
         integral_type = "interior_facet" if width == 2 else "exterior_facet"
         local, reference_values, bindings = _facet_tables(mesh, domain, width)
         mapping = {domain.topology: local}
-        f, domain = (_substitute(n, mapping) for n in (f, domain))
+        f, domain = (substitute(n, mapping) for n in (f, domain))
     expression = _local_expression(
         f,
         degree,
@@ -310,7 +306,7 @@ def _coordinate_fields(f, mesh):
             for k in range(mesh.ambient_coordinate_domain.dimension)
         )
         local_mesh = image(tensor(geometry), mesh.ambient_coordinate_domain)
-        f = _substitute(
+        f = substitute(
             f, {mesh: local_mesh, mesh.coordinate_function: local_mesh.coordinate_function}
         )
         mesh = local_mesh
@@ -348,11 +344,10 @@ def _local_expression(
             return node
         if node.integration_domain != domain:
             raise NotImplementedError("one integration domain is required per UFCx form")
-        piece = _piece_integral(node.expression, domain, 0)
-        return _substitute(piece.expression, {piece.indices[0]: 0})
+        return reference_integral(node.expression, domain, 0, 0)
 
-    f = apply_quadrature(lower(_bottom_up(f, local_integral)), degree)
-    f = _substitute(f, reference_values)
+    f = apply_quadrature(lower(bottom_up(f, local_integral)), degree)
+    f = substitute(f, reference_values)
 
     def tabulate(node):
         if node in inputs:
@@ -365,7 +360,7 @@ def _local_expression(
         if not isinstance(u, Function) or piece != 0 or cell not in range(width):
             raise NotImplementedError("expected a local Basix field read")
         E = _element(u.space)
-        dof = _derived_index("compiler.ufcx.dof", u, cell)
+        dof = derived_index("compiler.ufcx.dof", u, cell)
         block_size = u.space.block_size
         if width == 1 and u in argument_rows:
             dof = argument_rows[u]
@@ -399,10 +394,10 @@ def _local_expression(
     def visit(visit, node):
         replacement = tabulate(node)
         return (
-            replacement if replacement is not node else _map_fields(node, visit, node.value_fields)
+            replacement if replacement is not node else map_fields(node, visit, node.value_fields)
         )
 
-    return simplify(_memoized(visit)(f))
+    return simplify(memoized(visit)(f))
 
 
 def _argument_block(value, dof, row, side, dimension):

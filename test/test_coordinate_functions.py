@@ -22,11 +22,11 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import _everywhere
-from uflx_spec_interpreter._src.meshes import _cell_domain, _is_cell
+from uflx_spec_interpreter._src.algorithms.traversal import everywhere
+from uflx_spec_interpreter._src.meshes import is_cell
 from uflx_spec_interpreter._src.nodes import CellMap, Division, Gradient, PullBack
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
+from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.indices import index_table
@@ -58,7 +58,7 @@ def labelled(env):
 
 def nodes(e):
     found = []
-    _everywhere(e, lambda n: found.append(n) or True)
+    everywhere(e, lambda n: found.append(n) or True)
     return found
 
 
@@ -67,8 +67,8 @@ def test_a_mesh_from_a_coordinate_function_has_the_topology_and_the_cells_of_the
     x = D.coordinate_function
     assert D.topology == T and x.domain == T
     g = gathered_index(index_table((1, 0), 2), (index("i"),))
-    C = _cell_domain(D, 0, g)
-    assert C.parameterisation == pull_back(x, CellMap(T, 0, g)) and _is_cell(C)
+    C = cell_map(D, 0, g)
+    assert C.parameterisation == pull_back(x, CellMap(T, 0, g)) and is_cell(C)
     assert cell_map(T, 0) == CellMap(T, 0, cell_index(T, 0))
 
 
@@ -90,8 +90,8 @@ def test_a_p1_coordinate_function_gives_the_values_of_the_explicit_mesh():
 def test_the_jacobian_of_a_mesh_is_the_reference_gradient_of_the_coordinate_function():
     D, _ = p1_mesh()
     u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
-    out = _lower_spatial(expand_integrals(functionals(D, u)[3]))
-    assert _in_core_normal_form(out)
+    out = lower_spatial(expand_integrals(functionals(D, u)[3]))
+    assert in_core_normal_form(out)
     # The Jacobian is the reference gradient of the reads of x0 and x1 through the cell maps.
     gradients_of_reads = [
         n.expression.expression.label
@@ -153,13 +153,13 @@ def test_a_gathered_cell_of_a_mesh_reads_the_cells_that_the_entry_selects():
     U = np.random.default_rng(2).normal(size=u.expression.space.num_dofs)
     i, c = index("i"), cell_index(T, 0)
     g = gathered_index(index_table((1, 0), 2), (i,))
-    gathered = index_sum(integral(pull_back(u, _cell_domain(D, 0, g)), K), (i,))
-    plain = index_sum(integral(pull_back(u, _cell_domain(D, 0)), K), (c,))
+    gathered = index_sum(integral(pull_back(u, cell_map(D, 0, g)), K), (i,))
+    plain = index_sum(integral(pull_back(u, cell_map(D, 0)), K), (c,))
     env = labelled(geometry) | {"coefficients:u": U}
     value = evaluate(compile_form(gathered, 4), env)
     assert np.isclose(value, evaluate(compile_form(plain, 4), env))
     assert np.isclose(value, oracle(gathered, geometry | {u.expression: U})(()))
-    assert _in_core_normal_form(apply_gradients(gathered))
+    assert in_core_normal_form(apply_gradients(gathered))
 
 
 def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
@@ -167,7 +167,7 @@ def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
     # form are cells of the mesh of the user, and its function is the function of the user.
     D, _ = p1_mesh()
     uT = function(basix_space("V", T, P, 2), "u")
-    out = _lower_spatial(expand_integrals(functionals(D, push_forward(uT, D))[3]))
+    out = lower_spatial(expand_integrals(functionals(D, push_forward(uT, D))[3]))
     # The function of the user is read through the cell maps of the topology of the user.
     reads = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == uT]
     assert reads and all(n.map.ambient_domain == T for n in reads)

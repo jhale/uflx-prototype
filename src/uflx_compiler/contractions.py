@@ -4,9 +4,9 @@ from functools import cache
 from itertools import product
 
 from uflx_spec_interpreter import add, multiply, num
-from uflx_spec_interpreter._src.algorithms.substitution import _substitute
-from uflx_spec_interpreter._src.algorithms.traversal import _expressions
+from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.nodes import Index, Indexed, IndexSum, Product, Sum, Tensor, Zero
+from uflx_spec_interpreter._src.nodes.structure import expression_operands
 
 from .algebra import _normalizer
 from .simplification import simplify
@@ -28,7 +28,7 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
         indices = set()
         if isinstance(expression, Indexed) and isinstance(expression.expression, Tensor):
             indices.update(i for i in expression.indices if isinstance(i, Index))
-        for child in _expressions(expression):
+        for child in expression_operands(expression):
             indices.update(selected_indices(child))
         return frozenset(indices)
 
@@ -46,7 +46,7 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
                 ):
                     entries = (
                         simplify(
-                            _substitute(
+                            substitute(
                                 node.expression, dict(zip(node.indices, values, strict=True))
                             )
                         )

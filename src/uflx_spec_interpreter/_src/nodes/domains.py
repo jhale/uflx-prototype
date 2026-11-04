@@ -43,11 +43,11 @@ class RD(AbstractCoordinateDomain):
         return self._dimension
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
         if type(self.dimension) is not int:
             raise TypeError("dimension must be an integer")
-        _require(self.dimension >= 0, "dimension must be nonnegative")
+        require(self.dimension >= 0, "dimension must be nonnegative")
 
 
 class AbstractReferenceCell(AbstractCoordinateDomain, AbstractCellType):

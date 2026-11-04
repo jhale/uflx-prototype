@@ -4,8 +4,8 @@ from test_integrals import D, c
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import ScalarType, conjugate_space, dual_space
 from uflx_spec_interpreter._src import nodes
-from uflx_spec_interpreter._src.algorithms.traversal import _rebuild
-from uflx_spec_interpreter._src.meshes import _cell_domain
+from uflx_spec_interpreter._src.algorithms.traversal import rebuild
+from uflx_spec_interpreter._src.meshes import cell_map
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Base,
@@ -61,10 +61,10 @@ def test_the_static_type_is_computed_once():
 
 def test_a_pull_back_leaves_a_gathered_entry_unchanged():
     g = GatheredIndex(IndexTable((1, 0), 2), (c,))
-    out = pullbacks.expand_pull_backs(PullBack(Indexed(Coordinate(D), (g,)), _cell_domain(D, 0)))
+    out = pullbacks.expand_pull_backs(PullBack(Indexed(Coordinate(D), (g,)), cell_map(D, 0)))
     assert isinstance(out, Indexed) and out.indices == (g,) and out.indices[0] is g
     # The coordinates of a cell of a mesh are the read of its coordinate function on the cell.
-    assert out.expression == _cell_domain(D, 0).parameterisation
+    assert out.expression == cell_map(D, 0).parameterisation
 
 
 def test_a_curried_form_has_the_argument_spaces_of_its_expression_first():
@@ -134,8 +134,8 @@ def test_nodes_are_immutable_and_take_their_arguments():
     with pytest.raises(TypeError):
         nodes.Integer(1, 2)
     with pytest.raises(TypeError):
-        _rebuild(e, other=3)
-    assert _rebuild(e, value=2) is nodes.Integer(2)
+        rebuild(e, other=3)
+    assert rebuild(e, value=2) is nodes.Integer(2)
     assert nodes.Sum.argument_names == ("first", "second")
     assert nodes.Form.argument_names == ("expression", "arguments")
 
@@ -165,13 +165,13 @@ def test_a_reference_cell_is_a_coordinate_domain_and_a_cell_type():
     assert K != nodes.RD(2) and reference_simplex(0) != nodes.RD(0)
 
 
-def test_cell_domains_are_domain_maps_into_the_mesh():
+def testcell_maps_are_domain_maps_into_the_mesh():
     piece = D.pieces[0]
-    cells = _cell_domain(D, 0)
+    cells = cell_map(D, 0)
     assert cells == CellMap(D, 0, nodes.Index(("uflx.cell_index", D.topology, 0, 0)))
     assert dict(cells.free_indices) == dict(piece.parameterisation.free_indices)
     g = GatheredIndex(IndexTable((1, 0), 2), (Index("e"),))
     # A cell of a mesh is piece j with the entry of its cell map in place of the cell index.
     x = piece.parameterisation.expression
     cell = PullBack(x, CellMap(x.domain, 0, g))
-    assert _cell_domain(D, 0, g).parameterisation == cell
+    assert cell_map(D, 0, g).parameterisation == cell

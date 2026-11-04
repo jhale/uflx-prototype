@@ -22,7 +22,7 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import _bottom_up, _operands
+from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Action,
@@ -32,6 +32,7 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
+from uflx_spec_interpreter._src.nodes.structure import operands
 from uflx_spec_interpreter._src.passes import derivatives
 from uflx_toy.spaces import space
 
@@ -42,7 +43,7 @@ def nodes(e):
     def walk(e):
         if e not in seen:
             seen.add(e)
-            for child in _operands(e):
+            for child in operands(e):
                 walk(child)
 
     walk(e)
@@ -148,7 +149,7 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
 ):
     from uflx_spec_interpreter._src.rules import differentiation
 
-    original = differentiation._derivative_of_node
+    original = differentiation.derivative_of_node
 
     def library_rule(e, d, constant, avoid, at=lambda e: e):
         if type(e) is LibraryValue:
@@ -158,7 +159,7 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
         return original(e, d, constant, avoid, at)
 
     # Test adapter for an extension-supplied derivative rule, not a new public registry.
-    monkeypatch.setattr(differentiation, "_derivative_of_node", library_rule)
+    monkeypatch.setattr(differentiation, "derivative_of_node", library_rule)
     V = space("opaque-nonlinear")
     u, w = function(V, "u"), function(V, "w")
     a, h = num(0.7 + 0.2j), num(0.3 - 0.1j)
@@ -183,7 +184,7 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
         (minus, conjugate(h), 0),
     ):
         out = lower(action(derivative, 0, argument))
-        resolved = _bottom_up(out, supply_library_values)
+        resolved = bottom_up(out, supply_library_values)
         assert np.isclose(evaluate(resolved, {})(()), expected)
 
 
@@ -217,13 +218,13 @@ def test_rotated_direction_uses_the_general_differential(monkeypatch, antilinear
     u, h = function(V, "u"), function(V, "h")
     body = conjugate(u * u) if antilinear else u * u
     calls = []
-    original = derivatives._deriv
+    original = derivatives.deriv
 
     def record(*args, **kwargs):
         calls.append(args)
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(derivatives, "_deriv", record)
+    monkeypatch.setattr(derivatives, "deriv", record)
     out = derivatives.apply_derivatives(gateaux_derivative(body, u, u, h))
     assert len(calls) == 2
     point, direction = 0.7 + 0.2j, 0.3 - 0.1j
@@ -235,13 +236,13 @@ def test_direction_occurring_at_point_does_not_use_shortcut(monkeypatch):
     V = space("nonfresh-direction")
     u, h = function(V, "u"), function(V, "h")
     calls = []
-    original = derivatives._deriv
+    original = derivatives.deriv
 
     def record(*args, **kwargs):
         calls.append(args)
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(derivatives, "_deriv", record)
+    monkeypatch.setattr(derivatives, "deriv", record)
     out = derivatives.apply_derivatives(
         DirectionalDerivative(u * u, u, h, Complex(Integer(0), Integer(1)) * h)
     )
@@ -255,13 +256,13 @@ def test_mixed_differential_retains_general_projection(monkeypatch):
     V = space("mixed-fallback")
     u, h = function(V, "u"), function(V, "h")
     calls = []
-    original = derivatives._deriv
+    original = derivatives.deriv
 
     def record(*args, **kwargs):
         calls.append(args)
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(derivatives, "_deriv", record)
+    monkeypatch.setattr(derivatives, "deriv", record)
     out = derivatives.apply_derivatives(gateaux_derivative(u * conjugate(u), u, u, h))
     assert len(calls) == 2
     point, direction = 0.7 + 0.2j, 0.3 - 0.1j

@@ -15,7 +15,7 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import _bottom_up
+from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
 from uflx_spec_interpreter._src.nodes import (
     AbstractDomain,
     AbstractExpression,
@@ -25,9 +25,9 @@ from uflx_spec_interpreter._src.nodes import (
     Mesh,
 )
 from uflx_spec_interpreter._src.passes.contracts import (
-    _core_normal_form,
-    _derivatives_expanded,
-    _reference_integration,
+    core_normal_form,
+    derivatives_expanded,
+    reference_integration,
 )
 
 
@@ -42,7 +42,7 @@ def valid(f: Function, g: Function) -> None:
     assert_type(add(f, g), AbstractExpression)
     assert_type(lower(f), AbstractExpression)
     assert_type(Complex(Integer(1), Float(2.0)), Complex)
-    assert_type(_bottom_up(f, lambda e: e), AbstractExpression)
+    assert_type(bottom_up(f, lambda e: e), AbstractExpression)
 
 
 def invalid(u: Function, v: Function, w: Function, z: Function, mesh: Mesh) -> None:
@@ -51,9 +51,9 @@ def invalid(u: Function, v: Function, w: Function, z: Function, mesh: Mesh) -> N
     gateaux_derivative(u, (u, num(1)), (u, v), (w, z))  # expect: reportArgumentType
     gateaux_derivative(u, u, u, num(1))  # expect: reportArgumentType
     gateaux_derivative(u, u, 1, w)  # expect: reportArgumentType
-    _derivatives_expanded(3)  # expect: reportArgumentType
-    _reference_integration(3)  # expect: reportArgumentType
-    _core_normal_form(3)  # expect: reportArgumentType
+    derivatives_expanded(3)  # expect: reportArgumentType
+    reference_integration(3)  # expect: reportArgumentType
+    core_normal_form(3)  # expect: reportArgumentType
     lower(1)  # expect: reportArgumentType
     RD("2")  # expect: reportArgumentType
     Gradient(u, 2)  # expect: reportArgumentType
@@ -62,7 +62,7 @@ def invalid(u: Function, v: Function, w: Function, z: Function, mesh: Mesh) -> N
     domain_map(RD(0), tensor((num(0),)), mesh)  # expect: reportArgumentType
     tensor((1,))  # expect: reportArgumentType
     Complex(Integer(1) + Integer(2), Integer(0))  # expect: reportArgumentType
-    _bottom_up(u, lambda e: e.domain)  # expect: reportArgumentType
+    bottom_up(u, lambda e: e.domain)  # expect: reportArgumentType
 
 
 def incomplete(node: Integer | Float) -> int | None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, cast, final
 
 from .base import Base
-from .caching import _cached
+from .caching import cached
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
 from .expressions import AbstractExpression
 from .indices import GatheredIndex, Index
@@ -41,7 +41,7 @@ class Mesh(AbstractDomain):
         return self.topology.dimension
 
     @property
-    @_cached
+    @cached
     def pieces(self) -> tuple[DomainMap, ...]:
         # Derived views for integration and the oracle, not construction arguments.
         from ..meshes import cell_map
@@ -58,23 +58,23 @@ class Mesh(AbstractDomain):
         return tuple(pieces)
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
         f = self.coordinate_function
         topology = self.topology
-        _require(
+        require(
             all(isinstance(K, AbstractReferenceCell) for K in topology.cell_types),
             "mesh cells must be reference cells",
         )
-        _require(not f.free_indices, "mesh coordinates must have no free indices")
-        _require(
+        require(not f.free_indices, "mesh coordinates must have no free indices")
+        require(
             not f.free_indices
             and (not f.argument_spaces)
             and (f.scalar_type == ScalarType.real)
             and (f.value_shape == (self.ambient_domain.dimension,)),
             "invalid mesh coordinates",
         )
-        _require(
+        require(
             topology.dimension <= self.ambient_domain.dimension,
             "mesh dimension exceeds ambient dimension",
         )
@@ -100,7 +100,7 @@ class CellMap(Base):
         return cell
 
     @property
-    @_cached
+    @cached
     def parameterisation(self) -> AbstractExpression:
         from .maps import PullBack
 
@@ -112,7 +112,7 @@ class CellMap(Base):
         )
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         if isinstance(self.entry, GatheredIndex):
             return self.entry.free_indices
@@ -121,20 +121,20 @@ class CellMap(Base):
         return ((self.entry, self.topology.num_cells[self.cell_group]),)
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
         if type(self.cell_group) is not int:
             raise TypeError("cell group must be an integer")
-        _require(0 <= self.cell_group < len(self.topology.cell_types), "invalid cell group")
+        require(0 <= self.cell_group < len(self.topology.cell_types), "invalid cell group")
         self.parameter_domain  # Check that the selected cell is a reference cell.
         size = self.topology.num_cells[self.cell_group]
         if isinstance(self.entry, int):
-            _require(
+            require(
                 type(size) is int and 0 <= self.entry < size,
                 "cell selection is outside the group",
             )
         elif isinstance(self.entry, GatheredIndex):
-            _require(self.entry.extent == size, "cell gather has the wrong extent")
+            require(self.entry.extent == size, "cell gather has the wrong extent")
         else:
             pass
 
@@ -153,16 +153,16 @@ class SideMap(Base):
         return P if isinstance(P, AbstractTopology) else P.topology
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
         X = self.ambient_domain
         S = self.side_topology
         T = X.topology if isinstance(X, Mesh) else X
-        _require(
+        require(
             all(isinstance(K, AbstractReferenceCell) for K in S.cell_types),
             "side cells must be reference cells",
         )
-        _require(
+        require(
             len(S.sides) == len(S.cell_types)
             and all(
                 any((name == self.side and U == T for name, U, _ in sides)) for sides in S.sides
@@ -183,9 +183,9 @@ class TransformationLaw(Base):
     weight: int
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
-        _require(
+        require(
             all(v in ("covariant", "contravariant") for v in self.variances), "unknown variance"
         )
         if type(self.weight) is not int:
@@ -202,7 +202,7 @@ class PushForward(AbstractExpression):
     law: TransformationLaw
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         # A covariant or a contravariant axis has the extent k on the reference cell and n on D.
         shape, p = self.expression.value_shape, len(self.law.variances)
@@ -210,36 +210,36 @@ class PushForward(AbstractExpression):
         return (*shape[: len(shape) - p], *(n for _ in range(p)))
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.expression.free_indices
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.expression)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.mesh
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
-        _require(
+        require(
             self.expression.domain in (None, self.mesh.topology),
             "push-forward source differs from the topology",
         )
         p = len(self.law.variances)
-        _require(
+        require(
             len(self.expression.value_shape) >= p
             and (not p or self.expression.value_shape[-p:] == (self.mesh.dimension,) * p),
             "transformed axes have the wrong extent",
@@ -254,7 +254,7 @@ class Normal(AbstractExpression):
     side_map: SideMap
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
 
         domain = self.side_map.ambient_domain
@@ -263,31 +263,31 @@ class Normal(AbstractExpression):
         return (domain.ambient_coordinate_domain.dimension,)
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.side_map.parameter_domain
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     def _validate(self) -> None:
-        from .validation import _require
+        from .validation import require
 
-        _require(
+        require(
             isinstance(self.side_map.ambient_domain, Mesh)
             and self.side_map.parameter_domain.dimension
             == self.side_map.ambient_domain.dimension - 1,

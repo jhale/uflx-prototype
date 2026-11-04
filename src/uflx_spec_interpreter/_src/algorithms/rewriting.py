@@ -6,27 +6,27 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from ..nodes import AbstractExpression, Zero
-from ..nodes.static import _free_indices
-from .traversal import _map_values
+from ..nodes.static import free_indices
+from .traversal import map_values
 
 if TYPE_CHECKING:
     from ..nodes.spaces import AbstractFunctionSpace
 
 
-def _zero_like(
+def zero_like(
     f: AbstractExpression,
     argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...],
     *others: AbstractExpression,
 ) -> Zero:
     return Zero(
         f.value_shape,
-        _free_indices(f, *others),
+        free_indices(f, *others),
         argument_spaces,
         f.scalar_type,
     )
 
 
-def _complete_indices(
+def complete_indices(
     original: AbstractExpression, replacement: AbstractExpression
 ) -> AbstractExpression:
     """Restore a rewrite's lost family indices, rejecting incompatible signatures.
@@ -44,19 +44,19 @@ def _complete_indices(
     expected, actual = dict(original.free_indices), dict(replacement.free_indices)
     if not actual.items() <= expected.items():
         raise ValueError("a replacement introduces an index or changes its extent")
-    replacement = _promote(original, replacement)
+    replacement = promote(original, replacement)
     if actual.keys() == expected.keys():
         return replacement
     if isinstance(replacement, Zero):
-        return _zero_like(original, original.argument_spaces)
+        return zero_like(original, original.argument_spaces)
     from ..tensors import broadcast_to, component_tensor, indexed
-    from .names import _derived_indices
+    from .names import derived_indices
 
     # SH06. Selecting a repeated value preserves an index without introducing a sum.
     for i, n in original.free_indices:
         if i in actual:
             continue
-        axes = _derived_indices(
+        axes = derived_indices(
             "uflx.complete_indices", (original, replacement, i), len(replacement.value_shape)
         )
         repeated = broadcast_to(replacement, (n, *replacement.value_shape))
@@ -65,7 +65,7 @@ def _complete_indices(
     return replacement
 
 
-def _promote(original: AbstractExpression, replacement: AbstractExpression) -> AbstractExpression:
+def promote(original: AbstractExpression, replacement: AbstractExpression) -> AbstractExpression:
     from ..arithmetic import multiply
     from ..nodes import Complex, Integer, ScalarType
 
@@ -83,7 +83,7 @@ def _promote(original: AbstractExpression, replacement: AbstractExpression) -> A
     return multiply(Complex(Integer(1), Integer(0)), replacement)
 
 
-def _rewrite(
+def rewrite(
     f: AbstractExpression, rule: Callable[[AbstractExpression], AbstractExpression]
 ) -> AbstractExpression:
     """SH19-SH21. Visit operands, then complete and visit replacements.
@@ -100,10 +100,10 @@ def _rewrite(
         if e in active:
             raise ValueError("rewrite cycle", e)
         active.add(e)
-        rebuilt = _map_values(e, visit)
+        rebuilt = map_values(e, visit)
         replacement = rule(rebuilt)
         if replacement != rebuilt:
-            replacement = _complete_indices(rebuilt, replacement)
+            replacement = complete_indices(rebuilt, replacement)
         out = rebuilt if replacement == rebuilt else visit(replacement)
         active.remove(e)
         done[e] = out

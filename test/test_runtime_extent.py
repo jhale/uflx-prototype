@@ -20,7 +20,7 @@ from uflx_spec_interpreter._src.passes import (
     integrals,
     pullbacks,
 )
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_toy.cells import reference_simplex
 from uflx_toy.runtime import runtime_array, runtime_extent
 
@@ -58,7 +58,7 @@ def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():
         pullbacks.expand_pull_backs,
     ):
         out = apply(out)
-    assert _in_core_normal_form(out)
+    assert in_core_normal_form(out)
     assert contains(e, lambda n: isinstance(n, PullBack))
     assert not contains(out, lambda n: isinstance(n, PullBack))
 

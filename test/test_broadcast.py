@@ -30,7 +30,7 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.rewriting import _complete_indices
+from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
 from uflx_spec_interpreter._src.nodes import BroadcastTo
 from uflx_toy.runtime import runtime_array, runtime_extent
 from uflx_toy.spaces import space
@@ -98,12 +98,12 @@ def test_broadcast_with_free_indices_keeps_value_axes_separate():
 def test_completion_of_tensor_and_two_missing_indices():
     i, j = index("i"), index("j")
     original = Zero((2,), ((i, 3), (j, 4)), (), "real")
-    out = _complete_indices(original, tensor((num(5), num(7))))
+    out = complete_indices(original, tensor((num(5), num(7))))
     assert out.value_shape == (2,)
     assert out.free_indices == original.free_indices
-    assert _complete_indices(original, out) is out
+    assert complete_indices(original, out) is out
     np.testing.assert_array_equal(evaluate(out, {}), np.broadcast_to([5, 7], (3, 4, 2)))
-    scalar = _complete_indices(Zero((), ((i, 3), (j, 0)), (), "real"), num(1))
+    scalar = complete_indices(Zero((), ((i, 3), (j, 0)), (), "real"), num(1))
     assert evaluate(index_sum(scalar, (i, j)), {}) == 0
 
 

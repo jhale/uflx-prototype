@@ -6,9 +6,8 @@ from uflx_spec_interpreter import (
     index_sum,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.names import _derived_index, _derived_indices
-from uflx_spec_interpreter._src.algorithms.traversal import _bottom_up
-from uflx_spec_interpreter._src.meshes import _cell_of
+from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
+from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
     DomainMap,
@@ -42,7 +41,7 @@ def tabulate(f):
             return vertex_values(*found)
         return values(*found) if found else e
 
-    return _bottom_up(f, rewrite)
+    return bottom_up(f, rewrite)
 
 
 def coefficients(u):
@@ -71,7 +70,7 @@ def read(x, points):
 
 def cell(C):
     # The group and the entry of a cell map, or of a cell of a mesh.
-    return (C.cell_group, C.entry) if isinstance(C, CellMap) else _cell_of(C)
+    return (C.cell_group, C.entry) if isinstance(C, CellMap) else None
 
 
 def values(u, found_cell, order, points):
@@ -83,7 +82,7 @@ def values(u, found_cell, order, points):
         factors = [(F, X, (k,)) for k, (F, X) in enumerate(zip(V.factors(j), points.entries))]
     else:
         factors = [(V.element(j), points, tuple(range(dimension)))]
-    i = _derived_indices("compiler.tabulation", (u, entry, points), len(factors))
+    i = derived_indices("compiler.tabulation", (u, entry, points), len(factors))
     rows = np.asarray(V.dofmap[j]).reshape(-1, *(F.dim for F, _, _ in factors), V.block_size)
     dofs = tuple(IndexTable(nested(rows[..., c]), V.num_dofs) for c in range(V.block_size))
 
@@ -114,7 +113,7 @@ def vertex_values(x, found_cell, order, points):
     # at points known only at assembly.
     V = basix_space("vertices", T, basix.ElementFamily.P, 1)
     F = V.element(j)
-    a = _derived_index("compiler.tabulation", x, entry, points, "a")
+    a = derived_index("compiler.tabulation", x, entry, points, "a")
     # The element may order its dofs for sum factorisation, so each dof reads its own vertex.
     vertex_of = {d: v for v, dofs in enumerate(F.entity_dofs[0]) for d in dofs}
     rows = [[cell[vertex_of[d]] for d in range(F.dim)] for cell in T.cells[j]]

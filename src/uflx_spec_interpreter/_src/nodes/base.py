@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import weakref
 from abc import ABCMeta
 from dataclasses import Field, dataclass, fields
 from typing import TYPE_CHECKING, ClassVar, TypeVar, cast, dataclass_transform
 
-from .caching import _cached
-from .types import _Construction
+from .caching import cached
+from .types import Construction
 
 if TYPE_CHECKING:
     from .forms import Function
@@ -23,8 +24,7 @@ _table: weakref.WeakValueDictionary[tuple[type[Base], int], Base] = weakref.Weak
 class _Interned(ABCMeta):
     """Intern fully initialized, validated nodes; never reinitialize a cache hit."""
 
-    def __call__(cls: type[_Node], *args: _Construction) -> _Node:
-        from .validation import _construction_arguments
+    def __call__(cls: type[_Node], *args: Construction) -> _Node:
 
         node_class = cast("type[Base]", cls)
 
@@ -59,16 +59,16 @@ class Base(metaclass=_Interned):
     # A binding node names the arguments where its bound names are in scope.
     scope: ClassVar[tuple[str, ...]] = ()
 
-    __dataclass_fields__: ClassVar[dict[str, Field[_Construction]]]
+    __dataclass_fields__: ClassVar[dict[str, Field[Construction]]]
     identifier: ClassVar[str]
 
     @property
-    @_cached
-    def construction_arguments(self) -> tuple[_Construction, ...]:
+    @cached
+    def construction_arguments(self) -> tuple[Construction, ...]:
         return tuple(getattr(self, name) for name in self.argument_names)
 
     @property
-    @_cached
+    @cached
     def digest(self) -> int:
         return _digest_of(self.identifier, self.construction_arguments)
 
@@ -99,7 +99,7 @@ class Base(metaclass=_Interned):
         return ()
 
 
-def _encode(value: _Construction) -> str:
+def _encode(value: Construction) -> str:
     if isinstance(value, tuple):
         return "(" + ",".join(map(_encode, value)) + ")"
     return (
@@ -107,6 +107,19 @@ def _encode(value: _Construction) -> str:
     )
 
 
-def _digest_of(identifier: str, values: tuple[_Construction, ...]) -> int:
+def _digest_of(identifier: str, values: tuple[Construction, ...]) -> int:
     data = _encode((identifier, values)).encode()
     return int.from_bytes(hashlib.blake2b(data, digest_size=16).digest(), "big")
+
+
+def _construction_arguments(args: tuple[object, ...]) -> None:
+    for value in args:
+        if isinstance(value, Base):
+            continue
+        if type(value) is tuple:
+            _construction_arguments(cast("tuple[object, ...]", value))
+        elif type(value) is float:
+            if not math.isfinite(value):
+                raise ValueError("construction floats must be finite")
+        elif type(value) not in (int, str):
+            raise TypeError(f"invalid construction argument type: {type(value).__name__}")

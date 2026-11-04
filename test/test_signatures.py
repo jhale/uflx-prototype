@@ -33,11 +33,21 @@ def spec_signatures():
 @pytest.mark.skipif(not SPEC.exists(), reason="the uflx repository is not beside this one")
 def test_the_public_free_functions_take_the_parameters_of_the_specification():
     spec = spec_signatures()
-    # Classes intentionally exposed alongside the free functions, plus two
+    # Classes intentionally exposed alongside the free functions, plus
     # implementation conveniences without a generated free-function row.
-    conveniences = {"RD", "Complex", "Float", "Integer", "ScalarType", "Zero", "num", "replace"}
+    conveniences = {
+        "RD",
+        "Complex",
+        "Float",
+        "Integer",
+        "ScalarType",
+        "Zero",
+        "num",
+        "replace",
+        "reference_integral",
+    }
     assert set(uflx_spec_interpreter.__all__) == set(spec) | conveniences
-    stand_ins = {"num", "replace"}
+    stand_ins = {"num", "replace", "reference_integral"}
     for name in uflx_spec_interpreter.__all__:
         if name in stand_ins:
             continue

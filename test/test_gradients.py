@@ -32,7 +32,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import Function, Gradient, Normal, PullBack
 from uflx_spec_interpreter._src.passes import gradients
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_toy.spaces import space
 
 X = coordinate(K)
@@ -117,11 +117,11 @@ def run(trials):
         out = expand_arithmetic(out)
         if contains(e, needs_pass):
             bad["lazy"] += 1
-            bad["rejected"] += not _in_core_normal_form(e)
+            bad["rejected"] += not in_core_normal_form(e)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
-        bad["grammar"] += not _in_core_normal_form(out)
+        bad["grammar"] += not in_core_normal_form(out)
         before, after = evaluate(e, ENV)(()), evaluate(out, ENV)(())
         if not np.allclose(before, after, rtol=1e-4, atol=1e-5):
             bad["value"] += 1
@@ -149,4 +149,4 @@ def test_projection_remains():
 
     pi = gradient(coordinate(M), M)
     assert gradients.apply_gradients(pi) == pi
-    assert _in_core_normal_form(pi)
+    assert in_core_normal_form(pi)

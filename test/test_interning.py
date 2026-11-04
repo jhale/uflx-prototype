@@ -12,9 +12,9 @@ from test_surface import M
 from testutil import contains
 
 from uflx_spec_interpreter import density, inverse_jacobian
-from uflx_spec_interpreter._src.algorithms.traversal import _map_fields, _rebuild
+from uflx_spec_interpreter._src.algorithms.traversal import map_fields, rebuild
 from uflx_spec_interpreter._src.geometry import jacobian
-from uflx_spec_interpreter._src.meshes import _cell_domain
+from uflx_spec_interpreter._src.meshes import cell_map
 from uflx_spec_interpreter._src.nodes import (
     Base,
     Complex,
@@ -54,8 +54,8 @@ def test_literals_take_exact_types():
 
 def test_rebuilding_returns_the_same_object():
     e = Sum(Integer(1), Function(V, "u"))
-    assert _rebuild(e) is e
-    assert _map_fields(e, lambda x: x) is e
+    assert rebuild(e) is e
+    assert map_fields(e, lambda x: x) is e
 
 
 def test_unused_nodes_are_freed():
@@ -102,7 +102,7 @@ def test_a_class_with_no_identifier_raises():
 
 
 def test_density_and_inverse_jacobian_share_the_jacobian():
-    m = _cell_domain(M, 0)
+    m = cell_map(M, 0)
     J = jacobian(m)
     assert contains(density(m), lambda n: n is J)
     assert contains(inverse_jacobian(m), lambda n: n is J)

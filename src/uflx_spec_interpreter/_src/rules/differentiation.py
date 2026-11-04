@@ -6,9 +6,9 @@ from collections.abc import Callable, Sequence
 from functools import cache
 from typing import TYPE_CHECKING
 
-from ..algorithms.rewriting import _complete_indices, _promote, _zero_like
-from ..algorithms.substitution import _occurs, _substitute_values
-from ..algorithms.traversal import _memoized
+from ..algorithms.rewriting import complete_indices, promote, zero_like
+from ..algorithms.substitution import occurs, substitute_values
+from ..algorithms.traversal import memoized
 from ..arithmetic import real_part
 from ..nodes import (
     Absolute,
@@ -27,24 +27,24 @@ from ..nodes import (
     SquareRoot,
     Zero,
 )
-from ..nodes.arguments import _argument_members, _map_argument
+from ..nodes.arguments import argument_members, map_argument
 from ..tensors import transpose
-from .linearity import _linear_fields
-from .structural import _commute, _structural_fields
+from .linearity import linear_fields
+from .structural import commute, structural_fields
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
     from ..nodes.expressions import AbstractExpression
     from ..nodes.forms import Function
     from ..nodes.indices import Index
-    from ..nodes.types import _Construction
+    from ..nodes.types import Construction
 
 
-def _derivative_of_node(
+def derivative_of_node(
     f: AbstractExpression,
     d: Callable[[AbstractExpression], AbstractExpression],
     constant: Callable[[AbstractExpression], bool],
-    avoid: Sequence[_Construction],
+    avoid: Sequence[Construction],
     at: Callable[[AbstractExpression], AbstractExpression] = lambda e: e,
 ) -> AbstractExpression:
     """D01-D10, D12, D19-D20, followed by structural and linear rules.
@@ -59,7 +59,7 @@ def _derivative_of_node(
             return d(b) / at(c) - (at(b) * d(c)) / (at(c) * at(c))
         case Power(_, c) if _literal_value(c) == 0:
             # D19 precedes the general power rule, including at a zero base.
-            return _zero_like(f, f.argument_spaces)
+            return zero_like(f, f.argument_spaces)
         case Power(b, c) if _literal_value(c) == 1:
             # D20. The caller completes the derivative's type.
             return d(b)
@@ -75,10 +75,10 @@ def _derivative_of_node(
         case Logarithm(b):
             return d(b) / at(b)
         case Determinant(a):
-            from ..algorithms.names import _derived_indices
+            from ..algorithms.names import derived_indices
             from ..tensors import index_sum, indexed
 
-            i, j = _derived_indices("uflx.derivative", (f,), 2)
+            i, j = derived_indices("uflx.derivative", (f,), 2)
             inverse_matrix = Inverse(at(a))
             matrix_derivative = d(a)
             entry = indexed(inverse_matrix, (i, j)) * indexed(matrix_derivative, (j, i))
@@ -96,15 +96,15 @@ def _derivative_of_node(
             return inverse_derivative + inverse_matrix @ transpose(inverse_matrix) @ correction
         case Action(l, p, w):
             if constant(l):
-                return Action(at(l), p, _map_argument(d, w))
-            if all(constant(v) for v in _argument_members(w)):
-                return Action(d(l), p, _map_argument(at, w))
-            return Action(d(l), p, _map_argument(at, w)) + Action(at(l), p, _map_argument(d, w))
+                return Action(at(l), p, map_argument(d, w))
+            if all(constant(v) for v in argument_members(w)):
+                return Action(d(l), p, map_argument(at, w))
+            return Action(d(l), p, map_argument(at, w)) + Action(at(l), p, map_argument(d, w))
         case _:
-            fields = _linear_fields(f) or _structural_fields(f)
+            fields = linear_fields(f) or structural_fields(f)
             if fields is None:
                 raise TypeError(f"no derivative rule for {type(f).__name__}")
-            return _commute(f, d, fields, avoid, constant, at)
+            return commute(f, d, fields, avoid, constant, at)
 
 
 def _literal_value(e: AbstractExpression) -> int | float | None:
@@ -120,44 +120,44 @@ def _literal_value(e: AbstractExpression) -> int | float | None:
             return None
 
 
-def _deriv(
+def deriv(
     f: AbstractExpression,
     x: Function | tuple[Function, ...],
     a: AbstractExpression | tuple[AbstractExpression, ...],
     h: AbstractExpression | tuple[AbstractExpression, ...],
 ) -> AbstractExpression:
     # Evaluate undifferentiated operands at the point; inserted directions stay unchanged.
-    xs, points, directions = _argument_members(x), _argument_members(a), _argument_members(h)
-    points = tuple(_promote(v, p) for v, p in zip(xs, points, strict=True))
-    directions = tuple(_promote(v, w) for v, w in zip(xs, directions, strict=True))
+    xs, points, directions = argument_members(x), argument_members(a), argument_members(h)
+    points = tuple(promote(v, p) for v, p in zip(xs, points, strict=True))
+    directions = tuple(promote(v, w) for v, w in zip(xs, directions, strict=True))
     mapping = dict(zip(xs, points, strict=True))
 
     @cache
     def at(e: AbstractExpression) -> AbstractExpression:
-        return _substitute_values(e, mapping)
+        return substitute_values(e, mapping)
 
     def constant(e: AbstractExpression) -> bool:
-        return not any(_occurs(v, e) for v in xs)
+        return not any(occurs(v, e) for v in xs)
 
     def differentiate(
         d: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression
     ) -> AbstractExpression:
         expected = DirectionalDerivative(e, x, a, h)
         if constant(e):  # L10, SH15, D15.
-            return _zero_like(expected, expected.argument_spaces)
+            return zero_like(expected, expected.argument_spaces)
         for variable, direction in zip(xs, directions, strict=True):
             if e == variable:  # D11.
-                return _complete_indices(expected, direction)
-        out = _derivative_of_node(e, d, constant, [*xs, *points, *directions], at)
-        return _complete_indices(expected, out)
+                return complete_indices(expected, direction)
+        out = derivative_of_node(e, d, constant, [*xs, *points, *directions], at)
+        return complete_indices(expected, out)
 
-    return _complete_indices(DirectionalDerivative(f, x, a, h), _memoized(differentiate)(f))
+    return complete_indices(DirectionalDerivative(f, x, a, h), memoized(differentiate)(f))
 
 
-def _coordinate_partial(f: AbstractExpression, P: AbstractDomain, j: Index) -> AbstractExpression:
+def coordinate_partial(f: AbstractExpression, P: AbstractDomain, j: Index) -> AbstractExpression:
     """D17. The coordinate derivative on a full-dimensional domain."""
-    from ..algorithms.names import _derived_index
-    from ..tensors import _identity, component_tensor, indexed
+    from ..algorithms.names import derived_index
+    from ..tensors import component_tensor, identity, indexed
 
-    i = _derived_index("uflx.apply_gradients", f, P)
-    return component_tensor(indexed(_identity(P.ambient_coordinate_domain.dimension), (i, j)), (i,))
+    i = derived_index("uflx.apply_gradients", f, P)
+    return component_tensor(indexed(identity(P.ambient_coordinate_domain.dimension), (i, j)), (i,))

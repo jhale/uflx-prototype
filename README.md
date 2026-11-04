@@ -206,14 +206,17 @@ The core splits a public API from a private one, as JAX does with `jax._src`.
 
 The public API is `uflx_spec_interpreter/__init__.py`, which re-exports the
 free functions of the specification and declares them in `__all__`, with the
-literal classes, `RD`, scalar types and the convenience helper `num`. A user,
+literal classes, `RD`, scalar types and the convenience helper `num`.
+`reference_integral(f, D, group, entry)` gives one selected entity’s reference
+integral. Mesh expansion wraps it in a fresh cell sum; UFCx compilation supplies
+a local entry directly. It works for cells and facet meshes. A user,
 and a test that builds expressions, imports only these, as in
 `from uflx_spec_interpreter import add, index`. `AbstractExpression` also has
 the operator overloads of the specification, which call these free functions
 and reject Python numbers.
 
 Everything else is in the private package `_src`, which only the toy
-extension, the oracle and the white-box tests import. The toy imports only
+extension, compiler, oracle and white-box tests import. The toy imports only
 `_src.nodes`, for the base classes it extends. The free functions are in the
 modules of `_src`:
 
@@ -248,6 +251,7 @@ The private modules of `_src`:
   them again. New nodes are initialized and validated before entering the weak cache.
 - `nodes/expressions.py`: `AbstractExpression`, its static-type contract, expression
   validation and Python operators.
+- `nodes/structure.py`: inspection of construction dependencies and expression operands.
 - `nodes/caching.py`: the shared decorator for caching computed properties.
 - `nodes/literals.py`, `nodes/arithmetic.py`, `nodes/indices.py`,
   `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py`,
@@ -259,10 +263,8 @@ The private modules of `_src`:
 - `algorithms/substitution.py`: capture-avoiding freshening and simultaneous substitution
 - `algorithms/rewriting.py`: replacement compatibility, index completion and promotion
 - `passes/contracts.py`: evaluation-stage requirements, including core normal form
-- `passes/commuting.py`: the commuting node classes, into which an evaluated
-  node moves
-- `passes/derivative_table.py`: the derivatives of the node classes, shared by
-  passes 2 and 5
+- `rules/`: mathematical rules grouped as in the specification; passes select and
+  compose them.
 
 `uflx_oracle` evaluates an expression from the definitions of its nodes, with
 finite differences for derivatives, quadrature for integrals and numeric maps
@@ -422,15 +424,13 @@ The package `__init__.py` defines the public free functions and convenience
 constructors. `_src/nodes/__init__.py` exposes the spec node classes used by
 extensions and passes. Those names retain the spelling in the specification.
 
-Other module-level functions, implementation classes, constants and typing
-helpers begin with `_`, including helpers shared between implementation
-modules. Internal `__all__` lists explicitly permit that sharing without
-weakening strict Pyright's private-access checks; they do not expand the
-package's public API. Private convenience helpers live in their implementation modules.
+Shared interfaces have ordinary names within `_src`. Module-local helpers begin
+with `_`. The private package boundary keeps these interfaces out of the public
+API; only the two facades use `__all__`. Strict Pyright checks cross-module access.
 
 Node fields and protocol methods retain their existing names because they
 form the extension/reconstruction interface. Nested functions and local
 variables are already confined to their enclosing function. Imported public
 classes and free functions keep their names; we do not add aliases merely
-to hide imports. `test/test_boundaries.py` checks the naming convention for
-module-level definitions and bindings under `_src`.
+to hide imports. `test/test_boundaries.py` checks cross-module private imports
+and the dependency layers.

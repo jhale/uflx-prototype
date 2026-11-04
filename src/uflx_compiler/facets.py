@@ -4,7 +4,7 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import tensor
-from uflx_spec_interpreter._src.algorithms.names import _derived_index
+from uflx_spec_interpreter._src.algorithms.names import derived_index
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.indices import index_table
 from uflx_toy.runtime import runtime_array
@@ -57,8 +57,8 @@ def _facet_tables(mesh, domain, width):
     names = ("+", "-") if width == 2 else (domain.coordinate_function.map.side,)
     replacements, bindings, sides, data = {}, {}, [], []
     for side, name in enumerate(names):
-        facet = _derived_index("compiler.ufcx.facet", side)
-        permutation = _derived_index("compiler.ufcx.permutation", side)
+        facet = derived_index("compiler.ufcx.facet", side)
+        permutation = derived_index("compiler.ufcx.permutation", side)
         positions = runtime_array(("ufcx.reference_facet", side), tables.shape[-2:])
         bindings[facet] = f"entity_local_index[{side}]"
         if width == 2:

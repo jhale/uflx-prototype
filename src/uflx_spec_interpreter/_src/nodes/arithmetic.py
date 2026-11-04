@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from .caching import _cached
+from .caching import cached
 from .expressions import AbstractExpression
 from .scalar_types import ScalarType
-from .validation import _require
+from .validation import require
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
@@ -23,35 +23,35 @@ class Sum(AbstractExpression):
     second: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.first.value_shape
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.first.argument_spaces
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.first, self.second)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.second.domain or self.first.domain
 
     def _validate(self) -> None:
-        _require(self.first.value_shape == self.second.value_shape, "sum value shapes differ")
-        _require(
+        require(self.first.value_shape == self.second.value_shape, "sum value shapes differ")
+        require(
             self.first.argument_spaces == self.second.argument_spaces, "sum argument spaces differ"
         )
 
@@ -65,34 +65,34 @@ class Product(AbstractExpression):
     second: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.first.argument_spaces + self.second.argument_spaces
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.first.value_shape or self.second.value_shape
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.first, self.second)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.second.domain or self.first.domain
 
     def _validate(self) -> None:
-        _require(
+        require(
             not self.first.value_shape or not self.second.value_shape,
             "product requires at least one scalar operand",
         )
@@ -107,35 +107,35 @@ class Division(AbstractExpression):
     second: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.first.value_shape
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return self.first.argument_spaces
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.first, self.second)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.second.domain or self.first.domain
 
     def _validate(self) -> None:
-        _require(not self.second.value_shape, "division requires a scalar denominator")
-        _require(not self.second.argument_spaces, "nonlinear operand has argument spaces")
+        require(not self.second.value_shape, "division requires a scalar denominator")
+        require(not self.second.argument_spaces, "nonlinear operand has argument spaces")
 
 
 @final
@@ -147,39 +147,39 @@ class Power(AbstractExpression):
     second: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return tuple(dict(self.first.free_indices + self.second.free_indices).items())
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.first, self.second)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.second.domain or self.first.domain
 
     def _validate(self) -> None:
-        _require(
+        require(
             not self.first.value_shape and not self.second.value_shape,
             "power requires scalar operands",
         )
-        _require(not self.second.argument_spaces, "nonlinear operand has argument spaces")
-        _require(not self.first.argument_spaces, "power base has argument spaces")
+        require(not self.second.argument_spaces, "nonlinear operand has argument spaces")
+        require(not self.first.argument_spaces, "power base has argument spaces")
 
 
 @final
@@ -189,32 +189,32 @@ class Conjugate(AbstractExpression):
     operand: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return self.operand.value_shape
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         # The free functions import the nodes, so the import is local.
-        from ..spaces import _conjugated
+        from ..spaces import conjugated
 
-        return tuple(_conjugated(V) for V in self.operand.argument_spaces)
+        return tuple(conjugated(V) for V in self.operand.argument_spaces)
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.operand)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
@@ -226,35 +226,33 @@ class RealPart(AbstractExpression):
     operand: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
     def _validate(self) -> None:
-        from .validation import _scalar_operand
-
         _scalar_operand(self.operand)
 
 
@@ -265,35 +263,33 @@ class ImaginaryPart(AbstractExpression):
     operand: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
     def _validate(self) -> None:
-        from .validation import _scalar_operand
-
         _scalar_operand(self.operand)
 
 
@@ -304,35 +300,33 @@ class Absolute(AbstractExpression):
     operand: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return ScalarType.real
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
     def _validate(self) -> None:
-        from .validation import _scalar_operand
-
         _scalar_operand(self.operand)
 
 
@@ -343,35 +337,33 @@ class SquareRoot(AbstractExpression):
     operand: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.operand)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
     def _validate(self) -> None:
-        from .validation import _scalar_operand
-
         _scalar_operand(self.operand)
 
 
@@ -382,33 +374,37 @@ class Logarithm(AbstractExpression):
     operand: AbstractExpression
 
     @property
-    @_cached
+    @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.operand.free_indices
 
     @property
-    @_cached
+    @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return ()
 
     @property
-    @_cached
+    @cached
     def scalar_type(self) -> Literal["real", "complex"]:
         return self.joined_scalar_type(self.operand)
 
     @property
-    @_cached
+    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
     def _validate(self) -> None:
-        from .validation import _scalar_operand
-
         _scalar_operand(self.operand)
+
+
+def _scalar_operand(f: AbstractExpression, nonlinear: bool = True) -> None:
+    require(f.value_shape == (), "operation requires a scalar")
+    if nonlinear:
+        require(not f.argument_spaces, "nonlinear operand has argument spaces")

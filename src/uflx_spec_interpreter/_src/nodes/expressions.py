@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, ClassVar, Literal, Never
 
-from .arguments import _argument_members
+from .arguments import argument_members
 from .base import Base
 
 if TYPE_CHECKING:
@@ -20,17 +20,17 @@ class AbstractExpression(Base):
     commuting: ClassVar[tuple[str, ...]] = ()
 
     def __post_init__(self) -> None:
-        from ..algorithms.traversal import _expressions
-        from .validation import _merge_indices, _require
+        from .structure import expression_operands
+        from .validation import merge_indices, require
 
         super().__post_init__()
-        _require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")
-        operands = _expressions(self)
-        _merge_indices(*(x.free_indices for x in operands))
-        _require(self.scalar_type in ("real", "complex"), "unknown scalar type")
+        require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")
+        operands = expression_operands(self)
+        merge_indices(*(x.free_indices for x in operands))
+        require(self.scalar_type in ("real", "complex"), "unknown scalar type")
         if self.matching_domains:
             domains = [x.domain for x in operands if x.domain is not None]
-            _require(not domains or all(D == domains[0] for D in domains), "operand domains differ")
+            require(not domains or all(D == domains[0] for D in domains), "operand domains differ")
 
     matching_domains: ClassVar[bool] = False
 
@@ -64,7 +64,7 @@ class AbstractExpression(Base):
         # The default rule, complex if and only if an edge is a complex expression.
         from .scalar_types import ScalarType
 
-        flat = [m for x in operands for m in _argument_members(x)]
+        flat = [m for x in operands for m in argument_members(x)]
         return (
             ScalarType.complex
             if any(m.scalar_type == ScalarType.complex for m in flat)
@@ -129,7 +129,7 @@ class AbstractExpression(Base):
     ) -> AbstractExpression:
         from ..tensors import component
 
-        return component(self, _argument_members(entries))
+        return component(self, argument_members(entries))
 
     def __iter__(self) -> Never:
         raise TypeError(f"{type(self).__name__} is not iterable")

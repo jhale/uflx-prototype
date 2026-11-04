@@ -21,7 +21,7 @@ from uflx_spec_interpreter import (
     power,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.rewriting import _complete_indices
+from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
 from uflx_toy.spaces import space
 
 
@@ -78,4 +78,4 @@ def test_capture_avoidance_across_structural_and_derivative_rules():
 def test_zero_completion_keeps_a_typed_zero():
     i = index("i")
     expected = Zero((2,), ((i, 3),), (), "complex")
-    assert _complete_indices(expected, Zero((2,), (), (), "real")) is expected
+    assert complete_indices(expected, Zero((2,), (), (), "real")) is expected

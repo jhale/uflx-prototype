@@ -1,6 +1,7 @@
 import numpy as np
 
-from uflx_spec_interpreter._src.algorithms.traversal import _expressions, _memoized
+from uflx_spec_interpreter._src.algorithms.traversal import memoized
+from uflx_spec_interpreter._src.nodes.structure import expression_operands
 
 from .evaluation import evaluate
 from .inputs import arrays
@@ -11,14 +12,14 @@ def fold(e, *, preserve_indices=()):
     # such as the geometry of a mesh whose coordinates are constants.
     # Preserve selected iteration axes instead of materialising their Cartesian product.
     preserved = set(preserve_indices)
-    folded, reads = {}, _memoized(arrays)
+    folded, reads = {}, memoized(arrays)
 
     def visit(visit, n):
         if not reads(n) and not preserved.intersection(i for i, _ in n.free_indices):
             folded[n] = np.asarray(evaluate(n, {}, np))
         else:
-            for c in _expressions(n):
+            for c in expression_operands(n):
                 visit(c)
 
-    _memoized(visit)(e)
+    memoized(visit)(e)
     return folded

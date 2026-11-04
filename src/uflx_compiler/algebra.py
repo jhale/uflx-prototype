@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from fractions import Fraction
 
-from uflx_spec_interpreter._src.algorithms.rewriting import _complete_indices
-from uflx_spec_interpreter._src.algorithms.traversal import _map_values, _memoized
+from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
+from uflx_spec_interpreter._src.algorithms.traversal import map_values, memoized
 from uflx_spec_interpreter._src.arithmetic import add, divide, multiply
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
@@ -143,7 +143,7 @@ def _collected(e: AbstractExpression) -> AbstractExpression:
 
 
 def _preserve(e: AbstractExpression, out: AbstractExpression) -> AbstractExpression:
-    return _complete_indices(e, out)
+    return complete_indices(e, out)
 
 
 def _operator_rule(e: AbstractExpression) -> AbstractExpression:
@@ -208,10 +208,10 @@ def _normalizer() -> Callable[[AbstractExpression], AbstractExpression]:
     def walk(
         walk: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression
     ) -> AbstractExpression:
-        new = _map_values(e, walk, e.value_fields)
+        new = map_values(e, walk, e.value_fields)
         moved = _operator_rule(new)
         if moved is not new:
             return walk(_preserve(new, moved))
         return _preserve(new, _rewrite(new))
 
-    return _memoized(walk)
+    return memoized(walk)

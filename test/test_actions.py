@@ -18,7 +18,7 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.passes import actions
-from uflx_spec_interpreter._src.passes.actions import _actions_complete
+from uflx_spec_interpreter._src.passes.actions import actions_complete
 from uflx_toy.spaces import space
 
 rng = np.random.default_rng(1)
@@ -39,7 +39,7 @@ def check(name, e, ienv=None):
     before = evaluate(e, env, ienv)(args[:n])
     after = evaluate(out, env, ienv)(args[:n])
     assert np.allclose(before, after, atol=1e-6), name
-    assert _actions_complete(out), name
+    assert actions_complete(out), name
     assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))
     return out
 

@@ -15,11 +15,11 @@ from uflx_spec_interpreter import (
     jacobian,
     pull_back,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import _substitute
-from uflx_spec_interpreter._src.meshes import _cell_domain, _cell_of
+from uflx_spec_interpreter._src.algorithms.substitution import substitute
+from uflx_spec_interpreter._src.meshes import cell_of
 from uflx_spec_interpreter._src.nodes import CellMap, Gradient, TransformationLaw
-from uflx_spec_interpreter._src.passes.lowering import _lower_spatial as lower_spatial
-from uflx_spec_interpreter._src.rules.coordinates import _transformed
+from uflx_spec_interpreter._src.passes.lowering import lower_spatial
+from uflx_spec_interpreter._src.rules.coordinates import transformed
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology
@@ -35,25 +35,25 @@ def geometry():
 
 def test_cell_construction_and_coordinate_replacement_keep_one_representation():
     T, x, y, D = geometry()
-    C = _cell_domain(D, 0)
+    C = cell_map(D, 0)
     manual = cell_map(D, 0)
     assert isinstance(C, CellMap)
     assert manual is C
-    assert _cell_of(manual) == (0, cell_map(T, 0).entry)
+    assert cell_of(manual) == (0, cell_map(T, 0).entry)
     assert jacobian(manual) is jacobian(C)
     E = image(y, RD(2))
-    assert _substitute(C, {x: y}) is _cell_domain(E, 0)
-    assert _substitute(jacobian(C), {x: y}) is jacobian(_cell_domain(E, 0))
+    assert substitute(C, {x: y}) is cell_map(E, 0)
+    assert substitute(jacobian(C), {x: y}) is jacobian(cell_map(E, 0))
 
 
 @pytest.mark.parametrize("vector", [False, True])
 def test_gradient_pullback_uses_covariant_law_for_scalar_and_vector_fields(vector):
     T, x, _, D = geometry()
     u = function(space("physical-field", value_shape=(2,) if vector else (), domain=D), "u")
-    C = _cell_domain(D, 0)
+    C = cell_map(D, 0)
     original = pull_back(gradient(u, D), C)
     actual = expand_pull_backs(original)
-    expected = _transformed(
+    expected = transformed(
         Gradient(expand_pull_backs(pull_back(u, C)), C.parameter_domain),
         TransformationLaw(("covariant",), 0),
         C,

@@ -18,8 +18,8 @@ from uflx_spec_interpreter import (
     side_map,
 )
 from uflx_spec_interpreter._src.passes import integrals
-from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
+from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
+from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.cells import reference_simplex
 from uflx_toy.inclusions import affine_map, reference_normal
@@ -90,9 +90,9 @@ def facet_integrals(K):
     ]
     values = []
     for e in forms:
-        out = _lower_spatial(integrals.expand_integrals(e))
+        out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
-        assert _in_core_normal_form(out)
+        assert in_core_normal_form(out)
         values.append(evaluate(out, env)(()))
         assert np.isclose(evaluate(e, env)(()), values[-1], rtol=1e-6)
     return np.array(values)
@@ -144,9 +144,9 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
         (integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B), None),
     ]
     for e, expected in exact:
-        out = _lower_spatial(integrals.expand_integrals(e))
+        out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
-        assert _in_core_normal_form(out)
+        assert in_core_normal_form(out)
         before, after = evaluate(e, env)(()), evaluate(out, env)(())
         assert np.isclose(before, after, rtol=1e-6), (before, after)
         if expected is not None:
@@ -204,9 +204,9 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
         (integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B), None),
     ]
     for e, expected in exact:
-        out = _lower_spatial(integrals.expand_integrals(e))
+        out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
-        assert _in_core_normal_form(out)
+        assert in_core_normal_form(out)
         before, after = evaluate(e, env)(()), evaluate(out, env)(())
         assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
         if expected is not None:
