@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod, update_abstractmethods
 from typing import TYPE_CHECKING, ClassVar, Literal, Never, Self, cast, dataclass_transform
 
 from ..interning import _digest_of, _table
-from ..tuples import _members
+from ..tuples import _argument_members
 from ..types import _Construction
 
 if TYPE_CHECKING:
@@ -147,7 +147,7 @@ class AbstractExpression(Base):
         # The default rule, complex if and only if an edge is a complex expression.
         from .scalar_types import ScalarType
 
-        flat = [m for x in operands for m in _members(x)]
+        flat = [m for x in operands for m in _argument_members(x)]
         return (
             ScalarType.complex
             if any(m.scalar_type == ScalarType.complex for m in flat)
@@ -212,7 +212,7 @@ class AbstractExpression(Base):
     ) -> AbstractExpression:
         from ..tensors import component
 
-        return component(self, _members(entries))
+        return component(self, _argument_members(entries))
 
     def __iter__(self) -> Never:
         raise TypeError(f"{type(self).__name__} is not iterable")

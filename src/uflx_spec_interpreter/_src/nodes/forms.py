@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, final
 
 from ..interning import _cached
-from ..tuples import _each, _members
+from ..tuples import _argument_members, _map_argument
 from .arithmetic import Conjugate
 from .base import AbstractExpression
 from .spaces import AbstractFunctionSpace, DualSpace
@@ -36,7 +36,7 @@ def _entry_space(
     def space(m: Function | Conjugate) -> AbstractFunctionSpace:
         return _conjugated(_entry_function(m).space) if isinstance(m, Conjugate) else m.space
 
-    return _each(space, entry)
+    return _map_argument(space, entry)
 
 
 @final
@@ -86,7 +86,7 @@ class Form(AbstractExpression):
 
     def bound(self) -> tuple[Function, ...]:
         # The functions of the entries, without the conjugate of an entry conjugate(v).
-        return tuple(_entry_function(m) for a in self.arguments for m in _members(a))
+        return tuple(_entry_function(m) for a in self.arguments for m in _argument_members(a))
 
     @property
     @_cached
@@ -122,7 +122,7 @@ class Form(AbstractExpression):
         for a in self.arguments:
             if type(a) is tuple:
                 _require(len(a) >= 2, "product binder needs at least two functions")
-            for f in _members(a):
+            for f in _argument_members(a):
                 f = _entry_function(f)
                 _require(
                     not f.argument_spaces or isinstance(f.space, DualSpace),
@@ -156,7 +156,7 @@ class Action(AbstractExpression):
     @property
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        arguments = _members(self.argument)
+        arguments = _argument_members(self.argument)
         from ..static import _free_indices
 
         return _free_indices(self.form, *arguments)

@@ -50,7 +50,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.tuples import _members
+from uflx_spec_interpreter._src.tuples import _argument_members
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.meshes import shape_functions
 from uflx_toy.nodes import RuntimeArray, VertexCoordinates
@@ -439,7 +439,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             # Every index selects one value axis.
             values = [index_value(i, ienv) for i in idx]
-            key = tuple(k for v in values for k in _members(v))
+            key = tuple(k for v in values for k in _argument_members(v))
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
             # Enumerate the bound axes independently.
@@ -451,10 +451,10 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             fs = {
                 combo: ev(x, ienv | dict(zip(idx, combo))) for combo in itertools.product(*ranges)
             }
-            shape = tuple(m for n in extents for m in _members(n))
+            shape = tuple(m for n in extents for m in _argument_members(n))
 
             def flat(combo):
-                return tuple(k for v in combo for k in _members(v))
+                return tuple(k for v in combo for k in _argument_members(v))
 
             def value(vals):
                 out = {combo: f(vals) for combo, f in fs.items()}
@@ -492,8 +492,8 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: ff((*tuple(vals[:p]), gv, *tuple(vals[p:])))
         case DirectionalDerivative(f, x, a, h):
             # Every member of a tuple variable moves at once, along its member of the direction.
-            xs = _members(x)
-            fa, fh = [ev(m) for m in _members(a)], [ev(m) for m in _members(h)]
+            xs = _argument_members(x)
+            fa, fh = [ev(m) for m in _argument_members(a)], [ev(m) for m in _argument_members(h)]
 
             def moved(step):
                 return {

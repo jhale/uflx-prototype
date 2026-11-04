@@ -17,7 +17,7 @@ from .nodes import (
 )
 from .nodes.forms import _entry_function
 from .substitution import _occurs
-from .tuples import _each, _members
+from .tuples import _argument_members, _map_argument
 from .validation import _admissible, _merge_indices
 
 if TYPE_CHECKING:
@@ -33,7 +33,7 @@ def _entry_fns(
     entry: Function | Conjugate | tuple[Function | Conjugate, ...],
 ) -> tuple[Function, ...]:
     # The functions of an entry, without the conjugate of an entry conjugate(v).
-    return tuple(_entry_function(m) for m in _members(entry))
+    return tuple(_entry_function(m) for m in _argument_members(entry))
 
 
 def function(V: AbstractFunctionSpace, label: str | tuple[_Construction, ...]) -> Function:
@@ -59,7 +59,7 @@ def _validate_derivative_variables(
     w: Function | Conjugate | tuple[Function | Conjugate, ...],
 ) -> None:
     # Variable identity and the matching tuple structure of point and direction.
-    xs, points, entries = _members(x), _members(a), _members(w)
+    xs, points, entries = _argument_members(x), _argument_members(a), _argument_members(w)
     if isinstance(x, tuple) and len(x) < 2:
         raise ValueError("a tuple variable must have at least two members")
     if any(v.argument_spaces and not isinstance(v.space, DualSpace) for v in xs):
@@ -127,9 +127,9 @@ def gateaux_derivative(
     admissibility uses static signatures rather than proving space membership.
     """
     _validate_derivative_variables(x, a, w)
-    xs, points, entries = _members(x), _members(a), _members(w)
-    directions = _each(_entry_function, w)
-    ws = _members(directions)
+    xs, points, entries = _argument_members(x), _argument_members(a), _argument_members(w)
+    directions = _map_argument(_entry_function, w)
+    ws = _argument_members(directions)
     _validate_derivative_directions(xs, entries, ws)
     for variable, point in zip(xs, points, strict=True):
         _admissible(variable.space, point)
@@ -144,7 +144,7 @@ def gateaux_derivative(
     def rotate(v: Function) -> AbstractExpression:
         return multiply(i, v)
 
-    rotated = _each(rotate, directions)
+    rotated = _map_argument(rotate, directions)
     sign = i if isinstance(entries[0], Conjugate) else multiply(Integer(-1), i)
     second = multiply(sign, DirectionalDerivative(F, x, a, rotated))
     half = divide(Integer(1), Integer(2))

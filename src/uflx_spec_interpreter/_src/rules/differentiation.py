@@ -28,7 +28,7 @@ from ..rewriting import _complete_indices, _promote, _zero_like
 from ..substitution import _occurs, _substitute_values
 from ..tensors import transpose
 from ..traversal import _memoized
-from ..tuples import _each, _members
+from ..tuples import _argument_members, _map_argument
 from .linearity import _linear_fields
 from .structural import _commute, _structural_fields
 
@@ -100,10 +100,10 @@ def _derivative_of_node(
             return inverse_derivative + inverse_matrix @ transpose(inverse_matrix) @ correction
         case Action(l, p, w):
             if constant(l):
-                return Action(at(l), p, _each(d, w))
-            if all(constant(v) for v in _members(w)):
-                return Action(d(l), p, _each(at, w))
-            return Action(d(l), p, _each(at, w)) + Action(at(l), p, _each(d, w))
+                return Action(at(l), p, _map_argument(d, w))
+            if all(constant(v) for v in _argument_members(w)):
+                return Action(d(l), p, _map_argument(at, w))
+            return Action(d(l), p, _map_argument(at, w)) + Action(at(l), p, _map_argument(d, w))
         case _:
             fields = _linear_fields(f) or _structural_fields(f)
             if fields is None:
@@ -131,7 +131,7 @@ def _deriv(
     h: AbstractExpression | tuple[AbstractExpression, ...],
 ) -> AbstractExpression:
     # Evaluate undifferentiated operands at the point; inserted directions stay unchanged.
-    xs, points, directions = _members(x), _members(a), _members(h)
+    xs, points, directions = _argument_members(x), _argument_members(a), _argument_members(h)
     points = tuple(_promote(v, p) for v, p in zip(xs, points, strict=True))
     directions = tuple(_promote(v, w) for v, w in zip(xs, directions, strict=True))
     mapping = dict(zip(xs, points, strict=True))

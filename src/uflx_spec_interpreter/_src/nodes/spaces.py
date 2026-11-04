@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Literal, final
 
 from ..interning import _cached
-from ..tuples import _members
+from ..tuples import _argument_members
 from .base import Base
 from .scalar_types import ScalarType
 
@@ -86,7 +86,7 @@ class DualSpace(AbstractFunctionSpace):
     @property
     @_cached
     def scalar_type(self) -> Literal["real", "complex"]:
-        is_complex = any(s.scalar_type == ScalarType.complex for s in _members(self.space))
+        is_complex = any(s.scalar_type == ScalarType.complex for s in _argument_members(self.space))
         return ScalarType.complex if is_complex else ScalarType.real
 
     @property

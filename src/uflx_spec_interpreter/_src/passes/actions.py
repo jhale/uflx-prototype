@@ -11,7 +11,7 @@ from ..rules.linearity import _linear_fields
 from ..rules.structural import _action_retained, _commute, _structural_fields
 from ..static import _free_indices
 from ..traversal import _everywhere, _memoized
-from ..tuples import _each, _members
+from ..tuples import _argument_members, _map_argument
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
@@ -35,7 +35,7 @@ def _rule(
         case Form(e, _) if p >= len(e.argument_spaces):
             return _bind(f, p - len(e.argument_spaces), g)
         case Conjugate(expression):  # L05.
-            return Conjugate(act(expression, p, _each(Conjugate, g)))
+            return Conjugate(act(expression, p, _map_argument(Conjugate, g)))
         case Product(first, second):  # ST02.
             first_arity = len(first.argument_spaces)
             if p < first_arity:
@@ -43,7 +43,7 @@ def _rule(
             return multiply(first, act(second, p - first_arity, g))
         case Zero(shape, _, arguments):  # L07.
             remaining = arguments[:p] + arguments[p + 1 :]
-            return Zero(shape, _free_indices(f, *_members(g)), remaining, f.scalar_type)
+            return Zero(shape, _free_indices(f, *_argument_members(g)), remaining, f.scalar_type)
         case _ if _action_retained(f):  # ST03-ST05.
             return Action(f, p, g)
         case _:
@@ -54,7 +54,7 @@ def _rule(
                 f,
                 lambda operand: act(operand, p, g),
                 fields,
-                _members(g),
+                _argument_members(g),
                 lambda operand: not operand.argument_spaces,
             )
 

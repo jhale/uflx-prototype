@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, final
 
 from ..interning import _cached
-from ..tuples import _members
+from ..tuples import _argument_members
 from .base import AbstractExpression
 from .scalar_types import ScalarType
 from .spaces import DualSpace
@@ -28,7 +28,7 @@ class DirectionalDerivative(AbstractExpression):
     scope = ("expression", "variable")
 
     def bound(self) -> tuple[Function, ...]:
-        return _members(self.variable)
+        return _argument_members(self.variable)
 
     @property
     @_cached
@@ -38,7 +38,11 @@ class DirectionalDerivative(AbstractExpression):
     @property
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        edges = (self.expression, *_members(self.point), *_members(self.direction))
+        edges = (
+            self.expression,
+            *_argument_members(self.point),
+            *_argument_members(self.direction),
+        )
         from ..static import _free_indices
 
         return _free_indices(*edges)
@@ -63,7 +67,7 @@ class DirectionalDerivative(AbstractExpression):
     def _validate(self) -> None:
         from ..validation import _admissible, _require
 
-        xs = _members(self.variable)
+        xs = _argument_members(self.variable)
         for x in xs:
             _require(
                 not x.argument_spaces or isinstance(x.space, DualSpace),
@@ -77,10 +81,10 @@ class DirectionalDerivative(AbstractExpression):
         for values in (self.point, self.direction):
             _require(
                 isinstance(values, tuple) == isinstance(self.variable, tuple)
-                and len(_members(values)) == len(xs),
+                and len(_argument_members(values)) == len(xs),
                 "derivative tuple structure differs",
             )
-            for x, value in zip(xs, _members(values), strict=True):
+            for x, value in zip(xs, _argument_members(values), strict=True):
                 _admissible(x.space, value)
 
 

@@ -99,7 +99,7 @@ DELEGATES = {
     "__matmul__": ("tensors.matrix_product", "self, other"),
     "__neg__": ("arithmetic.negate", "self"),
     "__abs__": ("arithmetic.absolute", "self"),
-    "__getitem__": ("tensors.component", "self, _members(entries)"),
+    "__getitem__": ("tensors.component", "self, _argument_members(entries)"),
 }
 
 

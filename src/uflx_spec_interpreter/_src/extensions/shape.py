@@ -7,7 +7,7 @@ from ..nodes import AbstractExpression, Function
 from ..passes.derivatives import apply_derivatives
 from ..rules.differentiation import _deriv
 from ..traversal import _bottom_up
-from ..tuples import _members
+from ..tuples import _argument_members
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
@@ -34,7 +34,7 @@ class _ShapeDerivative(AbstractExpression):
     scope = ("expression", "variable")
 
     def bound(self) -> tuple[Function, ...]:
-        return _members(self.variable)
+        return _argument_members(self.variable)
 
     @property
     @_cached
@@ -44,7 +44,7 @@ class _ShapeDerivative(AbstractExpression):
     @property
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        edges = (self.expression, *_members(self.direction))
+        edges = (self.expression, *_argument_members(self.direction))
         from ..static import _free_indices
 
         return _free_indices(*edges)
