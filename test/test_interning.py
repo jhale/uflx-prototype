@@ -26,7 +26,7 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.nodes.interning import _digest_of
+from uflx_spec_interpreter._src.nodes.base import _digest_of
 from uflx_toy.spaces import space
 
 V = space("V")

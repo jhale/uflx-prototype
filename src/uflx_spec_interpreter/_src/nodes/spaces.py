@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, final
 
 from .arguments import _argument_members
 from .base import Base
-from .interning import _cached
+from .caching import _cached
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:

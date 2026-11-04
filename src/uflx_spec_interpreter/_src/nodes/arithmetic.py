@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
+from .caching import _cached
 from .expressions import AbstractExpression
-from .interning import _cached
 from .scalar_types import ScalarType
 from .validation import _require
 

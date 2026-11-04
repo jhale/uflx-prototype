@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
+from .caching import _cached
 from .expressions import AbstractExpression
 from .indices import Index
-from .interning import _cached
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain

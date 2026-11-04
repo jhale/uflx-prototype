@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, cast, final
 
 from .base import Base
+from .caching import _cached
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
 from .expressions import AbstractExpression
 from .indices import GatheredIndex, Index
-from .interning import _cached
 from .scalar_types import ScalarType
 from .topology import AbstractTopology
 

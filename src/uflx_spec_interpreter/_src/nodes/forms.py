@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Literal, final
 
 from .arguments import _argument_members, _map_argument
 from .arithmetic import Conjugate
+from .caching import _cached
 from .expressions import AbstractExpression
-from .interning import _cached
 from .spaces import AbstractFunctionSpace, DualSpace
 
 if TYPE_CHECKING:

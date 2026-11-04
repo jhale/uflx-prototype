@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, final
 from ..algorithms.traversal import _bottom_up
 from ..nodes import AbstractExpression, Function
 from ..nodes.arguments import _argument_members
-from ..nodes.interning import _cached
+from ..nodes.caching import _cached
 from ..passes.derivatives import apply_derivatives
 from ..rules.differentiation import _deriv
 

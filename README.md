@@ -243,20 +243,18 @@ The private modules of `_src`:
 - `nodes/base.py`: `Base`, which makes subclasses frozen dataclasses. Dataclasses
   supply storage, constructors and positional patterns. Private fields such as
   `_domain` implement abstract properties through typed getters. `argument_names`
-  records their public names for traversal and reconstruction.
+  records their public names for traversal and reconstruction. The interning
+  metaclass uses a deterministic digest and returns cache hits without initializing
+  them again. New nodes are initialized and validated before entering the weak cache.
 - `nodes/expressions.py`: `AbstractExpression`, its static-type contract, expression
   validation and Python operators.
-- `nodes/interning.py`: a metaclass interns nodes using the deterministic digest.
-  A cache hit returns the existing object without initializing it again. A new
-  object is initialized and validated before entering the weak cache.
+- `nodes/caching.py`: the shared decorator for caching computed properties.
 - `nodes/literals.py`, `nodes/arithmetic.py`, `nodes/indices.py`,
   `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py`,
   `nodes/maps.py`, `nodes/meshes.py`,
   `nodes/topology.py`, `nodes/spaces.py` and `nodes/forms.py`: the node classes,
   by section of the specification, most with a module of the same name for
   their free functions
-- `nodes/interning.py`: the table of nodes, their canonical text and the seed-free
-  digest
 - `algorithms/traversal.py`: graph traversal and reconstruction
 - `algorithms/substitution.py`: capture-avoiding freshening and simultaneous substitution
 - `algorithms/rewriting.py`: replacement compatibility, index completion and promotion

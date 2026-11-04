@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, final
 
 from .base import Base
-from .interning import _cached
+from .caching import _cached
 
 if TYPE_CHECKING:
     from .types import _Construction
