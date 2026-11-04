@@ -3,14 +3,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from ..nodes import Action, Form
+from ..arithmetic import multiply
+from ..nodes import Action, Conjugate, Form, Product, Zero
 from ..rewriting import _rewrite
 from ..rules.binding import _bind
-from ..rules.linearity import _action_linearity
-from ..rules.structural import _action_retained, _action_structure, _structural
-from ..static import _arity
+from ..rules.linearity import _linear_fields
+from ..rules.structural import _action_retained, _commute, _structural_fields
+from ..static import _free_indices
 from ..traversal import _everywhere, _memoized
-from ..tuples import _members
+from ..tuples import _each, _members
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
@@ -31,18 +32,31 @@ def _rule(
 ) -> AbstractExpression:
     # The rule table of apply_actions, keyed on the form f.
     match f:
-        case Form(e, _) if p >= _arity(e):
-            return _bind(f, p - _arity(e), g)
+        case Form(e, _) if p >= len(e.argument_spaces):
+            return _bind(f, p - len(e.argument_spaces), g)
+        case Conjugate(expression):  # L05.
+            return Conjugate(act(expression, p, _each(Conjugate, g)))
+        case Product(first, second):  # ST02.
+            first_arity = len(first.argument_spaces)
+            if p < first_arity:
+                return multiply(act(first, p, g), second)
+            return multiply(first, act(second, p - first_arity, g))
+        case Zero(shape, _, arguments):  # L07.
+            remaining = arguments[:p] + arguments[p + 1 :]
+            return Zero(shape, _free_indices(f, *_members(g)), remaining, f.scalar_type)
+        case _ if _action_retained(f):  # ST03-ST05.
+            return Action(f, p, g)
         case _:
-            pass
-    out = _action_structure(f, p, g, act)
-    if out is None:
-        out = _action_linearity(f, p, g, act)
-    if out is None:
-        out = _structural(f, lambda b: act(b, p, g), _members(g))
-    if out is None:
-        raise TypeError(f"no action rule for {type(f).__name__}")
-    return out
+            fields = _linear_fields(f) or _structural_fields(f)
+            if fields is None:
+                raise TypeError(f"no action rule for {type(f).__name__}")
+            return _commute(
+                f,
+                lambda operand: act(operand, p, g),
+                fields,
+                _members(g),
+                lambda operand: not operand.argument_spaces,
+            )
 
 
 def apply_actions(f: AbstractExpression) -> AbstractExpression:

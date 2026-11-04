@@ -23,7 +23,6 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.nodes import Action
 from uflx_spec_interpreter._src.passes import actions
 from uflx_spec_interpreter._src.passes.actions import _actions_complete
-from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
 V = space("V")
@@ -108,7 +107,7 @@ def main(trials):
         n_actions += str(e).count("Action(")
         out = actions.apply_actions(e)
         check_types(typed, e, out)
-        vals = tuple(complex(*rng.normal(size=2)) for _ in range(_arity(e)))
+        vals = tuple(complex(*rng.normal(size=2)) for _ in range(len(e.argument_spaces)))
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-4):
             failures += 1

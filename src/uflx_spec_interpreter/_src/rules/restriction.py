@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 from ..arithmetic import divide, square_root
 from ..geometry import inverse_jacobian
-from ..meshes import _cell_of, _inclusion
+from ..meshes import _inclusion
 from ..nodes import (
     CellMap,
     DomainMap,
@@ -27,29 +27,27 @@ __all__ = ["_normal", "_side_cell", "_side_maps"]
 
 
 def _side_cell(
-    sm: SideMap, m: DomainMap | CellMap | SideMap
+    side_map: SideMap, map: DomainMap | CellMap | SideMap
 ) -> tuple[int, int | Index | GatheredIndex] | None:
-    # The group and the entry of m as a cell of the parameter domain of the side map: a cell
-    # map of the side topology, or a cell of the side domain.
-    if isinstance(m, CellMap):
-        return (m.cell_group, m.entry) if m.topology == sm.side_topology else None
-    return _cell_of(m) if m.ambient_domain == sm.parameter_domain else None
+    """Identify a cell of the side topology, including cells of its physical mesh."""
+    if isinstance(map, CellMap) and map.topology == side_map.side_topology:
+        return map.cell_group, map.entry
+    return None
 
 
 def _side_maps(
-    sm: SideMap, i: int, e: int | Index | GatheredIndex
+    side_map: SideMap, group: int, entry: int | Index | GatheredIndex
 ) -> tuple[CellMap, DomainMap, AbstractExpression | None]:
     # B and a of cell e of group i, and the reference normal of the side tables.
-    S, s = sm.side_topology, sm.side
-    B, a = _inclusion(sm.ambient_domain, S, i, s, e)
-    m_hat = S.side_tables(i, s)[2]
-    return (
-        B,
-        a,
-        None
-        if m_hat is None
-        else cast("AbstractExpression", _substitute(m_hat, {cell_index(S, i): e})),
-    )
+    topology, side = side_map.side_topology, side_map.side
+    outer, inner = _inclusion(side_map.ambient_domain, topology, group, side, entry)
+    reference_normal = topology.side_tables(group, side)[2]
+    if reference_normal is not None:
+        reference_normal = cast(
+            "AbstractExpression",
+            _substitute(reference_normal, {cell_index(topology, group): entry}),
+        )
+    return outer, inner, reference_normal
 
 
 def _normal(

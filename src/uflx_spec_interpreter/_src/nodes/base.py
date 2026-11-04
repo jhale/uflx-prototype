@@ -56,12 +56,13 @@ class Base(ABC):
                 f"{cls.__name__}: a node module needs from __future__ import annotations"
             )
         names = tuple(n for n in inspect.get_annotations(cls) if n not in cls.__dict__)
-        if names:
-            cls.argument_names = cls.__match_args__ = names
-            for k, n in enumerate(names):
-                setattr(cls, n, _argument_property(k))
-            # A generated property may implement an abstract property.
-            update_abstractmethods(cls)
+        if not names:
+            return
+        cls.argument_names = cls.__match_args__ = names
+        for position, name in enumerate(names):
+            setattr(cls, name, _argument_property(position))
+        # A generated property may implement an abstract property.
+        update_abstractmethods(cls)
 
     def __new__(cls, *args: _Construction) -> Self:
         if "identifier" not in cls.__dict__:

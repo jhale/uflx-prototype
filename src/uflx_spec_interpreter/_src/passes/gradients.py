@@ -18,7 +18,7 @@ from ..rewriting import _complete_indices, _rewrite
 from ..rules.coordinates import _chain_partial, _chained, _piola_law
 from ..rules.differentiation import _coordinate_partial, _derivative_of_node
 from ..rules.structural import _action_output, _gradient, _gradient_component, _gradient_remains
-from ..static import _free_indices, _shape, _support
+from ..static import _free_indices
 from ..traversal import _memoized
 from .actions import apply_actions
 
@@ -42,9 +42,9 @@ def _rule(
     match f:
         case Action():
             return _action_output(f, lambda A: partial(A, P, j))
-        case _ if _support(f) is None:
+        case _ if f.domain is None:
             return Zero(
-                _shape(f),
+                f.value_shape,
                 (*_free_indices(f), (j, P.ambient_coordinate_domain.dimension)),
                 f.argument_spaces,
                 f.scalar_type,
@@ -57,7 +57,7 @@ def _rule(
             return _gradient_component(f, P, j)
         case _:
             return _derivative_of_node(
-                f, lambda b: partial(b, P, j), lambda c: _support(c) is None, []
+                f, lambda b: partial(b, P, j), lambda c: c.domain is None, []
             )
 
 

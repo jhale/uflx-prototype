@@ -72,7 +72,9 @@ class Tensor(AbstractExpression):
     @property
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        return tuple(dict(p for x in self.entries for p in x.free_indices).items())
+        from ..static import _free_indices
+
+        return _free_indices(*self.entries)
 
     @property
     @_cached

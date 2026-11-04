@@ -19,7 +19,6 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.passes import actions
 from uflx_spec_interpreter._src.passes.actions import _actions_complete
-from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
 rng = np.random.default_rng(1)
@@ -36,7 +35,7 @@ args = tuple(complex(*rng.normal(size=2)) for _ in range(3))
 def check(name, e, ienv=None):
     ienv = ienv or {}
     out = actions.apply_actions(e)
-    n = _arity(e)
+    n = len(e.argument_spaces)
     before = evaluate(e, env, ienv)(args[:n])
     after = evaluate(out, env, ienv)(args[:n])
     assert np.allclose(before, after, atol=1e-6), name

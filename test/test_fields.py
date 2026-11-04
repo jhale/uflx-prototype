@@ -32,7 +32,6 @@ from uflx_spec_interpreter._src.passes import actions, derivatives, integrals
 from uflx_spec_interpreter._src.passes.actions import _actions_complete
 from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
 from uflx_spec_interpreter._src.passes.integrals import _integrals_expanded
-from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
 VD = space("VD", domain=MESH)
@@ -95,7 +94,7 @@ def main(trials):
         e = random_form(rnd, n, 2)
         out = integrals.expand_integrals(derivatives.apply_derivatives(actions.apply_actions(e)))
         check_types(bad, e, out)
-        vals = tuple(args[: _arity(e)])
+        vals = tuple(args[: len(e.argument_spaces)])
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
             bad["value"] += 1

@@ -23,7 +23,6 @@ from .nodes import (
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
 __all__ = [
-    "_rank",
     "_total",
     "absolute",
     "add",
@@ -40,30 +39,26 @@ __all__ = [
 ]
 
 
-def _rank(f: AbstractExpression) -> int:
-    return len(f.value_shape)
-
-
 def add(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
     from .tensors import component_tensor, indexed
 
-    k = _derived_indices("uflx.add", (first, second), _rank(first))
+    k = _derived_indices("uflx.add", (first, second), len(first.value_shape))
     return component_tensor(Sum(indexed(first, k), indexed(second, k)), k)
 
 
 def multiply(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
-    if _rank(second) and not _rank(first):
-        k = _derived_indices("uflx.multiply", (first, second), _rank(second))
+    if len(second.value_shape) and not len(first.value_shape):
+        k = _derived_indices("uflx.multiply", (first, second), len(second.value_shape))
         return ComponentTensor(Product(first, Indexed(second, k)), k)
-    if _rank(first) and not _rank(second):
-        k = _derived_indices("uflx.multiply", (first, second), _rank(first))
+    if len(first.value_shape) and not len(second.value_shape):
+        k = _derived_indices("uflx.multiply", (first, second), len(first.value_shape))
         return ComponentTensor(Product(Indexed(first, k), second), k)
     return Product(first, second)
 
 
 def divide(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
-    if _rank(first):
-        k = _derived_indices("uflx.divide", (first, second), _rank(first))
+    if len(first.value_shape):
+        k = _derived_indices("uflx.divide", (first, second), len(first.value_shape))
         return ComponentTensor(Division(Indexed(first, k), second), k)
     return Division(first, second)
 
@@ -91,9 +86,9 @@ def conjugate(f: AbstractExpression) -> AbstractExpression:
 def _entrywise(
     name: str, op: Callable[[AbstractExpression], AbstractExpression], f: AbstractExpression
 ) -> AbstractExpression:
-    if not _rank(f):
+    if not len(f.value_shape):
         return op(f)
-    k = _derived_indices(name, (f,), _rank(f))
+    k = _derived_indices(name, (f,), len(f.value_shape))
     return ComponentTensor(op(Indexed(f, k)), k)
 
 

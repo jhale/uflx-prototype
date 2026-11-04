@@ -38,7 +38,6 @@ from uflx_spec_interpreter._src.rules.integration import _piece_integral
 from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_spec_interpreter._src.traversal import (
     _bottom_up,
-    _lowered,
     _map_fields,
     _memoized,
     _operands,
@@ -399,7 +398,9 @@ def _local_expression(
     # Replace whole field reads before visiting their Function operands.
     def visit(visit, node):
         replacement = tabulate(node)
-        return replacement if replacement is not node else _map_fields(node, visit, _lowered(node))
+        return (
+            replacement if replacement is not node else _map_fields(node, visit, node.value_fields)
+        )
 
     return simplify(_memoized(visit)(f))
 

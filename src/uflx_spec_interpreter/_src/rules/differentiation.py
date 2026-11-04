@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 from functools import cache
 from typing import TYPE_CHECKING
 
-from ..arithmetic import add, divide, multiply, real_part, subtract
+from ..arithmetic import real_part
 from ..nodes import (
     Absolute,
     Action,
@@ -29,8 +29,8 @@ from ..substitution import _occurs, _substitute_values
 from ..tensors import transpose
 from ..traversal import _memoized
 from ..tuples import _each, _members
-from .linearity import _linear
-from .structural import _structural
+from .linearity import _linear_fields
+from .structural import _commute, _structural_fields
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
@@ -44,20 +44,23 @@ if TYPE_CHECKING:
 __all__ = ["_coordinate_partial", "_deriv", "_derivative_of_node"]
 
 
-def _differentiate(
+def _derivative_of_node(
     f: AbstractExpression,
     d: Callable[[AbstractExpression], AbstractExpression],
     constant: Callable[[AbstractExpression], bool],
+    avoid: Sequence[_Construction],
     at: Callable[[AbstractExpression], AbstractExpression] = lambda e: e,
-) -> AbstractExpression | None:
-    """D01-D10, D12, D19-D20. Nonlinear derivative formulas."""
+) -> AbstractExpression:
+    """D01-D10, D12, D19-D20, followed by structural and linear rules.
+
+    d differentiates an operand; at evaluates it at the differentiation point.
+    Spatial differentiation leaves at as the identity.
+    """
     match f:
         case Product(b, c):
-            return add(multiply(d(b), at(c)), multiply(at(b), d(c)))
+            return d(b) * at(c) + at(b) * d(c)
         case Division(b, c):
-            return subtract(
-                divide(d(b), at(c)), divide(multiply(at(b), d(c)), multiply(at(c), at(c)))
-            )
+            return d(b) / at(c) - (at(b) * d(c)) / (at(c) * at(c))
         case Power(_, c) if _literal_value(c) == 0:
             # D19 precedes the general power rule, including at a zero base.
             return _zero_like(f, f.argument_spaces)
@@ -65,17 +68,16 @@ def _differentiate(
             # D20. The caller completes the derivative's type.
             return d(b)
         case Power(b, c) if constant(c):
-            return multiply(multiply(at(c), Power(at(b), add(at(c), Integer(-1)))), d(b))
+            return at(c) * Power(at(b), at(c) + Integer(-1)) * d(b)
         case Power(b, c):
-            return multiply(
-                at(f), add(multiply(Logarithm(at(b)), d(c)), divide(multiply(at(c), d(b)), at(b)))
-            )
+            return at(f) * (Logarithm(at(b)) * d(c) + (at(c) * d(b)) / at(b))
         case Absolute(b):
-            return _abs_derivative(at(b), d(b))
+            value = at(b)
+            return real_part(Conjugate(value) * d(b)) / Absolute(value)
         case SquareRoot(b):
-            return divide(d(b), multiply(Integer(2), at(f)))
+            return d(b) / (Integer(2) * at(f))
         case Logarithm(b):
-            return divide(d(b), at(b))
+            return d(b) / at(b)
         case Determinant(a):
             from ..names import _derived_indices
             from ..tensors import index_sum, indexed
@@ -91,14 +93,12 @@ def _differentiate(
                 return Action(at(l), p, _each(d, w))
             if all(constant(v) for v in _members(w)):
                 return Action(d(l), p, _each(at, w))
-            return add(Action(d(l), p, _each(at, w)), Action(at(l), p, _each(d, w)))
+            return Action(d(l), p, _each(at, w)) + Action(at(l), p, _each(d, w))
         case _:
-            return None
-
-
-def _abs_derivative(b: AbstractExpression, db: AbstractExpression) -> AbstractExpression:
-    # Re(conj(b) db) / |b|, which is real arithmetic like the Absolute it replaces.
-    return divide(real_part(multiply(Conjugate(b), db)), Absolute(b))
+            fields = _linear_fields(f) or _structural_fields(f)
+            if fields is None:
+                raise TypeError(f"no derivative rule for {type(f).__name__}")
+            return _commute(f, d, fields, avoid, constant, at)
 
 
 def _inverse_derivative(A: AbstractExpression, dA: AbstractExpression) -> AbstractExpression:
@@ -155,24 +155,6 @@ def _deriv(
         return _complete_indices(expected, out)
 
     return _complete_indices(DirectionalDerivative(f, x, a, h), _memoized(differentiate)(f))
-
-
-def _derivative_of_node(
-    f: AbstractExpression,
-    d: Callable[[AbstractExpression], AbstractExpression],
-    constant: Callable[[AbstractExpression], bool],
-    avoid: Sequence[_Construction],
-    at: Callable[[AbstractExpression], AbstractExpression] = lambda e: e,
-) -> AbstractExpression:
-    """Select the shared derivative fallback in the recipe's order."""
-    out = _differentiate(f, d, constant, at)
-    if out is None:
-        out = _linear(f, d, constant, avoid, at)
-    if out is None:
-        out = _structural(f, d, avoid, at)
-    if out is None:
-        raise TypeError(f"no derivative rule for {type(f).__name__}")
-    return out
 
 
 def _coordinate_partial(f: AbstractExpression, P: AbstractDomain, j: Index) -> AbstractExpression:

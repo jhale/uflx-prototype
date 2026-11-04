@@ -37,7 +37,6 @@ from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative
 from uflx_spec_interpreter._src.passes import actions, derivatives
 from uflx_spec_interpreter._src.passes.actions import _actions_complete
 from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
-from uflx_spec_interpreter._src.static import _arity, _free, _shape
 from uflx_toy.spaces import space
 
 V, Vd = space("V"), dual_space(space("V"))
@@ -149,12 +148,16 @@ def wrap(rnd, xs, body):
 def derivative(rnd, body, nd):
     if rnd.random() < 0.7:
         x = rnd.choice([u, v, w])
-        f = wrap(rnd, x, body) if _arity(body) == 0 else multiply(x, body)
+        f = wrap(rnd, x, body) if len(body.argument_spaces) == 0 else multiply(x, body)
         point = rnd.choice([x, x, z, add(x, num(0.1))])
         direction = rnd.choice([h, z, num(1), multiply(indexed(c, (kf,)), h)])
     else:
         x = U2
-        f = wrap(rnd, dot(U2, U), body) if _arity(body) == 0 else multiply(dot(U2, U), body)
+        f = (
+            wrap(rnd, dot(U2, U), body)
+            if len(body.argument_spaces) == 0
+            else multiply(dot(U2, U), body)
+        )
         point = rnd.choice([U2, U2, U3, tensor((z, h))])
         direction = rnd.choice(
             [tensor((h, z)), component_tensor(multiply(indexed(c, (kf,)), indexed(U3, (m,))), (m,))]
@@ -264,8 +267,8 @@ def main(trials):
                 print(
                     "static type changed, seed",
                     seed,
-                    (_shape(e), _free(e)),
-                    (_shape(out), _free(out)),
+                    (e.value_shape, dict(e.free_indices)),
+                    (out.value_shape, dict(out.free_indices)),
                 )
         if contains(
             e,
@@ -279,7 +282,7 @@ def main(trials):
         if not (_actions_complete(out) and _derivatives_complete(out)):
             bad["grammar"] += 1
         vals = tuple(entry_value(rng, s) for s in specs)
-        fr = _free(e)
+        fr = dict(e.free_indices)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             ienv = dict(zip(fr, combo))
             before, after = evaluate(e, env, ienv)(vals), evaluate(out, env, ienv)(vals)

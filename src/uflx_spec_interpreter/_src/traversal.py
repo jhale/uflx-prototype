@@ -15,7 +15,6 @@ __all__ = [
     "_edges",
     "_everywhere",
     "_expressions",
-    "_lowered",
     "_map_fields",
     "_map_values",
     "_memoized",
@@ -72,7 +71,7 @@ def _rebuild(e: Base, **changes: _Construction) -> _Construction:
 
 def _expressions(e: Base) -> list[AbstractExpression]:
     # The operands of e that are expressions, which a grammar restricts.
-    return [x for x in _nodes_in(e, _lowered(e)) if isinstance(x, AbstractExpression)]
+    return [x for x in _nodes_in(e, e.value_fields) if isinstance(x, AbstractExpression)]
 
 
 def _map_fields(
@@ -101,11 +100,6 @@ def _memoized(rule: Callable[Concatenate[Callable[_P, _R], _P], _R]) -> Callable
         return memo[key]
 
     return recurse
-
-
-def _lowered(e: Base) -> tuple[str, ...]:
-    # Only explicitly declared value operands are evaluated.
-    return e.value_fields
 
 
 def _bottom_up(

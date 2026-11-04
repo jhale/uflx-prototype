@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 __all__ = [
     "_cell_domain",
     "_cell_of",
-    "_coordinate_function",
     "_inclusion",
     "_is_cell",
     "cell_map",
@@ -59,13 +58,6 @@ def image(x: AbstractExpression, Q: AbstractCoordinateDomain) -> Mesh:
     return Mesh(x, Q)
 
 
-def _coordinate_function(D: Mesh) -> AbstractExpression:
-    return D.coordinate_function
-
-
-_IDENTITY = TransformationLaw((), 0)
-
-
 def transformation_law(
     variances: tuple[Literal["covariant", "contravariant"], ...], weight: int
 ) -> TransformationLaw:
@@ -93,7 +85,7 @@ def side_map(X: Mesh | AbstractTopology, P: Mesh | AbstractTopology, s: str) -> 
 
 
 def side_domain(D: Mesh, S: AbstractTopology, s: str) -> Mesh:
-    x = _coordinate_function(D)
+    x = D.coordinate_function
     return image(PullBack(x, side_map(D.topology, S, s)), D.ambient_domain)
 
 
@@ -105,7 +97,7 @@ def _inclusion(
     cells, A, _ = S.side_tables(i, s)
     c = cell_index(S, i)
     g = GatheredIndex(cells, (e,))
-    B = CellMap(X, j, g) if isinstance(X, AbstractTopology) else _cell_domain(X, j, g)
+    B = CellMap(X, j, g)
     return B, cast("DomainMap", _substitute(A, {c: e}))
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from itertools import combinations
 from typing import TYPE_CHECKING
 
-from .arithmetic import _rank, divide, multiply
+from .arithmetic import divide, multiply
 from .names import _derived_indices
 from .nodes import (
     AbstractExpression,
@@ -57,21 +57,17 @@ def indexed(
 ) -> AbstractExpression:
     if indices == () and expression.value_shape:
         raise IndexError("full indexing must cover every axis")
-    return _empty_indices(expression, indices) if indices == () else Indexed(expression, indices)
+    return _empty_indices(expression) if indices == () else Indexed(expression, indices)
 
 
 def component_tensor(
     expression: AbstractExpression, indices: tuple[Index, ...]
 ) -> AbstractExpression:
-    return (
-        _empty_indices(expression, indices)
-        if indices == ()
-        else ComponentTensor(expression, indices)
-    )
+    return _empty_indices(expression) if indices == () else ComponentTensor(expression, indices)
 
 
 def index_sum(expression: AbstractExpression, indices: tuple[Index, ...]) -> AbstractExpression:
-    return _empty_indices(expression, indices) if indices == () else IndexSum(expression, indices)
+    return _empty_indices(expression) if indices == () else IndexSum(expression, indices)
 
 
 def inverse(A: AbstractExpression) -> AbstractExpression:
@@ -103,8 +99,8 @@ def transpose(A: AbstractExpression) -> AbstractExpression:
 
 def matrix_product(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
     i, k, j = _derived_indices("uflx.matrix_product", (first, second), 3)
-    a = (i,) if _rank(first) == 2 else ()
-    b = (j,) if _rank(second) == 2 else ()
+    a = (i,) if len(first.value_shape) == 2 else ()
+    b = (j,) if len(second.value_shape) == 2 else ()
     contracted = IndexSum(multiply(Indexed(first, (*a, k)), Indexed(second, (k, *b))), (k,))
     return ComponentTensor(contracted, a + b) if a + b else contracted
 
@@ -112,12 +108,10 @@ def matrix_product(first: AbstractExpression, second: AbstractExpression) -> Abs
 def component(
     f: AbstractExpression, entries: tuple[int | Index | GatheredIndex, ...]
 ) -> AbstractExpression:
-    if type(entries) is not tuple:
-        raise TypeError("component takes an expression and a tuple")
     if not entries:
         return f
-    if len(entries) < _rank(f):
-        K = _derived_indices("uflx.component", (f, entries), _rank(f) - len(entries))
+    if len(entries) < len(f.value_shape):
+        K = _derived_indices("uflx.component", (f, entries), len(f.value_shape) - len(entries))
         return ComponentTensor(Indexed(f, (*entries, *K)), K)
     return Indexed(f, entries)
 
@@ -138,11 +132,7 @@ def _sign(p: tuple[int, ...]) -> int:
     return -1 if sum(p[a] > p[b] for a, b in combinations(range(len(p)), 2)) % 2 else 1
 
 
-def _empty_indices(
-    expression: AbstractExpression, indices: tuple[int | Index | GatheredIndex, ...]
-) -> AbstractExpression:
-    if type(indices) is not tuple:
-        raise TypeError("index notation takes an expression and a tuple")
+def _empty_indices(expression: AbstractExpression) -> AbstractExpression:
     if expression.value_shape:
         raise ValueError("empty indices require a scalar")
     return expression

@@ -18,6 +18,7 @@ from .nodes import (
 from .nodes.forms import _entry_function
 from .substitution import _occurs
 from .tuples import _each, _members
+from .validation import _admissible, _merge_indices
 
 if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
@@ -92,21 +93,9 @@ def _validate_derivative_points(
     variables: tuple[Function, ...],
     points: tuple[AbstractExpression, ...],
 ) -> None:
-    # Evaluation points must have admissible signatures and consistent family indices.
     for variable, point in zip(variables, points, strict=True):
-        if (
-            point.value_shape != variable.value_shape
-            or point.argument_spaces != variable.argument_spaces
-            or point.scalar_type not in (variable.scalar_type, ScalarType.real)
-            or point.domain not in (None, variable.domain)
-        ):
-            raise ValueError("evaluation point is not admissible for the variable space")
-    extents = {}
-    for operand in (expression, *points):
-        for index, extent in operand.free_indices:
-            if index in extents and extents[index] != extent:
-                raise ValueError("shared free indices must have matching extents")
-            extents[index] = extent
+        _admissible(variable.space, point)
+    _merge_indices(expression.free_indices, *(point.free_indices for point in points))
 
 
 def gateaux_derivative(

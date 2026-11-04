@@ -13,23 +13,23 @@ Paths below are relative to `src/uflx_spec_interpreter/_src/`.
 | Rules | Implementation | Main tests in `test/` |
 | --- | --- | --- |
 | ST01 | `rules/structural.py::_structural`, `_commute` | `test_actions.py`, `test_tensor_gateaux.py`, `test_broadcast.py`, `test_rule_groups.py` |
-| ST02 | `rules/structural.py::_action_structure` | `test_actions.py`, `test_mixed.py` |
+| ST02 | `passes/actions.py::_rule` | `test_actions.py`, `test_mixed.py` |
 | ST03–ST05 | `rules/structural.py::_action_retained`; shared with `contracts.py` | `test_action_spatial.py`, `test_core_normal_form.py` |
 | ST06 | `nodes/forms.py::Action._validate` | `test_signatures.py` |
 | ST07, ST10–ST11 | `rules/structural.py::_action_output` | `test_action_spatial.py` |
 | ST08 | `rules/structural.py::_gradient` | `test_gradients.py`, `test_rule_groups.py` |
 | ST09 | `rules/structural.py::_gradient_component` | `test_gradients.py` |
 | ST12 | `rules/structural.py::_gradient_remains`; shared with `contracts.py` | `test_rewriting.py`, `test_piola_applicability.py` |
-| L01–L04 | `rules/linearity.py::_linear` | `test_gateaux.py`, `test_tensor_gateaux.py`, `test_broadcast.py` |
-| L05, L07 | `rules/linearity.py::_action_linearity` | `test_actions.py`, `test_typed_zero.py` |
+| L01–L04 | `rules/linearity.py::_linear_fields`, `rules/structural.py::_commute` | `test_gateaux.py`, `test_tensor_gateaux.py`, `test_broadcast.py` |
+| L05, L07 | `passes/actions.py::_rule` | `test_actions.py`, `test_typed_zero.py` |
 | L10 | `rules/differentiation.py::_deriv` selects `_zero_like` | `test_derivative_validation.py`, `test_typed_zero.py` |
 | L11 | `passes/gradients.py::_rule` selects a typed component zero | `test_gradients.py`, `test_rule_groups.py` |
-| D01–D10, D12 | `rules/differentiation.py::_differentiate` | `test_derivative_algebra.py`, `test_tensor_gateaux.py`, `test_full.py` |
+| D01–D10, D12 | `rules/differentiation.py::_derivative_of_node` | `test_derivative_algebra.py`, `test_tensor_gateaux.py`, `test_full.py` |
 | D11, D15 | `rules/differentiation.py::_deriv`; value occurrence through `substitution.py::_occurs` | `test_gateaux.py`, `test_derivative_validation.py`, `test_rule_groups.py` |
 | D13 | `passes/derivatives.py::apply_derivatives`; operands first in `rewriting.py::_rewrite` | `test_lowering_recipe.py`, `test_single_derivative.py` |
 | D16 | `passes/gradients.py::apply_gradients` selects compositions from `calculus.py` | `test_gradients.py`, `test_piola_applicability.py` |
 | D17 | `rules/differentiation.py::_coordinate_partial` | `test_gradients.py`, `test_rule_groups.py` |
-| D19–D20 | `rules/differentiation.py::_differentiate`, before D03–D04 | `test_rule_groups.py` |
+| D19–D20 | `rules/differentiation.py::_derivative_of_node`, before D03–D04 | `test_rule_groups.py` |
 | SB16–SB17 | `rules/binding.py::_bind`, `_binding`; uses shared substitution | `test_actions.py`, `test_controls.py` |
 | CC01 | `rules/coordinates.py::_chain_partial` | `test_pull_back_gradients.py` |
 | CC06–CC07 | `rules/coordinates.py::_piola_law`; shared by rewriting and contracts | `test_piola_applicability.py` |
@@ -48,7 +48,7 @@ existing module because it needs a different walk from expression rewriting.
 | SH14, SH18 | Mathematical independence is a precondition; core recipes use the conservative checks below | `test_derivative_validation.py` |
 | SH15 | `rules/differentiation.py::_deriv`, `substitution.py::_occurs` | `test_derivative_validation.py` |
 | SH16 | Domain check in `passes/gradients.py::_rule` | `test_gradients.py` |
-| SH17 | Slot selection in `rules/structural.py::_action_structure`; unchanged operands in `rules/linearity.py::_linear` | `test_actions.py`, `test_mixed.py` |
+| SH17 | Slot selection in `passes/actions.py::_rule`; unchanged operands in `rules/linearity.py::_linear_fields`, `rules/structural.py::_commute` | `test_actions.py`, `test_mixed.py` |
 | SH19–SH21 | `rewriting.py::_rewrite` | `test_rewriting.py`, `test_lowering_recipe.py` |
 | SH22–SH23 | Pass cleanup and `passes/lowering.py`; see findings below | `test_rewriting.py`, `test_lowering_contracts.py` |
 | SH24 | Component recursion in `passes/gradients.py`; no derivative-request node | `test_gradients.py`, `test_rule_groups.py` |
@@ -62,7 +62,7 @@ existing module because it needs a different walk from expression rewriting.
 | PB01–PB02 | Selection in `passes/pullbacks.py`, shared type completion | `test_points.py`, `test_broadcast.py` |
 | PB03–PB05 | `rules/pullback_algebra.py::_composed`, `_pullback_remains` and pass selection | `test_pull_back_gradients.py`, `test_surface.py` |
 | PB06 | Explicit operand-class selection in `passes/pullbacks.py`; `rules/pullback_algebra.py::_pointwise` | `test_broadcast.py`, `test_pullback_contractions.py` |
-| CC02, CC04 | `rules/coordinates.py::_pushed_forward`, `_transformed` and pass selection | `test_push_forwards.py`, `test_pullback_contractions.py` |
+| CC02, CC04 | `rules/coordinates.py::_transformed` and pass selection | `test_push_forwards.py`, `test_pullback_contractions.py` |
 | CC03, CC05 | Retention in `passes/pullbacks.py` and `rules/pullback_algebra.py`; see findings below | `test_piola_applicability.py` |
 | CC08–CC09 | `rules/coordinates.py::_piola_law`, `_on_the_reference_cell`, `_transformed`; selection in `passes/pullbacks.py` | `test_piola_applicability.py` |
 | R01–R03 | `rules/restriction.py::_side_cell`, `_side_maps`, `_normal` and pass selection | `test_facets.py`, `test_surface.py` |

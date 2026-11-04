@@ -50,7 +50,6 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.static import _arity, _free, _support
 from uflx_spec_interpreter._src.tuples import _members
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.meshes import shape_functions
@@ -184,7 +183,7 @@ def tangent_projector(P, env):
         T = jacobian_of(POINTS[("chart", P)], POINTS[("ref", P)])
     else:
         piece = P.pieces[0]
-        index = next(iter(_free(piece.parameterisation)))
+        index = next(iter(dict(piece.parameterisation.free_indices)))
         cell = POINTS[("cell", P)] if ("cell", P) in POINTS else locate(P, POINTS[P], env)
         chart = piece_map(piece, {index: cell}, env)
         T = jacobian_of(chart, reference_point(chart, POINTS[P], P.dimension))
@@ -194,8 +193,8 @@ def tangent_projector(P, env):
 def locate(P, x, env):
     # The cell of P that contains x, as a mesh library finds it for a point.
     piece = P.pieces[0]
-    index = next(iter(_free(piece.parameterisation)))
-    for cell in range(_free(piece.parameterisation)[index]):
+    index = next(iter(dict(piece.parameterisation.free_indices)))
+    for cell in range(dict(piece.parameterisation.free_indices)[index]):
         chart = piece_map(piece, {index: cell}, env)
         X = reference_point(chart, x, P.dimension)
         if inside(piece.parameter_domain, X) and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
@@ -239,7 +238,7 @@ def integrate(P, fn, env):
         return sum(w * at(P, p, lambda: fn({})) for p, w in rule_on(P))
     total = 0
     for number, piece in enumerate(P.pieces):
-        fr = _free(piece.parameterisation)
+        fr = dict(piece.parameterisation.free_indices)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             members = dict(zip(fr, combo))
             psi = evaluate(piece.parameterisation, env, members)
@@ -289,7 +288,7 @@ VALUES = {}
 
 
 def evaluate(e, env, ienv=None, over=None):
-    ienv = {i: n for i, n in (ienv or {}).items() if i in _free(e)}
+    ienv = {i: n for i, n in (ienv or {}).items() if i in dict(e.free_indices)}
     key = (e, id(env), frozenset(ienv.items()), id(over) if over else None)
     if key not in BUILT:
         f = evaluate_uncached(e, env, ienv, over)
@@ -345,7 +344,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 # The value of g on the topology at the reference point of the point, by the law.
                 j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
                 piece = D.pieces[j]
-                chart = piece_map(piece, {next(iter(_free(piece.parameterisation))): cell}, env)
+                chart = piece_map(
+                    piece, {next(iter(dict(piece.parameterisation.free_indices))): cell}, env
+                )
                 X = reference_point(chart, POINTS[D], D.dimension)
                 T = D.topology
                 ghat = on_cell(T, j, cell, lambda: at(T, X, lambda: np.asarray(fg(vals))))
@@ -396,7 +397,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             fa, fb = ev(a), ev(b)
             return lambda vals: fa(vals) + fb(vals)
         case Product(a, b):
-            fa, fb, n = ev(a), ev(b), _arity(a)
+            fa, fb, n = ev(a), ev(b), len(a.argument_spaces)
             return lambda vals: fa(vals[:n]) * fb(vals[n:])
         case Division(a, c):
             fa, fc = ev(a), ev(c)
@@ -442,7 +443,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: np.asarray(fx(vals))[key]
         case ComponentTensor(x, idx) | IndexSum(x, idx):
             # Enumerate the bound axes independently.
-            extents = [size(_free(x)[i], env) for i in idx]
+            extents = [size(dict(x.free_indices)[i], env) for i in idx]
             ranges = [
                 list(itertools.product(*map(range, n))) if isinstance(n, tuple) else range(n)
                 for n in extents
@@ -466,7 +467,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             return value
         case Form(x, args):
-            n = _arity(x)
+            n = len(x.argument_spaces)
 
             def value(vals):
                 # The expression takes the first arguments, and the form binds the rest.
@@ -485,7 +486,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def value_of(x):
                 # A field is bound lazily, as a function of the point, and anything else eagerly.
                 fx = ev(x)
-                return (lambda *point: fx(())) if _support(x) is not None else fx(())
+                return (lambda *point: fx(())) if x.domain is not None else fx(())
 
             gv = tuple(value_of(x) for x in g) if isinstance(g, tuple) else value_of(g)
             return lambda vals: ff((*tuple(vals[:p]), gv, *tuple(vals[p:])))
@@ -557,11 +558,15 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 x, e = POINTS[Ed], POINTS[("cell", Ed)]
                 j, cell = side_cell(sm)
                 facet = Ed.pieces[POINTS.get(("piece", Ed), 0)]
-                edge = piece_map(facet, {next(iter(_free(facet.parameterisation))): e}, env)
+                edge = piece_map(
+                    facet, {next(iter(dict(facet.parameterisation.free_indices))): e}, env
+                )
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)
                 piece = Dd.pieces[j]
-                chart = piece_map(piece, {next(iter(_free(piece.parameterisation))): cell}, env)
+                chart = piece_map(
+                    piece, {next(iter(dict(piece.parameterisation.free_indices))): cell}, env
+                )
                 X = reference_point(chart, x, Dd.dimension)
                 d = jacobian_of(chart, X) @ (X - reference_centroid(piece.parameter_domain))
                 n = d - (d @ t) * t

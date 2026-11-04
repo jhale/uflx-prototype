@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from .nodes import AbstractExpression, Zero
-from .static import _free, _free_indices, _shape
+from .static import _free_indices
 from .traversal import _map_values
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ def _zero_like(
     *others: AbstractExpression,
 ) -> Zero:
     return Zero(
-        _shape(f),
+        f.value_shape,
         _free_indices(f, *others),
         argument_spaces,
         f.scalar_type,
@@ -36,34 +36,33 @@ def _complete_indices(
     restoring indices. Call before rebuilding a parent that binds an index.
     """
     if (
-        _shape(original) != _shape(replacement)
+        original.value_shape != replacement.value_shape
         or original.argument_spaces != replacement.argument_spaces
     ):
         raise ValueError("index completion requires matching shapes and argument spaces")
     if replacement.domain not in (None, original.domain):
         raise ValueError("a replacement changes domain")
-    expected, actual = _free(original), _free(replacement)
-    if any(i not in expected or expected[i] != n for i, n in actual.items()):
+    expected, actual = dict(original.free_indices), dict(replacement.free_indices)
+    if not actual.items() <= expected.items():
         raise ValueError("a replacement introduces an index or changes its extent")
-    is_zero = isinstance(replacement, Zero)
     replacement = _promote(original, replacement)
-    if is_zero and (actual.keys() != expected.keys() or not isinstance(replacement, Zero)):
-        return _zero_like(original, original.argument_spaces)
     if actual.keys() == expected.keys():
         return replacement
+    if isinstance(replacement, Zero):
+        return _zero_like(original, original.argument_spaces)
     from .names import _derived_indices
     from .tensors import broadcast_to, component_tensor, indexed
 
     # SH06. Selecting a repeated value preserves an index without introducing a sum.
     for i, n in original.free_indices:
-        if i not in actual:
-            axes = _derived_indices(
-                "uflx.complete_indices", (original, replacement, i), len(replacement.value_shape)
-            )
-            replacement = component_tensor(
-                indexed(broadcast_to(replacement, (n, *replacement.value_shape)), (i, *axes)),
-                axes,
-            )
+        if i in actual:
+            continue
+        axes = _derived_indices(
+            "uflx.complete_indices", (original, replacement, i), len(replacement.value_shape)
+        )
+        repeated = broadcast_to(replacement, (n, *replacement.value_shape))
+        selected = indexed(repeated, (i, *axes))
+        replacement = component_tensor(selected, axes)
     return replacement
 
 
@@ -71,11 +70,18 @@ def _promote(original: AbstractExpression, replacement: AbstractExpression) -> A
     from .arithmetic import multiply
     from .nodes import Complex, Integer, ScalarType
 
-    if original.scalar_type == ScalarType.complex and replacement.scalar_type == ScalarType.real:
-        return multiply(Complex(Integer(1), Integer(0)), replacement)
-    if original.scalar_type != replacement.scalar_type:
+    if original.scalar_type == replacement.scalar_type:
+        return replacement
+    if original.scalar_type == ScalarType.real:
         raise ValueError("a rewrite changes scalar type")
-    return replacement
+    if isinstance(replacement, Zero):
+        return Zero(
+            replacement.value_shape,
+            replacement.free_indices,
+            replacement.argument_spaces,
+            ScalarType.complex,
+        )
+    return multiply(Complex(Integer(1), Integer(0)), replacement)
 
 
 def _rewrite(

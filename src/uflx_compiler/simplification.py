@@ -23,7 +23,7 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_spec_interpreter._src.rewriting import _complete_indices
 from uflx_spec_interpreter._src.substitution import _substitute_values
 from uflx_spec_interpreter._src.tensors import determinant
-from uflx_spec_interpreter._src.traversal import _lowered, _map_fields, _memoized
+from uflx_spec_interpreter._src.traversal import _map_fields, _memoized
 
 
 def simplify(f):
@@ -31,7 +31,7 @@ def simplify(f):
     # that its value needs. A term that is zero is dropped, a component of a component tensor
     # is the expression at that component, and arithmetic of literals is folded.
     def walk(walk, e):
-        new = _map_fields(e, walk, _lowered(e))
+        new = _map_fields(e, walk, e.value_fields)
         out = rewritten(new)
         # Finish the child before reconstructing a parent which binds its indices.
         return _complete_indices(e, out if out is new else walk(out))

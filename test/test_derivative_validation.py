@@ -33,8 +33,8 @@ def variables():
         (lambda u, v, w, z: (u, (u, v), (u,), (w, z)), ValueError, "lengths"),
         (lambda u, v, w, z: (u, (u, u), (u, v), (w, z)), ValueError, "distinct"),
         (lambda u, v, w, z: (u, u, u, conjugate(u * w)), ValueError, "form arguments"),
-        (lambda u, v, w, z: (u, u, tensor((num(1), num(2))), w), ValueError, "admissible"),
-        (lambda u, v, w, z: (u, u, form(v, (v,)), w), ValueError, "admissible"),
+        (lambda u, v, w, z: (u, u, tensor((num(1), num(2))), w), ValueError, "value shape"),
+        (lambda u, v, w, z: (u, u, form(v, (v,)), w), ValueError, "argument spaces"),
         (lambda u, v, w, z: (u * w, u, u, w), ValueError, "must not be free"),
         (
             lambda u, v, w, z: (u, (u, v), (u, v), (w, conjugate(z))),
@@ -52,7 +52,7 @@ def test_real_variable_rejects_complex_point_and_mixed_tuple(variables):
     u, _, w, _ = variables
     R = space("real-validation", scalar_type=ScalarType.real)
     r, s = function(R, "r"), function(R, "s")
-    with pytest.raises(ValueError, match="admissible"):
+    with pytest.raises(ValueError, match="scalar type"):
         gateaux_derivative(r, r, num(1j), s)
     with pytest.raises(ValueError, match="mixed real and complex"):
         gateaux_derivative(r * u, (r, u), (r, u), (s, w))
@@ -64,7 +64,7 @@ def test_point_support_and_no_support():
     V = space("supported", domain=RD(2))
     u, w = function(V, "u"), function(V, "w")
     other = function(space("other-domain", domain=RD(3)), "a")
-    with pytest.raises(ValueError, match="admissible"):
+    with pytest.raises(ValueError, match="domain"):
         gateaux_derivative(u, u, other, w)
     assert gateaux_derivative(u, u, num(2), w).argument_spaces == (V,)
     assert gateaux_derivative(u, u, function(V, "a"), w).argument_spaces == (V,)
@@ -86,7 +86,7 @@ def test_dual_variable_accepts_symbolic_form_point(variables):
     F = action(x, 0, conjugate(u))
     assert gateaux_derivative(F, x, point, h).argument_spaces == (D,)
     wrong = form(v, (v,))
-    with pytest.raises(ValueError, match="admissible"):
+    with pytest.raises(ValueError, match="argument spaces"):
         gateaux_derivative(F, x, wrong, h)
 
 
@@ -95,9 +95,9 @@ def test_family_extents_are_checked_between_body_and_all_points(variables):
     k = index("family-validation")
     a = tensor((num(1), num(2)))[k]
     b = tensor((num(1), num(2), num(3)))[k]
-    with pytest.raises(ValueError, match="matching extents"):
+    with pytest.raises(ValueError, match="inconsistent extents"):
         gateaux_derivative(u * a, u, b, w)
-    with pytest.raises(ValueError, match="matching extents"):
+    with pytest.raises(ValueError, match="inconsistent extents"):
         gateaux_derivative(u * v, (u, v), (a, b), (w, z))
     out = gateaux_derivative(u * a, u, a, w)
     assert out.free_indices == ((k, 2),)

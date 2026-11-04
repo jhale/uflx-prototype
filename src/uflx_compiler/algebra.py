@@ -25,7 +25,7 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 from uflx_spec_interpreter._src.rewriting import _complete_indices
-from uflx_spec_interpreter._src.traversal import _lowered, _map_values, _memoized
+from uflx_spec_interpreter._src.traversal import _map_values, _memoized
 
 _ONE = (Fraction(1), Fraction(0))
 _ZERO = (Fraction(0), Fraction(0))
@@ -208,7 +208,7 @@ def _normalizer() -> Callable[[AbstractExpression], AbstractExpression]:
     def walk(
         walk: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression
     ) -> AbstractExpression:
-        new = _map_values(e, walk, _lowered(e))
+        new = _map_values(e, walk, e.value_fields)
         moved = _operator_rule(new)
         if moved is not new:
             return walk(_preserve(new, moved))

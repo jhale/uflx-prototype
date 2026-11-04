@@ -22,7 +22,6 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.literals import _zero
 from uflx_spec_interpreter._src.passes import actions
 from uflx_spec_interpreter._src.passes.actions import _actions_complete
-from uflx_spec_interpreter._src.static import _arity
 from uflx_toy.spaces import space
 
 rng = np.random.default_rng(2)
@@ -46,7 +45,7 @@ c, c2 = tensor((num(1), num(2))), tensor((num(3), num(-1)))
 
 def check(name, e, ienv=None, vals=None):
     out = actions.apply_actions(e)
-    n = _arity(e)
+    n = len(e.argument_spaces)
     vals = vals if vals is not None else tuple(cplx() for _ in range(n))
     before = evaluate(e, env, ienv)(vals)
     after = evaluate(out, env, ienv)(vals)

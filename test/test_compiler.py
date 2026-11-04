@@ -37,7 +37,7 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
-from uflx_spec_interpreter._src.meshes import _cell_domain, _coordinate_function
+from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
     Division,
@@ -262,7 +262,7 @@ def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form(
 
 def mesh_only(e, D):
     # Subexpressions that read only coordinates, independent of product association.
-    geometry = {coefficients(f) for f in _coordinate_function(D).entries}
+    geometry = {coefficients(f) for f in D.coordinate_function.entries}
     reads, found = _memoized(arrays), set()
 
     def walk(walk, n):

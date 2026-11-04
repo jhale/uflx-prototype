@@ -38,11 +38,11 @@ from ..nodes import (
     TransformationLaw,
 )
 from ..rewriting import _complete_indices, _rewrite
-from ..rules.coordinates import _on_the_reference_cell, _piola_law, _pushed_forward, _transformed
+from ..rules.coordinates import _on_the_reference_cell, _piola_law, _transformed
 from ..rules.pullback_algebra import _composed, _pointwise, _pullback_remains
 from ..rules.restriction import _normal, _side_cell, _side_maps
 from ..rules.structural import _action_output
-from ..static import _field_terminal, _support
+from ..static import _field_terminal
 from ..traversal import _everywhere, _memoized
 from .actions import apply_actions
 
@@ -65,9 +65,9 @@ def _rule(
             return _pointwise(f, m, pb)
         case Action():
             return apply_actions(_action_output(f, lambda A: pb(A, m)))
-        case _ if isinstance(m, SideMap) and _support(f) is not None:
+        case _ if isinstance(m, SideMap) and f.domain is not None:
             return PullBack(f, m)
-        case _ if _support(f) is None:
+        case _ if f.domain is None:
             return _complete_indices(PullBack(f, m), f)
         case Coordinate() if isinstance(m, (DomainMap, CellMap)):
             return m.parameterisation
@@ -99,7 +99,8 @@ def _rule(
         case Normal(sm) if (cell := _side_cell(sm, m)) is not None:
             return _normal(f, cell, pb)
         case PushForward(g, domain, law) if m.ambient_domain == domain and _is_cell(m):
-            return _pushed_forward(g, law, m, pb)
+            reference_value = _on_the_reference_cell(g, m, pb)
+            return _transformed(reference_value, law, m)
         case _ if _field_terminal(f) or isinstance(f, PushForward):
             return PullBack(f, m)
         case (

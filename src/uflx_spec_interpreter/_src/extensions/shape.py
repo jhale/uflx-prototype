@@ -45,7 +45,9 @@ class _ShapeDerivative(AbstractExpression):
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         edges = (self.expression, *_members(self.direction))
-        return tuple(dict(p for x in edges for p in x.free_indices).items())
+        from ..static import _free_indices
+
+        return _free_indices(*edges)
 
     @property
     @_cached

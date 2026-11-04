@@ -156,7 +156,9 @@ class Action(AbstractExpression):
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         arguments = _members(self.argument)
-        return tuple(dict(p for x in (self.form, *arguments) for p in x.free_indices).items())
+        from ..static import _free_indices
+
+        return _free_indices(self.form, *arguments)
 
     @property
     @_cached

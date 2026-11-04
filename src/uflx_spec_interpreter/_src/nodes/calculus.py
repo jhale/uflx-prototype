@@ -39,7 +39,9 @@ class DirectionalDerivative(AbstractExpression):
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         edges = (self.expression, *_members(self.point), *_members(self.direction))
-        return tuple(dict(p for x in edges for p in x.free_indices).items())
+        from ..static import _free_indices
+
+        return _free_indices(*edges)
 
     @property
     @_cached
@@ -262,22 +264,23 @@ def _validate_calculus(e: Coordinate | Gradient | Divergence | Curl | Integral) 
     from .meshes import Mesh
 
     P = e.integration_domain if isinstance(e, Integral) else e.domain
-    if not isinstance(e, Coordinate):
-        f = e.expression
-        domains = (
-            (None, P, P.ambient_domain)
-            if isinstance(e, Integral) and isinstance(P, Mesh)
-            else (None, P)
+    if isinstance(e, Coordinate):
+        return
+    f = e.expression
+    domains = (
+        (None, P, P.ambient_domain)
+        if isinstance(e, Integral) and isinstance(P, Mesh)
+        else (None, P)
+    )
+    _require(f.domain in domains, "expression and domain are not a valid pair")
+    dim = P.ambient_coordinate_domain.dimension
+    if isinstance(e, Divergence):
+        _require(
+            bool(f.value_shape) and f.value_shape[-1] == dim,
+            "divergence requires a last axis in the ambient frame",
         )
-        _require(f.domain in domains, "expression and domain are not a valid pair")
-        dim = P.ambient_coordinate_domain.dimension
-        if isinstance(e, Divergence):
-            _require(
-                bool(f.value_shape) and f.value_shape[-1] == dim,
-                "divergence requires a last axis in the ambient frame",
-            )
-        if isinstance(e, Curl):
-            _require(
-                dim in (2, 3) and f.value_shape == (dim,),
-                "curl requires a vector in dimension two or three",
-            )
+    if isinstance(e, Curl):
+        _require(
+            dim in (2, 3) and f.value_shape == (dim,),
+            "curl requires a vector in dimension two or three",
+        )

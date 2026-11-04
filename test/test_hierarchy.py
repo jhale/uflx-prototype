@@ -22,7 +22,6 @@ from uflx_spec_interpreter._src.nodes import (
     RealPart,
 )
 from uflx_spec_interpreter._src.passes import pullbacks
-from uflx_spec_interpreter._src.static import _free
 from uflx_spec_interpreter._src.traversal import _rebuild
 from uflx_toy.cells import reference_simplex
 from uflx_toy.nodes import IndexTable
@@ -58,7 +57,6 @@ def test_the_static_type_is_computed_once():
     e = Indexed(Coordinate(D), (0,))
     assert e.value_shape is e.value_shape
     assert e.free_indices is e.free_indices
-    assert _free(e) == _free(e) and _free(e) is not _free(e)
 
 
 def test_a_pull_back_leaves_a_gathered_entry_unchanged():

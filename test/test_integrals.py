@@ -26,7 +26,6 @@ from uflx_spec_interpreter._src.passes import integrals
 from uflx_spec_interpreter._src.passes.integrals import _integrals_expanded
 from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
 from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
-from uflx_spec_interpreter._src.static import _free, _shape
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology
@@ -126,8 +125,8 @@ def main(trials):
                     "static type changed, seed",
                     seed,
                     kind,
-                    (_shape(e), _free(e)),
-                    (_shape(out), _free(out)),
+                    (e.value_shape, dict(e.free_indices)),
+                    (out.value_shape, dict(out.free_indices)),
                 )
         bad["grammar"] += not (
             _integrals_expanded(out3)
@@ -135,7 +134,7 @@ def main(trials):
             and _pull_backs_expanded(out)
             and _in_core_normal_form(out)
         )
-        fr = _free(e)
+        fr = dict(e.free_indices)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             ienv = dict(zip(fr, combo))
             before, after = evaluate(e, env, ienv)(()), evaluate(out, env, ienv)(())

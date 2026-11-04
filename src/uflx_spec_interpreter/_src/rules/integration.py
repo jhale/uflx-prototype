@@ -18,7 +18,6 @@ from ..nodes import (
     Mesh,
     PullBack,
 )
-from ..static import _shape, _support
 from ..substitution import _freshen
 from ..topology import cell_index
 
@@ -32,8 +31,8 @@ __all__ = ["_mesh_integral", "_piece_integral"]
 def _mesh_integral(e: AbstractExpression) -> AbstractExpression:
     # Expand a mesh integral into reference-cell integrals and internal cell sums.
     match e:
-        case Integral(f, Mesh() as d) if _shape(f):
-            K = _derived_indices("uflx.expand_integrals", (f, d), len(_shape(f)))
+        case Integral(f, Mesh() as d) if f.value_shape:
+            K = _derived_indices("uflx.expand_integrals", (f, d), len(f.value_shape))
             return ComponentTensor(_mesh_integral(Integral(Indexed(f, K), d)), K)
         case Integral(f, Mesh() as d):
             return _total(_piece_integral(f, d, j) for j in range(len(d.topology.cell_types)))
@@ -53,6 +52,6 @@ def _piece_integral(f: AbstractExpression, D: Mesh, j: int) -> AbstractExpressio
         cells = _cell_domain(D, j, entry)
     P = cells.parameter_domain
     piece = DomainMap(P, cells.parameterisation, D.ambient_domain)
-    g = PullBack(f, piece if _support(f) == D.ambient_domain else cells)
+    g = PullBack(f, piece if f.domain == D.ambient_domain else cells)
     term = _mesh_integral(Integral(multiply(g, density(cells)), P))
     return IndexSum(term, (entry,))

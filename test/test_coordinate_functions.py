@@ -23,7 +23,7 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.contracts import _in_core_normal_form
-from uflx_spec_interpreter._src.meshes import _cell_domain, _coordinate_function, _is_cell
+from uflx_spec_interpreter._src.meshes import _cell_domain, _is_cell
 from uflx_spec_interpreter._src.nodes import CellMap, Division, Gradient, PullBack
 from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
 from uflx_spec_interpreter._src.traversal import _everywhere
@@ -64,7 +64,7 @@ def nodes(e):
 
 def test_a_mesh_from_a_coordinate_function_has_the_topology_and_the_cells_of_the_draft():
     D, _ = p1_mesh()
-    x = _coordinate_function(D)
+    x = D.coordinate_function
     assert D.topology == T and x.domain == T
     g = gathered_index(index_table((1, 0), 2), (index("i"),))
     C = _cell_domain(D, 0, g)
@@ -201,8 +201,8 @@ def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():
     S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     E = side_domain(D, S, S.sides[0][0][0])
     assert E.topology == S
-    assert _coordinate_function(E) == pull_back(
-        _coordinate_function(D),
+    assert E.coordinate_function == pull_back(
+        D.coordinate_function,
         side_map(T, S, (S.topology if hasattr(S, "topology") else S).sides[0][0][0]),
     )
 

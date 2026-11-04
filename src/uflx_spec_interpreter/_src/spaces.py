@@ -9,11 +9,11 @@ __all__ = ["_conjugated", "conjugate_space", "dual_space"]
 
 
 def conjugate_space(V: AbstractFunctionSpace) -> AbstractFunctionSpace:
-    return (
-        V
-        if V.scalar_type == ScalarType.real
-        else (V.space if isinstance(V, ConjugateSpace) else ConjugateSpace(V))
-    )
+    if V.scalar_type == ScalarType.real:
+        return V
+    if isinstance(V, ConjugateSpace):
+        return V.space
+    return ConjugateSpace(V)
 
 
 def dual_space(

@@ -45,7 +45,6 @@ def _require(condition: bool, message: str) -> None:
 
 
 def _extent(n: int | AbstractExtent) -> None:
-
     if isinstance(n, int):
         _require(n >= 0, "extent must be nonnegative")
 
@@ -90,9 +89,9 @@ def _admissible(
     from .nodes import ScalarType
 
     if isinstance(V, tuple):
-        _require(isinstance(value, tuple) and len(value) == len(V), "argument tuple does not match")
         if not isinstance(value, tuple):
-            raise TypeError("tuple argument required")
+            raise ValueError("argument tuple does not match")
+        _require(len(value) == len(V), "argument tuple does not match")
         for W, g in zip(V, value, strict=True):
             _admissible(W, g)
         return
@@ -107,14 +106,12 @@ def _admissible(
 
 
 def _scalar_operand(f: AbstractExpression, nonlinear: bool = True) -> None:
-
     _require(f.value_shape == (), "operation requires a scalar")
     if nonlinear:
         _require(not f.argument_spaces, "nonlinear operand has argument spaces")
 
 
 def _matrix_operand(f: AbstractExpression, rectangular: bool = False) -> None:
-
     _require(not f.argument_spaces, "nonlinear operand has argument spaces")
     _require(len(f.value_shape) == 2, "matrix operand must have rank two")
     a, b = f.value_shape
