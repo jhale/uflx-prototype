@@ -117,3 +117,44 @@ def test_labels_that_read_alike_are_distinct():
     labels = [("a,b",), ("a", "b"), "1", (1,), ((1,),), "(1)", "None", "#0"]
     functions = [Function(V, label) for label in labels]
     assert len({id(f) for f in functions}) == len(labels)
+
+
+def test_cache_hits_do_not_initialize_or_validate_again():
+    from typing import ClassVar
+
+    class Counted(Base):
+        identifier = "test.Counted"
+        value: int
+        validations: ClassVar[int] = 0
+
+        def _validate(self):
+            type(self).validations += 1
+            if self.value < 0:
+                raise ValueError("negative value")
+
+    node = Counted(2)
+    assert Counted(2) is node
+    assert Counted.validations == 1
+    for _ in range(2):
+        with pytest.raises(ValueError, match="negative value"):
+            Counted(-1)
+    assert Counted.validations == 3
+
+
+def test_private_dataclass_storage_is_frozen():
+    from dataclasses import FrozenInstanceError
+
+    from uflx_spec_interpreter import RD
+
+    domain = RD(3)
+    with pytest.raises(FrozenInstanceError):
+        domain._dimension = 4
+    with pytest.raises(FrozenInstanceError):
+        del domain._dimension
+    assert domain.dimension == 3
+    assert domain.construction_arguments == (3,)
+    match domain:
+        case RD(dimension):
+            assert dimension == 3
+        case _:
+            pytest.fail("dataclass positional pattern did not match")
