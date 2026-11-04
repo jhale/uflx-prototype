@@ -34,7 +34,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.passes.integrals import _piece_integral
+from uflx_spec_interpreter._src.rules.integration import _piece_integral
 from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_spec_interpreter._src.traversal import (
     _bottom_up,

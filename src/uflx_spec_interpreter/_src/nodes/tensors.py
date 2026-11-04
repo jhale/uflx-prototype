@@ -19,7 +19,6 @@ class BroadcastTo(AbstractExpression):
 
     identifier = "uflx.BroadcastTo"
     value_fields = ("value",)
-    commuting = ("value",)
     value: AbstractExpression
     value_shape: tuple[int | AbstractExtent, ...]  # pyright: ignore[reportIncompatibleMethodOverride]
 
@@ -63,7 +62,6 @@ class Tensor(AbstractExpression):
     matching_domains = True
     value_fields = ("entries",)
     identifier = "uflx.Tensor"
-    commuting = ("entries",)
     entries: tuple[AbstractExpression, ...]
 
     @property
@@ -112,7 +110,6 @@ class Indexed(AbstractExpression):
     index_fields = ("indices",)
     value_fields = ("expression",)
     identifier = "uflx.Indexed"
-    commuting = ("expression",)
     expression: AbstractExpression
     indices: tuple[int | Index | GatheredIndex, ...]
 
@@ -160,7 +157,6 @@ class Indexed(AbstractExpression):
 class ComponentTensor(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.ComponentTensor"
-    commuting = ("expression",)
     expression: AbstractExpression
     indices: tuple[Index, ...]
     scope = ("expression", "indices")
@@ -204,7 +200,6 @@ class ComponentTensor(AbstractExpression):
 class IndexSum(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.IndexSum"
-    commuting = ("expression",)
     expression: AbstractExpression
     indices: tuple[Index, ...]
     scope = ("expression", "indices")

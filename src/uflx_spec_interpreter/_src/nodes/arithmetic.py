@@ -18,7 +18,6 @@ class Sum(AbstractExpression):
     matching_domains = True
     value_fields = ("first", "second")
     identifier = "uflx.Sum"
-    commuting = ("first", "second")
     first: AbstractExpression
     second: AbstractExpression
 
@@ -97,7 +96,6 @@ class Division(AbstractExpression):
     matching_domains = True
     value_fields = ("first", "second")
     identifier = "uflx.Division"
-    commuting = ("first",)
     first: AbstractExpression
     second: AbstractExpression
 
@@ -175,7 +173,6 @@ class Power(AbstractExpression):
 class Conjugate(AbstractExpression):
     value_fields = ("operand",)
     identifier = "uflx.Conjugate"
-    commuting = ("operand",)
     operand: AbstractExpression
 
     @property
@@ -213,7 +210,6 @@ class Conjugate(AbstractExpression):
 class RealPart(AbstractExpression):
     value_fields = ("operand",)
     identifier = "uflx.RealPart"
-    commuting = ("operand",)
     operand: AbstractExpression
 
     @property
@@ -253,7 +249,6 @@ class RealPart(AbstractExpression):
 class ImaginaryPart(AbstractExpression):
     value_fields = ("operand",)
     identifier = "uflx.ImaginaryPart"
-    commuting = ("operand",)
     operand: AbstractExpression
 
     @property

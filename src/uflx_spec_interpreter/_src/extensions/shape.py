@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Literal, final
 
 from ..interning import _cached
 from ..nodes import AbstractExpression, Function
-from ..passes.derivatives import _deriv, apply_derivatives
+from ..passes.derivatives import apply_derivatives
+from ..rules.differentiation import _deriv
 from ..traversal import _bottom_up
 from ..tuples import _members
 

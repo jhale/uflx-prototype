@@ -1,7 +1,8 @@
 # UFLx spec interpreter
 
 `lower(f)` runs the standard core recipe and checks its core-normal-form output.
-Individual transformations remain available. Internal checks in `_src/contracts.py`
+Individual transformations remain available. The [rule map](RULES.md) tracks the
+mathematical groups and their implementations. Internal checks in `_src/contracts.py`
 return offending nodes and diagnostic reasons without running transformations or
 checking later compiler capabilities.
 

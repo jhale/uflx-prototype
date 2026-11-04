@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 class DirectionalDerivative(AbstractExpression):
     value_fields = ("expression", "point", "direction")
     identifier = "uflx.DirectionalDerivative"
-    commuting = ("expression",)
     # The variable, the point and the direction are a function and two expressions, or tuples.
     expression: AbstractExpression
     variable: Function | tuple[Function, ...]
@@ -120,7 +119,6 @@ class Coordinate(AbstractExpression):
 class Gradient(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.Gradient"
-    commuting = ("expression",)
     expression: AbstractExpression
     domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
 
@@ -154,7 +152,6 @@ class Gradient(AbstractExpression):
 class Divergence(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.Divergence"
-    commuting = ("expression",)
     # The trace of the gradient over the last axis of the value shape and the axis of the gradient.
     expression: AbstractExpression
     domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -189,7 +186,6 @@ class Divergence(AbstractExpression):
 class Curl(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.Curl"
-    commuting = ("expression",)
     # The curl of a vector field, contracted with the permutation tensor of rank n.
     expression: AbstractExpression
     domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -226,7 +222,6 @@ class Curl(AbstractExpression):
 class Integral(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.Integral"
-    commuting = ("expression",)
     expression: AbstractExpression
     integration_domain: AbstractDomain
 

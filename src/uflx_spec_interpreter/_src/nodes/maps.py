@@ -49,7 +49,6 @@ class DomainMap(Base):
 class PullBack(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.PullBack"
-    commuting = ("expression",)
     expression: AbstractExpression
     map: DomainMap | SideMap | CellMap
 

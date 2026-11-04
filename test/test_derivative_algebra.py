@@ -146,7 +146,9 @@ class LibraryJVP(AbstractExpression):
 def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
     monkeypatch, expose_direction
 ):
-    original = derivatives._derivative_of_node
+    from uflx_spec_interpreter._src.rules import differentiation
+
+    original = differentiation._derivative_of_node
 
     def library_rule(e, d, constant, avoid, at=lambda e: e):
         if type(e) is LibraryValue:
@@ -156,7 +158,7 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
         return original(e, d, constant, avoid, at)
 
     # Test adapter for an extension-supplied derivative rule, not a new public registry.
-    monkeypatch.setattr(derivatives, "_derivative_of_node", library_rule)
+    monkeypatch.setattr(differentiation, "_derivative_of_node", library_rule)
     V = space("opaque-nonlinear")
     u, w = function(V, "u"), function(V, "w")
     a, h = num(0.7 + 0.2j), num(0.3 - 0.1j)

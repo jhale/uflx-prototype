@@ -48,10 +48,9 @@ from .nodes import (
     Tensor,
     Zero,
 )
-from .passes.actions import _retained
-from .passes.gradients import _remains
-from .passes.piola import _piola_law
-from .passes.pullbacks import _remains as _pulled_back_remains
+from .rules.coordinates import _piola_law
+from .rules.pullback_algebra import _pullback_remains
+from .rules.structural import _action_retained, _gradient_remains
 from .static import _field_terminal
 from .traversal import _everywhere, _expressions
 
@@ -173,13 +172,13 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
         case Divergence() | Curl():
             return _piola_law(e) is not None
         case Gradient(f, p):
-            return _remains(f, p)
+            return _gradient_remains(f, p)
         case Integral(_, p):
             return not isinstance(p, Mesh)
         case PullBack(f, m):
-            return _pulled_back_remains(f, m)
+            return _pullback_remains(f, m)
         case Action(A, _, _):
-            return _retained(A)
+            return _action_retained(A)
         case _:
             return False
 

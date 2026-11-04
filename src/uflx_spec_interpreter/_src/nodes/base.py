@@ -28,7 +28,7 @@ class Base(ABC):
     index_fields: ClassVar[tuple[str, ...]] = ()
     # Arguments whose nodes identify the node, which a substitution rebuilds.
     labels: ClassVar[tuple[str, ...]] = ()
-    # The operands into which a linear evaluation, such as a derivative or an action, moves.
+    # Additional linear operands declared by extensions; core rules live in rules/.
     commuting: ClassVar[tuple[str, ...]] = ()
     # A binding node names the arguments where its bound names are in scope.
     scope: ClassVar[tuple[str, ...]] = ()

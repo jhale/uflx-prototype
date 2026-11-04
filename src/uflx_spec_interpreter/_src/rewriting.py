@@ -45,7 +45,10 @@ def _complete_indices(
     expected, actual = _free(original), _free(replacement)
     if any(i not in expected or expected[i] != n for i, n in actual.items()):
         raise ValueError("a replacement introduces an index or changes its extent")
+    is_zero = isinstance(replacement, Zero)
     replacement = _promote(original, replacement)
+    if is_zero and (actual.keys() != expected.keys() or not isinstance(replacement, Zero)):
+        return _zero_like(original, original.argument_spaces)
     if actual.keys() == expected.keys():
         return replacement
     from .names import _derived_indices

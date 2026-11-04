@@ -80,7 +80,6 @@ class Function(AbstractExpression):
 class Form(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.Form"
-    commuting = ("expression",)
     expression: AbstractExpression
     arguments: tuple[Function | Conjugate | tuple[Function | Conjugate, ...], ...]
     scope = ("expression", "arguments")

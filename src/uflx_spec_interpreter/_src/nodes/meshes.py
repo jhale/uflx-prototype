@@ -192,7 +192,6 @@ class TransformationLaw(Base):
 class PushForward(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.PushForward"
-    commuting = ("expression",)
     # The field on a mesh of a function on its topology, carried by a transformation law.
     expression: AbstractExpression
     mesh: Mesh
