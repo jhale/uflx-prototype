@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, final
+from typing import TYPE_CHECKING, Literal, cast, final
 
 from .arguments import _argument_members
 from .base import AbstractExpression
@@ -93,7 +93,15 @@ class Coordinate(AbstractExpression):
     value_fields = ()
     is_terminal = True
     identifier = "uflx.Coordinate"
-    domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
+    __match_args__ = ("domain",)
+
+    def __init__(self, domain: AbstractDomain, /) -> None:
+        # Base.__new__ stores and validates the construction arguments.
+        pass
+
+    @property
+    def domain(self) -> AbstractDomain:
+        return cast("AbstractDomain", self.construction_arguments[0])
 
     @property
     @_cached
@@ -125,8 +133,17 @@ class Coordinate(AbstractExpression):
 class Gradient(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.Gradient"
+    __match_args__ = ("expression", "domain")
+
+    def __init__(self, expression: AbstractExpression, domain: AbstractDomain, /) -> None:
+        # Base.__new__ stores and validates the construction arguments.
+        pass
+
     expression: AbstractExpression
-    domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    @property
+    def domain(self) -> AbstractDomain:
+        return cast("AbstractDomain", self.construction_arguments[1])
 
     @property
     @_cached
@@ -159,8 +176,17 @@ class Divergence(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.Divergence"
     # The trace of the gradient over the last axis of the value shape and the axis of the gradient.
+    __match_args__ = ("expression", "domain")
+
+    def __init__(self, expression: AbstractExpression, domain: AbstractDomain, /) -> None:
+        # Base.__new__ stores and validates the construction arguments.
+        pass
+
     expression: AbstractExpression
-    domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    @property
+    def domain(self) -> AbstractDomain:
+        return cast("AbstractDomain", self.construction_arguments[1])
 
     @property
     @_cached
@@ -193,8 +219,17 @@ class Curl(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.Curl"
     # The curl of a vector field, contracted with the permutation tensor of rank n.
+    __match_args__ = ("expression", "domain")
+
+    def __init__(self, expression: AbstractExpression, domain: AbstractDomain, /) -> None:
+        # Base.__new__ stores and validates the construction arguments.
+        pass
+
     expression: AbstractExpression
-    domain: AbstractDomain  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    @property
+    def domain(self) -> AbstractDomain:
+        return cast("AbstractDomain", self.construction_arguments[1])
 
     @property
     @_cached

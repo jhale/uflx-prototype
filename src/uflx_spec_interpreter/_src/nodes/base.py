@@ -49,17 +49,21 @@ class Base(ABC):
         for parent in cls.__bases__:
             if getattr(parent, "__final__", False):
                 raise TypeError(f"{parent.__name__} is final")
-        # The construction arguments are the annotated names with no value, in order.
+        # Explicit signatures describe stored properties; other nodes use field annotations.
         if "__annotate__" in cls.__dict__ and "__annotations__" not in cls.__dict__:
             raise TypeError(
                 f"{cls.__name__}: a node module needs from __future__ import annotations"
             )
-        names = tuple(n for n in inspect.get_annotations(cls) if n not in cls.__dict__)
+        if "__init__" in cls.__dict__:
+            names = tuple(inspect.signature(cls.__init__).parameters)[1:]
+        else:
+            names = tuple(n for n in inspect.get_annotations(cls) if n not in cls.__dict__)
         if not names:
             return
         cls.argument_names = cls.__match_args__ = names
         for position, name in enumerate(names):
-            setattr(cls, name, _argument_property(position))
+            if name not in cls.__dict__:
+                setattr(cls, name, _argument_property(position))
         # A generated property may implement an abstract property.
         update_abstractmethods(cls)
 
@@ -102,6 +106,8 @@ class Base(ABC):
 
 
 class AbstractExpression(Base):
+    __match_args__: ClassVar[tuple[str, ...]] = ()
+
     def _validate_type(self) -> None:
         from ..algorithms.traversal import _expressions
         from .validation import _merge_indices, _require

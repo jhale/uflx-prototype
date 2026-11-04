@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Literal, Self, final
+from typing import TYPE_CHECKING, Literal, Self, cast, final
 
 from .base import AbstractExpression
 from .interning import _cached
@@ -140,10 +140,41 @@ class Zero(AbstractExpression):
     is_terminal = True
     identifier = "uflx.Zero"
     # The fields are the static type.
-    value_shape: tuple[int | AbstractExtent, ...]  # pyright: ignore[reportIncompatibleMethodOverride]
-    free_indices: tuple[tuple[Index, int | AbstractExtent], ...]  # pyright: ignore[reportIncompatibleMethodOverride]
-    argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]  # pyright: ignore[reportIncompatibleMethodOverride]
-    scalar_type: Literal["real", "complex"]  # pyright: ignore[reportIncompatibleMethodOverride]
+    __match_args__ = ("value_shape", "free_indices", "argument_spaces", "scalar_type")
+
+    def __init__(
+        self,
+        value_shape: tuple[int | AbstractExtent, ...],
+        free_indices: tuple[tuple[Index, int | AbstractExtent], ...],
+        argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...],
+        scalar_type: Literal["real", "complex"],
+        /,
+    ) -> None:
+        # Base.__new__ stores and validates the construction arguments.
+        pass
+
+    @property
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
+        return cast("tuple[int | AbstractExtent, ...]", self.construction_arguments[0])
+
+    @property
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
+        return cast(
+            "tuple[tuple[Index, int | AbstractExtent], ...]", self.construction_arguments[1]
+        )
+
+    @property
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+        return cast(
+            "tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]",
+            self.construction_arguments[2],
+        )
+
+    @property
+    def scalar_type(self) -> Literal["real", "complex"]:
+        return cast("Literal['real', 'complex']", self.construction_arguments[3])
 
     def __new__(
         cls,
