@@ -38,10 +38,9 @@ from ..nodes import (
     TransformationLaw,
 )
 from ..rewriting import _complete_indices, _rewrite
-from ..rules.coordinates import _on_the_reference_cell, _piola_law, _transformed
+from ..rules.coordinates import _piola_law, _transformed
 from ..rules.pullback_algebra import _composed, _pointwise, _pullback_remains
 from ..rules.restriction import _normal, _side_cell, _side_maps
-from ..rules.structural import _action_output
 from ..static import _field_terminal
 from ..traversal import _everywhere, _memoized
 from .actions import apply_actions
@@ -63,8 +62,9 @@ def _rule(
     match f:
         case Form():
             return _pointwise(f, m, pb)
-        case Action():
-            return apply_actions(_action_output(f, lambda A: pb(A, m)))
+        case Action(form, position, argument):
+            mapped_form = pb(form, m)
+            return apply_actions(Action(mapped_form, position, argument))
         case _ if isinstance(m, SideMap) and f.domain is not None:
             return PullBack(f, m)
         case _ if f.domain is None:
@@ -90,7 +90,8 @@ def _rule(
             # The Piola identity applies only to a mapped field.
             assert isinstance(f.expression, PushForward)
             expand = _trace_of_gradient if isinstance(f, Divergence) else _rotation_of_gradient
-            reference = _on_the_reference_cell(f.expression.expression, m, pb)
+            reference_cell = CellMap(m.topology, m.cell_group, m.entry)
+            reference = pb(f.expression.expression, reference_cell)
             return _transformed(expand(reference, m.parameter_domain), law, m)
         case Divergence(g, domain):
             return pb(_trace_of_gradient(g, domain), m)
@@ -99,7 +100,8 @@ def _rule(
         case Normal(sm) if (cell := _side_cell(sm, m)) is not None:
             return _normal(f, cell, pb)
         case PushForward(g, domain, law) if m.ambient_domain == domain and _is_cell(m):
-            reference_value = _on_the_reference_cell(g, m, pb)
+            reference_cell = CellMap(m.topology, m.cell_group, m.entry)
+            reference_value = pb(g, reference_cell)
             return _transformed(reference_value, law, m)
         case _ if _field_terminal(f) or isinstance(f, PushForward):
             return PullBack(f, m)

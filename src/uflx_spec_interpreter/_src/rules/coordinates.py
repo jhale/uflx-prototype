@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 __all__ = [
     "_chain_partial",
     "_chained",
-    "_on_the_reference_cell",
     "_piola_law",
     "_transformed",
 ]
@@ -81,15 +80,6 @@ def _derived_axis(
 ) -> Index:
     """Identify a pull-back axis using the shared structural naming rule."""
     return _derived_index("uflx.expand_pull_backs", f, m, axis)
-
-
-def _on_the_reference_cell(
-    g: AbstractExpression,
-    C: CellMap,
-    pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
-) -> AbstractExpression:
-    # The value of g on the topology, read on the cell C through its cell map.
-    return pb(g, CellMap(C.topology, C.cell_group, C.entry))
 
 
 def _transformed(

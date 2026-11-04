@@ -16,7 +16,7 @@ Paths below are relative to `src/uflx_spec_interpreter/_src/`.
 | ST02 | `passes/actions.py::_rule` | `test_actions.py`, `test_mixed.py` |
 | ST03–ST05 | `rules/structural.py::_action_retained`; shared with `contracts.py` | `test_action_spatial.py`, `test_core_normal_form.py` |
 | ST06 | `nodes/forms.py::Action._validate` | `test_signatures.py` |
-| ST07, ST10–ST11 | `rules/structural.py::_action_output` | `test_action_spatial.py` |
+| ST07, ST10–ST11 | `passes/gradients.py`, `passes/pullbacks.py` | `test_action_spatial.py` |
 | ST08 | `rules/structural.py::_gradient` | `test_gradients.py`, `test_rule_groups.py` |
 | ST09 | `rules/structural.py::_gradient_component` | `test_gradients.py` |
 | ST12 | `rules/structural.py::_gradient_remains`; shared with `contracts.py` | `test_rewriting.py`, `test_piola_applicability.py` |
@@ -30,7 +30,7 @@ Paths below are relative to `src/uflx_spec_interpreter/_src/`.
 | D16 | `passes/gradients.py::apply_gradients` selects compositions from `calculus.py` | `test_gradients.py`, `test_piola_applicability.py` |
 | D17 | `rules/differentiation.py::_coordinate_partial` | `test_gradients.py`, `test_rule_groups.py` |
 | D19–D20 | `rules/differentiation.py::_derivative_of_node`, before D03–D04 | `test_rule_groups.py` |
-| SB16–SB17 | `rules/binding.py::_bind`, `_binding`; uses shared substitution | `test_actions.py`, `test_controls.py` |
+| SB16–SB17 | `rules/binding.py::_bind`; uses shared substitution | `test_actions.py`, `test_controls.py` |
 | CC01 | `rules/coordinates.py::_chain_partial` | `test_pull_back_gradients.py` |
 | CC06–CC07 | `rules/coordinates.py::_piola_law`; shared by rewriting and contracts | `test_piola_applicability.py` |
 
@@ -43,7 +43,7 @@ existing module because it needs a different walk from expression rewriting.
 | SH02–SH07 | `rewriting.py::_complete_indices`, `_promote`, `_zero_like` | `test_index_completion.py`, `test_rule_groups.py` |
 | SH08 | Promotion in `rules/binding.py` and `rules/differentiation.py`; completion before rebuilding parents | `test_gateaux.py`, `test_index_completion.py` |
 | SH09–SH11 | `traversal.py::_map_values`, node `value_fields` | `test_lowering_contracts.py`, `test_static_type.py` |
-| SH12 | `rewriting.py::_rewrite`, `rules/pullback_algebra.py::_lowered_copy` | `test_lowering_recipe.py`, `test_pull_back_gradients.py` |
+| SH12 | `rewriting.py::_rewrite`, `rules/pullback_algebra.py::_composed` | `test_lowering_recipe.py`, `test_pull_back_gradients.py` |
 | SH13 | Prepared geometry remains a supplier precondition | `test_lowering_contracts.py` |
 | SH14, SH18 | Mathematical independence is a precondition; core recipes use the conservative checks below | `test_derivative_validation.py` |
 | SH15 | `rules/differentiation.py::_deriv`, `substitution.py::_occurs` | `test_derivative_validation.py` |
@@ -64,7 +64,7 @@ existing module because it needs a different walk from expression rewriting.
 | PB06 | Explicit operand-class selection in `passes/pullbacks.py`; `rules/pullback_algebra.py::_pointwise` | `test_broadcast.py`, `test_pullback_contractions.py` |
 | CC02, CC04 | `rules/coordinates.py::_transformed` and pass selection | `test_push_forwards.py`, `test_pullback_contractions.py` |
 | CC03, CC05 | Retention in `passes/pullbacks.py` and `rules/pullback_algebra.py`; see findings below | `test_piola_applicability.py` |
-| CC08–CC09 | `rules/coordinates.py::_piola_law`, `_on_the_reference_cell`, `_transformed`; selection in `passes/pullbacks.py` | `test_piola_applicability.py` |
+| CC08–CC09 | `rules/coordinates.py::_piola_law`, `_transformed`; selection in `passes/pullbacks.py` | `test_piola_applicability.py` |
 | R01–R03 | `rules/restriction.py::_side_cell`, `_side_maps`, `_normal` and pass selection | `test_facets.py`, `test_surface.py` |
 | I01 | `rules/integration.py::_mesh_integral`, `_piece_integral` | `test_integrals.py`, `test_runtime_extent.py` |
 

@@ -17,7 +17,7 @@ from ..nodes import (
 from ..rewriting import _complete_indices, _rewrite
 from ..rules.coordinates import _chain_partial, _chained, _piola_law
 from ..rules.differentiation import _coordinate_partial, _derivative_of_node
-from ..rules.structural import _action_output, _gradient, _gradient_component, _gradient_remains
+from ..rules.structural import _gradient, _gradient_component, _gradient_remains
 from ..static import _free_indices
 from ..traversal import _memoized
 from .actions import apply_actions
@@ -40,8 +40,8 @@ def _rule(
 ) -> AbstractExpression:
     # Entry j of the last axis of Gradient(f, P), with the leaf rows of apply_gradients first.
     match f:
-        case Action():
-            return _action_output(f, lambda A: partial(A, P, j))
+        case Action(form, position, argument):
+            return Action(partial(form, P, j), position, argument)
         case _ if f.domain is None:
             return Zero(
                 f.value_shape,
@@ -79,8 +79,8 @@ def apply_gradients(f: AbstractExpression) -> AbstractExpression:
                 return _trace_of_gradient(g, p)
             case Curl(g, p) if _piola_law(e) is None:
                 return _rotation_of_gradient(g, p)
-            case Gradient(Action() as g, p):
-                return _action_output(g, lambda A: Gradient(A, p))
+            case Gradient(Action(form, position, argument), p):
+                return Action(Gradient(form, p), position, argument)
             case Gradient(g, p) if not _gradient_remains(g, p):
                 return _gradient(g, p, partial)
             case _:

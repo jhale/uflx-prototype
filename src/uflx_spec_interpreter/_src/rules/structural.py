@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    "_action_output",
     "_action_retained",
     "_commute",
     "_gradient",
@@ -114,10 +113,3 @@ def _gradient_component(f: AbstractExpression, P: AbstractDomain, j: Index) -> A
 
     axes = _derived_indices("uflx.apply_gradients", (f, P), len(f.value_shape))
     return component_tensor(indexed(Gradient(f, P), (*axes, j)), axes)
-
-
-def _action_output(
-    f: Action, transform: Callable[[AbstractExpression], AbstractExpression]
-) -> AbstractExpression:
-    """ST07, ST10-ST11. Transform the output while keeping the argument fixed."""
-    return Action(transform(f.form), f.position, f.argument)

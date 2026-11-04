@@ -88,7 +88,16 @@ def _derivative_of_node(
             entry = indexed(inverse_matrix, (i, j)) * indexed(matrix_derivative, (j, i))
             return at(f) * index_sum(entry, (i, j))
         case Inverse(a):
-            return _inverse_derivative(at(a), d(a))
+            matrix = at(a)
+            derivative = d(a)
+            inverse_matrix = Inverse(matrix)
+            inverse_derivative = -(inverse_matrix @ derivative @ inverse_matrix)
+            if matrix.value_shape[0] == matrix.value_shape[1]:
+                return inverse_derivative
+            # The rectangular case uses the derivative of the pseudo-inverse.
+            transposed_derivative = transpose(derivative)
+            correction = transposed_derivative - transposed_derivative @ matrix @ inverse_matrix
+            return inverse_derivative + inverse_matrix @ transpose(inverse_matrix) @ correction
         case Action(l, p, w):
             if constant(l):
                 return Action(at(l), p, _each(d, w))
@@ -100,15 +109,6 @@ def _derivative_of_node(
             if fields is None:
                 raise TypeError(f"no derivative rule for {type(f).__name__}")
             return _commute(f, d, fields, avoid, constant, at)
-
-
-def _inverse_derivative(A: AbstractExpression, dA: AbstractExpression) -> AbstractExpression:
-    # The identity-free form -A⁺ dA A⁺ + A⁺ (A⁺)ᵀ (dAᵀ - dAᵀ A A⁺).
-    Ai = Inverse(A)
-    if A.value_shape[0] == A.value_shape[1]:
-        return -(Ai @ dA @ Ai)
-    dAt = transpose(dA)
-    return -(Ai @ dA @ Ai) + Ai @ transpose(Ai) @ (dAt - dAt @ A @ Ai)
 
 
 def _literal_value(e: AbstractExpression) -> int | float | None:

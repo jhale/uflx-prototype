@@ -88,16 +88,6 @@ def _validate_derivative_directions(
         raise ValueError("directions must belong to the variable spaces")
 
 
-def _validate_derivative_points(
-    expression: AbstractExpression,
-    variables: tuple[Function, ...],
-    points: tuple[AbstractExpression, ...],
-) -> None:
-    for variable, point in zip(variables, points, strict=True):
-        _admissible(variable.space, point)
-    _merge_indices(expression.free_indices, *(point.free_indices for point in points))
-
-
 def gateaux_derivative(
     F: AbstractExpression,
     x: Function | tuple[Function, ...],
@@ -141,7 +131,9 @@ def gateaux_derivative(
     directions = _each(_entry_function, w)
     ws = _members(directions)
     _validate_derivative_directions(xs, entries, ws)
-    _validate_derivative_points(F, xs, points)
+    for variable, point in zip(xs, points, strict=True):
+        _admissible(variable.space, point)
+    _merge_indices(F.free_indices, *(point.free_indices for point in points))
     if any(_occurs(v, e) for v in ws for e in (F, *points)):
         raise ValueError("direction binders must not be free in the expression or point")
     delta = DirectionalDerivative(F, x, a, directions)

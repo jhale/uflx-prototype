@@ -29,28 +29,19 @@ if TYPE_CHECKING:
 __all__ = ["_composed", "_pointwise", "_pullback_remains"]
 
 
-def _kept(m: DomainMap | CellMap | SideMap) -> bool:
-    # a pull-back stays inside another only by a cell, a cell map or a side map.
-    return isinstance(m, SideMap | CellMap) or _is_cell(m)
-
-
 def _composed(
     phi: DomainMap,
     m: DomainMap | CellMap,
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
 ) -> DomainMap:
     # The map phi after m, so that only a pull-back by a cell keeps a pull-back inside it.
-    psi = pb(_lowered_copy(pb, phi.parameterisation), m)
-    return DomainMap(m.parameter_domain, psi, phi.ambient_domain)
-
-
-def _lowered_copy(
-    pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
-    e: AbstractExpression,
-) -> AbstractExpression:
-    # The parameterisation of a map that a row builds is lowered as the row builds it, because
-    # a lowering pass does not enter maps.
-    return _rewrite(e, lambda n: pb(n.expression, n.map) if isinstance(n, PullBack) else n)
+    # Traversal does not enter stored maps, so lower the parameterisation here.
+    parameterisation = _rewrite(
+        phi.parameterisation,
+        lambda node: pb(node.expression, node.map) if isinstance(node, PullBack) else node,
+    )
+    composed_parameterisation = pb(parameterisation, m)
+    return DomainMap(m.parameter_domain, composed_parameterisation, phi.ambient_domain)
 
 
 def _pointwise(
@@ -71,7 +62,7 @@ def _pullback_remains(f: AbstractExpression, m: DomainMap | CellMap | SideMap) -
         isinstance(m, SideMap)
         or _field_terminal(f)
         or isinstance(f, PushForward)
-        or (isinstance(f, PullBack) and _kept(f.map))
+        or (isinstance(f, PullBack) and isinstance(f.map, SideMap | CellMap))
         or (isinstance(f, Gradient) and not _is_cell(m))
         or (_piola_law(f) is not None and (not _is_cell(m) or m.ambient_domain != f.domain))
     )
