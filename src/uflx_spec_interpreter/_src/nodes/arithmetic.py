@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import _cached
-from ..validation import _require
 from .base import AbstractExpression
+from .interning import _cached
 from .scalar_types import ScalarType
+from .validation import _require
 
 if TYPE_CHECKING:
-    from ..nodes.domains import AbstractDomain
-    from ..nodes.indices import AbstractExtent, Index
-    from ..nodes.spaces import AbstractFunctionSpace
-    from ..nodes.topology import AbstractTopology
+    from .domains import AbstractDomain
+    from .indices import AbstractExtent, Index
+    from .spaces import AbstractFunctionSpace
+    from .topology import AbstractTopology
 
 
 @final
@@ -253,7 +253,7 @@ class RealPart(AbstractExpression):
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import _scalar_operand
+        from .validation import _scalar_operand
 
         _scalar_operand(self.operand)
 
@@ -292,7 +292,7 @@ class ImaginaryPart(AbstractExpression):
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import _scalar_operand
+        from .validation import _scalar_operand
 
         _scalar_operand(self.operand)
 
@@ -331,7 +331,7 @@ class Absolute(AbstractExpression):
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import _scalar_operand
+        from .validation import _scalar_operand
 
         _scalar_operand(self.operand)
 
@@ -370,7 +370,7 @@ class SquareRoot(AbstractExpression):
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import _scalar_operand
+        from .validation import _scalar_operand
 
         _scalar_operand(self.operand)
 
@@ -409,6 +409,6 @@ class Logarithm(AbstractExpression):
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import _scalar_operand
+        from .validation import _scalar_operand
 
         _scalar_operand(self.operand)

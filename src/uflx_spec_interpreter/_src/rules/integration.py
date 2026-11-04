@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..algorithms.names import _derived_indices
+from ..algorithms.substitution import _freshen
 from ..arithmetic import _total, multiply
 from ..geometry import density
 from ..meshes import _cell_domain
-from ..names import _derived_indices
 from ..nodes import (
     ComponentTensor,
     DomainMap,
@@ -18,7 +19,6 @@ from ..nodes import (
     Mesh,
     PullBack,
 )
-from ..substitution import _freshen
 from ..topology import cell_index
 
 if TYPE_CHECKING:

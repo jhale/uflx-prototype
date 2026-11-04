@@ -24,9 +24,9 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._src.contracts import _core_normal_form
 from uflx_spec_interpreter._src.nodes import AbstractDomain, AbstractFunctionSpace, Action, SideMap
 from uflx_spec_interpreter._src.passes.actions import _actions_complete
+from uflx_spec_interpreter._src.passes.contracts import _core_normal_form
 from uflx_spec_interpreter._src.passes.lowering import _lower_spatial as lower_spatial
 from uflx_spec_interpreter._src.passes.pullbacks import _pull_backs_expanded
 from uflx_toy.cells import reference_simplex

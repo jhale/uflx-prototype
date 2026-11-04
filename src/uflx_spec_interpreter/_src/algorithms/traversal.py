@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Concatenate, ParamSpec, TypeVar, cast
 
-from .nodes import AbstractExpression, AbstractFunctionSpace, Base
-from .types import _Construction
+from ..nodes import AbstractExpression, AbstractFunctionSpace, Base
+from ..nodes.types import _Construction
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -57,8 +57,8 @@ def _rebuild(e: Base, **changes: _Construction) -> _Construction:
     values = dict(zip(e.argument_names, e.construction_arguments)) | changes
     if tuple(values) == e.argument_names and tuple(values.values()) == e.construction_arguments:
         return e
-    from .nodes import ConjugateSpace, DualSpace
-    from .spaces import conjugate_space, dual_space
+    from ..nodes import ConjugateSpace, DualSpace
+    from ..spaces import conjugate_space, dual_space
 
     if isinstance(e, ConjugateSpace):
         return conjugate_space(cast("AbstractFunctionSpace", values["space"]))

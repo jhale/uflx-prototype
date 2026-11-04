@@ -21,7 +21,14 @@ from uflx_spec_interpreter import (
     multiply,
     tensor,
 )
-from uflx_spec_interpreter._src.names import _derived_index
+from uflx_spec_interpreter._src.algorithms.names import _derived_index
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
+from uflx_spec_interpreter._src.algorithms.traversal import (
+    _bottom_up,
+    _map_fields,
+    _memoized,
+    _operands,
+)
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Form,
@@ -35,13 +42,6 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 from uflx_spec_interpreter._src.rules.integration import _piece_integral
-from uflx_spec_interpreter._src.substitution import _substitute
-from uflx_spec_interpreter._src.traversal import (
-    _bottom_up,
-    _map_fields,
-    _memoized,
-    _operands,
-)
 from uflx_toy.basix_nodes import BasixSpace
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.nodes import VertexCoordinates

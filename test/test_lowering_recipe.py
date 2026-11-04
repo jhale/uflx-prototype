@@ -16,9 +16,9 @@ from uflx_spec_interpreter import (
     lower,
     num,
 )
-from uflx_spec_interpreter._src.contracts import _core_normal_form, _derivatives_expanded
+from uflx_spec_interpreter._src.algorithms.traversal import _everywhere
 from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative
-from uflx_spec_interpreter._src.traversal import _everywhere
+from uflx_spec_interpreter._src.passes.contracts import _core_normal_form, _derivatives_expanded
 from uflx_toy.spaces import space
 
 

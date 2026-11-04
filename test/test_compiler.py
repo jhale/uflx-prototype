@@ -37,6 +37,7 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.traversal import _everywhere, _expressions, _memoized
 from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import (
     Coordinate,
@@ -47,7 +48,6 @@ from uflx_spec_interpreter._src.nodes import (
     Power,
     PullBack,
 )
-from uflx_spec_interpreter._src.traversal import _everywhere, _expressions, _memoized
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.runtime import runtime_array, runtime_extent

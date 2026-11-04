@@ -5,12 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from .nodes import AbstractExpression, Zero
-from .static import _free_indices
+from ..nodes import AbstractExpression, Zero
+from ..nodes.static import _free_indices
 from .traversal import _map_values
 
 if TYPE_CHECKING:
-    from .nodes.spaces import AbstractFunctionSpace
+    from ..nodes.spaces import AbstractFunctionSpace
 __all__ = ["_complete_indices", "_promote", "_rewrite", "_zero_like"]
 
 
@@ -50,8 +50,8 @@ def _complete_indices(
         return replacement
     if isinstance(replacement, Zero):
         return _zero_like(original, original.argument_spaces)
+    from ..tensors import broadcast_to, component_tensor, indexed
     from .names import _derived_indices
-    from .tensors import broadcast_to, component_tensor, indexed
 
     # SH06. Selecting a repeated value preserves an index without introducing a sum.
     for i, n in original.free_indices:
@@ -67,8 +67,8 @@ def _complete_indices(
 
 
 def _promote(original: AbstractExpression, replacement: AbstractExpression) -> AbstractExpression:
-    from .arithmetic import multiply
-    from .nodes import Complex, Integer, ScalarType
+    from ..arithmetic import multiply
+    from ..nodes import Complex, Integer, ScalarType
 
     if original.scalar_type == replacement.scalar_type:
         return replacement

@@ -3,15 +3,15 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Literal, Self, final
 
-from ..interning import _cached
 from .base import AbstractExpression
+from .interning import _cached
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
-    from ..nodes.domains import AbstractDomain
-    from ..nodes.indices import AbstractExtent, Index
-    from ..nodes.spaces import AbstractFunctionSpace
-    from ..nodes.topology import AbstractTopology
+    from .domains import AbstractDomain
+    from .indices import AbstractExtent, Index
+    from .spaces import AbstractFunctionSpace
+    from .topology import AbstractTopology
 
 
 @final
@@ -163,7 +163,7 @@ class Zero(AbstractExpression):
         return None
 
     def _validate(self) -> None:
-        from ..validation import _extent, _require
+        from .validation import _extent, _require
 
         for size in self.value_shape:
             _extent(size)

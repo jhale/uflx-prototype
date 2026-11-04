@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from .nodes import Base, Index
+from ..nodes import Base, Index
 
 if TYPE_CHECKING:
-    from .types import _Construction
+    from ..nodes.types import _Construction
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.

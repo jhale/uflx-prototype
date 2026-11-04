@@ -4,9 +4,9 @@ import test_pipeline
 import test_random
 
 from uflx_spec_interpreter import ScalarType, action, form, function, multiply, num
-from uflx_spec_interpreter._src import substitution
+from uflx_spec_interpreter._src.algorithms import substitution
+from uflx_spec_interpreter._src.algorithms.rewriting import _zero_like
 from uflx_spec_interpreter._src.passes import actions
-from uflx_spec_interpreter._src.rewriting import _zero_like
 from uflx_spec_interpreter._src.rules import binding, differentiation
 from uflx_toy.spaces import space
 

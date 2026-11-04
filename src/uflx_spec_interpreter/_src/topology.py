@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .names import _derived_index
+from .algorithms.names import _derived_index
 
 if TYPE_CHECKING:
     from .nodes.indices import Index

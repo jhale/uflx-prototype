@@ -3,8 +3,8 @@ from __future__ import annotations
 from itertools import combinations
 from typing import TYPE_CHECKING
 
+from .algorithms.names import _derived_indices
 from .arithmetic import divide, multiply
-from .names import _derived_indices
 from .nodes import (
     AbstractExpression,
     BroadcastTo,

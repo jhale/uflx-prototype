@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from ..algorithms.rewriting import _rewrite
+from ..algorithms.substitution import _freshen
+from ..algorithms.traversal import _map_values
 from ..meshes import _is_cell
 from ..nodes import (
     Action,
@@ -16,11 +19,8 @@ from ..nodes import (
     PushForward,
     SideMap,
 )
-from ..rewriting import _rewrite
-from ..rules.coordinates import _piola_law
-from ..static import _field_terminal
-from ..substitution import _freshen
-from ..traversal import _map_values
+from ..nodes.static import _field_terminal
+from .coordinates import _piola_law
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression

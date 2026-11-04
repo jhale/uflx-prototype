@@ -15,11 +15,11 @@ from uflx_spec_interpreter import (
     jacobian,
     pull_back,
 )
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
 from uflx_spec_interpreter._src.meshes import _cell_domain, _cell_of
 from uflx_spec_interpreter._src.nodes import CellMap, Gradient, TransformationLaw
 from uflx_spec_interpreter._src.passes.lowering import _lower_spatial as lower_spatial
 from uflx_spec_interpreter._src.rules.coordinates import _transformed
-from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology

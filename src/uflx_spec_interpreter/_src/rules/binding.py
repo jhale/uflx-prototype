@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import cast
 
+from ..algorithms.rewriting import _promote
+from ..algorithms.substitution import _freshen, _substitute
 from ..nodes import AbstractExpression, Conjugate, Form, Function
-from ..rewriting import _promote
-from ..substitution import _freshen, _substitute
-from ..tuples import _argument_members
+from ..nodes.arguments import _argument_members
 
 __all__ = ["_bind"]
 

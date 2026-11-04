@@ -6,8 +6,9 @@ from uflx_spec_interpreter import (
     index_sum,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.names import _derived_index, _derived_indices
+from uflx_spec_interpreter._src.algorithms.traversal import _bottom_up
 from uflx_spec_interpreter._src.meshes import _cell_of
-from uflx_spec_interpreter._src.names import _derived_index, _derived_indices
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
     DomainMap,
@@ -19,7 +20,6 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_spec_interpreter._src.traversal import _bottom_up
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.nodes import IndexTable, RuntimeArray, VertexCoordinates

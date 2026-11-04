@@ -3,9 +3,9 @@
 import pytest
 
 from uflx_spec_interpreter import RD, apply_gradients, function, gradient, num, tensor
+from uflx_spec_interpreter._src.algorithms.rewriting import _rewrite
+from uflx_spec_interpreter._src.algorithms.traversal import _rebuild
 from uflx_spec_interpreter._src.passes import lowering
-from uflx_spec_interpreter._src.rewriting import _rewrite
-from uflx_spec_interpreter._src.traversal import _rebuild
 from uflx_toy.spaces import space
 
 

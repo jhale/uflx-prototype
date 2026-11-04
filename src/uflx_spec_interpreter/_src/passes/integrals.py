@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..algorithms.rewriting import _rewrite
+from ..algorithms.traversal import _everywhere
 from ..nodes import (
     Integral,
     Mesh,
 )
-from ..rewriting import _rewrite
 from ..rules.integration import _mesh_integral
-from ..traversal import _everywhere
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression

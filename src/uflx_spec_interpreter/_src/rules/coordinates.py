@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from ..algorithms.names import _derived_index, _derived_indices
 from ..arithmetic import divide, multiply
 from ..geometry import _geometric_map, density, inverse_jacobian, jacobian
 from ..meshes import _is_cell
-from ..names import _derived_index, _derived_indices
 from ..nodes import (
     CellMap,
     Curl,

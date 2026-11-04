@@ -26,8 +26,8 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.traversal import _edges, _expressions
 from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, IndexSum
-from uflx_spec_interpreter._src.traversal import _edges, _expressions
 from uflx_toy.spaces import space
 
 

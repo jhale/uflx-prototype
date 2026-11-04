@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import _cached
 from .base import AbstractExpression, Base
+from .interning import _cached
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ class DomainMap(Base):
         return self.parameterisation.free_indices
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         f = self.parameterisation
         _require(f.domain in (None, self.parameter_domain), "parameterisation domain differs")
@@ -80,7 +80,7 @@ class PullBack(AbstractExpression):
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
-        from ..validation import _merge_indices, _require
+        from .validation import _merge_indices, _require
 
         _require(
             self.expression.domain in (None, self.map.ambient_domain),

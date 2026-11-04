@@ -3,15 +3,15 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import _cached
-from ..tuples import _argument_members
+from .arguments import _argument_members
 from .base import Base
+from .interning import _cached
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
-    from ..nodes.domains import AbstractDomain
-    from ..nodes.indices import AbstractExtent
-    from ..nodes.topology import AbstractTopology
+    from .domains import AbstractDomain
+    from .indices import AbstractExtent
+    from .topology import AbstractTopology
 
 
 class AbstractFunctionSpace(Base):
@@ -60,7 +60,7 @@ class ConjugateSpace(AbstractFunctionSpace):
         return tuple(_conjugated(V) for V in self.space.argument_spaces)
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         _require(
             self.space.scalar_type == ScalarType.complex
@@ -100,7 +100,7 @@ class DualSpace(AbstractFunctionSpace):
         return (_conjugated(self.space),)
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         _require(not isinstance(self.space, DualSpace), "dual space is not canonical")
         if isinstance(self.space, tuple):

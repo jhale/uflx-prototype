@@ -14,13 +14,13 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.contracts import (
+from uflx_spec_interpreter._src.algorithms.traversal import _bottom_up
+from uflx_spec_interpreter._src.nodes import AbstractExpression, Function, Mesh
+from uflx_spec_interpreter._src.passes.contracts import (
     _core_normal_form,
     _derivatives_expanded,
     _reference_integration,
 )
-from uflx_spec_interpreter._src.nodes import AbstractExpression, Function, Mesh
-from uflx_spec_interpreter._src.traversal import _bottom_up
 
 
 def valid(f: Function, g: Function) -> None:

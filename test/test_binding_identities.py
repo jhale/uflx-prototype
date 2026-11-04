@@ -17,10 +17,10 @@ from uflx_spec_interpreter import (
     num,
     transpose,
 )
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
 from uflx_spec_interpreter._src.geometry import _metric
 from uflx_spec_interpreter._src.nodes import Function, Index
 from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
-from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_toy.spaces import space
 
 P = RD(2)

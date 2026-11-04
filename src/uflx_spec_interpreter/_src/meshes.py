@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, TypeGuard, cast
 
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
 from uflx_spec_interpreter._src.nodes import (
     AbstractTopology,
     CellMap,
@@ -13,7 +14,6 @@ from uflx_spec_interpreter._src.nodes import (
     SideMap,
     TransformationLaw,
 )
-from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_spec_interpreter._src.topology import cell_index
 
 if TYPE_CHECKING:

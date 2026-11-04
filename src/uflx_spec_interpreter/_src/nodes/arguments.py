@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar, overload
 
 if TYPE_CHECKING:
-    from .nodes.base import Base
+    from .base import Base
 
 # Members are nodes or integer indices, never tuples themselves.
 _T = TypeVar("_T", bound="Base | int")

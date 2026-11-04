@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from ..algorithms.rewriting import _complete_indices, _rewrite
+from ..algorithms.traversal import _everywhere, _memoized
 from ..calculus import _rotation_of_gradient, _trace_of_gradient
 from ..meshes import _is_cell
 from ..nodes import (
@@ -37,12 +39,10 @@ from ..nodes import (
     Tensor,
     TransformationLaw,
 )
-from ..rewriting import _complete_indices, _rewrite
+from ..nodes.static import _field_terminal
 from ..rules.coordinates import _piola_law, _transformed
 from ..rules.pullback_algebra import _composed, _pointwise, _pullback_remains
 from ..rules.restriction import _normal, _side_cell, _side_maps
-from ..static import _field_terminal
-from ..traversal import _everywhere, _memoized
 from .actions import apply_actions
 
 if TYPE_CHECKING:

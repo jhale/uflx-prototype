@@ -24,10 +24,10 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
 from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import Mesh
 from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
-from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.cells import reference_simplex

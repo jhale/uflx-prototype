@@ -19,11 +19,11 @@ from uflx_spec_interpreter import (
     tensor,
     transformation_law,
 )
-from uflx_spec_interpreter._src.contracts import _allowed_in_core_normal_form
+from uflx_spec_interpreter._src.algorithms.traversal import _everywhere
 from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import Curl, Divergence, Gradient, PullBack, PushForward
+from uflx_spec_interpreter._src.passes.contracts import _allowed_in_core_normal_form
 from uflx_spec_interpreter._src.rules.coordinates import _piola_law
-from uflx_spec_interpreter._src.traversal import _everywhere
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 from uflx_toy.topology import static_topology

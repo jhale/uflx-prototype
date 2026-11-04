@@ -38,7 +38,7 @@ class RD(AbstractCoordinateDomain):
     dimension: int  # pyright: ignore[reportIncompatibleMethodOverride]
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         if type(self.dimension) is not int:
             raise TypeError("dimension must be an integer")

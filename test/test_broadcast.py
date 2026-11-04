@@ -30,8 +30,8 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.rewriting import _complete_indices
 from uflx_spec_interpreter._src.nodes import BroadcastTo
-from uflx_spec_interpreter._src.rewriting import _complete_indices
 from uflx_toy.runtime import runtime_array, runtime_extent
 from uflx_toy.spaces import space
 

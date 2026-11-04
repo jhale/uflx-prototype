@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, cast, final
 
-from ..interning import _cached
 from .base import AbstractExpression, Base
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
 from .indices import GatheredIndex, Index
+from .interning import _cached
 from .scalar_types import ScalarType
 from .topology import AbstractTopology
 
@@ -52,7 +52,7 @@ class Mesh(AbstractDomain):
         return tuple(pieces)
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         f = self.coordinate_function
         topology = self.topology
@@ -115,7 +115,7 @@ class CellMap(Base):
         return ((self.entry, self.topology.num_cells[self.cell_group]),)
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         if type(self.cell_group) is not int:
             raise TypeError("cell group must be an integer")
@@ -147,7 +147,7 @@ class SideMap(Base):
         return P if isinstance(P, AbstractTopology) else P.topology
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         X = self.ambient_domain
         S = self.side_topology
@@ -177,7 +177,7 @@ class TransformationLaw(Base):
     weight: int
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         _require(
             all(v in ("covariant", "contravariant") for v in self.variances), "unknown variance"
@@ -226,7 +226,7 @@ class PushForward(AbstractExpression):
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         _require(
             self.expression.domain in (None, self.mesh.topology),
@@ -279,7 +279,7 @@ class Normal(AbstractExpression):
         return ()
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         _require(
             isinstance(self.side_map.ambient_domain, Mesh)

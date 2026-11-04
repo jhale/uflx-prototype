@@ -4,9 +4,9 @@ from functools import cache
 from itertools import product
 
 from uflx_spec_interpreter import add, multiply, num
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
+from uflx_spec_interpreter._src.algorithms.traversal import _expressions
 from uflx_spec_interpreter._src.nodes import Index, Indexed, IndexSum, Product, Sum, Tensor, Zero
-from uflx_spec_interpreter._src.substitution import _substitute
-from uflx_spec_interpreter._src.traversal import _expressions
 
 from .algebra import _normalizer
 from .simplification import simplify

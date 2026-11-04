@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .nodes import (
+from ..algorithms.traversal import _everywhere, _expressions
+from ..nodes import (
     Absolute,
     AbstractExpression,
     Action,
@@ -48,11 +49,10 @@ from .nodes import (
     Tensor,
     Zero,
 )
-from .rules.coordinates import _piola_law
-from .rules.pullback_algebra import _pullback_remains
-from .rules.structural import _action_retained, _gradient_remains
-from .static import _field_terminal
-from .traversal import _everywhere, _expressions
+from ..nodes.static import _field_terminal
+from ..rules.coordinates import _piola_law
+from ..rules.pullback_algebra import _pullback_remains
+from ..rules.structural import _action_retained, _gradient_remains
 
 _Violation = tuple[AbstractExpression, str]
 

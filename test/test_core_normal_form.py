@@ -16,8 +16,8 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.contracts import _in_core_normal_form
 from uflx_spec_interpreter._src.meshes import _cell_domain
+from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
 from uflx_toy.runtime import runtime_array
 from uflx_toy.spaces import space
 

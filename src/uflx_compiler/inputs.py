@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import final
 
+from uflx_spec_interpreter._src.algorithms.traversal import _expressions, _memoized
 from uflx_spec_interpreter._src.nodes import AbstractExtent, Base
-from uflx_spec_interpreter._src.traversal import _expressions, _memoized
 from uflx_toy.nodes import RuntimeArray
 
 

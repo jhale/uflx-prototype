@@ -1,3 +1,4 @@
+from ._src.algorithms.substitution import replace
 from ._src.arithmetic import (
     absolute,
     add,
@@ -43,7 +44,6 @@ from ._src.passes.integrals import expand_integrals
 from ._src.passes.lowering import lower
 from ._src.passes.pullbacks import expand_pull_backs
 from ._src.spaces import conjugate_space, dual_space
-from ._src.substitution import replace
 from ._src.tensors import (
     broadcast_to,
     component,

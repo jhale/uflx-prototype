@@ -12,9 +12,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
 from uflx_spec_interpreter._src.passes import derivatives
-from uflx_spec_interpreter._src.substitution import _substitute
+from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
 from uflx_toy.spaces import space
 
 r = tuple(index(f"r{n}") for n in range(3))

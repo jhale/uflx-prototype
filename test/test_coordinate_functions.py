@@ -22,11 +22,11 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
-from uflx_spec_interpreter._src.contracts import _in_core_normal_form
+from uflx_spec_interpreter._src.algorithms.traversal import _everywhere
 from uflx_spec_interpreter._src.meshes import _cell_domain, _is_cell
 from uflx_spec_interpreter._src.nodes import CellMap, Division, Gradient, PullBack
+from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
 from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
-from uflx_spec_interpreter._src.traversal import _everywhere
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.indices import index_table

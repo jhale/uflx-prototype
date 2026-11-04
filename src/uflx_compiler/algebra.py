@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from fractions import Fraction
 
+from uflx_spec_interpreter._src.algorithms.rewriting import _complete_indices
+from uflx_spec_interpreter._src.algorithms.traversal import _map_values, _memoized
 from uflx_spec_interpreter._src.arithmetic import add, divide, multiply
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
@@ -24,8 +26,6 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Zero,
 )
-from uflx_spec_interpreter._src.rewriting import _complete_indices
-from uflx_spec_interpreter._src.traversal import _map_values, _memoized
 
 _ONE = (Fraction(1), Fraction(0))
 _ZERO = (Fraction(0), Fraction(0))

@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
-from ..names import _derived_index, _derived_indices
+from ..algorithms.names import _derived_index, _derived_indices
+from ..algorithms.substitution import _freshen
+from ..algorithms.traversal import _map_values
 from ..nodes import (
     Action,
     BroadcastTo,
@@ -19,16 +21,14 @@ from ..nodes import (
     PullBack,
     PushForward,
 )
-from ..static import _field_terminal
-from ..substitution import _freshen
-from ..traversal import _map_values
+from ..nodes.static import _field_terminal
 from .coordinates import _chained, _piola_law
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression
     from ..nodes.domains import AbstractDomain
     from ..nodes.indices import Index
-    from ..types import _Construction
+    from ..nodes.types import _Construction
 
 
 __all__ = [
@@ -50,8 +50,8 @@ def _commute(
     at: Callable[[AbstractExpression], AbstractExpression] = lambda e: e,
 ) -> AbstractExpression:
     """Move an operation through selected operands, keeping other values fixed."""
+    from ..algorithms.traversal import _nodes_in
     from ..nodes import AbstractExpression
-    from ..traversal import _nodes_in
 
     unchanged = tuple(name for name in f.value_fields if name not in fields)
     if any(
@@ -78,7 +78,7 @@ def _structural_fields(expression: AbstractExpression) -> tuple[str, ...] | None
 def _action_retained(f: AbstractExpression) -> bool:
     """ST03-ST05. Applications of transformed forms and terminals remain."""
     from ..nodes import Function, Gradient, PullBack
-    from ..static import _field_terminal
+    from ..nodes.static import _field_terminal
 
     return isinstance(f, Function | Gradient | PullBack | Action) or _field_terminal(f)
 

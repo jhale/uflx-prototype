@@ -2,13 +2,24 @@
 
 `lower(f)` runs the standard core recipe and checks its core-normal-form output.
 Individual transformations remain available. The [rule map](RULES.md) tracks the
-mathematical groups and their implementations. Internal checks in `_src/contracts.py`
+mathematical groups and their implementations. Internal checks in `_src/passes/contracts.py`
 return offending nodes and diagnostic reasons without running transformations or
 checking later compiler capabilities.
 
 Tensor addition, scalar multiplication and division retain their arithmetic nodes.
 `expand_arithmetic(f)` converts these to scalar components. `lower` runs it after
 spatial rewriting, so compilers still receive scalar arithmetic.
+
+The implementation in `_src/` is organised by responsibility.
+
+| Location | Contents |
+| --- | --- |
+| Base directory | Language-facing factory functions |
+| `nodes/` | Node definitions, construction validation, interning, static queries and argument types |
+| `algorithms/` | Traversal, rewriting, substitution and generated names |
+| `rules/` | Mathematical rewrite rules |
+| `passes/` | Pass recipes and output contracts |
+| `extensions/` | Optional language extensions |
 
 `gateaux_derivative(...)` constructs a `Form` from `DirectionalDerivative`
 expressions. There is no separate Gateaux node or pass.
@@ -185,7 +196,7 @@ The standard recipe in `_src/passes/lowering.py` coordinates:
 | Expand derivatives and finish resulting actions | `passes/derivatives.py` |
 | Expand mesh integrals | `passes/integrals.py` |
 | Alternate gradients and pull-backs until stable | `passes/lowering.py`, using `gradients.py` and `pullbacks.py` |
-| Check core normal form | `contracts.py` |
+| Check core normal form | `passes/contracts.py` |
 
 The shape extension uses its own recipe: expose geometry, apply shape derivatives,
 then re-enter checked core lowering. Quadrature and tabulation follow that boundary
@@ -225,7 +236,7 @@ modules of `_src`:
   `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`
 - `forms.py`: `function`, `form`, `action` and `gateaux_derivative`
-- `static.py`: the free functions that read the static type
+- `nodes/static.py`: the free functions that read the static type
 
 The private modules of `_src`:
 
@@ -241,12 +252,12 @@ The private modules of `_src`:
   `nodes/topology.py`, `nodes/spaces.py` and `nodes/forms.py`: the node classes,
   by section of the specification, most with a module of the same name for
   their free functions
-- `interning.py`: the table of nodes, their canonical text and the seed-free
+- `nodes/interning.py`: the table of nodes, their canonical text and the seed-free
   digest
-- `traversal.py`: graph traversal and reconstruction
-- `substitution.py`: capture-avoiding freshening and simultaneous substitution
-- `rewriting.py`: replacement compatibility, index completion and promotion
-- `contracts.py`: evaluation-stage requirements, including core normal form
+- `algorithms/traversal.py`: graph traversal and reconstruction
+- `algorithms/substitution.py`: capture-avoiding freshening and simultaneous substitution
+- `algorithms/rewriting.py`: replacement compatibility, index completion and promotion
+- `passes/contracts.py`: evaluation-stage requirements, including core normal form
 - `passes/commuting.py`: the commuting node classes, into which an evaluated
   node moves
 - `passes/derivative_table.py`: the derivatives of the node classes, shared by
@@ -290,7 +301,7 @@ cells both use `CellMap`, retaining the selected cell through substitution.
 including the specified empty-tuple factory identities.
 
 Node classes check their own construction rules, using shared structural helpers
-in `_src/validation.py`. These checks do not prove mathematical hypotheses
+in `_src/nodes/validation.py`. These checks do not prove mathematical hypotheses
 or form linearity. Downstream libraries remain responsible for their own leaf
 contracts. `ScalarType.real` and `ScalarType.complex` are plain string constants, so they
 satisfy the construction-argument whitelist. The toy's factories encode external enum values

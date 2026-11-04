@@ -11,8 +11,8 @@ from test_surface import M
 from testutil import contains
 
 from uflx_spec_interpreter import density, inverse_jacobian
+from uflx_spec_interpreter._src.algorithms.traversal import _map_fields, _rebuild
 from uflx_spec_interpreter._src.geometry import jacobian
-from uflx_spec_interpreter._src.interning import _digest_of
 from uflx_spec_interpreter._src.meshes import _cell_domain
 from uflx_spec_interpreter._src.nodes import (
     Base,
@@ -25,7 +25,7 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.traversal import _map_fields, _rebuild
+from uflx_spec_interpreter._src.nodes.interning import _digest_of
 from uflx_toy.spaces import space
 
 V = space("V")

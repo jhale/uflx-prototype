@@ -19,9 +19,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.traversal import _everywhere
 from uflx_spec_interpreter._src.nodes import Gradient, PushForward
 from uflx_spec_interpreter._src.passes.lowering import _lower_spatial
-from uflx_spec_interpreter._src.traversal import _everywhere
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.topology import static_topology

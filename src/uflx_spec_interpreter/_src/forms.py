@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .algorithms.substitution import _occurs
 from .arithmetic import add, divide, multiply
 from .nodes import (
     AbstractExpression,
@@ -15,14 +16,13 @@ from .nodes import (
     Integer,
     ScalarType,
 )
+from .nodes.arguments import _argument_members, _map_argument
 from .nodes.forms import _entry_function
-from .substitution import _occurs
-from .tuples import _argument_members, _map_argument
-from .validation import _admissible, _merge_indices
+from .nodes.validation import _admissible, _merge_indices
 
 if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
-    from .types import _Construction
+    from .nodes.types import _Construction
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.

@@ -38,8 +38,8 @@ from uflx_spec_interpreter import (
     replace,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.traversal import _expressions
 from uflx_spec_interpreter._src.nodes import Base, Determinant, Function, Index, Indexed
-from uflx_spec_interpreter._src.traversal import _expressions
 from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.runtime import runtime_array, runtime_extent

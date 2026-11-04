@@ -11,13 +11,13 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.contracts import (
+from uflx_spec_interpreter._src.nodes import DirectionalDerivative
+from uflx_spec_interpreter._src.passes.contracts import (
     _core_normal_form,
     _derivatives_expanded,
     _in_core_normal_form,
     _reference_integration,
 )
-from uflx_spec_interpreter._src.nodes import DirectionalDerivative
 from uflx_toy.runtime import runtime_array
 from uflx_toy.spaces import space
 

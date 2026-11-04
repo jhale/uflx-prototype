@@ -50,7 +50,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.tuples import _argument_members
+from uflx_spec_interpreter._src.nodes.arguments import _argument_members
 from uflx_toy.basix_nodes import BasixCell, BasixSpace
 from uflx_toy.meshes import shape_functions
 from uflx_toy.nodes import RuntimeArray, VertexCoordinates

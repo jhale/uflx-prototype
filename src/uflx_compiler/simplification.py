@@ -1,5 +1,8 @@
 import numpy as np
 
+from uflx_spec_interpreter._src.algorithms.rewriting import _complete_indices
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute_values
+from uflx_spec_interpreter._src.algorithms.traversal import _map_fields, _memoized
 from uflx_spec_interpreter._src.nodes import (
     BroadcastTo,
     ComponentTensor,
@@ -20,10 +23,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.rewriting import _complete_indices
-from uflx_spec_interpreter._src.substitution import _substitute_values
 from uflx_spec_interpreter._src.tensors import determinant
-from uflx_spec_interpreter._src.traversal import _map_fields, _memoized
 
 
 def simplify(f):

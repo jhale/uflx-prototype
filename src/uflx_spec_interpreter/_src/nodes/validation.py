@@ -6,9 +6,9 @@ import math
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from .nodes.base import AbstractExpression
-    from .nodes.indices import AbstractExtent, GatheredIndex, Index
-    from .nodes.spaces import AbstractFunctionSpace
+    from .base import AbstractExpression
+    from .indices import AbstractExtent, GatheredIndex, Index
+    from .spaces import AbstractFunctionSpace
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
@@ -25,7 +25,7 @@ __all__ = [
 
 
 def _construction_arguments(args: tuple[object, ...]) -> None:
-    from .nodes.base import Base
+    from .base import Base
 
     for value in args:
         if isinstance(value, Base):
@@ -63,7 +63,7 @@ def _merge_indices(
 def _entries(
     shape: tuple[int | AbstractExtent, ...], indices: tuple[int | Index | GatheredIndex, ...]
 ) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-    from .nodes import Index
+    from . import Index
 
     if len(indices) != len(shape):
         raise IndexError("entries must cover exactly the rank")
@@ -86,7 +86,7 @@ def _admissible(
     V: AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...],
     value: AbstractExpression | tuple[AbstractExpression, ...],
 ) -> None:
-    from .nodes import ScalarType
+    from . import ScalarType
 
     if isinstance(V, tuple):
         if not isinstance(value, tuple):

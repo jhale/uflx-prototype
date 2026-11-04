@@ -22,6 +22,7 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.traversal import _bottom_up, _operands
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Action,
@@ -32,7 +33,6 @@ from uflx_spec_interpreter._src.nodes import (
 )
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
 from uflx_spec_interpreter._src.passes import derivatives
-from uflx_spec_interpreter._src.traversal import _bottom_up, _operands
 from uflx_toy.spaces import space
 
 

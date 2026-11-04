@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeAlias
 
 if TYPE_CHECKING:
-    from .nodes.base import Base
+    from .base import Base
 
 
 _Construction: TypeAlias = "Base | int | float | str | tuple[_Construction, ...]"

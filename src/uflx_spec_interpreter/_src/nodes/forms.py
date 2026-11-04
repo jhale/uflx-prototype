@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import _cached
-from ..tuples import _argument_members, _map_argument
+from .arguments import _argument_members, _map_argument
 from .arithmetic import Conjugate
 from .base import AbstractExpression
+from .interning import _cached
 from .spaces import AbstractFunctionSpace, DualSpace
 
 if TYPE_CHECKING:
-    from ..nodes.domains import AbstractDomain
-    from ..nodes.indices import AbstractExtent, Index
-    from ..nodes.topology import AbstractTopology
-    from ..types import _Construction
+    from .domains import AbstractDomain
+    from .indices import AbstractExtent, Index
+    from .topology import AbstractTopology
+    from .types import _Construction
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
@@ -117,7 +117,7 @@ class Form(AbstractExpression):
         return self.expression.domain
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         for a in self.arguments:
             if type(a) is tuple:
@@ -157,7 +157,7 @@ class Action(AbstractExpression):
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         arguments = _argument_members(self.argument)
-        from ..static import _free_indices
+        from .static import _free_indices
 
         return _free_indices(self.form, *arguments)
 
@@ -172,7 +172,7 @@ class Action(AbstractExpression):
         return self.form.domain
 
     def _validate(self) -> None:
-        from ..validation import _admissible, _require
+        from .validation import _admissible, _require
 
         if type(self.position) is not int:
             raise TypeError("action position must be an integer")

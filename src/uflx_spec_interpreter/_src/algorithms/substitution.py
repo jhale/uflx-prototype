@@ -4,18 +4,18 @@ import weakref
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from ..nodes import AbstractExpression, Base, Function, Index, Zero
+from ..nodes.types import _Construction
 from .names import _is_renamed_label, _renamed_label
-from .nodes import AbstractExpression, Base, Function, Index, Zero
 from .traversal import (
     _map_fields,
     _memoized,
     _operands,
     _rebuild,
 )
-from .types import _Construction
 
 if TYPE_CHECKING:
-    from .nodes.indices import AbstractExtent
+    from ..nodes.indices import AbstractExtent
 
 
 _T = TypeVar("_T", bound=Base)
@@ -82,8 +82,8 @@ def _substitute(node: Base, mapping: Mapping[_K, _Construction]) -> _Constructio
 
 
 def _substitute_zero(node: Zero, replace: Callable[[Base], _Construction]) -> _Construction:
-    from .nodes import GatheredIndex
-    from .validation import _entries, _merge_indices
+    from ..nodes import GatheredIndex
+    from ..nodes.validation import _entries, _merge_indices
 
     # Zero's free-index signature changes when an index is selected or gathered.
     pairs: list[tuple[tuple[Index, int | AbstractExtent], ...]] = []

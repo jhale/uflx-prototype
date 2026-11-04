@@ -3,15 +3,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from ..algorithms.rewriting import _rewrite
+from ..algorithms.traversal import _everywhere, _memoized
 from ..arithmetic import multiply
 from ..nodes import Action, Conjugate, Form, Product, Zero
-from ..rewriting import _rewrite
+from ..nodes.arguments import _argument_members, _map_argument
+from ..nodes.static import _free_indices
 from ..rules.binding import _bind
 from ..rules.linearity import _linear_fields
 from ..rules.structural import _action_retained, _commute, _structural_fields
-from ..static import _free_indices
-from ..traversal import _everywhere, _memoized
-from ..tuples import _argument_members, _map_argument
 
 if TYPE_CHECKING:
     from ..nodes.base import AbstractExpression

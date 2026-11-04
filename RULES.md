@@ -14,20 +14,20 @@ Paths below are relative to `src/uflx_spec_interpreter/_src/`.
 | --- | --- | --- |
 | ST01 | `rules/structural.py::_structural_fields`, `_commute` | `test_actions.py`, `test_tensor_gateaux.py`, `test_broadcast.py`, `test_rule_groups.py` |
 | ST02 | `passes/actions.py::_rule` | `test_actions.py`, `test_mixed.py` |
-| ST03–ST05 | `rules/structural.py::_action_retained`; shared with `contracts.py` | `test_action_spatial.py`, `test_core_normal_form.py` |
+| ST03–ST05 | `rules/structural.py::_action_retained`; shared with `passes/contracts.py` | `test_action_spatial.py`, `test_core_normal_form.py` |
 | ST06 | `nodes/forms.py::Action._validate` | `test_signatures.py` |
 | ST07, ST10–ST11 | `passes/gradients.py`, `passes/pullbacks.py` | `test_action_spatial.py` |
 | ST08 | `rules/structural.py::_gradient` | `test_gradients.py`, `test_rule_groups.py` |
 | ST09 | `rules/structural.py::_gradient_component` | `test_gradients.py` |
 | ST13–ST16 | `passes/arithmetic.py::expand_arithmetic`; final step of `lower` | `test_tensor_arithmetic.py` |
-| ST12 | `rules/structural.py::_gradient_remains`; shared with `contracts.py` | `test_rewriting.py`, `test_piola_applicability.py` |
+| ST12 | `rules/structural.py::_gradient_remains`; shared with `passes/contracts.py` | `test_algorithms/rewriting.py`, `test_piola_applicability.py` |
 | L01–L04 | `rules/linearity.py::_linear_fields`, `rules/structural.py::_commute` | `test_gateaux.py`, `test_tensor_gateaux.py`, `test_broadcast.py` |
 | L05, L07 | `passes/actions.py::_rule` | `test_actions.py`, `test_typed_zero.py` |
-| L10 | `rules/differentiation.py::_deriv` selects `_zero_like` | `test_derivative_validation.py`, `test_typed_zero.py` |
+| L10 | `rules/differentiation.py::_deriv` selects `_zero_like` | `test_derivative_nodes/validation.py`, `test_typed_zero.py` |
 | L11 | `passes/gradients.py::_rule` selects a typed component zero | `test_gradients.py`, `test_rule_groups.py` |
 | D01–D10, D12 | `rules/differentiation.py::_derivative_of_node` | `test_derivative_algebra.py`, `test_tensor_gateaux.py`, `test_full.py` |
-| D11, D15 | `rules/differentiation.py::_deriv`; value occurrence through `substitution.py::_occurs` | `test_gateaux.py`, `test_derivative_validation.py`, `test_rule_groups.py` |
-| D13 | `passes/derivatives.py::apply_derivatives`; operands first in `rewriting.py::_rewrite` | `test_lowering_recipe.py`, `test_single_derivative.py` |
+| D11, D15 | `rules/differentiation.py::_deriv`; value occurrence through `algorithms/substitution.py::_occurs` | `test_gateaux.py`, `test_derivative_nodes/validation.py`, `test_rule_groups.py` |
+| D13 | `passes/derivatives.py::apply_derivatives`; operands first in `algorithms/rewriting.py::_rewrite` | `test_lowering_recipe.py`, `test_single_derivative.py` |
 | D16 | `passes/gradients.py::apply_gradients` selects compositions from `calculus.py` | `test_gradients.py`, `test_piola_applicability.py` |
 | D17 | `rules/differentiation.py::_coordinate_partial` | `test_gradients.py`, `test_rule_groups.py` |
 | D19–D20 | `rules/differentiation.py::_derivative_of_node`, before D03–D04 | `test_rule_groups.py` |
@@ -41,25 +41,25 @@ existing module because it needs a different walk from expression rewriting.
 | Rules | Implementation | Main tests in `test/` |
 | --- | --- | --- |
 | SH01 | Mathematical admissibility is a precondition; oracle comparisons check defined examples | `test_random.py`, `test_full.py` |
-| SH02–SH07 | `rewriting.py::_complete_indices`, `_promote`, `_zero_like` | `test_index_completion.py`, `test_rule_groups.py` |
+| SH02–SH07 | `algorithms/rewriting.py::_complete_indices`, `_promote`, `_zero_like` | `test_index_completion.py`, `test_rule_groups.py` |
 | SH08 | Promotion in `rules/binding.py` and `rules/differentiation.py`; completion before rebuilding parents | `test_gateaux.py`, `test_index_completion.py` |
-| SH09–SH11 | `traversal.py::_map_values`, node `value_fields` | `test_lowering_contracts.py`, `test_static_type.py` |
-| SH12 | `rewriting.py::_rewrite`, `rules/pullback_algebra.py::_composed` | `test_lowering_recipe.py`, `test_pull_back_gradients.py` |
-| SH13 | Prepared geometry remains a supplier precondition | `test_lowering_contracts.py` |
-| SH14, SH18 | Mathematical independence is a precondition; core recipes use the conservative checks below | `test_derivative_validation.py` |
-| SH15 | `rules/differentiation.py::_deriv`, `substitution.py::_occurs` | `test_derivative_validation.py` |
+| SH09–SH11 | `algorithms/traversal.py::_map_values`, node `value_fields` | `test_lowering_passes/contracts.py`, `test_static_type.py` |
+| SH12 | `algorithms/rewriting.py::_rewrite`, `rules/pullback_algebra.py::_composed` | `test_lowering_recipe.py`, `test_pull_back_gradients.py` |
+| SH13 | Prepared geometry remains a supplier precondition | `test_lowering_passes/contracts.py` |
+| SH14, SH18 | Mathematical independence is a precondition; core recipes use the conservative checks below | `test_derivative_nodes/validation.py` |
+| SH15 | `rules/differentiation.py::_deriv`, `algorithms/substitution.py::_occurs` | `test_derivative_nodes/validation.py` |
 | SH16 | Domain check in `passes/gradients.py::_rule` | `test_gradients.py` |
 | SH17 | Slot selection in `passes/actions.py::_rule`; unchanged operands in `rules/linearity.py::_linear_fields`, `rules/structural.py::_commute` | `test_actions.py`, `test_mixed.py` |
-| SH19–SH21 | `rewriting.py::_rewrite` | `test_rewriting.py`, `test_lowering_recipe.py` |
-| SH22–SH23 | Pass cleanup and `passes/lowering.py`; see findings below | `test_rewriting.py`, `test_lowering_contracts.py` |
+| SH19–SH21 | `algorithms/rewriting.py::_rewrite` | `test_algorithms/rewriting.py`, `test_lowering_recipe.py` |
+| SH22–SH23 | Pass cleanup and `passes/lowering.py`; see findings below | `test_algorithms/rewriting.py`, `test_lowering_passes/contracts.py` |
 | SH24 | Component recursion in `passes/gradients.py`; no derivative-request node | `test_gradients.py`, `test_rule_groups.py` |
 | SB01–SB04 | Node `value_fields`, `scope`, `bound` and `labels` | `test_binding_identities.py`, `test_static_type.py` |
-| SB05–SB10 | `substitution.py::_substitute`, `_freshen`, `_substituted`; see findings below | `test_random.py`, `test_controls.py` |
-| SB11–SB12 | `substitution.py::_rename`, `names.py::_renamed_label` | `test_binding_identities.py` |
-| SB13–SB15 | `substitution.py::_substitute`, `_substituted` and reconstruction | `test_spec_revision.py`, `test_binding_identities.py` |
-| SB18 | `rules/differentiation.py::_deriv`, `substitution.py::_substitute_values` | `test_derivative_validation.py`, `test_lowering_recipe.py` |
+| SB05–SB10 | `algorithms/substitution.py::_substitute`, `_freshen`, `_substituted`; see findings below | `test_random.py`, `test_controls.py` |
+| SB11–SB12 | `algorithms/substitution.py::_rename`, `algorithms/names.py::_renamed_label` | `test_binding_identities.py` |
+| SB13–SB15 | `algorithms/substitution.py::_substitute`, `_substituted` and reconstruction | `test_spec_revision.py`, `test_binding_identities.py` |
+| SB18 | `rules/differentiation.py::_deriv`, `algorithms/substitution.py::_substitute_values` | `test_derivative_nodes/validation.py`, `test_lowering_recipe.py` |
 | SB19 | `rules/pullback_algebra.py::_pointwise` | `test_pull_back_gradients.py` |
-| SB20–SB22 | Occurrence queries in `substitution.py`; see findings below | `test_binding_identities.py`, `test_derivative_validation.py` |
+| SB20–SB22 | Occurrence queries in `algorithms/substitution.py`; see findings below | `test_binding_identities.py`, `test_derivative_nodes/validation.py` |
 | PB01–PB02 | Selection in `passes/pullbacks.py`, shared type completion | `test_points.py`, `test_broadcast.py` |
 | PB03–PB05 | `rules/pullback_algebra.py::_composed`, `_pullback_remains` and pass selection | `test_pull_back_gradients.py`, `test_surface.py` |
 | PB06 | Explicit operand-class selection in `passes/pullbacks.py`; `rules/pullback_algebra.py::_pointwise` | `test_broadcast.py`, `test_pullback_contractions.py` |

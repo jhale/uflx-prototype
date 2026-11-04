@@ -4,17 +4,16 @@ import inspect
 from abc import ABC, abstractmethod, update_abstractmethods
 from typing import TYPE_CHECKING, ClassVar, Literal, Never, Self, cast, dataclass_transform
 
-from ..interning import _digest_of, _table
-from ..tuples import _argument_members
-from ..types import _Construction
+from .arguments import _argument_members
+from .interning import _digest_of, _table
+from .types import _Construction
 
 if TYPE_CHECKING:
-    from ..nodes.domains import AbstractDomain
-    from ..nodes.indices import AbstractExtent, GatheredIndex
-    from ..nodes.spaces import AbstractFunctionSpace
-    from ..nodes.topology import AbstractTopology
+    from .domains import AbstractDomain
     from .forms import Function
-    from .indices import Index
+    from .indices import AbstractExtent, GatheredIndex, Index
+    from .spaces import AbstractFunctionSpace
+    from .topology import AbstractTopology
 
 
 @dataclass_transform(frozen_default=True, eq_default=False)
@@ -69,7 +68,7 @@ class Base(ABC):
             raise TypeError(f"{cls.__name__} states no identifier")
         if len(args) != len(cls.argument_names):
             raise TypeError(f"{cls.__name__} takes the arguments {cls.argument_names}")
-        from ..validation import _construction_arguments
+        from .validation import _construction_arguments
 
         _construction_arguments(args)
         digest = _digest_of(cls.identifier, args)
@@ -104,8 +103,8 @@ class Base(ABC):
 
 class AbstractExpression(Base):
     def _validate_type(self) -> None:
-        from ..traversal import _expressions
-        from ..validation import _merge_indices, _require
+        from ..algorithms.traversal import _expressions
+        from .validation import _merge_indices, _require
 
         _require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")
         operands = _expressions(self)

@@ -3,10 +3,10 @@ from __future__ import annotations
 from functools import cache
 from typing import TYPE_CHECKING
 
+from ..algorithms.rewriting import _rewrite
+from ..algorithms.traversal import _everywhere
 from ..nodes import DirectionalDerivative
-from ..rewriting import _rewrite
 from ..rules.differentiation import _deriv
-from ..traversal import _everywhere
 from .actions import apply_actions
 
 if TYPE_CHECKING:

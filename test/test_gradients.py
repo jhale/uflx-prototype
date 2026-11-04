@@ -30,9 +30,9 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.contracts import _in_core_normal_form
 from uflx_spec_interpreter._src.nodes import Function, Gradient, Normal, PullBack
 from uflx_spec_interpreter._src.passes import gradients
+from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
 from uflx_toy.spaces import space
 
 X = coordinate(K)

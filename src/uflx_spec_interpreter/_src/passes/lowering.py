@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ..contracts import _core_normal_form
 from ..nodes import AbstractExpression
 from .actions import apply_actions
 from .arithmetic import expand_arithmetic
+from .contracts import _core_normal_form
 from .derivatives import apply_derivatives
 from .gradients import apply_gradients
 from .integrals import expand_integrals

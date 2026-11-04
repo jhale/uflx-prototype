@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import _cached
 from .base import AbstractExpression
 from .indices import Index
+from .interning import _cached
 
 if TYPE_CHECKING:
-    from ..nodes.domains import AbstractDomain
-    from ..nodes.indices import AbstractExtent, GatheredIndex
-    from ..nodes.spaces import AbstractFunctionSpace
-    from ..nodes.topology import AbstractTopology
+    from .domains import AbstractDomain
+    from .indices import AbstractExtent, GatheredIndex
+    from .spaces import AbstractFunctionSpace
+    from .topology import AbstractTopology
 
 
 @final
@@ -45,7 +45,7 @@ class BroadcastTo(AbstractExpression):
         return self.value.domain
 
     def _validate(self) -> None:
-        from ..validation import _extent, _require
+        from .validation import _extent, _require
 
         for n in self.value_shape:
             _extent(n)
@@ -74,7 +74,7 @@ class Tensor(AbstractExpression):
     @property
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        from ..static import _free_indices
+        from .static import _free_indices
 
         return _free_indices(*self.entries)
 
@@ -96,7 +96,7 @@ class Tensor(AbstractExpression):
         return next((x.domain for x in reversed(self.entries) if x.domain), None)
 
     def _validate(self) -> None:
-        from ..validation import _require
+        from .validation import _require
 
         _require(bool(self.entries), "tensor entries must be nonempty")
         _require(
@@ -120,7 +120,7 @@ class Indexed(AbstractExpression):
     @property
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        from ..validation import _entries, _merge_indices
+        from .validation import _entries, _merge_indices
 
         return _merge_indices(
             self.expression.free_indices, _entries(self.expression.value_shape, self.indices)
@@ -149,7 +149,7 @@ class Indexed(AbstractExpression):
         return self.expression.domain
 
     def _validate(self) -> None:
-        from ..validation import _entries, _merge_indices, _require
+        from .validation import _entries, _merge_indices, _require
 
         _require(bool(self.indices), "Indexed requires nonempty entries")
         _merge_indices(
@@ -276,7 +276,7 @@ class Inverse(AbstractExpression):
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import _matrix_operand
+        from .validation import _matrix_operand
 
         _matrix_operand(self.operand, rectangular=True)
 
@@ -315,13 +315,13 @@ class Determinant(AbstractExpression):
         return self.operand.domain
 
     def _validate(self) -> None:
-        from ..validation import _matrix_operand
+        from .validation import _matrix_operand
 
         _matrix_operand(self.operand)
 
 
 def _validate_index_binding(e: ComponentTensor | IndexSum) -> None:
-    from ..validation import _require
+    from .validation import _require
 
     _require(
         bool(e.indices) and len(set(e.indices)) == len(e.indices),

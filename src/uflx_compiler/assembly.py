@@ -1,9 +1,9 @@
 import numpy as np
 
 from uflx_spec_interpreter import component_tensor
-from uflx_spec_interpreter._src.names import _derived_indices
+from uflx_spec_interpreter._src.algorithms.names import _derived_indices
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
 from uflx_spec_interpreter._src.nodes import Conjugate, Form
-from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_spec_interpreter._src.tensors import _identity
 
 from .evaluation import evaluate

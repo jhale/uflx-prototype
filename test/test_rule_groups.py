@@ -21,7 +21,7 @@ from uflx_spec_interpreter import (
     power,
     tensor,
 )
-from uflx_spec_interpreter._src.rewriting import _complete_indices
+from uflx_spec_interpreter._src.algorithms.rewriting import _complete_indices
 from uflx_toy.spaces import space
 
 

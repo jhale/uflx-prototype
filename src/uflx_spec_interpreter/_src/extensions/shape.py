@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import _cached
+from ..algorithms.traversal import _bottom_up
 from ..nodes import AbstractExpression, Function
+from ..nodes.arguments import _argument_members
+from ..nodes.interning import _cached
 from ..passes.derivatives import apply_derivatives
 from ..rules.differentiation import _deriv
-from ..traversal import _bottom_up
-from ..tuples import _argument_members
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
@@ -45,7 +45,7 @@ class _ShapeDerivative(AbstractExpression):
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         edges = (self.expression, *_argument_members(self.direction))
-        from ..static import _free_indices
+        from ..nodes.static import _free_indices
 
         return _free_indices(*edges)
 

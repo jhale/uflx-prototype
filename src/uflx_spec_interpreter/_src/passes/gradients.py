@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from ..algorithms.rewriting import _complete_indices, _rewrite
+from ..algorithms.traversal import _memoized
 from ..calculus import _rotation_of_gradient, _trace_of_gradient
 from ..nodes import (
     Action,
@@ -14,12 +16,10 @@ from ..nodes import (
     PullBack,
     Zero,
 )
-from ..rewriting import _complete_indices, _rewrite
+from ..nodes.static import _free_indices
 from ..rules.coordinates import _chain_partial, _chained, _piola_law
 from ..rules.differentiation import _coordinate_partial, _derivative_of_node
 from ..rules.structural import _gradient, _gradient_component, _gradient_remains
-from ..static import _free_indices
-from ..traversal import _memoized
 from .actions import apply_actions
 
 if TYPE_CHECKING:

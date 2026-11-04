@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .nodes import Complex, Float, Integer, Zero
+from . import Complex, Float, Integer, Zero
 
 if TYPE_CHECKING:
-    from .nodes.base import AbstractExpression, Base
-    from .nodes.indices import AbstractExtent, Index
+    from .base import AbstractExpression, Base
+    from .indices import AbstractExtent, Index
 
 
 # The free functions read the static type of an expression.

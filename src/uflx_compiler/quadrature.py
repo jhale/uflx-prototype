@@ -2,10 +2,10 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import RD, domain_map, index_sum, pull_back, tensor
-from uflx_spec_interpreter._src.names import _derived_index, _derived_indices
+from uflx_spec_interpreter._src.algorithms.names import _derived_index, _derived_indices
+from uflx_spec_interpreter._src.algorithms.traversal import _bottom_up
 from uflx_spec_interpreter._src.nodes import Float, Integral, Zero
 from uflx_spec_interpreter._src.passes.pullbacks import expand_pull_backs
-from uflx_spec_interpreter._src.traversal import _bottom_up
 from uflx_toy.basix_nodes import BasixCell
 
 

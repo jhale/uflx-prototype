@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from ..interning import _cached
-from ..tuples import _argument_members
+from .arguments import _argument_members
 from .base import AbstractExpression
+from .interning import _cached
 from .scalar_types import ScalarType
 from .spaces import DualSpace
 
 if TYPE_CHECKING:
-    from ..nodes.indices import AbstractExtent, Index
-    from ..nodes.spaces import AbstractFunctionSpace
-    from ..nodes.topology import AbstractTopology
     from .domains import AbstractDomain
     from .forms import Function
+    from .indices import AbstractExtent, Index
+    from .spaces import AbstractFunctionSpace
+    from .topology import AbstractTopology
 
 
 @final
@@ -43,7 +43,7 @@ class DirectionalDerivative(AbstractExpression):
             *_argument_members(self.point),
             *_argument_members(self.direction),
         )
-        from ..static import _free_indices
+        from .static import _free_indices
 
         return _free_indices(*edges)
 
@@ -65,7 +65,7 @@ class DirectionalDerivative(AbstractExpression):
         return self.expression.domain
 
     def _validate(self) -> None:
-        from ..validation import _admissible, _require
+        from .validation import _admissible, _require
 
         xs = _argument_members(self.variable)
         for x in xs:
@@ -264,8 +264,8 @@ class Integral(AbstractExpression):
 
 
 def _validate_calculus(e: Coordinate | Gradient | Divergence | Curl | Integral) -> None:
-    from ..validation import _require
     from .meshes import Mesh
+    from .validation import _require
 
     P = e.integration_domain if isinstance(e, Integral) else e.domain
     if isinstance(e, Coordinate):

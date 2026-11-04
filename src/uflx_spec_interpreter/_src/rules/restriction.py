@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
+from ..algorithms.substitution import _substitute
 from ..arithmetic import divide, square_root
 from ..geometry import inverse_jacobian
 from ..meshes import _inclusion
@@ -14,7 +15,6 @@ from ..nodes import (
     Normal,
     SideMap,
 )
-from ..substitution import _substitute
 from ..tensors import transpose
 from ..topology import cell_index
 

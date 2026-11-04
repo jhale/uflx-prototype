@@ -6,6 +6,9 @@ from collections.abc import Callable, Sequence
 from functools import cache
 from typing import TYPE_CHECKING
 
+from ..algorithms.rewriting import _complete_indices, _promote, _zero_like
+from ..algorithms.substitution import _occurs, _substitute_values
+from ..algorithms.traversal import _memoized
 from ..arithmetic import real_part
 from ..nodes import (
     Absolute,
@@ -24,11 +27,8 @@ from ..nodes import (
     SquareRoot,
     Zero,
 )
-from ..rewriting import _complete_indices, _promote, _zero_like
-from ..substitution import _occurs, _substitute_values
+from ..nodes.arguments import _argument_members, _map_argument
 from ..tensors import transpose
-from ..traversal import _memoized
-from ..tuples import _argument_members, _map_argument
 from .linearity import _linear_fields
 from .structural import _commute, _structural_fields
 
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
     from ..nodes.forms import Function
     from ..nodes.indices import Index
-    from ..types import _Construction
+    from ..nodes.types import _Construction
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.
@@ -79,7 +79,7 @@ def _derivative_of_node(
         case Logarithm(b):
             return d(b) / at(b)
         case Determinant(a):
-            from ..names import _derived_indices
+            from ..algorithms.names import _derived_indices
             from ..tensors import index_sum, indexed
 
             i, j = _derived_indices("uflx.derivative", (f,), 2)
@@ -160,7 +160,7 @@ def _deriv(
 
 def _coordinate_partial(f: AbstractExpression, P: AbstractDomain, j: Index) -> AbstractExpression:
     """D17. The coordinate derivative on a full-dimensional domain."""
-    from ..names import _derived_index
+    from ..algorithms.names import _derived_index
     from ..tensors import _identity, component_tensor, indexed
 
     i = _derived_index("uflx.apply_gradients", f, P)

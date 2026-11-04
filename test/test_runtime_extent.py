@@ -12,7 +12,6 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.contracts import _in_core_normal_form
 from uflx_spec_interpreter._src.nodes import PullBack
 from uflx_spec_interpreter._src.passes import (
     actions,
@@ -21,6 +20,7 @@ from uflx_spec_interpreter._src.passes import (
     integrals,
     pullbacks,
 )
+from uflx_spec_interpreter._src.passes.contracts import _in_core_normal_form
 from uflx_toy.cells import reference_simplex
 from uflx_toy.runtime import runtime_array, runtime_extent
 

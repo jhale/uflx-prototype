@@ -16,8 +16,8 @@ from uflx_spec_interpreter import (
     gateaux_derivative,
     num,
 )
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
 from uflx_spec_interpreter._src.nodes import DirectionalDerivative, Form
-from uflx_spec_interpreter._src.substitution import _substitute
 from uflx_toy.spaces import space
 
 

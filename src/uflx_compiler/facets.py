@@ -4,7 +4,7 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import tensor
-from uflx_spec_interpreter._src.names import _derived_index
+from uflx_spec_interpreter._src.algorithms.names import _derived_index
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.indices import index_table
 from uflx_toy.runtime import runtime_array

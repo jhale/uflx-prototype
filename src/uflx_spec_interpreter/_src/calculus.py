@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .algorithms.names import _derived_indices
 from .arithmetic import multiply
-from .names import _derived_indices
 from .nodes import (
     ComponentTensor,
     Coordinate,

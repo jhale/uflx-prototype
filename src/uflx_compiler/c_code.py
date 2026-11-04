@@ -7,6 +7,8 @@ from functools import cache
 
 import numpy as np
 
+from uflx_spec_interpreter._src.algorithms.substitution import _substitute
+from uflx_spec_interpreter._src.algorithms.traversal import _expressions
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     BroadcastTo,
@@ -29,8 +31,6 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.substitution import _substitute
-from uflx_spec_interpreter._src.traversal import _expressions
 from uflx_toy.nodes import RuntimeArray
 
 from .contractions import _factor_contraction

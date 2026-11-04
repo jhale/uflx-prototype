@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from functools import reduce
 
-from .names import _derived_indices
+from .algorithms.names import _derived_indices
 from .nodes import (
     Absolute,
     AbstractExpression,

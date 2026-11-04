@@ -11,9 +11,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
+from uflx_spec_interpreter._src.algorithms.rewriting import _complete_indices
 from uflx_spec_interpreter._src.nodes import Zero
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_spec_interpreter._src.rewriting import _complete_indices
 from uflx_toy.spaces import space
 
 

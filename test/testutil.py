@@ -2,6 +2,7 @@ import numpy as np
 
 import uflx_spec_interpreter
 from uflx_spec_interpreter import RD, ScalarType, image, num, tensor
+from uflx_spec_interpreter._src.algorithms.traversal import _expressions, _nodes_in
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Action,
@@ -23,7 +24,6 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.traversal import _expressions, _nodes_in
 from uflx_toy.nodes import VertexCoordinates
 
 

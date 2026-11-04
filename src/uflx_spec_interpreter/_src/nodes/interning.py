@@ -7,7 +7,7 @@ from functools import wraps
 from typing import TYPE_CHECKING, TypeVar, cast
 
 if TYPE_CHECKING:
-    from .nodes.base import Base
+    from .base import Base
     from .types import _Construction
 
 
@@ -34,7 +34,7 @@ def _cached(fn: Callable[[_T], _R]) -> Callable[[_T], _R]:
 
 
 def _encode(value: _Construction) -> str:
-    from .nodes.base import Base
+    from .base import Base
 
     if isinstance(value, tuple):
         return "(" + ",".join(map(_encode, value)) + ")"

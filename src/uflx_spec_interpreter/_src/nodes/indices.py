@@ -3,11 +3,11 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, final
 
-from ..interning import _cached
 from .base import Base
+from .interning import _cached
 
 if TYPE_CHECKING:
-    from ..types import _Construction
+    from .types import _Construction
 
 
 class AbstractExtent(Base):
@@ -48,11 +48,11 @@ class GatheredIndex(Base):
     @property
     @_cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        from ..validation import _entries
+        from .validation import _entries
 
         return _entries(self.table.shape, self.indices)
 
     def _validate(self) -> None:
-        from ..validation import _entries
+        from .validation import _entries
 
         _entries(self.table.shape, self.indices)
