@@ -6,8 +6,6 @@ from ..algorithms.names import _derived_indices
 from ..algorithms.rewriting import _rewrite
 from ..nodes import AbstractExpression, ComponentTensor, Division, Indexed, Product, Sum
 
-__all__ = ["expand_arithmetic"]
-
 
 def expand_arithmetic(f: AbstractExpression) -> AbstractExpression:
     """ST13-ST16. Expand tensor sums, scalar products and quotients."""

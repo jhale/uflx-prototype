@@ -57,16 +57,6 @@ from ..rules.structural import _action_retained, _gradient_remains
 _Violation = tuple[AbstractExpression, str]
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = [
-    "_allowed_in_core_normal_form",
-    "_core_normal_form",
-    "_derivatives_expanded",
-    "_in_core_normal_form",
-    "_reference_integration",
-]
-
-
 def _violations(
     expression: AbstractExpression, rule: Callable[[AbstractExpression], str | None]
 ) -> tuple[_Violation, ...]:

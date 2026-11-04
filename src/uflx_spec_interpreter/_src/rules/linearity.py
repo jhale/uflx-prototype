@@ -23,9 +23,6 @@ if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
 
 
-__all__ = ["_linear_fields"]
-
-
 def _linear_fields(expression: AbstractExpression) -> tuple[str, ...] | None:
     """L01-L04. Operands through which a linear operation can commute."""
     match expression:

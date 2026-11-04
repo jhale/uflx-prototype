@@ -11,8 +11,6 @@ from .gradients import apply_gradients
 from .integrals import expand_integrals
 from .pullbacks import expand_pull_backs
 
-__all__ = ["_lower_spatial", "lower"]
-
 
 def lower(f: AbstractExpression) -> AbstractExpression:
     """Lower a core expression and verify its core normal form.

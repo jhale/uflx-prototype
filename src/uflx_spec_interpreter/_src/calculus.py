@@ -23,19 +23,6 @@ if TYPE_CHECKING:
     from .nodes.forms import Function
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = [
-    "_rotation_of_gradient",
-    "_trace_of_gradient",
-    "coordinate",
-    "curl",
-    "directional_derivative",
-    "divergence",
-    "gradient",
-    "integral",
-]
-
-
 def coordinate(P: AbstractDomain) -> Coordinate:
     return Coordinate(P)
 

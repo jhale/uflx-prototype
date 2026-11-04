@@ -4,9 +4,6 @@ from typing import overload
 
 from .nodes import AbstractFunctionSpace, ConjugateSpace, DualSpace, ScalarType
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_conjugated", "conjugate_space", "dual_space"]
-
 
 def conjugate_space(V: AbstractFunctionSpace) -> AbstractFunctionSpace:
     if V.scalar_type == ScalarType.real:

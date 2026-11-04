@@ -28,10 +28,6 @@ if TYPE_CHECKING:
     from ..nodes.indices import Index
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["apply_gradients"]
-
-
 def _rule(
     partial: Callable[[AbstractExpression, AbstractDomain, Index], AbstractExpression],
     f: AbstractExpression,

@@ -12,10 +12,6 @@ if TYPE_CHECKING:
     from .nodes.meshes import CellMap
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_geometric_map", "_metric", "density", "inverse_jacobian", "jacobian"]
-
-
 def jacobian(D: DomainMap | CellMap) -> AbstractExpression:
     source, _ = _geometric_map(D)
     return Gradient(D.parameterisation, source)

@@ -23,9 +23,6 @@ if TYPE_CHECKING:
     from ..nodes.indices import GatheredIndex, Index
 
 
-__all__ = ["_normal", "_side_cell", "_side_maps"]
-
-
 def _side_cell(
     side_map: SideMap, map: DomainMap | CellMap | SideMap
 ) -> tuple[int, int | Index | GatheredIndex] | None:

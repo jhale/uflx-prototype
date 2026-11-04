@@ -11,10 +11,6 @@ if TYPE_CHECKING:
     from ..nodes.types import _Construction
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_derived_index", "_derived_indices", "_is_renamed_label", "_renamed_label"]
-
-
 def _derived_index(purpose: str, *dependencies: _Construction) -> Index:
     """Identify an index by its purpose and ordered structural dependencies.
 

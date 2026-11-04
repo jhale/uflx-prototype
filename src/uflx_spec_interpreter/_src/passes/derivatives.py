@@ -13,10 +13,6 @@ if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_deriv", "_derivatives_complete", "apply_derivatives"]
-
-
 def apply_derivatives(f: AbstractExpression) -> AbstractExpression:
     # Derivative evaluation does no optional algebraic collection.
     differential = cache(_deriv)

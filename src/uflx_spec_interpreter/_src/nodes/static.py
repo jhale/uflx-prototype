@@ -11,8 +11,6 @@ if TYPE_CHECKING:
 
 
 # The free functions read the static type of an expression.
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_field_terminal", "_free_indices"]
 
 
 def _free_indices(*es: AbstractExpression) -> tuple[tuple[Index, int | AbstractExtent], ...]:

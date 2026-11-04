@@ -28,15 +28,6 @@ if TYPE_CHECKING:
     from ..nodes.indices import Index
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = [
-    "_chain_partial",
-    "_chained",
-    "_piola_law",
-    "_transformed",
-]
-
-
 def _piola_law(expression: AbstractExpression) -> TransformationLaw | None:
     """Return the output transformation law, or None when no identity applies.
 

@@ -31,16 +31,6 @@ if TYPE_CHECKING:
     from ..nodes.types import _Construction
 
 
-__all__ = [
-    "_action_retained",
-    "_commute",
-    "_gradient",
-    "_gradient_component",
-    "_gradient_remains",
-    "_structural_fields",
-]
-
-
 def _commute(
     f: AbstractExpression,
     transform: Callable[[AbstractExpression], AbstractExpression],

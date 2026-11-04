@@ -11,19 +11,6 @@ if TYPE_CHECKING:
     from .spaces import AbstractFunctionSpace
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = [
-    "_admissible",
-    "_construction_arguments",
-    "_entries",
-    "_extent",
-    "_matrix_operand",
-    "_merge_indices",
-    "_require",
-    "_scalar_operand",
-]
-
-
 def _construction_arguments(args: tuple[object, ...]) -> None:
     from .base import Base
 

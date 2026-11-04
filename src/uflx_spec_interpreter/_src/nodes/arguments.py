@@ -12,8 +12,6 @@ if TYPE_CHECKING:
 _T = TypeVar("_T", bound="Base | int")
 _R = TypeVar("_R")
 
-__all__ = ["_argument_members", "_map_argument"]
-
 
 @overload
 def _map_argument(fn: Callable[[_T], _R], argument: tuple[_T, ...]) -> tuple[_R, ...]: ...

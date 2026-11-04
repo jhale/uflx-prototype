@@ -49,10 +49,6 @@ if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_pull_backs_expanded", "expand_pull_backs"]
-
-
 def _rule(
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
     f: AbstractExpression,

@@ -22,10 +22,6 @@ _T = TypeVar("_T", bound=Base)
 _K = TypeVar("_K", bound=Base)
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_freshen", "_occurs", "_substitute", "_substitute_values", "replace"]
-
-
 def _occurs(target: Base, node: _Construction) -> bool:
     # Cache free occurrence on the expression, holding the target only weakly.
     if not isinstance(node, Base):

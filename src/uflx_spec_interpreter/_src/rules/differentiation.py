@@ -40,10 +40,6 @@ if TYPE_CHECKING:
     from ..nodes.types import _Construction
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_coordinate_partial", "_deriv", "_derivative_of_node"]
-
-
 def _derivative_of_node(
     f: AbstractExpression,
     d: Callable[[AbstractExpression], AbstractExpression],

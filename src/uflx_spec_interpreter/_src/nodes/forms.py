@@ -15,10 +15,6 @@ if TYPE_CHECKING:
     from .types import _Construction
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["Action", "Form", "Function", "_entry_function"]
-
-
 def _entry_function(m: Function | Conjugate) -> Function:
     # The function v of an entry v or conjugate(v).
     f = m.operand if isinstance(m, Conjugate) else m

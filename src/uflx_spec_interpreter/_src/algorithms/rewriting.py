@@ -11,7 +11,6 @@ from .traversal import _map_values
 
 if TYPE_CHECKING:
     from ..nodes.spaces import AbstractFunctionSpace
-__all__ = ["_complete_indices", "_promote", "_rewrite", "_zero_like"]
 
 
 def _zero_like(

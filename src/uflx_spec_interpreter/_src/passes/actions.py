@@ -17,10 +17,6 @@ if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_actions_complete", "apply_actions"]
-
-
 def _rule(
     act: Callable[
         [AbstractExpression, int, AbstractExpression | tuple[AbstractExpression, ...]],

@@ -9,5 +9,3 @@ if TYPE_CHECKING:
 
 
 _Construction: TypeAlias = "Base | int | float | str | tuple[_Construction, ...]"
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_Construction"]

@@ -26,9 +26,6 @@ if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
 
 
-__all__ = ["_composed", "_pointwise", "_pullback_remains"]
-
-
 def _composed(
     phi: DomainMap,
     m: DomainMap | CellMap,

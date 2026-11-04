@@ -24,22 +24,6 @@ if TYPE_CHECKING:
     from .nodes.maps import DomainMap
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = [
-    "_cell_domain",
-    "_cell_of",
-    "_inclusion",
-    "_is_cell",
-    "cell_map",
-    "image",
-    "normal",
-    "push_forward",
-    "side_domain",
-    "side_map",
-    "transformation_law",
-]
-
-
 def _cell_domain(
     D: AbstractTopology | Mesh, j: int, e: int | Index | GatheredIndex | None = None
 ) -> CellMap:

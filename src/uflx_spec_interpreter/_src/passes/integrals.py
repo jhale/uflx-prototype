@@ -14,10 +14,6 @@ if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_integrals_expanded", "expand_integrals"]
-
-
 def expand_integrals(f: AbstractExpression) -> AbstractExpression:
     # Inner integrals first; integrand indices remain free.
     return _rewrite(f, _mesh_integral)

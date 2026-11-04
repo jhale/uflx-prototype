@@ -9,8 +9,6 @@ from typing import TypeVar, cast
 _T = TypeVar("_T")
 _R = TypeVar("_R")
 
-__all__ = ["_cached"]
-
 
 def _cached(fn: Callable[[_T], _R]) -> Callable[[_T], _R]:
     """Cache a property on its immutable node, without retaining nodes globally."""

@@ -16,10 +16,6 @@ if TYPE_CHECKING:
     from ..nodes.topology import AbstractTopology
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_apply_shape_derivatives", "_lower_with_shape_derivatives", "_shape_derivative"]
-
-
 @final
 class _ShapeDerivative(AbstractExpression):
     value_fields = ("expression", "direction")

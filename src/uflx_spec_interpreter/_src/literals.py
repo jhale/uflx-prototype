@@ -10,10 +10,6 @@ if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = ["_zero", "num"]
-
-
 def num(value: int | float | complex) -> AbstractExpression:
     # A convenience for the interpreter examples; expression factories never convert numbers.
     if isinstance(value, complex):

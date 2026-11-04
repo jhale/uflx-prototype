@@ -24,24 +24,6 @@ if TYPE_CHECKING:
     from .nodes.indices import AbstractExtent, GatheredIndex, Index
 
 
-# Shared implementation helpers; the package public API is declared in __init__.py.
-__all__ = [
-    "_identity",
-    "_permutation_tensor",
-    "_unit",
-    "broadcast_to",
-    "component",
-    "component_tensor",
-    "determinant",
-    "index_sum",
-    "indexed",
-    "inverse",
-    "matrix_product",
-    "tensor",
-    "transpose",
-]
-
-
 def broadcast_to(
     value: AbstractExpression, value_shape: tuple[int | AbstractExtent, ...]
 ) -> BroadcastTo:

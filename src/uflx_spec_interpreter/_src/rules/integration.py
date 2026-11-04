@@ -25,9 +25,6 @@ if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
 
 
-__all__ = ["_mesh_integral", "_piece_integral"]
-
-
 def _mesh_integral(e: AbstractExpression) -> AbstractExpression:
     # Expand a mesh integral into reference-cell integrals and internal cell sums.
     match e:

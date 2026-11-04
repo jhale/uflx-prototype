@@ -9,8 +9,6 @@ from ..algorithms.substitution import _freshen, _substitute
 from ..nodes import AbstractExpression, Conjugate, Form, Function
 from ..nodes.arguments import _argument_members
 
-__all__ = ["_bind"]
-
 
 def _bind(
     form: Form, position: int, argument: AbstractExpression | tuple[AbstractExpression, ...]
