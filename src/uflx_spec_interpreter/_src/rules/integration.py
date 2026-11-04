@@ -22,7 +22,7 @@ from ..nodes import (
 from ..topology import cell_index
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
+    from ..nodes.expressions import AbstractExpression
 
 
 __all__ = ["_mesh_integral", "_piece_integral"]

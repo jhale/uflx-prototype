@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, cast, final
 
-from .base import AbstractExpression, Base
+from .base import Base
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
+from .expressions import AbstractExpression
 from .indices import GatheredIndex, Index
 from .interning import _cached
 from .scalar_types import ScalarType

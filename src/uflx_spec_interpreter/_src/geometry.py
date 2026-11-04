@@ -6,8 +6,8 @@ from .nodes import Absolute, Gradient, Integer, Inverse, SquareRoot
 from .tensors import determinant, matrix_product, transpose
 
 if TYPE_CHECKING:
-    from .nodes.base import AbstractExpression
     from .nodes.domains import AbstractCoordinateDomain
+    from .nodes.expressions import AbstractExpression
     from .nodes.maps import DomainMap
     from .nodes.meshes import CellMap
 

@@ -10,9 +10,10 @@ from .arithmetic import (
     SquareRoot,
     Sum,
 )
-from .base import AbstractExpression, Base
+from .base import Base
 from .calculus import Coordinate, Curl, DirectionalDerivative, Divergence, Gradient, Integral
 from .domains import RD, AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
+from .expressions import AbstractExpression
 from .forms import Action, Form, Function
 from .indices import (
     AbstractExtent,

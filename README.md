@@ -240,12 +240,15 @@ modules of `_src`:
 
 The private modules of `_src`:
 
-- `nodes/base.py`: `Base`, which reads the construction arguments of each class
-  from its annotations, as rules 4 and 5 of the specification describe, and
-  interns every object with a seed-free hash before it is built (see
-  `INTERNING_PLAN.md`), and `AbstractExpression`, whose static type each
-  concrete class states, with no defaults (see `ABSTRACT_EXPRESSION_PLAN.md`).
-  Every concrete class is `@final`, and the abstract classes are contracts.
+- `nodes/base.py`: `Base`, which makes subclasses frozen dataclasses. Dataclasses
+  supply storage, constructors and positional patterns. Private fields such as
+  `_domain` implement abstract properties through typed getters. `argument_names`
+  records their public names for traversal and reconstruction.
+- `nodes/expressions.py`: `AbstractExpression`, its static-type contract, expression
+  validation and Python operators.
+- `nodes/interning.py`: a metaclass interns nodes using the deterministic digest.
+  A cache hit returns the existing object without initializing it again. A new
+  object is initialized and validated before entering the weak cache.
 - `nodes/literals.py`, `nodes/arithmetic.py`, `nodes/indices.py`,
   `nodes/tensors.py`, `nodes/calculus.py`, `nodes/domains.py`,
   `nodes/maps.py`, `nodes/meshes.py`,
@@ -353,12 +356,11 @@ wrong argument types, rewrite callback results and non-exhaustive matches; pytes
 runs it separately when Pyright is installed.
 
 Annotations use concrete classes and tuples. The only new alias is the recursive
-`Construction` type. Casts are concentrated at the reflection, cache and graph
-reconstruction boundaries. Ten stored field declarations have narrow
-`reportIncompatibleMethodOverride` suppressions because `Base` generates their
-read-only properties at runtime. Unnecessary suppressions are reported as errors.
-Cached attributes use ordinary properties with a small per-node cache decorator,
-so their overrides are checked normally.
+`_Construction` type. Casts are concentrated at the reflection, cache and graph
+reconstruction boundaries. Stored properties return typed dataclass fields without
+casts or Pyright suppressions. Computed attributes use ordinary properties with a
+small per-node cache decorator. `test/test_node_declarations.py` checks metadata
+names and the correspondence between private fields and public getters.
 
 Pyright checks exhaustiveness for finite unions. `AbstractExpression` remains
 open to library extensions, so core passes explicitly retain or reject unsupported

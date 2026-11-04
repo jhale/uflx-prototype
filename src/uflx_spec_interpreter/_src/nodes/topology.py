@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from .base import Base
 
 if TYPE_CHECKING:
-    from .base import AbstractExpression
+    from .expressions import AbstractExpression
     from .indices import AbstractExtent, AbstractIndexTable
     from .maps import DomainMap
     from .topology import AbstractCellType, AbstractTopology

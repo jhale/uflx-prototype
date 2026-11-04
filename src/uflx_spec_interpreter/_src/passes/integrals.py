@@ -11,7 +11,7 @@ from ..nodes import (
 from ..rules.integration import _mesh_integral
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
+    from ..nodes.expressions import AbstractExpression
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.

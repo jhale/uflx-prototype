@@ -20,7 +20,7 @@ from ..nodes import (
 )
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
+    from ..nodes.expressions import AbstractExpression
 
 
 __all__ = ["_linear_fields"]

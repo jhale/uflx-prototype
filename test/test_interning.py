@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import weakref
+from typing import ClassVar
 
 import pytest
 from test_surface import M
@@ -120,8 +121,6 @@ def test_labels_that_read_alike_are_distinct():
 
 
 def test_cache_hits_do_not_initialize_or_validate_again():
-    from typing import ClassVar
-
     class Counted(Base):
         identifier = "test.Counted"
         value: int

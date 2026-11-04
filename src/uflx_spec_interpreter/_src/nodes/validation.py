@@ -6,7 +6,7 @@ import math
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from .base import AbstractExpression
+    from .expressions import AbstractExpression
     from .indices import AbstractExtent, GatheredIndex, Index
     from .spaces import AbstractFunctionSpace
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from .base import AbstractExpression
+from .expressions import AbstractExpression
 from .indices import Index
 from .interning import _cached
 

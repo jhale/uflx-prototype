@@ -18,8 +18,8 @@ from .nodes import (
 from .tensors import _permutation_tensor
 
 if TYPE_CHECKING:
-    from .nodes.base import AbstractExpression
     from .nodes.domains import AbstractDomain
+    from .nodes.expressions import AbstractExpression
     from .nodes.forms import Function
 
 

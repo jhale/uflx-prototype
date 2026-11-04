@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from . import Complex, Float, Integer, Zero
 
 if TYPE_CHECKING:
-    from .base import AbstractExpression, Base
+    from .base import Base
+    from .expressions import AbstractExpression
     from .indices import AbstractExtent, Index
 
 

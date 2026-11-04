@@ -23,7 +23,7 @@ from ..nodes.static import _field_terminal
 from .coordinates import _piola_law
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
+    from ..nodes.expressions import AbstractExpression
 
 
 __all__ = ["_composed", "_pointwise", "_pullback_remains"]

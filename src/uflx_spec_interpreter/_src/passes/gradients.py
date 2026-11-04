@@ -23,8 +23,8 @@ from ..rules.structural import _gradient, _gradient_component, _gradient_remains
 from .actions import apply_actions
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
     from ..nodes.domains import AbstractDomain
+    from ..nodes.expressions import AbstractExpression
     from ..nodes.indices import Index
 
 

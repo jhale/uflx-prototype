@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Literal, final
 
-from .base import AbstractExpression
+from .expressions import AbstractExpression
 from .interning import _cached
 from .scalar_types import ScalarType
 

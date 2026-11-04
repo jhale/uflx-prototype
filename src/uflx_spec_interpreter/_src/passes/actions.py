@@ -14,7 +14,7 @@ from ..rules.linearity import _linear_fields
 from ..rules.structural import _action_retained, _commute, _structural_fields
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
+    from ..nodes.expressions import AbstractExpression
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.

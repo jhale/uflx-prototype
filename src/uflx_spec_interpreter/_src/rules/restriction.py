@@ -19,7 +19,7 @@ from ..tensors import transpose
 from ..topology import cell_index
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
+    from ..nodes.expressions import AbstractExpression
     from ..nodes.indices import GatheredIndex, Index
 
 

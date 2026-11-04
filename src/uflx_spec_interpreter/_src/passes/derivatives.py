@@ -10,7 +10,7 @@ from ..rules.differentiation import _deriv
 from .actions import apply_actions
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
+    from ..nodes.expressions import AbstractExpression
 
 
 # Shared implementation helpers; the package public API is declared in __init__.py.

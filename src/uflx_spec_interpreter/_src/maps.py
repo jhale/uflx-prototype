@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 from .nodes import DomainMap, PullBack
 
 if TYPE_CHECKING:
-    from .nodes.base import AbstractExpression
     from .nodes.domains import AbstractCoordinateDomain
+    from .nodes.expressions import AbstractExpression
     from .nodes.meshes import CellMap, SideMap
     from .nodes.topology import AbstractTopology
 

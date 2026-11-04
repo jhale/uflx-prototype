@@ -33,8 +33,8 @@ from .linearity import _linear_fields
 from .structural import _commute, _structural_fields
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
     from ..nodes.domains import AbstractDomain
+    from ..nodes.expressions import AbstractExpression
     from ..nodes.forms import Function
     from ..nodes.indices import Index
     from ..nodes.types import _Construction

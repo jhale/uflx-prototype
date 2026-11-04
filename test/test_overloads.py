@@ -138,7 +138,7 @@ def delegates_to(method, factory, arguments):
 
 
 def test_operator_methods_delegate_to_the_expected_factories():
-    path = Path(uflx_spec_interpreter.__file__).parent / "_src/nodes/base.py"
+    path = Path(uflx_spec_interpreter.__file__).parent / "_src/nodes/expressions.py"
     tree = ast.parse(path.read_text())
     expression = next(
         n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "AbstractExpression"

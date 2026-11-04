@@ -17,7 +17,7 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_spec_interpreter._src.topology import cell_index
 
 if TYPE_CHECKING:
-    from uflx_spec_interpreter._src.nodes.base import AbstractExpression
+    from uflx_spec_interpreter._src.nodes.expressions import AbstractExpression
     from uflx_spec_interpreter._src.nodes.indices import Index
 
     from .nodes.domains import AbstractCoordinateDomain

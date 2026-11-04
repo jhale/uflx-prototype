@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 from .nodes import Complex, Float, Integer, Zero
 
 if TYPE_CHECKING:
-    from .nodes.base import AbstractExpression
+    from .nodes.expressions import AbstractExpression
     from .nodes.indices import AbstractExtent, Index
     from .nodes.spaces import AbstractFunctionSpace
 

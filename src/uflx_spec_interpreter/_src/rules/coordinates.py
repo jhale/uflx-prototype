@@ -23,8 +23,8 @@ from ..nodes import (
 from ..tensors import component_tensor, determinant, index_sum, indexed
 
 if TYPE_CHECKING:
-    from ..nodes.base import AbstractExpression
     from ..nodes.domains import AbstractDomain
+    from ..nodes.expressions import AbstractExpression
     from ..nodes.indices import Index
 
 
