@@ -65,11 +65,11 @@ class BasixSpace(AbstractFunctionSpace):
     # A Basix element on each cell type of a topology, with the global dofs of each cell. Every
     # element of Basix that the toy builds is Piola equivalent, so the space is on a topology.
     label: str
-    domain: AbstractTopology
+    _domain: AbstractTopology
     family_value: int
     degree: int
     discontinuous_value: int
-    scalar_type: str
+    _scalar_type: str
     block_shape: tuple[int, ...]
     argument_spaces = ()
 
@@ -166,6 +166,14 @@ class BasixSpace(AbstractFunctionSpace):
     @property
     def num_dofs(self):
         return 1 + max(d for rows in self.dofmap for row in rows for d in row)
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def scalar_type(self):
+        return self._scalar_type
 
 
 EQUISPACED = basix.LagrangeVariant.equispaced

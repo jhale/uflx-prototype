@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import inspect
-from abc import ABC, abstractmethod, update_abstractmethods
-from typing import TYPE_CHECKING, ClassVar, Literal, Never, Self, cast, dataclass_transform
+from abc import abstractmethod
+from dataclasses import Field, dataclass, fields
+from typing import TYPE_CHECKING, ClassVar, Literal, Never, dataclass_transform
 
 from .arguments import _argument_members
-from .interning import _digest_of, _table
+from .interning import _cached, _digest_of, _Interned
 from .types import _Construction
 
 if TYPE_CHECKING:
@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
 
 @dataclass_transform(frozen_default=True, eq_default=False)
-class Base(ABC):
-    # Construction order, from the explicit signature or field annotations.
+class Base(metaclass=_Interned):
+    # Public construction order, derived from dataclass fields.
     argument_names: ClassVar[tuple[str, ...]] = ()
     # Expression operands evaluated by passes; all construction arguments remain dependencies.
     value_fields: ClassVar[tuple[str, ...]] = ()
@@ -32,20 +32,18 @@ class Base(ABC):
     # A binding node names the arguments where its bound names are in scope.
     scope: ClassVar[tuple[str, ...]] = ()
 
+    __dataclass_fields__: ClassVar[dict[str, Field[_Construction]]]
     identifier: ClassVar[str]
-    __match_args__: ClassVar[tuple[str, ...]] = ()
 
     @property
+    @_cached
     def construction_arguments(self) -> tuple[_Construction, ...]:
-        return cast("tuple[_Construction, ...]", vars(self)["construction_arguments"])
-
-    def _argument(self, name: str) -> _Construction:
-        """Read a stored field by name, independent of its constructor position."""
-        return self.construction_arguments[self.argument_names.index(name)]
+        return tuple(getattr(self, name) for name in self.argument_names)
 
     @property
+    @_cached
     def digest(self) -> int:
-        return cast("int", vars(self)["digest"])
+        return _digest_of(self.identifier, self.construction_arguments)
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
@@ -53,45 +51,14 @@ class Base(ABC):
         for parent in cls.__bases__:
             if getattr(parent, "__final__", False):
                 raise TypeError(f"{parent.__name__} is final")
-        # Explicit signatures describe stored properties; other nodes use field annotations.
-        if "__annotate__" in cls.__dict__ and "__annotations__" not in cls.__dict__:
-            raise TypeError(
-                f"{cls.__name__}: a node module needs from __future__ import annotations"
-            )
-        if "__init__" in cls.__dict__:
-            names = tuple(inspect.signature(cls.__init__).parameters)[1:]
-        else:
-            names = tuple(n for n in inspect.get_annotations(cls) if n not in cls.__dict__)
-        if not names:
-            return
-        cls.argument_names = cls.__match_args__ = names
-        for position, name in enumerate(names):
-            if name not in cls.__dict__:
-                setattr(cls, name, _argument_property(position))
-        # A generated property may implement an abstract property.
-        update_abstractmethods(cls)
+        # Frozen dataclasses own storage, constructors and positional patterns.
+        # A private field implements a public abstract property of the same name.
+        dataclass(cls, frozen=True, eq=False, repr=False)
+        cls.argument_names = tuple(field.name.removeprefix("_") for field in fields(cls))
 
-    def __new__(cls, *args: _Construction) -> Self:
-        if "identifier" not in cls.__dict__:
-            raise TypeError(f"{cls.__name__} states no identifier")
-        if len(args) != len(cls.argument_names):
-            raise TypeError(f"{cls.__name__} takes the arguments {cls.argument_names}")
-        from .validation import _construction_arguments
-
-        _construction_arguments(args)
-        digest = _digest_of(cls.identifier, args)
-        key = (cls, digest)
-        node = _table.get(key)
-        if node is None:
-            node = super().__new__(cls)
-            vars(node).update(construction_arguments=args, digest=digest)
-            node._validate()
-            node._validate_type()
-            _table[key] = node
-        return cast("Self", node)
-
-    def __setattr__(self, name: str, value: object) -> Never:
-        raise AttributeError(f"{type(self).__name__} is immutable")
+    def __post_init__(self) -> None:
+        self._validate()
+        self._validate_type()
 
     def __hash__(self) -> int:
         return self.digest
@@ -110,8 +77,6 @@ class Base(ABC):
 
 
 class AbstractExpression(Base):
-    __match_args__: ClassVar[tuple[str, ...]] = ()
-
     def _validate_type(self) -> None:
         from ..algorithms.traversal import _expressions
         from .validation import _merge_indices, _require
@@ -225,10 +190,3 @@ class AbstractExpression(Base):
 
     def __iter__(self) -> Never:
         raise TypeError(f"{type(self).__name__} is not iterable")
-
-
-def _argument_property(position: int) -> property:
-    def read(node: Base) -> _Construction:
-        return node.construction_arguments[position]
-
-    return property(read)

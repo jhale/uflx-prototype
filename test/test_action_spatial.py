@@ -37,10 +37,18 @@ class OperatorSpace(AbstractFunctionSpace):
     """A library-supplied operator with field-valued output and specified slots."""
 
     identifier = "test.OperatorSpace"
-    domain: AbstractDomain
-    argument_spaces: tuple
+    _domain: AbstractDomain
+    _argument_spaces: tuple
     value_shape = ()
     scalar_type = ScalarType.real
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def argument_spaces(self):
+        return self._argument_spaces
 
 
 def setup():

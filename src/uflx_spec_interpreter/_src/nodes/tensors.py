@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, cast, final
+from typing import TYPE_CHECKING, Literal, final
 
 from .base import AbstractExpression
 from .indices import Index
@@ -19,19 +19,13 @@ class BroadcastTo(AbstractExpression):
 
     identifier = "uflx.BroadcastTo"
     value_fields = ("value",)
-    __match_args__ = ("value", "value_shape")
-
-    def __init__(
-        self, value: AbstractExpression, value_shape: tuple[int | AbstractExtent, ...], /
-    ) -> None:
-        # Base.__new__ stores and validates the construction arguments.
-        pass
 
     value: AbstractExpression
+    _value_shape: tuple[int | AbstractExtent, ...]
 
     @property
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
-        return cast("tuple[int | AbstractExtent, ...]", self._argument("value_shape"))
+        return self._value_shape
 
     @property
     @_cached

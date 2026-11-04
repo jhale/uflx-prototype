@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import ClassVar, cast, final
+from typing import final
 
 from .base import Base
 from .topology import AbstractCellType
 
 
 class AbstractDomain(Base):
-    __match_args__: ClassVar[tuple[str, ...]] = ()
-
     @property
     @abstractmethod
     def dimension(self) -> int: ...
@@ -25,8 +23,6 @@ class AbstractDomain(Base):
 
 
 class AbstractCoordinateDomain(AbstractDomain):
-    __match_args__: ClassVar[tuple[str, ...]] = ()
-
     @property
     def ambient_domain(self) -> AbstractDomain:
         return self
@@ -39,15 +35,12 @@ class AbstractCoordinateDomain(AbstractDomain):
 @final
 class RD(AbstractCoordinateDomain):
     identifier = "uflx.RD"
-    __match_args__ = ("dimension",)
 
-    def __init__(self, dimension: int, /) -> None:
-        # Base.__new__ stores and validates the construction arguments.
-        pass
+    _dimension: int
 
     @property
     def dimension(self) -> int:
-        return cast("int", self._argument("dimension"))
+        return self._dimension
 
     def _validate(self) -> None:
         from .validation import _require

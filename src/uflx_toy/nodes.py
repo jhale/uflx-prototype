@@ -25,7 +25,7 @@ class IndexTable(AbstractIndexTable):
     identifier = "toy.IndexTable"
     # The toy knows the values, which the specification leaves to a library.
     values: tuple
-    extent: int
+    _extent: int
 
     @cached_property
     def shape(self):
@@ -34,6 +34,10 @@ class IndexTable(AbstractIndexTable):
             shape.append(len(x))
             x = x[0]
         return tuple(shape)
+
+    @property
+    def extent(self):
+        return self._extent
 
 
 @final
@@ -49,11 +53,15 @@ class RuntimeArray(AbstractExpression):
     identifier = "toy.RuntimeArray"
     # A kernel input of the cut cell example, such as quadrature data.
     label: str
-    value_shape: tuple
+    _value_shape: tuple
     free_indices = ()
     argument_spaces = ()
     domain = None
     scalar_type = ScalarType.real
+
+    @property
+    def value_shape(self):
+        return self._value_shape
 
 
 @final
@@ -61,14 +69,22 @@ class Space(AbstractFunctionSpace):
     identifier = "toy.Space"
     # A space of fields, whose functions the oracle reads from its environment.
     name: str
-    value_shape: tuple
+    _value_shape: tuple
     domain_data: AbstractDomain | tuple
-    scalar_type: str
+    _scalar_type: str
     argument_spaces = ()
 
     @property
     def domain(self):
         return self.domain_data or None
+
+    @property
+    def value_shape(self):
+        return self._value_shape
+
+    @property
+    def scalar_type(self):
+        return self._scalar_type
 
 
 @final
@@ -96,7 +112,7 @@ class VertexCoordinates(AbstractExpression):
 class ReferenceSimplex(AbstractReferenceCell):
     identifier = "toy.ReferenceSimplex"
     # The unit simplex, with vertex 0 at the origin and vertex v the unit vector e_(v-1).
-    dimension: int
+    _dimension: int
 
     @property
     def num_vertices(self):
@@ -114,18 +130,26 @@ class ReferenceSimplex(AbstractReferenceCell):
             )
         )
 
+    @property
+    def dimension(self):
+        return self._dimension
+
 
 @final
 class StaticTopology(AbstractTopology):
     identifier = "toy.StaticTopology"
     # Cells as vertex numbers, with the side tables computed from the vertex numbers.
-    cell_types: tuple
+    _cell_types: tuple
     cells: tuple
-    sides: tuple
+    _sides: tuple
 
     @property
     def num_cells(self):
         return tuple(len(c) for c in self.cells)
+
+    @property
+    def sides(self):
+        return self._sides
 
     def side_tables(self, i, side):
         # The cells of the side that contain the vertices, and the vertices of K_j there.
@@ -148,18 +172,34 @@ class StaticTopology(AbstractTopology):
             facets = IndexTable(tuple(K.local_facet(vs) for vs in local), K.num_facets)
         return side_tables(self, i, side, cells, positions, facets)
 
+    @property
+    def cell_types(self):
+        return self._cell_types
+
 
 @final
 class TabulatedTopology(AbstractTopology):
     identifier = "toy.TabulatedTopology"
     # The cells and vertex positions of each side as a mesh library computes them.
     label: str
-    cell_types: tuple
-    num_cells: tuple
-    sides: tuple
+    _cell_types: tuple
+    _num_cells: tuple
+    _sides: tuple
     tables: tuple
+
+    @property
+    def sides(self):
+        return self._sides
 
     def side_tables(self, i, side):
         names = [s[0] for s in self.sides[i]]
         cells, positions = self.tables[i][names.index(side)]
         return side_tables(self, i, side, cells, positions)
+
+    @property
+    def cell_types(self):
+        return self._cell_types
+
+    @property
+    def num_cells(self):
+        return self._num_cells

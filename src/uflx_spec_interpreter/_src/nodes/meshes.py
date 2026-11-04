@@ -20,19 +20,13 @@ if TYPE_CHECKING:
 @final
 class Mesh(AbstractDomain):
     identifier = "uflx.Mesh"
-    __match_args__ = ("coordinate_function", "ambient_domain")
-
-    def __init__(
-        self, coordinate_function: AbstractExpression, ambient_domain: AbstractCoordinateDomain, /
-    ) -> None:
-        # Base.__new__ stores and validates the construction arguments.
-        pass
 
     coordinate_function: AbstractExpression
+    _ambient_domain: AbstractCoordinateDomain
 
     @property
     def ambient_domain(self) -> AbstractCoordinateDomain:
-        return cast("AbstractCoordinateDomain", self._argument("ambient_domain"))
+        return self._ambient_domain
 
     @property
     def topology(self) -> AbstractTopology:
