@@ -47,7 +47,7 @@ class RD(AbstractCoordinateDomain):
 
     @property
     def dimension(self) -> int:
-        return cast("int", self.construction_arguments[0])
+        return cast("int", self._argument("dimension"))
 
     def _validate(self) -> None:
         from .validation import _require

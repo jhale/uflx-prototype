@@ -101,7 +101,7 @@ class Coordinate(AbstractExpression):
 
     @property
     def domain(self) -> AbstractDomain:
-        return cast("AbstractDomain", self.construction_arguments[0])
+        return cast("AbstractDomain", self._argument("domain"))
 
     @property
     @_cached
@@ -143,7 +143,7 @@ class Gradient(AbstractExpression):
 
     @property
     def domain(self) -> AbstractDomain:
-        return cast("AbstractDomain", self.construction_arguments[1])
+        return cast("AbstractDomain", self._argument("domain"))
 
     @property
     @_cached
@@ -186,7 +186,7 @@ class Divergence(AbstractExpression):
 
     @property
     def domain(self) -> AbstractDomain:
-        return cast("AbstractDomain", self.construction_arguments[1])
+        return cast("AbstractDomain", self._argument("domain"))
 
     @property
     @_cached
@@ -229,7 +229,7 @@ class Curl(AbstractExpression):
 
     @property
     def domain(self) -> AbstractDomain:
-        return cast("AbstractDomain", self.construction_arguments[1])
+        return cast("AbstractDomain", self._argument("domain"))
 
     @property
     @_cached

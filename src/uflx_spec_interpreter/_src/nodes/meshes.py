@@ -32,7 +32,7 @@ class Mesh(AbstractDomain):
 
     @property
     def ambient_domain(self) -> AbstractCoordinateDomain:
-        return cast("AbstractCoordinateDomain", self.construction_arguments[1])
+        return cast("AbstractCoordinateDomain", self._argument("ambient_domain"))
 
     @property
     def topology(self) -> AbstractTopology:

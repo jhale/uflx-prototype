@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 @dataclass_transform(frozen_default=True, eq_default=False)
 class Base(ABC):
-    # The names of the construction arguments, read from the annotations.
+    # Construction order, from the explicit signature or field annotations.
     argument_names: ClassVar[tuple[str, ...]] = ()
     # Expression operands evaluated by passes; all construction arguments remain dependencies.
     value_fields: ClassVar[tuple[str, ...]] = ()
@@ -38,6 +38,10 @@ class Base(ABC):
     @property
     def construction_arguments(self) -> tuple[_Construction, ...]:
         return cast("tuple[_Construction, ...]", vars(self)["construction_arguments"])
+
+    def _argument(self, name: str) -> _Construction:
+        """Read a stored field by name, independent of its constructor position."""
+        return self.construction_arguments[self.argument_names.index(name)]
 
     @property
     def digest(self) -> int:

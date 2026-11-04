@@ -155,12 +155,12 @@ class Zero(AbstractExpression):
 
     @property
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
-        return cast("tuple[int | AbstractExtent, ...]", self.construction_arguments[0])
+        return cast("tuple[int | AbstractExtent, ...]", self._argument("value_shape"))
 
     @property
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return cast(
-            "tuple[tuple[Index, int | AbstractExtent], ...]", self.construction_arguments[1]
+            "tuple[tuple[Index, int | AbstractExtent], ...]", self._argument("free_indices")
         )
 
     @property
@@ -169,12 +169,12 @@ class Zero(AbstractExpression):
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
         return cast(
             "tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]",
-            self.construction_arguments[2],
+            self._argument("argument_spaces"),
         )
 
     @property
     def scalar_type(self) -> Literal["real", "complex"]:
-        return cast("Literal['real', 'complex']", self.construction_arguments[3])
+        return cast("Literal['real', 'complex']", self._argument("scalar_type"))
 
     def __new__(
         cls,

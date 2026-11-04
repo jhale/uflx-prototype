@@ -31,7 +31,7 @@ class BroadcastTo(AbstractExpression):
 
     @property
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
-        return cast("tuple[int | AbstractExtent, ...]", self.construction_arguments[1])
+        return cast("tuple[int | AbstractExtent, ...]", self._argument("value_shape"))
 
     @property
     @_cached
