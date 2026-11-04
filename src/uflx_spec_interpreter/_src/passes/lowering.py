@@ -5,6 +5,7 @@ from __future__ import annotations
 from ..contracts import _core_normal_form
 from ..nodes import AbstractExpression
 from .actions import apply_actions
+from .arithmetic import expand_arithmetic
 from .derivatives import apply_derivatives
 from .gradients import apply_gradients
 from .integrals import expand_integrals
@@ -29,6 +30,7 @@ def lower(f: AbstractExpression) -> AbstractExpression:
     out = apply_derivatives(out)
     out = expand_integrals(out)
     out = _lower_spatial(out)
+    out = expand_arithmetic(out)
     violations = _core_normal_form(out)
     if violations:
         reasons = "; ".join(dict.fromkeys(reason for _, reason in violations))

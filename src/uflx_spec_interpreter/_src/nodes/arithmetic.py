@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, final
 
 from ..interning import _cached
+from ..validation import _require
 from .base import AbstractExpression
 from .scalar_types import ScalarType
 
@@ -49,7 +50,10 @@ class Sum(AbstractExpression):
         return self.second.domain or self.first.domain
 
     def _validate(self) -> None:
-        _validate_scalar_arithmetic(self)
+        _require(self.first.value_shape == self.second.value_shape, "sum value shapes differ")
+        _require(
+            self.first.argument_spaces == self.second.argument_spaces, "sum argument spaces differ"
+        )
 
 
 @final
@@ -70,7 +74,7 @@ class Product(AbstractExpression):
     @property
     @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
-        return ()
+        return self.first.value_shape or self.second.value_shape
 
     @property
     @_cached
@@ -88,7 +92,10 @@ class Product(AbstractExpression):
         return self.second.domain or self.first.domain
 
     def _validate(self) -> None:
-        _validate_scalar_arithmetic(self)
+        _require(
+            not self.first.value_shape or not self.second.value_shape,
+            "product requires at least one scalar operand",
+        )
 
 
 @final
@@ -102,7 +109,7 @@ class Division(AbstractExpression):
     @property
     @_cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
-        return ()
+        return self.first.value_shape
 
     @property
     @_cached
@@ -127,7 +134,8 @@ class Division(AbstractExpression):
         return self.second.domain or self.first.domain
 
     def _validate(self) -> None:
-        _validate_scalar_arithmetic(self)
+        _require(not self.second.value_shape, "division requires a scalar denominator")
+        _require(not self.second.argument_spaces, "nonlinear operand has argument spaces")
 
 
 @final
@@ -166,7 +174,12 @@ class Power(AbstractExpression):
         return self.second.domain or self.first.domain
 
     def _validate(self) -> None:
-        _validate_scalar_arithmetic(self)
+        _require(
+            not self.first.value_shape and not self.second.value_shape,
+            "power requires scalar operands",
+        )
+        _require(not self.second.argument_spaces, "nonlinear operand has argument spaces")
+        _require(not self.first.argument_spaces, "power base has argument spaces")
 
 
 @final
@@ -399,16 +412,3 @@ class Logarithm(AbstractExpression):
         from ..validation import _scalar_operand
 
         _scalar_operand(self.operand)
-
-
-def _validate_scalar_arithmetic(e: Sum | Product | Division | Power) -> None:
-    from ..validation import _require
-
-    for f in (e.first, e.second):
-        _require(f.value_shape == (), "scalar arithmetic requires scalar operands")
-    if isinstance(e, Sum):
-        _require(e.first.argument_spaces == e.second.argument_spaces, "sum argument spaces differ")
-    if isinstance(e, (Division, Power)):
-        _require(not e.second.argument_spaces, "nonlinear operand has argument spaces")
-    if isinstance(e, Power):
-        _require(not e.first.argument_spaces, "power base has argument spaces")

@@ -11,6 +11,7 @@ from uflx_spec_interpreter import (
     add,
     component_tensor,
     coordinate,
+    expand_arithmetic,
     function,
     gradient,
     image,
@@ -134,6 +135,7 @@ def edge_integrand(rnd, D, E, sides):
 def check(name, e, env, bad, rows):
     out3 = integrals.expand_integrals(e)
     out = _lower_spatial(out3)
+    out = expand_arithmetic(out)
     if contains(
         out3,
         lambda n: (

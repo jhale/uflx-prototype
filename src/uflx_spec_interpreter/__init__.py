@@ -36,6 +36,7 @@ from ._src.meshes import (
 )
 from ._src.nodes import RD, Complex, Float, Integer, ScalarType, Zero
 from ._src.passes.actions import apply_actions
+from ._src.passes.arithmetic import expand_arithmetic
 from ._src.passes.derivatives import apply_derivatives
 from ._src.passes.gradients import apply_gradients
 from ._src.passes.integrals import expand_integrals
@@ -88,6 +89,7 @@ __all__ = [
     "divide",
     "domain_map",
     "dual_space",
+    "expand_arithmetic",
     "expand_integrals",
     "expand_pull_backs",
     "form",

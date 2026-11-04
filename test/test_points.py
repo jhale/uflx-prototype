@@ -15,6 +15,7 @@ from uflx_spec_interpreter import (
     component_tensor,
     coordinate,
     domain_map,
+    expand_arithmetic,
     function,
     gathered_index,
     gradient,
@@ -169,7 +170,9 @@ def main(trials):
                 (i,),
             )
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
+        out4 = expand_arithmetic(out4)
         out = _lower_spatial(integrals.expand_integrals(e))
+        out = expand_arithmetic(out)
         if contains(out4, needs_pass):
             bad["lazy"] += 1
             bad["rejected"] += not _in_core_normal_form(out4)

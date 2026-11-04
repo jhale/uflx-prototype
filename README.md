@@ -6,6 +6,10 @@ mathematical groups and their implementations. Internal checks in `_src/contract
 return offending nodes and diagnostic reasons without running transformations or
 checking later compiler capabilities.
 
+Tensor addition, scalar multiplication and division retain their arithmetic nodes.
+`expand_arithmetic(f)` converts these to scalar components. `lower` runs it after
+spatial rewriting, so compilers still receive scalar arithmetic.
+
 `gateaux_derivative(...)` constructs a `Form` from `DirectionalDerivative`
 expressions. There is no separate Gateaux node or pass.
 Form linearity is a declared mathematical precondition; the interpreter does not

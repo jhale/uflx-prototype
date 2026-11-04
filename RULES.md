@@ -19,6 +19,7 @@ Paths below are relative to `src/uflx_spec_interpreter/_src/`.
 | ST07, ST10–ST11 | `passes/gradients.py`, `passes/pullbacks.py` | `test_action_spatial.py` |
 | ST08 | `rules/structural.py::_gradient` | `test_gradients.py`, `test_rule_groups.py` |
 | ST09 | `rules/structural.py::_gradient_component` | `test_gradients.py` |
+| ST13–ST16 | `passes/arithmetic.py::expand_arithmetic`; final step of `lower` | `test_tensor_arithmetic.py` |
 | ST12 | `rules/structural.py::_gradient_remains`; shared with `contracts.py` | `test_rewriting.py`, `test_piola_applicability.py` |
 | L01–L04 | `rules/linearity.py::_linear_fields`, `rules/structural.py::_commute` | `test_gateaux.py`, `test_tensor_gateaux.py`, `test_broadcast.py` |
 | L05, L07 | `passes/actions.py::_rule` | `test_actions.py`, `test_typed_zero.py` |
@@ -68,7 +69,7 @@ existing module because it needs a different walk from expression rewriting.
 | R01–R03 | `rules/restriction.py::_side_cell`, `_side_maps`, `_normal` and pass selection | `test_facets.py`, `test_surface.py` |
 | I01 | `rules/integration.py::_mesh_integral`, `_piece_integral` | `test_integrals.py`, `test_runtime_extent.py` |
 
-All 103 current rule IDs are accounted for. This is a source audit, not a proof
+All 107 current rule IDs are accounted for. This is a source audit, not a proof
 of conformance. Existing tests cover the examples listed; the findings below
 need dedicated follow-up changes.
 

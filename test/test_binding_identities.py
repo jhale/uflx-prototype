@@ -85,7 +85,7 @@ def test_independent_intermediate_construction_shares_nodes():
     first = matrix_product(intermediate, A)
     second = matrix_product(_substitute(transpose(B), {B: A}), A)
     assert first is second
-    assert add(first, second).expression.first.expression is first
+    assert add(first, second).first is first
 
 
 def test_capture_renaming_is_repeatable_and_then_fixed():

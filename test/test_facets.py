@@ -9,6 +9,7 @@ from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     add,
     coordinate,
+    expand_arithmetic,
     function,
     gradient,
     index,
@@ -104,6 +105,7 @@ def main(trials):
         e_int = integral(integrand(rnd, E, sides), E)
         out3 = integrals.expand_integrals(e_int)
         out = _lower_spatial(out3)
+        out = expand_arithmetic(out)
         if contains(
             out3,
             lambda n: (

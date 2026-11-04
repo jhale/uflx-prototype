@@ -7,6 +7,7 @@ from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
     coordinate,
     domain_map,
+    expand_arithmetic,
     function,
     gradient,
     integral,
@@ -90,6 +91,7 @@ def facet_integrals(K):
     values = []
     for e in forms:
         out = _lower_spatial(integrals.expand_integrals(e))
+        out = expand_arithmetic(out)
         assert _in_core_normal_form(out)
         values.append(evaluate(out, env)(()))
         assert np.isclose(evaluate(e, env)(()), values[-1], rtol=1e-6)
@@ -143,6 +145,7 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
     ]
     for e, expected in exact:
         out = _lower_spatial(integrals.expand_integrals(e))
+        out = expand_arithmetic(out)
         assert _in_core_normal_form(out)
         before, after = evaluate(e, env)(()), evaluate(out, env)(())
         assert np.isclose(before, after, rtol=1e-6), (before, after)
@@ -202,6 +205,7 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
     ]
     for e, expected in exact:
         out = _lower_spatial(integrals.expand_integrals(e))
+        out = expand_arithmetic(out)
         assert _in_core_normal_form(out)
         before, after = evaluate(e, env)(()), evaluate(out, env)(())
         assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)

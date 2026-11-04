@@ -40,26 +40,14 @@ __all__ = [
 
 
 def add(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
-    from .tensors import component_tensor, indexed
-
-    k = _derived_indices("uflx.add", (first, second), len(first.value_shape))
-    return component_tensor(Sum(indexed(first, k), indexed(second, k)), k)
+    return Sum(first, second)
 
 
 def multiply(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
-    if len(second.value_shape) and not len(first.value_shape):
-        k = _derived_indices("uflx.multiply", (first, second), len(second.value_shape))
-        return ComponentTensor(Product(first, Indexed(second, k)), k)
-    if len(first.value_shape) and not len(second.value_shape):
-        k = _derived_indices("uflx.multiply", (first, second), len(first.value_shape))
-        return ComponentTensor(Product(Indexed(first, k), second), k)
     return Product(first, second)
 
 
 def divide(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
-    if len(first.value_shape):
-        k = _derived_indices("uflx.divide", (first, second), len(first.value_shape))
-        return ComponentTensor(Division(Indexed(first, k), second), k)
     return Division(first, second)
 
 

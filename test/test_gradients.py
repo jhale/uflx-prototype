@@ -14,6 +14,7 @@ from uflx_spec_interpreter import (
     conjugate,
     coordinate,
     divide,
+    expand_arithmetic,
     function,
     gradient,
     index,
@@ -113,6 +114,7 @@ def run(trials):
         rnd = random.Random(seed)
         e = integral(target(rnd), K)
         out = gradients.apply_gradients(e)
+        out = expand_arithmetic(out)
         if contains(e, needs_pass):
             bad["lazy"] += 1
             bad["rejected"] += not _in_core_normal_form(e)

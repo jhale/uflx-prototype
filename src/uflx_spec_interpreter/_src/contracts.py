@@ -143,9 +143,6 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
             | Float()
             | Complex()
             | Zero()
-            | Sum()
-            | Product()
-            | Division()
             | Power()
             | Absolute()
             | Conjugate()
@@ -167,6 +164,8 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
             | PushForward()
         ):
             return True
+        case Sum() | Product() | Division():
+            return not e.value_shape
         case _ if _field_terminal(e):
             return True
         case Divergence() | Curl():
