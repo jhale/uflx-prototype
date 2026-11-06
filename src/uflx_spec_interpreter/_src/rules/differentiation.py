@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from ..algorithms.rewriting import complete_indices, promote, zero_like
 from ..algorithms.substitution import occurs_in_values, substitute_values
 from ..algorithms.traversal import memoized
-from ..arithmetic import real_part
+from ..arithmetic import real_part, total
 from ..nodes import (
     Absolute,
     Action,
@@ -28,7 +28,7 @@ from ..nodes import (
     Zero,
 )
 from ..nodes.arguments import argument_members, map_argument
-from ..tensors import transpose
+from ..tensors import tensor, transpose
 from .linearity import linear_fields
 from .structural import commute, structural_fields
 
@@ -75,14 +75,30 @@ def derivative_of_node(
         case Logarithm(b):
             return d(b) / at(b)
         case Determinant(a):
-            from ..algorithms.names import derived_indices
-            from ..tensors import index_sum, indexed
-
-            i, j = derived_indices("uflx.derivative", (f,), 2)
-            inverse_matrix = Inverse(at(a))
+            n = a.value_shape[0]
+            assert isinstance(n, int)
+            if n == 0:
+                return zero_like(f, f.argument_spaces)
             matrix_derivative = d(a)
-            entry = indexed(inverse_matrix, (i, j)) * indexed(matrix_derivative, (j, i))
-            return at(f) * index_sum(entry, (i, j))
+            if n == 1:
+                return matrix_derivative[0, 0]
+            matrix = at(a)
+            # D08. Polynomial cofactors remain defined at singular matrices.
+            return total(
+                Integer((-1) ** (i + j))
+                * Determinant(
+                    tensor(
+                        tuple(
+                            tensor(tuple(matrix[r, c] for c in range(n) if c != j))
+                            for r in range(n)
+                            if r != i
+                        )
+                    )
+                )
+                * matrix_derivative[i, j]
+                for i in range(n)
+                for j in range(n)
+            )
         case Inverse(a):
             matrix = at(a)
             derivative = d(a)

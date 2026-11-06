@@ -339,6 +339,7 @@ def _matrix_operand(f: AbstractExpression, rectangular: bool = False) -> None:
     require(not f.argument_spaces, "nonlinear operand has argument spaces")
     require(len(f.value_shape) == 2, "matrix operand must have rank two")
     a, b = f.value_shape
+    require(type(a) is int and type(b) is int, "matrix dimensions must be fixed integers")
     require(
         a == b
         or (

@@ -107,9 +107,11 @@ def test_gathered_indices_follow_direct_indices_in_static_order():
         indexed(A, (2, 0))
 
 
-def test_determinants_are_nodes_including_symbolic_and_empty_shapes():
+def test_determinants_require_fixed_dimensions_and_accept_empty_shapes():
     n = runtime_extent("n")
-    assert isinstance(determinant(runtime_array("A", (n, n))), Determinant)
+    with pytest.raises(ValueError, match="fixed integers"):
+        determinant(runtime_array("A", (n, n)))
+    assert isinstance(determinant(runtime_array("A", (2, 2))), Determinant)
     d = determinant(Zero((0, 0), (), (), ScalarType.real))
     assert lower(d) is d
     assert evaluate(d, {})(()) == 1
