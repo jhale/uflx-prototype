@@ -79,6 +79,7 @@ class Form(AbstractExpression):
     expression: AbstractExpression
     arguments: tuple[Function | Conjugate | tuple[Function | Conjugate, ...], ...]
     scope = ("expression", "arguments")
+    binding_fields = ("arguments",)
 
     def bound(self) -> tuple[Function, ...]:
         # The functions of the entries, without the conjugate of an entry conjugate(v).

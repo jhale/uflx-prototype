@@ -7,7 +7,7 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 from ..algorithms.rewriting import complete_indices, promote, zero_like
-from ..algorithms.substitution import occurs, substitute_values
+from ..algorithms.substitution import occurs_in_values, substitute_values
 from ..algorithms.traversal import memoized
 from ..arithmetic import real_part
 from ..nodes import (
@@ -137,7 +137,7 @@ def deriv(
         return substitute_values(e, mapping)
 
     def constant(e: AbstractExpression) -> bool:
-        return not any(occurs(v, e) for v in xs)
+        return not any(occurs_in_values(v, e) for v in xs)
 
     def differentiate(
         d: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression

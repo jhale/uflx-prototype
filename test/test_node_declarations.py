@@ -11,7 +11,7 @@ from uflx_spec_interpreter._src import nodes
 
 def declaration_errors(source):
     errors = []
-    metadata = {"value_fields", "scope", "labels", "index_fields", "commuting"}
+    metadata = {"value_fields", "scope", "binding_fields", "labels", "index_fields", "commuting"}
     for cls in ast.parse(source).body:
         if not isinstance(cls, ast.ClassDef):
             continue
@@ -39,6 +39,16 @@ def declaration_errors(source):
             members = ast.literal_eval(declarations[field])
             if len(set(members)) != len(members) or not set(members) <= names:
                 errors.append(f"{cls.name}.{field}: repeated or unknown field")
+        scope = set(ast.literal_eval(declarations["scope"])) if "scope" in declarations else set()
+        binding = (
+            set(ast.literal_eval(declarations["binding_fields"]))
+            if "binding_fields" in declarations
+            else set()
+        )
+        if not binding <= scope:
+            errors.append(f"{cls.name}: declarations must belong to their binding scope")
+        if (scope or "bound" in methods) and not binding:
+            errors.append(f"{cls.name}: binding requires declaration fields")
         for name in stored:
             if not name.startswith("_"):
                 continue
@@ -76,6 +86,8 @@ def test_dataclasses_supply_constructors_and_patterns():
         '__match_args__ = ("second", "first")',
         'value_fields = ("frist",)',
         'value_fields = ("first", "first")',
+        'scope = ("first",)\n    binding_fields = ("second",)',
+        'scope = ("first",)',
         "def __init__(self, first, second):\n        pass",
         "_third: int",
         "_third: int\n    def third(self) -> int:\n        return self.first",

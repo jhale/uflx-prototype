@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, TypeVar, cast
 from ..nodes import AbstractExpression, Base, Function, Index, Zero
 from ..nodes.structure import operands
 from ..nodes.types import Construction
+from .binding import binding_signature, scoped_body_fields
 from .traversal import map_fields, memoized, rebuild
 
 if TYPE_CHECKING:
@@ -18,32 +19,74 @@ _K = TypeVar("_K", bound=Base)
 
 
 def occurs(target: Base, node: Construction) -> bool:
-    # Cache free occurrence on the expression, holding the target only weakly.
+    """Test free occurrence through construction dependencies, excluding labels."""
+    return _occurs(target, node, True)
+
+
+def occurs_in_values(target: Base, node: Construction) -> bool:
+    """Test free occurrence in values, holding domains and spaces fixed."""
+    return _occurs(target, node, False)
+
+
+def occurs_in_metadata(target: Base, node: Construction) -> bool:
+    """Detect dependencies outside value/index operands, including nested metadata."""
+
+    def visit(node: Construction) -> bool:
+        if isinstance(node, tuple):
+            return any(visit(item) for item in node)
+        if not isinstance(node, Base):
+            return False
+        if node in memo:
+            return memo[node]
+        result = occurs(target, binding_signature(node))
+        for field in _scoped(target, node, True):
+            operand = getattr(node, field)
+            result |= (
+                visit(operand)
+                if field in (*node.value_fields, *node.index_fields)
+                else occurs(target, operand)
+            )
+        memo[node] = result
+        return result
+
+    memo: dict[Base, bool] = {}
+    return visit(node)
+
+
+def _occurs(target: Base, node: Construction, dependencies: bool) -> bool:
+    if isinstance(node, tuple):
+        return any(_occurs(target, item, dependencies) for item in node)
     if not isinstance(node, Base):
         return False
+    cache_name = "occurrences" if dependencies else "value_occurrences"
     memo = cast(
         "weakref.WeakKeyDictionary[Base, bool]",
-        vars(node).setdefault("occurrences", weakref.WeakKeyDictionary()),
+        vars(node).setdefault(cache_name, weakref.WeakKeyDictionary()),
     )
     if target not in memo:
-        memo[target] = node == target or any(
-            occurs(target, child) for child in operands(node, _scoped(target, node))
+        declaration_dependency = dependencies and _occurs(target, binding_signature(node), True)
+        memo[target] = (
+            node == target
+            or declaration_dependency
+            or any(
+                _occurs(target, child, dependencies)
+                for child in operands(node, _scoped(target, node, dependencies))
+            )
         )
     return memo[target]
 
 
-def _scoped(target: Base, node: Base) -> list[str]:
-    # A bound name cannot occur free inside its own scope. Labels are identities.
-    fields = list(node.argument_names) if isinstance(target, Index) else list(node.value_fields)
-    fields = [name for name in fields if name not in node.labels]
-    if _bound_in(target, node):
+def _scoped(target: Base, node: Base, dependencies: bool) -> list[str]:
+    fields = node.argument_names if dependencies else (*node.value_fields, *node.index_fields)
+    fields = [name for name in fields if name not in (*node.labels, *node.binding_fields)]
+    if _bound_in(target, node, dependencies):
         fields = [name for name in fields if name not in node.scope]
     return fields
 
 
-def _bound_in(target: Base, node: Base) -> bool:
-    """Whether entering this binder would capture a free name of the target."""
-    return any(occurs(name, target) for name in node.bound())
+def _bound_in(target: Base, node: Base, dependencies: bool = True) -> bool:
+    """Whether the target contains a name bound on entering this scope."""
+    return any(_occurs(name, target, dependencies) for name in node.bound())
 
 
 def _rename(node: Base, name: Index | Function, avoid: Sequence[Construction]) -> Index | Function:
@@ -63,7 +106,42 @@ def freshen(node: _T, avoid: Sequence[Construction]) -> _T:
     }
     if not renames:
         return node
+    return _rename_scope(node, renames)
+
+
+def _rename_scope(node: _T, renames: Mapping[_K, Construction]) -> _T:
     return cast("_T", map_fields(node, lambda child: substitute(child, renames), node.scope))
+
+
+def rename_bound(node: _T, renames: Mapping[Index | Function, Index | Function]) -> _T:
+    """Rename declarations simultaneously, preserving type and lexical scope.
+
+    Public adapters validate entry grouping and conjugation. This operation
+    handles names uniformly, including derivative variables whose evaluation
+    point and direction lie outside their scope.
+    """
+    names = node.bound()
+    for old, new in renames.items():
+        if old not in names:
+            raise ValueError("unknown bound name")
+        if type(old) is not type(new):
+            raise ValueError("renaming must preserve the kind of bound name")
+        if isinstance(old, Function) and isinstance(new, Function) and old.space != new.space:
+            raise ValueError("renaming must preserve parameter spaces")
+        if new not in names and any(
+            occurs(new, child) for child in operands(node, scoped_body_fields(node))
+        ):
+            raise ValueError("renaming would capture free data")
+    targets = tuple(renames.get(name, name) for name in names)
+    if len(set(targets)) != len(targets):
+        raise ValueError("renaming would create duplicate bound names")
+    signature = binding_signature(node)
+    if any(occurs(name, signature) for name in (*names, *targets)):
+        raise ValueError("renaming requires independent parameter types")
+    result = _rename_scope(node, renames)
+    if binding_signature(result) != signature:
+        raise ValueError("renaming changed the binding signature")
+    return result
 
 
 def substitute(node: Base, mapping: Mapping[_K, Construction]) -> Construction:

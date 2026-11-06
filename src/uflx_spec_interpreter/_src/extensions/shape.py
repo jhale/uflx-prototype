@@ -28,6 +28,7 @@ class _ShapeDerivative(AbstractExpression):
     variable: Function | tuple[Function, ...]
     direction: AbstractExpression | tuple[AbstractExpression, ...]
     scope = ("expression", "variable")
+    binding_fields = ("variable",)
 
     def bound(self) -> tuple[Function, ...]:
         return argument_members(self.variable)

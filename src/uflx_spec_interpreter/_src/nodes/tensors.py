@@ -170,6 +170,7 @@ class ComponentTensor(AbstractExpression):
     expression: AbstractExpression
     indices: tuple[Index, ...]
     scope = ("expression", "indices")
+    binding_fields = ("indices",)
 
     def bound(self) -> tuple[Index, ...]:
         return self.indices
@@ -213,6 +214,7 @@ class IndexSum(AbstractExpression):
     expression: AbstractExpression
     indices: tuple[Index, ...]
     scope = ("expression", "indices")
+    binding_fields = ("indices",)
 
     def bound(self) -> tuple[Index, ...]:
         return self.indices

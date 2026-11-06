@@ -58,6 +58,8 @@ class Base(metaclass=_Interned):
     labels: ClassVar[tuple[str, ...]] = ()
     # A binding node names the arguments where its bound names are in scope.
     scope: ClassVar[tuple[str, ...]] = ()
+    # Declaration operands are renamed, but are not free occurrences.
+    binding_fields: ClassVar[tuple[str, ...]] = ()
 
     __dataclass_fields__: ClassVar[dict[str, Field[Construction]]]
     identifier: ClassVar[str]

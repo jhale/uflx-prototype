@@ -202,6 +202,94 @@ The shape extension uses its own recipe: expose geometry, apply shape derivative
 then re-enter checked core lowering. Quadrature and tabulation follow that boundary
 in the compiler and impose their own requirements.
 
+### Named binding and geometry experiment
+
+The private `_src/extensions/binding.py` module explores these operations:
+
+```python
+from uflx_spec_interpreter._src.extensions.binding import apply, partial, rebind
+
+F = form(u * v, (u, v))
+partial(F, {u: w})  # form(w * v, (v,))
+partial(rebind(F, {v: p}), {u: v})  # form(v * p, (p,))
+apply(F, (w, p))  # lazy full application
+```
+
+`partial` substitutes simultaneously into an explicit outer `Form` and rejects
+capture of a retained argument; explicitly `rebind` that argument first. Rebinding
+also supports `ComponentTensor` and `IndexSum`. Form operations preserve grouping
+and conjugation and reject dependent argument spaces, including inherited slots.
+Nested internal binders may freshen during substitution.
+`apply` also accepts sums and nested forms with an ordered argument signature;
+it uses existing `Action` nodes pending migration to the specified `Apply` node.
+
+Core binding algorithms use the same declarations, scopes and ordered signatures
+for forms, index binders and derivative variables. Capture avoidance and explicit
+renaming share scope reconstruction. `alpha_equivalent` compares lexical addresses
+with context-sensitive memoization, preserving free identities and structural
+parameter types without changing interning or structural equality. Derivative
+points and directions remain outside the variable scope. `test_shared_binding.py`
+checks these laws across all four core binder kinds and mixed nesting.
+
+Free-occurrence checks now distinguish construction dependencies from value
+dependencies. Binder declarations do not count as free uses, but their parameter
+spaces do; identity labels remain opaque. Capture checks inspect construction
+dependencies. Existing core differentiation explicitly retains its value-only,
+fixed-geometry interpretation.
+
+The private `_src/extensions/differentiation.py` recipe explores selectively exposing
+geometry before differentiation. It expands geometry only when the chosen variable
+occurs in construction metadata, then uses ordinary derivative rules. Nested
+derivatives are evaluated inside out, each under its own variable, evaluation point,
+and direction. Dependencies in the point and direction participate in an outer
+derivative. Residual space/geometry dependence is rejected.
+This is an experiment in pass ordering, not an additional proposed public primitive
+or a change to the standard lowering pipeline.
+
+The `test_*_exploration.py` files exercise these boundaries. Geometry checks
+compare area, energy, coordinate fields, perimeter, and Raviart–Thomas mass against
+finite differences, including second geometry derivatives. Mixed field/geometry
+derivatives agree in both orders for energy and Raviart–Thomas mass, and with
+independent finite differences. An affine-interval Hermite reconstruction probe
+checks physical endpoint slopes and differentiation of the geometry-dependent
+coefficient transformation. It is not a general Hermite element implementation.
+
+The proposed form restriction is that no bound function occurs free in any exposed
+argument space, including inherited slots. Spaces may depend on free geometry
+parameters; differentiating those parameters still requires an explicit conversion
+to fixed input spaces. A library reconstruction may use symbolic geometry-dependent
+matrices rather than only a standard push-forward. Opaque geometry-dependent data
+needs an explicit derivative rule or must be rejected. General element-library
+integration, arbitrary derivative orders, and topology changes are not validated
+by these probes. The public API and normative specification are unchanged.
+
+### Mixed real and complex derivative experiment
+
+`DirectionalDerivative` already accepts mixed real/complex tuples. The public
+`gateaux_derivative` helper rejects them because it combines differentiation,
+complex-linear/antilinear projection, and binding. Its complex result is a
+selected component, not the full Gateaux differential.
+
+The private `extensions/complex_differentiation.py` prototype separates projection
+from binding. For a complex variable it returns the two contributions
+`(D[h] - i*D[i*h])/2` and `(D[h] + i*D[i*h])/2`. Bind a fresh complex direction
+as `h` or `conjugate(h)` respectively. Real-variable derivatives remain separate
+blocks. Both contributions can be complex even when their sum is real-valued.
+
+Alternatively, use a real direction function `q` of a compatible library space:
+`D[q]` and `D[i*q]` are the real and imaginary coordinate blocks. Their bound
+slots are real; their output may be complex. Applying `real_part` or
+`imaginary_part` to the body before binding gives real matrix blocks. No new
+scalar-field attribute or general real-linear form node is needed for this route.
+
+`test_complex_blocks_exploration.py` checks mixed directional derivatives,
+projection linearity, and assembled nonlinear finite-element Jacobians for real
+and complex outputs against finite differences, using both block representations.
+The remaining policy issue is mixed-scalar product binding: `Form` accepts it,
+whereas `DualSpace` and `gateaux_derivative` reject it. Homogeneous product slots
+and separate derivative blocks would avoid an implicit common-scalar convention.
+The public helper and normative specification are unchanged by this experiment.
+
 The core splits a public API from a private one, as JAX does with `jax._src`.
 
 The public API is `uflx_spec_interpreter/__init__.py`, which re-exports the

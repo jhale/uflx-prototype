@@ -26,6 +26,7 @@ class DirectionalDerivative(AbstractExpression):
     point: AbstractExpression | tuple[AbstractExpression, ...]
     direction: AbstractExpression | tuple[AbstractExpression, ...]
     scope = ("expression", "variable")
+    binding_fields = ("variable",)
 
     def bound(self) -> tuple[Function, ...]:
         return argument_members(self.variable)
