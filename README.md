@@ -21,8 +21,10 @@ The implementation in `_src/` is organised by responsibility.
 | `passes/` | Pass recipes and output contracts |
 | `extensions/` | Optional language extensions |
 
-`gateaux_derivative(...)` constructs a `Form` from `DirectionalDerivative`
-expressions. There is no separate Gateaux node or pass.
+`directional_derivative(f, x, a, h)` is the sole function-derivative primitive.
+It gives the full real differential, including complex and mixed variables.
+Bind directions with `form`; complex-linear and antilinear projections are
+explicit compositions. The former `gateaux_derivative` helper is removed.
 Form linearity is a declared mathematical precondition; the interpreter does not
 include a linearity analyser.
 
@@ -198,9 +200,11 @@ The standard recipe in `_src/passes/lowering.py` coordinates:
 | Alternate gradients and pull-backs until stable | `passes/lowering.py`, using `gradients.py` and `pullbacks.py` |
 | Check core normal form | `passes/contracts.py` |
 
-The shape extension uses its own recipe: expose geometry, apply shape derivatives,
-then re-enter checked core lowering. Quadrature and tabulation follow that boundary
-in the compiler and impose their own requirements.
+Standard derivative evaluation exposes dependent geometry before differentiation
+and rejects unresolved dependencies. Inner derivatives are resolved first.
+Quadrature and tabulation follow the checked core boundary. The private shape
+convenience now constructs an ordinary `DirectionalDerivative`, without an
+extension node or separate lowering recipe.
 
 ### Named binding and geometry experiment
 
@@ -231,20 +235,15 @@ parameter types without changing interning or structural equality. Derivative
 points and directions remain outside the variable scope. `test_shared_binding.py`
 checks these laws across all four core binder kinds and mixed nesting.
 
-Free-occurrence checks now distinguish construction dependencies from value
-dependencies. Binder declarations do not count as free uses, but their parameter
-spaces do; identity labels remain opaque. Capture checks inspect construction
-dependencies. Existing core differentiation explicitly retains its value-only,
-fixed-geometry interpretation.
+Free-occurrence checks distinguish construction and value dependencies.
+Declarations are not free uses, but their parameter types contribute dependencies;
+labels remain opaque. Capture checks inspect construction dependencies.
 
-The private `_src/extensions/differentiation.py` recipe explores selectively exposing
-geometry before differentiation. It expands geometry only when the chosen variable
-occurs in construction metadata, then uses ordinary derivative rules. Nested
-derivatives are evaluated inside out, each under its own variable, evaluation point,
-and direction. Dependencies in the point and direction participate in an outer
-derivative. Residual space/geometry dependence is rejected.
-This is an experiment in pass ordering, not an additional proposed public primitive
-or a change to the standard lowering pipeline.
+Standard `apply_derivatives` selectively exposes geometry when a variable occurs
+in construction metadata, then applies ordinary derivative rules. Nested points
+and directions participate in outer derivatives. Unresolved geometry or space
+dependence is rejected. The former private differentiation experiment delegates
+to this core path.
 
 The `test_*_exploration.py` files exercise these boundaries. Geometry checks
 compare area, energy, coordinate fields, perimeter, and Raviart–Thomas mass against
@@ -261,34 +260,26 @@ to fixed input spaces. A library reconstruction may use symbolic geometry-depend
 matrices rather than only a standard push-forward. Opaque geometry-dependent data
 needs an explicit derivative rule or must be rejected. General element-library
 integration, arbitrary derivative orders, and topology changes are not validated
-by these probes. The public API and normative specification are unchanged.
+by these probes. The remaining public binding API migration is separate.
 
-### Mixed real and complex derivative experiment
+### Real and complex derivative forms
 
-`DirectionalDerivative` already accepts mixed real/complex tuples. The public
-`gateaux_derivative` helper rejects them because it combines differentiation,
-complex-linear/antilinear projection, and binding. Its complex result is a
-selected component, not the full Gateaux differential.
+`DirectionalDerivative` accepts mixed real/complex variable tuples. `Form` and
+`DualSpace` require one scalar type within a product-space slot; different slots
+may use different scalar types. Output scalar type does not imply complex
+linearity in an argument.
 
-The private `extensions/complex_differentiation.py` prototype separates projection
-from binding. For a complex variable it returns the two contributions
-`(D[h] - i*D[i*h])/2` and `(D[h] + i*D[i*h])/2`. Bind a fresh complex direction
-as `h` or `conjugate(h)` respectively. Real-variable derivatives remain separate
-blocks. Both contributions can be complex even when their sum is real-valued.
+The optional library composition in `extensions/complex_differentiation.py`
+returns `(D[h] - i*D[i*h])/2` and `(D[h] + i*D[i*h])/2` for complex variables.
+Bind a fresh direction as `h` or `conjugate(h)`, respectively. The helper neither
+binds nor evaluates; it is not a core primitive. Both parts can be complex even
+when the full differential is real.
 
-Alternatively, use a real direction function `q` of a compatible library space:
-`D[q]` and `D[i*q]` are the real and imaginary coordinate blocks. Their bound
-slots are real; their output may be complex. Applying `real_part` or
-`imaginary_part` to the body before binding gives real matrix blocks. No new
-scalar-field attribute or general real-linear form node is needed for this route.
-
-`test_complex_blocks_exploration.py` checks mixed directional derivatives,
-projection linearity, and assembled nonlinear finite-element Jacobians for real
-and complex outputs against finite differences, using both block representations.
-The remaining policy issue is mixed-scalar product binding: `Form` accepts it,
-whereas `DualSpace` and `gateaux_derivative` reject it. Homogeneous product slots
-and separate derivative blocks would avoid an implicit common-scalar convention.
-The public helper and normative specification are unchanged by this experiment.
+Alternatively, use a real direction `q` of a compatible library space. Bind
+`D[q]` and `D[i*q]` as separate real slots, adding real-variable derivative
+blocks. Apply `real_part` or `imaginary_part` to bodies before binding real test
+and direction functions to obtain real matrices. The mixed-block tests compare
+both representations with finite differences of assembled FE residuals.
 
 The core splits a public API from a private one, as JAX does with `jax._src`.
 
@@ -326,7 +317,7 @@ modules of `_src`:
 - `meshes.py`: `image`, `cell_map`, `side_domain`,
   `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`
-- `forms.py`: `function`, `form`, `action` and `gateaux_derivative`
+- `forms.py`: `function`, `form` and `action`
 - `nodes/static.py`: the free functions that read the static type
 
 The private modules of `_src`:

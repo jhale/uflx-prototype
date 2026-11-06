@@ -8,11 +8,14 @@ from uflx_spec_interpreter import (
     absolute,
     conjugate,
     directional_derivative,
+    form,
     function,
-    gateaux_derivative,
     multiply,
     num,
 )
+from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
+from uflx_spec_interpreter._src.nodes import Conjugate
+from uflx_spec_interpreter._src.nodes.forms import entry_function
 from uflx_spec_interpreter._src.passes import actions, derivatives
 from uflx_toy.spaces import space
 
@@ -38,8 +41,12 @@ def test_a_tuple_variable_moves_every_member_to_the_point():
 
 
 def check(F, x, entry, values):
-    # The passes keep the value of the Gateaux derivative, defined by the oracle.
-    e = gateaux_derivative(F, x, x, entry)
+    # The passes keep the value of the explicitly projected derivative form, defined by the oracle.
+    directions = tuple(entry_function(member) for member in entry)
+    body = directional_derivative(F, x, x, directions)
+    if x[0].space.scalar_type == "complex":
+        body = complex_derivative_parts(F, x, x, directions)[int(isinstance(entry[0], Conjugate))]
+    e = form(body, (entry,))
     out = passes(e)
     assert keeps_static_type(e, out)
     before, after = evaluate(e, ENV)((values,)), evaluate(out, ENV)((values,))
@@ -79,8 +86,11 @@ def test_a_constant_point_and_direction():
     assert np.isclose(evaluate(passes(e), ENV)(()), 3)
 
 
-def test_a_tuple_of_real_and_complex_functions_is_ill_typed():
-    # The product of a real and a complex space has no linear and antilinear parts.
+def test_mixed_scalar_variables_are_valid_but_a_mixed_product_slot_is_not():
     lam, v, mu = function(R, "lam"), function(C, "v"), function(R, "mu")
-    with pytest.raises(ValueError, match="mixed real and complex"):
-        gateaux_derivative(multiply(u, lam), (u, lam), (u, lam), (v, mu))
+    d = directional_derivative(u * lam, (u, lam), (u, lam), (v, mu))
+    data = {u: 0.3 + 0.2j, lam: 0.4, v: 0.5 - 0.1j, mu: -0.2}
+    expected = data[v] * data[lam] + data[u] * data[mu]
+    assert np.isclose(evaluate(passes(d), data)(()), expected)
+    with pytest.raises(ValueError, match="one scalar type"):
+        form(d, ((v, mu),))

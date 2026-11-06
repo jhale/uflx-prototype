@@ -66,6 +66,7 @@ class DirectionalDerivative(AbstractExpression):
         return self.expression.domain
 
     def _validate(self) -> None:
+        from ..algorithms.substitution import occurs
         from .validation import admissible, require
 
         xs = argument_members(self.variable)
@@ -75,6 +76,10 @@ class DirectionalDerivative(AbstractExpression):
                 "derivative variable is not bindable",
             )
         require(len(set(xs)) == len(xs), "derivative variables must be distinct")
+        require(
+            not any(occurs(x, variable.space) for x in xs for variable in xs),
+            "derivative variable spaces must be independent of the variables",
+        )
         require(
             type(self.variable) is not tuple or len(xs) >= 2,
             "tuple derivative needs at least two variables",

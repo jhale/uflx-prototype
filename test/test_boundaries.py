@@ -187,6 +187,7 @@ def test_private_helpers_stay_in_their_module():
         ("passes.integrals", {"passes.contracts", "passes.lowering"}),
         ("passes.gradients", {"passes.contracts", "passes.lowering"}),
         ("passes.pullbacks", {"passes.contracts", "passes.lowering"}),
+        ("passes.spatial", {"passes.contracts", "passes.lowering", "passes.derivatives"}),
         ("passes.contracts", {"passes.lowering"}),
     ],
 )

@@ -45,6 +45,11 @@ def directional_derivative(
     a: AbstractExpression | tuple[AbstractExpression, ...],
     h: AbstractExpression | tuple[AbstractExpression, ...],
 ) -> DirectionalDerivative:
+    """Construct the full real differential, including complex and mixed variables.
+
+    Bind directions explicitly with form. Complex projections are separate
+    compositions; geometry dependencies are exposed during derivative evaluation.
+    """
     return DirectionalDerivative(f, x, a, h)
 
 

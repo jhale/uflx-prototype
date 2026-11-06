@@ -13,10 +13,10 @@ from uflx_spec_interpreter import (
     directional_derivative,
     form,
     function,
-    gateaux_derivative,
     num,
 )
 from uflx_spec_interpreter._src.algorithms.substitution import substitute
+from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx_spec_interpreter._src.nodes import DirectionalDerivative, Form
 from uflx_toy.spaces import space
 
@@ -30,9 +30,9 @@ def test_factory_is_interned_and_point_substitution_commutes(complex_):
     V = space("factory", scalar_type=ScalarType.complex if complex_ else ScalarType.real)
     u, a, b, w = (function(V, label) for label in ("u", "a", "b", "w"))
     F = u * u
-    e = gateaux_derivative(F, u, a, w)
-    assert gateaux_derivative(F, u, a, w) is e
-    assert substitute(e, {a: b}) is gateaux_derivative(F, u, b, w)
+    e = form(directional_derivative(F, u, a, w), (w,))
+    assert form(directional_derivative(F, u, a, w), (w,)) is e
+    assert substitute(e, {a: b}) is form(directional_derivative(F, u, b, w), (w,))
     if not complex_:
         assert e is Form(DirectionalDerivative(F, u, a, w), (w,))
 
@@ -42,8 +42,8 @@ def test_duplicate_tuple_direction_binders_are_rejected(conjugated):
     V = space("tuple")
     u, v, w = (function(V, label) for label in ("u", "v", "w"))
     entry = conjugate(w) if conjugated else w
-    with pytest.raises(ValueError, match="direction binders must be distinct"):
-        gateaux_derivative(u * v, (u, v), (u, v), (entry, entry))
+    with pytest.raises(ValueError, match="form binders must be distinct"):
+        form(directional_derivative(u * v, (u, v), (u, v), (entry, entry)), ((entry, entry),))
 
 
 @pytest.mark.parametrize("body", [conjugate, lambda u: u * conjugate(u)])
@@ -51,8 +51,8 @@ def test_both_complex_parts_reconstruct_the_real_differential(body):
     V = space("complex")
     u, w, h = (function(V, label) for label in ("u", "w", "h"))
     F = body(u)
-    plus = gateaux_derivative(F, u, u, w)
-    minus = gateaux_derivative(F, u, u, conjugate(w))
+    plus = form(complex_derivative_parts(F, u, u, w)[0], (w,))
+    minus = form(complex_derivative_parts(F, u, u, w)[1], (conjugate(w),))
     full = action(plus, 0, h) + action(minus, 0, conjugate(h))
     env = {u: 0.7 + 0.4j, h: 0.2 - 0.6j}
     expected = np.conj(env[h]) if body is conjugate else 2 * np.real(np.conj(env[u]) * env[h])
@@ -67,7 +67,7 @@ def test_new_argument_follows_existing_form_arguments():
     V = space("real", scalar_type=ScalarType.real)
     u, v, w, h = (function(V, label) for label in ("u", "v", "w", "h"))
     F = form(u * u * v, (v,))
-    e = gateaux_derivative(F, u, u, w)
+    e = form(directional_derivative(F, u, u, w), (w,))
     assert e.argument_spaces == (V, V)
     applied = lower(action(e, 1, h))
     assert applied.argument_spaces == (V,)
@@ -77,7 +77,7 @@ def test_new_argument_follows_existing_form_arguments():
 def test_substitution_avoids_capturing_a_form_direction():
     V = space("capture", scalar_type=ScalarType.real)
     u, z, w = (function(V, label) for label in ("u", "z", "w"))
-    e = gateaux_derivative(u * z, u, u, w)
+    e = form(directional_derivative(u * z, u, u, w), (w,))
     changed = substitute(e, {z: w})
     assert changed.arguments[0] is not w
     assert np.isclose(evaluate(lower(changed), {u: 2, w: 3})((7,)), 21)
@@ -88,18 +88,18 @@ def test_third_complex_derivative_has_the_expected_multilinear_value():
     u = function(V, "u")
     e = u * u * u * u
     for n in range(3):
-        e = gateaux_derivative(e, u, u, function(V, f"w{n}"))
+        e = form(directional_derivative(e, u, u, function(V, f"w{n}")), (function(V, f"w{n}"),))
     args = (0.2 + 0.1j, -0.3j, 0.7 - 0.1j)
     assert e.argument_spaces == (V, V, V)
     x = 0.7 + 0.2j
     assert np.isclose(evaluate(lower(e), {u: x})(args), 24 * x * np.prod(args))
 
 
-def test_direction_must_not_be_free_at_the_evaluation_point():
+def test_point_dependencies_remain_free_when_binding_a_fresh_direction():
     V = space("point", scalar_type=ScalarType.real)
-    u, w = function(V, "u"), function(V, "w")
-    with pytest.raises(ValueError, match="must not be free"):
-        gateaux_derivative(u * u, u, w + num(1), w)
+    u, w, h = (function(V, name) for name in ("u", "w", "h"))
+    e = form(directional_derivative(u * u, u, w + num(1), h), (h,))
+    assert np.isclose(evaluate(lower(e), {w: 2})((3,)), 18)
 
 
 @pytest.mark.parametrize("nonholomorphic", [False, True])
@@ -128,8 +128,8 @@ def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomo
         ),
         (conjugate(vT),),
     )
-    plus = gateaux_derivative(residual, uT, uT, wT)
-    minus = gateaux_derivative(residual, uT, uT, conjugate(wT))
+    plus = form(complex_derivative_parts(residual, uT, uT, wT)[0], (wT,))
+    minus = form(complex_derivative_parts(residual, uT, uT, wT)[1], (conjugate(wT),))
     U = np.array([0.4 + 0.1j, -0.2 + 0.3j, 0.6 - 0.2j, 0.1 - 0.4j])
     H = np.array([0.2 - 0.1j, 0.4 + 0.2j, -0.1j, 0.3 + 0.1j])
     env = {"coefficients:u": U}
@@ -171,8 +171,8 @@ def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphi
         ),
         (conjugate(vT),),
     )
-    plus = gateaux_derivative(residual, uT, uT, wT)
-    minus = gateaux_derivative(residual, uT, uT, conjugate(wT))
+    plus = form(complex_derivative_parts(residual, uT, uT, wT)[0], (wT,))
+    minus = form(complex_derivative_parts(residual, uT, uT, wT)[1], (conjugate(wT),))
     applied = action(action(plus, 1, hT), 0, conjugate(zT)) + action(
         action(minus, 1, conjugate(hT)), 0, conjugate(zT)
     )

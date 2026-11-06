@@ -16,13 +16,14 @@ from uflx_spec_interpreter import (
     apply_derivatives,
     conjugate,
     dual_space,
+    form,
     function,
-    gateaux_derivative,
     index,
     num,
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
+from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
     Action,
@@ -76,8 +77,8 @@ def test_opaque_library_dual_function_needs_no_custom_simplification():
     u, w = function(V, "u"), function(V, "w")
     L = function(dual_space(V), "library-operator")
     F = action(L, 0, u * u)
-    plus = lower(gateaux_derivative(F, u, u, w))
-    minus = lower(gateaux_derivative(F, u, u, conjugate(w)))
+    plus = lower(form(complex_derivative_parts(F, u, u, w)[0], (w,)))
+    minus = lower(form(complex_derivative_parts(F, u, u, w)[1], (conjugate(w),)))
     assert not any(isinstance(n, Action) for n in nodes(minus))
     env = {u: 0.7 + 0.2j, L: lambda z: (2 + 3j) * z}
     h = 0.3 - 0.1j
@@ -163,8 +164,8 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
     V = space("opaque-nonlinear")
     u, w = function(V, "u"), function(V, "w")
     a, h = num(0.7 + 0.2j), num(0.3 - 0.1j)
-    plus = gateaux_derivative(LibraryValue(u), u, a, w)
-    minus = gateaux_derivative(LibraryValue(u), u, a, conjugate(w))
+    plus = form(complex_derivative_parts(LibraryValue(u), u, a, w)[0], (w,))
+    minus = form(complex_derivative_parts(LibraryValue(u), u, a, w)[1], (conjugate(w),))
     symbolic_minus = lower(minus)
     if expose_direction:
         assert not any(isinstance(n, LibrarySlope | LibraryJVP) for n in nodes(symbolic_minus))
@@ -225,7 +226,7 @@ def test_rotated_direction_uses_the_general_differential(monkeypatch, antilinear
         return original(*args, **kwargs)
 
     monkeypatch.setattr(derivatives, "deriv", record)
-    out = derivatives.apply_derivatives(gateaux_derivative(body, u, u, h))
+    out = derivatives.apply_derivatives(form(complex_derivative_parts(body, u, u, h)[0], (h,)))
     assert len(calls) == 2
     point, direction = 0.7 + 0.2j, 0.3 - 0.1j
     expected = 0 if antilinear else 2 * point * direction
@@ -263,7 +264,9 @@ def test_mixed_differential_retains_general_projection(monkeypatch):
         return original(*args, **kwargs)
 
     monkeypatch.setattr(derivatives, "deriv", record)
-    out = derivatives.apply_derivatives(gateaux_derivative(u * conjugate(u), u, u, h))
+    out = derivatives.apply_derivatives(
+        form(complex_derivative_parts(u * conjugate(u), u, u, h)[0], (h,))
+    )
     assert len(calls) == 2
     point, direction = 0.7 + 0.2j, 0.3 - 0.1j
     assert np.isclose(evaluate(out, {u: point})((direction,)), point.conjugate() * direction)

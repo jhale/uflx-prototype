@@ -1,7 +1,6 @@
 """Completed recipes honor output contracts after substitution and extension work."""
 
 import numpy as np
-import pytest
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -58,7 +57,7 @@ def test_point_substitution_exposes_action_and_another_derivative():
     assert np.isclose(evaluate(out, {u: 2, h: 3})(()), 12)
 
 
-def test_checked_lowering_rejects_extension_and_accepts_completed_extension_recipe():
+def test_shape_convenience_uses_the_standard_derivative_and_lowering():
     from uflx_spec_interpreter._src.extensions.shape import (
         lower_with_shape_derivatives,
         shape_derivative,
@@ -66,10 +65,9 @@ def test_checked_lowering_rejects_extension_and_accepts_completed_extension_reci
 
     x, h = (function(space("shape-recipe"), name) for name in ("x", "h"))
     e = shape_derivative(x * x, x, h)
-    with pytest.raises(TypeError, match="outside core normal form") as error:
-        lower(e)
-    assert error.value.args[1][0][0] is e
-    out = lower_with_shape_derivatives(e)
+    assert e is directional_derivative(x * x, x, x, h)
+    out = lower(e)
+    assert lower_with_shape_derivatives(e) is out
     assert not core_normal_form(out)
     assert np.isclose(evaluate(out, {x: 2, h: 3})(()), 12)
 

@@ -7,9 +7,8 @@ from .actions import apply_actions
 from .arithmetic import expand_arithmetic
 from .contracts import core_normal_form
 from .derivatives import apply_derivatives
-from .gradients import apply_gradients
 from .integrals import expand_integrals
-from .pullbacks import expand_pull_backs
+from .spatial import lower_spatial as spatial_fixed_point
 
 
 def lower(f: AbstractExpression) -> AbstractExpression:
@@ -37,17 +36,5 @@ def lower(f: AbstractExpression) -> AbstractExpression:
 
 
 def lower_spatial(f: AbstractExpression) -> AbstractExpression:
-    # apply_gradients and expand_pull_backs until neither rewrites, the stage of the core after
-    # expand_integrals. A graph that the passes leave unchanged is the same object. Gradients on
-    # the domains of the forms come first, so a gradient of the coordinates is the identity.
-    seen = {f}
-    while True:
-        gradients = apply_gradients(f)
-        pulled_back = expand_pull_backs(gradients)
-        out = apply_derivatives(apply_actions(pulled_back))
-        if gradients == f and pulled_back == gradients and out == pulled_back:
-            return out
-        if out in seen:
-            raise ValueError("spatial lowering cycle", out)
-        seen.add(out)
-        f = out
+    """Resolve spatial operations and any derivatives they expose."""
+    return spatial_fixed_point(f, apply_derivatives)

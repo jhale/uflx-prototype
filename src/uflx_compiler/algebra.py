@@ -165,6 +165,10 @@ def _operator_rule(e: AbstractExpression) -> AbstractExpression:
             arguments == other_arguments
         ):
             return Form(add(left, right), arguments)
+        case Division(Form(body, arguments), denominator) if isinstance(denominator, Integer):
+            # Explicit complex projections divide by two. Keep declaration
+            # structure visible to assembly, as for numeric products above.
+            return Form(Division(body, denominator), arguments)
         case Conjugate(operand):
             coefficient, factors = _split_product(operand)
             if factors and coefficient != _ONE:

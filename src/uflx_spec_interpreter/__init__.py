@@ -21,7 +21,7 @@ from ._src.calculus import (
     gradient,
     integral,
 )
-from ._src.forms import action, form, function, gateaux_derivative
+from ._src.forms import action, form, function
 from ._src.geometry import density, inverse_jacobian, jacobian
 from ._src.indices import gathered_index, index
 from ._src.literals import num
@@ -95,7 +95,6 @@ __all__ = [
     "expand_pull_backs",
     "form",
     "function",
-    "gateaux_derivative",
     "gathered_index",
     "gradient",
     "image",

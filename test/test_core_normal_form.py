@@ -9,7 +9,6 @@ from uflx_spec_interpreter import (
     dual_space,
     form,
     function,
-    gateaux_derivative,
     gradient,
     integral,
     multiply,
@@ -51,7 +50,7 @@ def test_the_core_normal_form_rejects_what_its_table_leaves_out():
         # A cell of the dimension of the domain of the gradient, so the pass rewrites it.
         pull_back(gradient(u, D), cells),
         directional_derivative(multiply(v, v), v, v, w),
-        gateaux_derivative(multiply(v, v), v, v, w),
+        form(directional_derivative(multiply(v, v), v, v, w), (w,)),
         action(form(multiply(v, w), (v,)), 0, w),
         add(num(1), integral(u, D)),
     ):

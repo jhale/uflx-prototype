@@ -119,6 +119,10 @@ class Form(AbstractExpression):
         for a in self.arguments:
             if type(a) is tuple:
                 require(len(a) >= 2, "product binder needs at least two functions")
+                require(
+                    len({entry_function(member).space.scalar_type for member in a}) == 1,
+                    "product binder requires one scalar type",
+                )
             for f in argument_members(a):
                 f = entry_function(f)
                 require(

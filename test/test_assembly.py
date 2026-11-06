@@ -8,9 +8,9 @@ from testutil import push_forward
 from uflx_compiler import assemble, compile_form, evaluate, fold
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
+    directional_derivative,
     form,
     function,
-    gateaux_derivative,
     gradient,
     integral,
     normal,
@@ -78,15 +78,15 @@ def test_an_assembled_bilinear_form_with_facet_terms_on_a_mixed_mesh():
     assert np.allclose(assemble(form(interior_penalty(u, v, D, E), (vT, uT)), 3)({}, jnp), A)
 
 
-def test_the_gateaux_derivatives_assemble_to_the_derivatives_of_the_energy():
+def test_bound_directional_derivatives_assemble_to_the_energy_derivatives():
     # The residual and the tangent of the core are the gradient and the Hessian of the energy.
     D = mixed()[0]
     V = basix_space("V", D.topology, P, 2)
     uT, vT, wT = (function(V, n) for n in "uvw")
     u = push_forward(uT, D)
     energy = integral(num(0.5) * dot(u, u, D) + num(0.25) * u * u * u * u, D)
-    residual = gateaux_derivative(energy, uT, uT, vT)
-    tangent = gateaux_derivative(residual, uT, uT, wT)
+    residual = form(directional_derivative(energy, uT, uT, vT), (vT,))
+    tangent = form(directional_derivative(residual, uT, uT, wT), (wT,))
     key = "coefficients:u"
     U = np.random.default_rng(10).normal(size=V.num_dofs) * 0.5
     compiled = compile_form(energy, 8)

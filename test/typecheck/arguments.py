@@ -9,8 +9,9 @@ from uflx_spec_interpreter import (
     Integer,
     Zero,
     add,
+    directional_derivative,
     domain_map,
-    gateaux_derivative,
+    form,
     lower,
     num,
     tensor,
@@ -46,11 +47,11 @@ def valid(f: Function, g: Function) -> None:
 
 
 def invalid(u: Function, v: Function, w: Function, z: Function, mesh: Mesh) -> None:
-    gateaux_derivative(3, u, u, w)  # expect: reportArgumentType
-    gateaux_derivative(u, num(1), u, w)  # expect: reportArgumentType
-    gateaux_derivative(u, (u, num(1)), (u, v), (w, z))  # expect: reportArgumentType
-    gateaux_derivative(u, u, u, num(1))  # expect: reportArgumentType
-    gateaux_derivative(u, u, 1, w)  # expect: reportArgumentType
+    directional_derivative(3, u, u, w)  # expect: reportArgumentType
+    directional_derivative(u, num(1), u, w)  # expect: reportArgumentType
+    directional_derivative(u, (u, num(1)), (u, v), (w, z))  # expect: reportArgumentType
+    directional_derivative(u, u, 1, w)  # expect: reportArgumentType
+    form(directional_derivative(u, u, u, num(1)), (num(1),))  # expect: reportArgumentType
     derivatives_expanded(3)  # expect: reportArgumentType
     reference_integration(3)  # expect: reportArgumentType
     core_normal_form(3)  # expect: reportArgumentType
