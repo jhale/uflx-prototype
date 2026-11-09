@@ -101,6 +101,31 @@ class Base(metaclass=_Interned):
         return ()
 
 
+def construction_equal(left: Construction, right: Construction) -> bool:
+    """Compare construction data exactly, treating embedded nodes as identities.
+
+    Unlike Python tuple equality, preserve numeric types and signed floating
+    zero, as the construction digest does. Traverse tuples without recursion.
+    """
+    pending = [(left, right)]
+    while pending:
+        a, b = pending.pop()
+        if a is b:
+            continue
+        if type(a) is not type(b):
+            return False
+        if isinstance(a, tuple) and isinstance(b, tuple):
+            if len(a) != len(b):
+                return False
+            pending.extend(zip(reversed(a), reversed(b), strict=True))
+        elif isinstance(a, float) and isinstance(b, float):
+            if repr(a) != repr(b):
+                return False
+        elif a != b:
+            return False
+    return True
+
+
 def _encode(value: Construction) -> str:
     if isinstance(value, tuple):
         return "(" + ",".join(map(_encode, value)) + ")"

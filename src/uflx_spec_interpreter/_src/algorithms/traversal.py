@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from typing import Concatenate, ParamSpec, TypeVar, cast
 
 from ..nodes import AbstractExpression, AbstractFunctionSpace, Base
+from ..nodes.base import construction_equal
 from ..nodes.structure import expression_operands
 from ..nodes.types import Construction
 
@@ -16,7 +17,9 @@ _R = TypeVar("_R")
 def rebuild(e: Base, **changes: Construction) -> Construction:
     # An unknown name adds an argument, which the class rejects.
     values = dict(zip(e.argument_names, e.construction_arguments)) | changes
-    if tuple(values) == e.argument_names and tuple(values.values()) == e.construction_arguments:
+    if tuple(values) == e.argument_names and construction_equal(
+        tuple(values.values()), e.construction_arguments
+    ):
         return e
     from ..nodes import ConjugateSpace, DualSpace
     from ..spaces import conjugate_space, dual_space
