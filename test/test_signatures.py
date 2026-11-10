@@ -42,13 +42,12 @@ def test_the_public_free_functions_take_the_parameters_of_the_specification():
         "Integer",
         "ScalarType",
         "Zero",
-        "algorithms",
         "num",
         "replace",
         "reference_integral",
     }
     assert set(uflx_spec_interpreter.__all__) == set(spec) | conveniences
-    stand_ins = {"algorithms", "num", "replace", "reference_integral"}
+    stand_ins = {"num", "replace", "reference_integral"}
     for name in uflx_spec_interpreter.__all__:
         if name in stand_ins:
             continue

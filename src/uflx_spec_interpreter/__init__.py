@@ -1,4 +1,3 @@
-from . import algorithms
 from ._src.algorithms.substitution import replace
 from ._src.arithmetic import (
     absolute,
@@ -61,7 +60,7 @@ from ._src.tensors import (
 from ._src.topology import cell_index
 
 # The free functions of the specification, the class RD, the scalar types, and the
-# short name num, plus the explicit algorithms namespace.
+# short name num.
 __all__ = [
     "RD",
     "Complex",
@@ -72,7 +71,6 @@ __all__ = [
     "absolute",
     "action",
     "add",
-    "algorithms",
     "apply_actions",
     "apply_derivatives",
     "apply_gradients",

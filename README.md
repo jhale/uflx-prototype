@@ -235,10 +235,11 @@ parameter types without changing interning or structural equality. Derivative
 points and directions remain outside the variable scope. `test_shared_binding.py`
 checks these laws across all four core binder kinds and mixed nesting.
 
-Compiler consumers can import the alpha utilities from `uflx_spec_interpreter.algorithms`:
+The alpha utilities live in `uflx_spec_interpreter/_src/algorithms/`:
 
 ```python
-from uflx_spec_interpreter.algorithms import AlphaHasher, alpha_equivalent, alpha_hash
+from uflx_spec_interpreter._src.algorithms.alpha import AlphaHasher, alpha_hash
+from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
 
 key = alpha_hash(expression)  # One expression, with a temporary cache.
 hasher = AlphaHasher()  # Reuse summaries across a compiler pass.

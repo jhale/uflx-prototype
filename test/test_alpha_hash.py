@@ -1,4 +1,4 @@
-"""Public alpha fingerprints preserve lexical identity and support cache reuse."""
+"""Alpha fingerprints preserve lexical identity and support cache reuse."""
 
 import os
 import random
@@ -20,8 +20,9 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms._alpha_dependencies import Dependencies
+from uflx_spec_interpreter._src.algorithms.alpha import AlphaHasher, alpha_hash
+from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
 from uflx_spec_interpreter._src.algorithms.substitution import rename_bound
-from uflx_spec_interpreter.algorithms import AlphaHasher, alpha_equivalent, alpha_hash
 from uflx_toy.spaces import space
 
 
@@ -155,7 +156,7 @@ def test_dependency_and_irrelevant_scope_scaling():
 
 def test_cross_process_determinism():
     code = """
-from uflx_spec_interpreter.algorithms import alpha_hash
+from uflx_spec_interpreter._src.algorithms.alpha import alpha_hash
 from uflx_spec_interpreter import form, function
 from uflx_toy.spaces import space
 v = function(space('hash', scalar_type='real'), 'v')
