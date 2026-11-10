@@ -165,6 +165,11 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
     return True
 
 
+def construction_nodes(value: Construction) -> Iterator[Base]:
+    """Iterate node dependencies through tuples without traversing node fields."""
+    return _construction_nodes(value)
+
+
 def _construction_nodes(value: Construction) -> Iterator[Base]:
     """Iterate immediate node dependencies through arbitrarily nested tuples."""
     pending = [value]

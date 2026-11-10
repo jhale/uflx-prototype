@@ -235,6 +235,26 @@ parameter types without changing interning or structural equality. Derivative
 points and directions remain outside the variable scope. `test_shared_binding.py`
 checks these laws across all four core binder kinds and mixed nesting.
 
+Compiler consumers can import the alpha utilities from `uflx_spec_interpreter.algorithms`:
+
+```python
+from uflx_spec_interpreter.algorithms import AlphaHasher, alpha_equivalent, alpha_hash
+
+key = alpha_hash(expression)  # One expression, with a temporary cache.
+hasher = AlphaHasher()  # Reuse summaries across a compiler pass.
+if hasher.fingerprint(left) == hasher.fingerprint(right):
+    same = alpha_equivalent(left, right)  # Hash collisions still require this check.
+hasher.clear()  # Release cached graphs when the pass finishes.
+```
+
+The implementation uses the reference-based alpha-summary algorithm with deterministic
+128-bit integer mixing, persistent occurrence maps and shared dependency sets. It
+preserves opaque labels, parameter signatures, tuple grouping and conjugation.
+Fingerprints are deterministic for the same construction data across processes, but
+are not a versioned disk-cache format or cryptographic hashes. These are explicit
+utilities; ordinary node equality, hashing and interning retain their existing meaning.
+The comparison prototypes and benchmarks remain in `scratch/alpha_hash`.
+
 Free-occurrence checks distinguish construction and value dependencies.
 Declarations are not free uses, but their parameter types contribute dependencies;
 labels remain opaque. Capture checks inspect construction dependencies.

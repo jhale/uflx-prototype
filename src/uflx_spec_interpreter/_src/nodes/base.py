@@ -126,6 +126,11 @@ def construction_equal(left: Construction, right: Construction) -> bool:
     return True
 
 
+def construction_encoding(value: Construction) -> str:
+    """Encode construction data with exact scalar types and opaque node identities."""
+    return _encode(value)
+
+
 def _encode(value: Construction) -> str:
     if isinstance(value, tuple):
         return "(" + ",".join(map(_encode, value)) + ")"
