@@ -186,28 +186,34 @@ def test_alpha_interning_collects_renamed_opaque_sums(index_count):
 
 
 def test_alpha_atom_buckets_check_collisions_and_preserve_free_identities(monkeypatch):
-    from uflx_spec_interpreter import form, function
-    from uflx_spec_interpreter._src.optimisation.encoding import Codec
+    from uflx_spec_interpreter import function
+    from uflx_spec_interpreter._src.algorithms.alpha import AlphaHasher
+    from uflx_spec_interpreter._src.optimisation.encoding import decode, encode
     from uflx_toy.spaces import space
 
     V = space("alpha-atom", scalar_type="real")
-    u, v, w = (function(V, name) for name in ("u", "v", "w"))
-    codec = Codec(encode_indices=False)
-    monkeypatch.setattr(codec.hasher, "fingerprint", lambda expression: 0)
-    assert codec.atom_key(u * u) != codec.atom_key(v * v)
-    a, b = form(u * w, (u,)), form(v * w, (v,))
-    assert codec.atom_key(a) == codec.atom_key(b)
-    assert codec.originals[codec.atom_key(b)] is a
-    assert codec.atom_key(form(v * u, (v,))) != codec.atom_key(a)
-    assert codec.alpha_merges == 1
+    u, v = (function(V, name) for name in ("u", "v"))
+    i, j = index("i"), index("j")
+    a = RuntimeArray("alpha-array", (3,))
+    left = index_sum(u * a[i], (i,))
+    renamed = index_sum(u * a[j], (j,))
+    different = index_sum(v * a[i], (i,))
+    monkeypatch.setattr(AlphaHasher, "fingerprint", lambda self, expression: 0)
+    region = encode(left + renamed + different + u + v, encode_indices=False)
+    assert region.originals == (left, different, u, v)
+    assert region.alpha_merges == 1
+    assert decode(region.expression, region) is left + left + different + u + v
 
 
 def test_codec_roundtrip_preserves_original_opaque_objects():
-    from uflx_spec_interpreter._src.optimisation.encoding import Codec
+    from uflx_spec_interpreter._src.optimisation.encoding import decode, encode
 
     node = RuntimeArray("opaque-reference", ())
-    codec = Codec(encode_indices=False)
-    assert codec.decode(codec.encode(node)) is node
+    region = encode(node, encode_indices=False)
+    # A second encoding must not change the first region's reconstruction table.
+    other = encode(RuntimeArray("other-reference", ()), encode_indices=False)
+    assert region.originals != other.originals
+    assert decode(region.expression, region) is node
 
 
 def test_options_and_search_reports():
@@ -331,8 +337,8 @@ def test_delta_does_not_discard_unknown_vector_components():
     assert_values(original, result, {"unknown-vector": np.arange(3.0)})
 
 
-@pytest.mark.parametrize("preserve_floating_point", [False, True])
-def test_empty_sum_does_not_expose_undefined_factor(preserve_floating_point):
+@pytest.mark.parametrize("preserve_floating_point_evaluation", [False, True])
+def test_empty_sum_does_not_expose_undefined_factor(preserve_floating_point_evaluation):
     from uflx_spec_interpreter import broadcast_to
 
     i = index("empty")
@@ -340,7 +346,8 @@ def test_empty_sum_does_not_expose_undefined_factor(preserve_floating_point):
     body = broadcast_to(num(2), (0,))[i] * partial
     original = index_sum(body, (i,))
     result = optimise(
-        original, OptimisationOptions(preserve_floating_point=preserve_floating_point)
+        original,
+        OptimisationOptions(preserve_floating_point_evaluation=preserve_floating_point_evaluation),
     ).expression
     assert isinstance(result, Zero)
 
@@ -349,7 +356,7 @@ def test_empty_sum_does_not_expose_undefined_factor(preserve_floating_point):
 def test_preserving_mode_keeps_grouping_and_finishing_cleanup_disabled(groups):
     x = RuntimeArray("ordered", ())
     original = ((x + num(1.0)) + num(-1.0)) * num(0)
-    options = OptimisationOptions(preserve_floating_point=True, rule_groups=groups)
+    options = OptimisationOptions(preserve_floating_point_evaluation=True, rule_groups=groups)
     result = optimise(original, options)
     assert result.expression is original
     assert not result.report.regions
@@ -363,18 +370,20 @@ def test_preserving_mode_keeps_signed_zero_and_reduction_order():
     i = index("ordered-sum")
     a = RuntimeArray("ordered-array", (3,))
     original = index_sum(a[i] * num(2), (i,))
-    options = OptimisationOptions(preserve_floating_point=True)
+    options = OptimisationOptions(preserve_floating_point_evaluation=True)
     assert optimise(original, options).expression is original
     negative_zero = num(-0.0) + num(0)
     assert optimise(negative_zero, options).expression is negative_zero
     assert not np.signbit(evaluate(negative_zero, {}))
 
 
-@pytest.mark.parametrize("preserve_floating_point", [False, True])
-def test_structural_tensor_selection_and_broadcast(preserve_floating_point):
+@pytest.mark.parametrize("preserve_floating_point_evaluation", [False, True])
+def test_structural_tensor_selection_and_broadcast(preserve_floating_point_evaluation):
     from uflx_spec_interpreter import broadcast_to
 
-    options = OptimisationOptions(preserve_floating_point=preserve_floating_point)
+    options = OptimisationOptions(
+        preserve_floating_point_evaluation=preserve_floating_point_evaluation
+    )
     original = tensor((tensor((num(2), num(3))), tensor((num(5), num(7)))))[1, 0]
     assert optimise(original, options).expression is num(5)
     i = index("broadcast")
@@ -386,11 +395,13 @@ def test_structural_tensor_selection_and_broadcast(preserve_floating_point):
     assert optimise(broadcast_to(x, (3,))[1], options).expression is x
 
 
-@pytest.mark.parametrize("preserve_floating_point", [False, True])
-def test_complex_simplifications_preserve_undefined_operands(preserve_floating_point):
+@pytest.mark.parametrize("preserve_floating_point_evaluation", [False, True])
+def test_complex_simplifications_preserve_undefined_operands(preserve_floating_point_evaluation):
     from uflx_spec_interpreter import conjugate, imaginary_part, real_part
 
-    options = OptimisationOptions(preserve_floating_point=preserve_floating_point)
+    options = OptimisationOptions(
+        preserve_floating_point_evaluation=preserve_floating_point_evaluation
+    )
     x = RuntimeArray("complex-real", ())
     partial = num(1) / x
     assert optimise(conjugate(conjugate(partial)), options).expression is partial
@@ -401,14 +412,16 @@ def test_complex_simplifications_preserve_undefined_operands(preserve_floating_p
 
 
 def test_reject_nonboolean_fp_policy():
-    with pytest.raises(ValueError, match="preserve_floating_point"):
-        OptimisationOptions(preserve_floating_point="no")
+    with pytest.raises(ValueError, match="preserve_floating_point_evaluation"):
+        OptimisationOptions(preserve_floating_point_evaluation="no")
 
 
 def test_fp_policy_covers_overflow_in_known_defined_arithmetic():
     original = num(0) * (num(1) / num(5e-324))
     relaxed = optimise(original).expression
-    preserved = optimise(original, OptimisationOptions(preserve_floating_point=True)).expression
+    preserved = optimise(
+        original, OptimisationOptions(preserve_floating_point_evaluation=True)
+    ).expression
     assert isinstance(relaxed, Zero)
     assert preserved is original
     with np.errstate(over="ignore", invalid="ignore"):
@@ -418,7 +431,9 @@ def test_fp_policy_covers_overflow_in_known_defined_arithmetic():
 
 def test_preserving_mode_does_not_insert_complex_promotion_arithmetic():
     original = tensor((num(-0.0), num(1j)))[0]
-    result = optimise(original, OptimisationOptions(preserve_floating_point=True)).expression
+    result = optimise(
+        original, OptimisationOptions(preserve_floating_point_evaluation=True)
+    ).expression
     assert result is original
 
 

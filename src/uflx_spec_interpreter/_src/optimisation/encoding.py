@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from typing import cast
+from dataclasses import dataclass
+from functools import cache
 
 from egglog import BigInt, i64
 from egglog.deconstruct import get_callable_args
@@ -26,130 +27,117 @@ from ..tensors import broadcast_to, identity, index_sum, indexed
 from .language import Scalar
 
 
-class Codec:
-    """Allow free indices, with an explicit, deliberately small indexed language."""
+@dataclass(frozen=True)
+class EncodedRegion:
+    """An egglog expression and immutable tables for facts and reconstruction."""
 
-    def __init__(self, encode_indices: bool) -> None:
-        self.encode_indices = encode_indices
-        self.hasher = AlphaHasher()
-        self.buckets: dict[int, list[int]] = {}
-        self.alpha_merges = 0
-        self.atoms: dict[AbstractExpression, int] = {}
-        self.originals: list[AbstractExpression] = []
-        self.memo: dict[AbstractExpression, Scalar] = {}
-        self.indices: dict[Index, int] = {}
-        self.index_nodes: list[Index] = []
+    expression: Scalar
+    originals: tuple[AbstractExpression, ...]
+    indices: tuple[Index, ...]
+    terms: tuple[tuple[AbstractExpression, Scalar], ...]
+    alpha_merges: int
 
-    def index_key(self, index: Index) -> int:
-        if index not in self.indices:
-            self.indices[index] = len(self.index_nodes)
-            self.index_nodes.append(index)
-        return self.indices[index]
 
-    def atom_key(self, expression: AbstractExpression) -> int:
-        """Intern modulo alpha-equivalence, preserving all free identities.
+def encode(expression: AbstractExpression, *, encode_indices: bool) -> EncodedRegion:
+    """Encode one region, interning opaque atoms modulo alpha-equivalence.
 
-        A representative may change names bound inside this atom only. No enclosing
-        binding environment is supplied, so open bodies cannot be identified by
-        renaming their free names.
-        """
-        if expression in self.atoms:
-            return self.atoms[expression]
-        fingerprint = self.hasher.fingerprint(expression)
-        bucket = self.buckets.setdefault(fingerprint, [])
-        for key in bucket:
-            if alpha_equivalent(expression, self.originals[key]):
-                self.atoms[expression] = key
-                self.alpha_merges += 1
-                return key
-        key = len(self.originals)
-        self.originals.append(expression)
-        bucket.append(key)
-        self.atoms[expression] = key
-        return key
+    All mutable tables belong to this call. Free identities remain significant;
+    alpha comparison renames only names bound inside an atom.
+    """
+    hasher = AlphaHasher()
+    buckets: dict[int, list[int]] = {}
+    atoms: dict[AbstractExpression, int] = {}
+    originals: list[AbstractExpression] = []
+    terms: dict[AbstractExpression, Scalar] = {}
+    indices: dict[Index, int] = {}
 
-    def encode(self, expression: AbstractExpression) -> Scalar:
-        if expression in self.memo:
-            return self.memo[expression]
+    def index_key(index: Index) -> int:
+        return indices.setdefault(index, len(indices))
+
+    def atom_key(node: AbstractExpression) -> int:
+        if node not in atoms:
+            bucket = buckets.setdefault(hasher.fingerprint(node), [])
+            key = next((k for k in bucket if alpha_equivalent(node, originals[k])), None)
+            if key is None:
+                key = len(originals)
+                originals.append(node)
+                bucket.append(key)
+            atoms[node] = key
+        return atoms[node]
+
+    def visit(node: AbstractExpression) -> Scalar:
+        if node not in terms:
+            terms[node] = encode_node(node)
+        return terms[node]
+
+    def encode_node(expression: AbstractExpression) -> Scalar:
         if expression.value_shape or expression.argument_spaces:
             raise ValueError("indexed codec requires scalar values with no form arguments")
-        if isinstance(expression, Zero):
-            result = Scalar.integer(BigInt(0))
-        elif isinstance(expression, Integer):
-            result = Scalar.integer(BigInt.from_string(str(expression.value)))
-        elif isinstance(expression, Sum | Product):
-            a, b = self.encode(expression.first), self.encode(expression.second)
-            result = a + b if isinstance(expression, Sum) else a * b
-        elif (
-            self.encode_indices
-            and isinstance(expression, IndexSum)
-            and len(expression.indices) == 1
-            and isinstance(
-                n := dict(expression.expression.free_indices)[expression.indices[0]], int
-            )
-        ):
-            result = Scalar.summed(
-                self.encode(expression.expression),
-                i64(self.index_key(expression.indices[0])),
-                i64(n),
-            )
-        elif (
-            self.encode_indices
-            and isinstance(expression, Indexed)
-            and len(expression.indices) == 2
-            and all(isinstance(i, Index) for i in expression.indices)
-            and isinstance(expression.expression, Tensor)
-            and len(shape := expression.expression.value_shape) == 2
-            and isinstance(shape[0], int)
-            and shape[0] == shape[1]
-            and expression.expression == identity(shape[0])
-        ):
-            result = Scalar.delta(
-                i64(shape[0]), *(i64(self.index_key(cast(Index, i))) for i in expression.indices)
-            )
-        elif (
-            self.encode_indices
-            and isinstance(expression, Indexed)
-            and len(expression.indices) == 1
-            and isinstance(expression.indices[0], Index)
-            and not expression.expression.free_indices
-            and len(shape := expression.expression.value_shape) == 1
-            and isinstance(shape[0], int)
-        ):
-            result = (
-                Scalar.integer(BigInt(0))
-                if isinstance(expression.expression, Zero)
-                else Scalar.at(
-                    i64(self.atom_key(expression.expression)),
-                    i64(self.index_key(expression.indices[0])),
-                    i64(shape[0]),
+        match expression:
+            case Zero():
+                return Scalar.integer(BigInt(0))
+            case Integer(value=value):
+                return Scalar.integer(BigInt.from_string(str(value)))
+            case Sum(first=a, second=b):
+                return visit(a) + visit(b)
+            case Product(first=a, second=b):
+                return visit(a) * visit(b)
+            case IndexSum(expression=body, indices=(i,)) if encode_indices and isinstance(
+                n := dict(body.free_indices)[i], int
+            ):
+                return Scalar.summed(visit(body), i64(index_key(i)), i64(n))
+            case Indexed(expression=Tensor() as source, indices=(Index() as i, Index() as j)) if (
+                encode_indices
+                and isinstance(n := source.value_shape[0], int)
+                and source.value_shape == (n, n)
+                and source == identity(n)
+            ):
+                return Scalar.delta(i64(n), i64(index_key(i)), i64(index_key(j)))
+            case Indexed(expression=source, indices=(Index() as i,)) if (
+                encode_indices
+                and not source.free_indices
+                and isinstance(n := source.value_shape[0], int)
+            ):
+                return (
+                    Scalar.integer(BigInt(0))
+                    if isinstance(source, Zero)
+                    else Scalar.at(i64(atom_key(source)), i64(index_key(i)), i64(n))
                 )
-            )
-        else:
-            result = Scalar.atom(i64(self.atom_key(expression)))
-        self.memo[expression] = result
-        return result
+            case _:
+                return Scalar.atom(i64(atom_key(expression)))
 
-    def decode(self, expression: Scalar) -> AbstractExpression:
+    encoded = visit(expression)
+    return EncodedRegion(
+        encoded, tuple(originals), tuple(indices), tuple(terms.items()), len(atoms) - len(originals)
+    )
+
+
+def decode(expression: Scalar, region: EncodedRegion) -> AbstractExpression:
+    """Reconstruct an expression using the original opaque objects."""
+
+    @cache
+    def visit(expression: Scalar) -> AbstractExpression:
         if (args := get_callable_args(expression, Scalar.at)) is not None:
             k, i, _ = (a.value for a in args)
-            return indexed(self.originals[k], (self.index_nodes[i],))
+            return indexed(region.originals[k], (region.indices[i],))
         if (args := get_callable_args(expression, Scalar.delta)) is not None:
             n, i, j = (a.value for a in args)
-            return indexed(identity(n), (self.index_nodes[i], self.index_nodes[j]))
+            return indexed(identity(n), (region.indices[i], region.indices[j]))
         if (args := get_callable_args(expression, Scalar.summed)) is not None:
             child, i, n = args
-            body = self.decode(child)
-            index, extent = self.index_nodes[i.value], n.value
+            body = visit(child)
+            index, extent = region.indices[i.value], n.value
             if index not in dict(body.free_indices):
                 body = indexed(broadcast_to(body, (extent,)), (index,))
             return index_sum(body, (index,))
         if (args := get_callable_args(expression, Scalar.integer)) is not None:
             return num(args[0].value)
         if (args := get_callable_args(expression, Scalar.atom)) is not None:
-            return self.originals[args[0].value]
+            return region.originals[args[0].value]
         if (args := get_callable_args(expression, Scalar.__add__)) is not None:
-            return self.decode(args[0]) + self.decode(args[1])
+            return visit(args[0]) + visit(args[1])
         if (args := get_callable_args(expression, Scalar.__mul__)) is not None:
-            return self.decode(args[0]) * self.decode(args[1])
+            return visit(args[0]) * visit(args[1])
         raise TypeError(f"unexpected extracted expression: {expression}")
+
+    return visit(expression)

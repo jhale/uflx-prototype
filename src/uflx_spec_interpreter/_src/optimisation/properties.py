@@ -2,7 +2,6 @@
 """Conservative facts used to guard removal of potentially undefined expressions."""
 
 from collections.abc import Callable
-from functools import cache
 
 from ..nodes import (
     Absolute,
@@ -26,46 +25,35 @@ from ..nodes import (
 )
 
 
-def definedness() -> Callable[[AbstractExpression], bool]:
-    """Return a per-invocation fact cache; False means unknown, not undefined.
+def is_defined(known: Callable[[AbstractExpression], bool], expression: AbstractExpression) -> bool:
+    """Check known mathematical definedness; False means unknown, not undefined.
 
-    Literal arithmetic and structurally total operations are recognised. Runtime
-    terminals and extension nodes are deliberately unknown. These facts concern
-    mathematical values, not floating-point overflow or NaNs.
+    Compose with the core's memoized traversal to share facts within one run.
+    Runtime terminals and extension nodes remain unknown. Floating-point overflow
+    and NaNs are outside this mathematical check.
     """
-
-    @cache
-    def known(expression: AbstractExpression) -> bool:
-        match expression:
-            case Integer() | Float() | Complex() | Zero():
-                return True
-            case Sum() | Product():
-                return known(expression.first) and known(expression.second)
-            case Division():
-                denominator = expression.second
-                return (
-                    isinstance(denominator, Integer | Float)
-                    and denominator.value != 0
-                    and known(expression.first)
-                )
-            case Absolute() | Conjugate() | RealPart() | ImaginaryPart():
-                return known(expression.operand)
-            case Tensor():
-                return all(known(entry) for entry in expression.entries)
-            case BroadcastTo():
-                return known(expression.value)
-            case ComponentTensor():
-                return known(expression.expression)
-            case Indexed():
-                return all(isinstance(i, int | Index) for i in expression.indices) and known(
-                    expression.expression
-                )
-            case IndexSum():
-                extents = dict(expression.expression.free_indices)
-                return any(extents[i] == 0 for i in expression.indices) or known(
-                    expression.expression
-                )
-            case _:
-                return False
-
-    return known
+    match expression:
+        case Integer() | Float() | Complex() | Zero():
+            return True
+        case Sum(first=a, second=b) | Product(first=a, second=b):
+            return known(a) and known(b)
+        case Division(first=a, second=Integer(value=value) | Float(value=value)):
+            return value != 0 and known(a)
+        case (
+            Absolute(operand=a)
+            | Conjugate(operand=a)
+            | RealPart(operand=a)
+            | ImaginaryPart(operand=a)
+        ):
+            return known(a)
+        case Tensor(entries=entries):
+            return all(map(known, entries))
+        case BroadcastTo(value=a) | ComponentTensor(expression=a):
+            return known(a)
+        case Indexed(expression=a, indices=indices):
+            return all(isinstance(i, int | Index) for i in indices) and known(a)
+        case IndexSum(expression=a, indices=indices):
+            extents = dict(a.free_indices)
+            return any(extents[i] == 0 for i in indices) or known(a)
+        case _:
+            return False

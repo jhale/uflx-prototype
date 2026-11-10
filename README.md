@@ -37,7 +37,7 @@ result = optimise(
     expression,
     OptimisationOptions(
         rule_groups=("arithmetic", "indexed"),
-        preserve_floating_point=False,  # True preserves arithmetic operations and grouping.
+        preserve_floating_point_evaluation=False,  # True preserves arithmetic operations and grouping.
         iterations=3,
         max_region_nodes=60,
         cost="loops",  # Or "tree"; a custom cost_model can be passed to optimise.
@@ -73,7 +73,7 @@ index sums are opaque and can share modulo renaming of their own bound indices.
 UFLx's original interned object references.
 
 These are exact real/complex algebraic transformations, not guarantees of identical
-floating-point execution. Set `preserve_floating_point=True` to retain arithmetic
+floating-point execution. Set `preserve_floating_point_evaluation=True` to retain arithmetic
 operations and reduction order, including constant arithmetic and operations
 inside opaque nodes. This mode runs structural cleanup only, skips both egglog
 search and arithmetic finishing cleanup, and reports no search regions. It makes

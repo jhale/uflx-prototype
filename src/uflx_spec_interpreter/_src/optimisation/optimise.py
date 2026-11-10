@@ -17,20 +17,20 @@ if TYPE_CHECKING:
 class OptimisationOptions:
     """Select algebraic search and its budgets; these are not wall-clock limits.
 
-    preserve_floating_point defaults to False, permitting mathematical rewrites
+    preserve_floating_point_evaluation defaults to False, permitting mathematical rewrites
     that alter floating-point evaluation. True applies structural simplifications
     only, retaining arithmetic operations, grouping and reduction order.
     """
 
     rule_groups: tuple[Literal["arithmetic", "indexed"], ...] = ("arithmetic", "indexed")
-    preserve_floating_point: bool = False
+    preserve_floating_point_evaluation: bool = False
     iterations: int = 3
     max_region_nodes: int = 60
     cost: Literal["tree", "loops"] = "loops"
 
     def __post_init__(self) -> None:
-        if type(self.preserve_floating_point) is not bool:
-            raise ValueError("preserve_floating_point must be a bool")
+        if type(self.preserve_floating_point_evaluation) is not bool:
+            raise ValueError("preserve_floating_point_evaluation must be a bool")
         if not self.rule_groups or set(self.rule_groups) - {"arithmetic", "indexed"}:
             raise ValueError("select arithmetic and/or indexed rule groups")
         if type(self.iterations) is not int or self.iterations < 1:
@@ -80,7 +80,7 @@ def optimise(
 ) -> OptimisationResult:
     """Optimise supported scalar regions, retaining other UFLx operations.
 
-    With preserve_floating_point=False, uses exact real/complex identities. True retains
+    With preserve_floating_point_evaluation=False, uses exact real/complex identities. True retains
     arithmetic operations and reduction order, applying structural rewrites only.
     Opaque atoms share modulo alpha-equivalence; cross-invocation caching and
     general binder rewriting are not implemented.
