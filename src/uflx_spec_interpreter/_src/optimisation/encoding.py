@@ -13,6 +13,7 @@ from ..algorithms.alpha import AlphaHasher
 from ..algorithms.binding import alpha_equivalent
 from ..literals import num
 from ..nodes import (
+    Absolute,
     AbstractExpression,
     Conjugate,
     ImaginaryPart,
@@ -20,6 +21,8 @@ from ..nodes import (
     Indexed,
     IndexSum,
     Integer,
+    Logarithm,
+    Power,
     Product,
     RealPart,
     Sum,
@@ -77,6 +80,8 @@ def encode(
 
     def encode_node(expression: AbstractExpression) -> Scalar:
         match expression:
+            case Absolute(operand=a):
+                return visit(a).absolute()
             case Conjugate(operand=a):
                 return visit(a).conjugate()
             case RealPart(operand=a):
@@ -91,6 +96,10 @@ def encode(
                 return Scalar.integer(BigInt(0))
             case Integer(value=value):
                 return Scalar.integer(BigInt.from_string(str(value)))
+            case Power(first=a, second=b):
+                return visit(a).power(visit(b))
+            case Logarithm(operand=a):
+                return visit(a).logarithm()
             case Sum(first=a, second=b):
                 return visit(a) + visit(b)
             case Product(first=a, second=b):
@@ -130,6 +139,12 @@ def decode(expression: Scalar, region: EncodedRegion) -> AbstractExpression:
 
     @cache
     def visit(expression: Scalar) -> AbstractExpression:
+        if (args := get_callable_args(expression, Scalar.power)) is not None:
+            return Power(visit(args[0]), visit(args[1]))
+        if (args := get_callable_args(expression, Scalar.absolute)) is not None:
+            return Absolute(visit(args[0]))
+        if (args := get_callable_args(expression, Scalar.logarithm)) is not None:
+            return Logarithm(visit(args[0]))
         if (args := get_callable_args(expression, Scalar.conjugate)) is not None:
             return Conjugate(visit(args[0]))
         if (args := get_callable_args(expression, Scalar.real_part)) is not None:

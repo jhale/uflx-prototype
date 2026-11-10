@@ -19,7 +19,7 @@ class OptimisationOptions:
 
     preserve_floating_point_evaluation defaults to False, permitting mathematical rewrites
     that alter floating-point evaluation. True retains arithmetic operations,
-    grouping and reduction order, using structural and complex simplifications.
+    grouping and reduction order, using structural and safe unary simplifications.
     """
 
     rule_groups: tuple[Literal["arithmetic", "indexed"], ...] = ("arithmetic", "indexed")
@@ -81,7 +81,7 @@ def optimise(
     """Optimise supported scalar regions, retaining other UFLx operations.
 
     With preserve_floating_point_evaluation=False, uses exact real/complex identities. True retains
-    arithmetic operations and reduction order while simplifying structure and complex operations.
+    arithmetic operations and reduction order while simplifying structure and safe unary operations.
     Opaque atoms share modulo alpha-equivalence; cross-invocation caching and
     general binder rewriting are not implemented.
     Traversal is recursive; deep graphs are outside the initial supported scope.

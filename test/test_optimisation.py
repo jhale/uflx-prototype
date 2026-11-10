@@ -535,3 +535,110 @@ def test_complex_search_obeys_region_budget():
     result = optimise(original, OptimisationOptions(max_region_nodes=1))
     assert result.expression is original
     assert result.report.regions[0].search_stop == "region_limit"
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_elementary_scalar_rules_and_evaluation_policy(preserve):
+    from uflx_spec_interpreter import absolute, logarithm
+
+    options = OptimisationOptions(preserve_floating_point_evaluation=preserve)
+    x = RuntimeArray("power-one", ())
+    for original, expected in (
+        (x ** num(1), x),
+        (num(0) ** num(0), num(1)),
+        (logarithm(num(1)), num(0)),
+    ):
+        result = optimise(original, options).expression
+        if preserve:
+            assert result is original
+        else:
+            assert result is expected or (expected is num(0) and isinstance(result, Zero))
+        assert_values(original, result, {"power-one": np.array(-3.5)})
+    z = num(3 + 4j)
+    original = absolute(absolute(z))
+    result = optimise(original, options)
+    assert result.expression is absolute(z)
+    assert any(r.changed for r in result.report.regions)
+    assert_values(original, result.expression, {})
+
+
+@pytest.mark.parametrize("denominator", [0, 2])
+def test_power_zero_requires_a_defined_base(denominator):
+    partial = num(1) / num(denominator)
+    original = partial ** num(0)
+    result = optimise(original).expression
+    if denominator:
+        assert result is num(1)
+    else:
+        assert partial in nodes(result)
+        assert result is original
+    unknown = RuntimeArray("unknown-power-base", ()) ** num(0)
+    assert optimise(unknown).expression is unknown
+
+
+def test_nested_absolute_keeps_undefined_operand():
+    from uflx_spec_interpreter import absolute
+
+    partial = num(1) / num(0)
+    assert optimise(absolute(absolute(partial))).expression is absolute(partial)
+
+
+def test_logarithm_only_folds_one():
+    from uflx_spec_interpreter import logarithm
+
+    for value in (0, -1, 2):
+        original = logarithm(num(value))
+        assert optimise(original).expression is original
+
+
+def test_power_one_preserves_complex_type_and_family_indices():
+    i = index("power-family")
+    a = tensor((num(1j), num(2j)))
+    original = a[i] ** num(1)
+    result = optimise(original).expression
+    assert result.scalar_type == "complex"
+    assert_values(original, result, {})
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+@pytest.mark.parametrize("fixed", [False, True])
+def test_component_tensor_selection_of_runtime_vector(preserve, fixed):
+    i, j = index("component-i"), index("component-j")
+    a = RuntimeArray("component-vector", (3,))
+    entry = 1 if fixed else j
+    original = component_tensor(a[i], (i,))[entry]
+    result = optimise(original, OptimisationOptions(preserve_floating_point_evaluation=preserve))
+    assert result.expression is a[entry]
+    assert_values(original, result.expression, {"component-vector": np.arange(3.0)})
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_component_tensor_selection_substitutes_indices_simultaneously(preserve):
+    i, j = index("swap-i"), index("swap-j")
+    a = RuntimeArray("swap-matrix", (3, 3))
+    selected = component_tensor(a[i, j], (j, i))[i, j]
+    original = component_tensor(selected, (i, j))
+    result = optimise(original, OptimisationOptions(preserve_floating_point_evaluation=preserve))
+    assert result.expression.expression is a[j, i]
+    assert_values(original, result.expression, {"swap-matrix": np.arange(9.0).reshape(3, 3)})
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_component_tensor_selection_avoids_capture(preserve):
+    i, j = index("capture-i"), index("capture-j")
+    a = tensor((tensor((num(1), num(2))), tensor((num(3), num(5)))))
+    body = index_sum(a[i, j], (j,))
+    original = component_tensor(body, (i,))[j]
+    result = optimise(original, OptimisationOptions(preserve_floating_point_evaluation=preserve))
+    assert isinstance(result.expression, IndexSum)
+    assert result.expression.indices != (j,)
+    assert_values(original, result.expression, {})
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_component_selection_does_not_discard_unknown_singularities(preserve):
+    i, j = index("partial-i"), index("partial-j")
+    a = RuntimeArray("partial-vector", (3,))
+    original = component_tensor(num(1) / a[i], (i,))[j]
+    result = optimise(original, OptimisationOptions(preserve_floating_point_evaluation=preserve))
+    assert result.expression is original

@@ -14,11 +14,14 @@ from egglog.egraph import UnstableCombinedRuleset
 from ..algorithms.rewriting import complete_indices, zero_like
 from ..algorithms.traversal import map_values, memoized
 from ..nodes import (
+    Absolute,
     AbstractExpression,
     Conjugate,
     ImaginaryPart,
     IndexSum,
     Integer,
+    Logarithm,
+    Power,
     Product,
     RealPart,
     Sum,
@@ -30,21 +33,21 @@ from .optimise import OptimisationOptions, OptimisationReport, OptimisationResul
 from .properties import is_defined
 from .rules import (
     algebra,
-    complex_rules,
     constant_cleanup,
     defined,
     independent,
     indexed_rules,
     is_real,
+    unary_rules,
 )
 from .structural import simplify
 
 
 def in_region(node: AbstractExpression, preserve_evaluation: bool) -> bool:
-    """Complex operations are always supported; scalar arithmetic is optional."""
-    return isinstance(node, Conjugate | RealPart | ImaginaryPart) or (
+    """Safe unary operations are always supported; other scalar operations are optional."""
+    return isinstance(node, Absolute | Conjugate | RealPart | ImaginaryPart) or (
         not preserve_evaluation
-        and isinstance(node, Sum | Product | IndexSum)
+        and isinstance(node, Sum | Product | IndexSum | Power | Logarithm)
         and not node.value_shape
         and not node.argument_spaces
     )
@@ -86,7 +89,7 @@ def run_region(
     size = region_size(original, options.max_region_nodes, preserve)
     if size > options.max_region_nodes:
         return original, RegionReport(size, "region_limit", 0, False, 0, 0, 0, 0, 0)
-    rules: Ruleset | UnstableCombinedRuleset = complex_rules
+    rules: Ruleset | UnstableCombinedRuleset = unary_rules
     if not preserve:
         rules = rules | constant_cleanup
         for name, group in (("arithmetic", algebra), ("indexed", indexed_rules)):

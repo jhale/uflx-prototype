@@ -24,8 +24,9 @@ is_real = relation("is_real", Scalar)
 
 
 @ruleset
-def complex_rules(a: Scalar) -> Iterator[RewriteOrRule]:
-    """Complex identities that preserve evaluation of their remaining operands."""
+def unary_rules(a: Scalar) -> Iterator[RewriteOrRule]:
+    """Unary identities that preserve evaluation of their remaining operands."""
+    yield rewrite(a.absolute().absolute()).to(a.absolute())
     yield rewrite(a.conjugate().conjugate()).to(a)
     yield rewrite(a.real_part()).to(a, is_real(a))
     yield rewrite(a.imaginary_part()).to(Scalar.integer(BigInt(0)), is_real(a), defined(a))
@@ -57,3 +58,6 @@ def constant_cleanup(a: Scalar, i: BigInt, j: BigInt) -> Iterator[RewriteOrRule]
     yield rewrite(zero * a).to(zero, defined(a))
     yield rewrite(a * one).to(a)
     yield rewrite(one * a).to(a)
+    yield rewrite(a.power(one)).to(a)
+    yield rewrite(a.power(zero)).to(one, defined(a))
+    yield rewrite(one.logarithm()).to(zero)

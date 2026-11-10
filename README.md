@@ -49,11 +49,17 @@ report = result.report
 
 The initial supported fragment is exact integer/scalar algebra, typed zeros,
 single-index sums with static extents, vector indexing and guarded identity-tensor
-contractions. Egglog also represents conjugation, real parts and imaginary parts:
-its complex rules remove double conjugation and simplify real and imaginary parts
-using known scalar types and definedness. Conjugation may wrap opaque tensor or
-form values. Structural cleanup selects known tensor entries, scalar broadcasts
-and zero components. General binder substitution is not implemented.
+contractions. Egglog also represents conjugation, real and imaginary parts,
+powers, absolute values and logarithms. Rules include double conjugation,
+real/imaginary projections, `x**1`, guarded `x**0`, `abs(abs(x))` and `log(1)`.
+Conjugation may wrap opaque tensor or form values.
+
+Structural cleanup selects known tensor entries, scalar broadcasts and zero
+components. Component-tensor selection uses simultaneous, capture-avoiding index
+substitution. It supports known-defined bodies and direct indexing permutations
+that retain the underlying tensor; other potentially singular bodies are left
+unchanged. Gathered indices and substitutions into stored metadata remain outside
+this initial scope.
 Other operations remain opaque in egglog; UFLx traversal can still optimise their
 value operands. General tensor arithmetic should be core-lowered first.
 Rational/complex constants are not yet exposed as algebraic operators. Existing
@@ -77,17 +83,17 @@ UFLx's original interned object references.
 These are exact real/complex algebraic transformations, not guarantees of identical
 floating-point execution. Set `preserve_floating_point_evaluation=True` to retain arithmetic
 operations and reduction order, including constant arithmetic and operations
-inside opaque nodes. This mode runs structural cleanup and the complex egglog
-rules, keeping arithmetic and literals opaque and skipping arithmetic finishing
-cleanup. Complex searches appear in the region reports. It makes no guarantees
+inside opaque nodes. This mode runs structural cleanup and safe unary egglog
+rules, keeping arithmetic, powers, logarithms and literals opaque. It skips
+arithmetic finishing cleanup. Unary searches appear in the region reports. It makes no guarantees
 about later compiler passes or generated code.
 
 Iteration and input-region limits are enforced; neither is a time or
 e-graph-memory limit. Each region reports its exploratory search stop
 (`saturated`, `iteration_limit` or `region_limit`), timings and alpha merges. A
 non-expanding constant cleanup phase follows search when floating-point changes
-are allowed, so the search status does not claim global saturation after cleanup. Oversized-region counts stop at the limit
-plus one. Traversal remains recursive in this initial implementation.
+are allowed, so the search status does not claim global saturation after cleanup.
+Oversized-region counts stop at the limit plus one. Traversal remains recursive in this initial implementation.
 
 The loop cost is a tree arithmetic estimate weighted by static sum extents;
 opaque operations have zero estimated internal cost. It does not model DAG reuse,

@@ -4,9 +4,11 @@
 from collections.abc import Callable
 
 from ..algorithms.rewriting import complete_indices, zero_like
+from ..algorithms.substitution import occurs_in_metadata, substitute_values
 from ..nodes import (
     AbstractExpression,
     BroadcastTo,
+    ComponentTensor,
     Index,
     Indexed,
     IndexSum,
@@ -37,8 +39,8 @@ def _simplify(
 ) -> AbstractExpression:
     """Select stored components and simplify empty sums.
 
-    General binder substitution and gathered indices are left untouched. The
-    caller completes static metadata and visits any replacement.
+    Component selection uses capture-avoiding value substitution. Gathered
+    indices remain untouched. The caller completes static metadata.
     """
     match expression:
         case IndexSum(expression=a, indices=indices):
@@ -53,6 +55,18 @@ def _simplify(
                     return zero_like(expression, expression.argument_spaces)
                 case BroadcastTo(value=a) if not a.value_shape:
                     return a
+                case ComponentTensor(expression=body, indices=bound) if not any(
+                    occurs_in_metadata(i, body) for i in bound
+                ) and (
+                    known_defined(body)
+                    or (
+                        isinstance(body, Indexed)
+                        and len(body.indices) == len(bound)
+                        and set(body.indices) == set(bound)
+                        and not set(bound).intersection(dict(body.expression.free_indices))
+                    )
+                ):
+                    return substitute_values(body, dict(zip(bound, indices, strict=True)))
                 case Tensor(entries=entries) if isinstance(indices[0], int) and known_defined(
                     source
                 ):
