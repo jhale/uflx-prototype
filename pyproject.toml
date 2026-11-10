@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
+optimisation = ["egglog==14.0.0; python_version >= '3.12'"]
 test = ["pytest", "pytest-xdist", "coverage", "fenics-basix", "jax"]
 lint = ["ruff", "pyright"]
 

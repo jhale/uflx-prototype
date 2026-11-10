@@ -20,6 +20,80 @@ The implementation in `_src/` is organised by responsibility.
 | `rules/` | Mathematical rewrite rules |
 | `passes/` | Pass recipes and output contracts |
 | `extensions/` | Optional language extensions |
+| `optimisation/` | Optional egglog encoding, algebraic rules, extraction costs and reports |
+
+The optional optimiser requires Python 3.12+ and the `optimisation` extra:
+
+```sh
+pip install -e ".[optimisation]"
+```
+
+It is invoked explicitly and is not yet wired into the compiler pipeline:
+
+```python
+from uflx_spec_interpreter._src.optimisation import OptimisationOptions, optimise
+
+result = optimise(
+    expression,
+    OptimisationOptions(
+        rule_groups=("arithmetic", "indexed"),
+        preserve_floating_point=False,  # True preserves arithmetic operations and grouping.
+        iterations=3,
+        max_region_nodes=60,
+        cost="loops",  # Or "tree"; a custom cost_model can be passed to optimise.
+    ),
+)
+simplified = result.expression
+report = result.report
+```
+
+The initial supported fragment is exact integer/scalar algebra, typed zeros,
+single-index sums with static extents, vector indexing and guarded identity-tensor
+contractions. Structural cleanup also selects known tensor entries, scalar
+broadcasts and zero components, removes double conjugation, and simplifies real
+and imaginary parts when safe. General binder substitution is not implemented.
+Other operations remain opaque in egglog; UFLx traversal can still optimise their
+value operands. General tensor arithmetic should be core-lowered first.
+Rational/complex constants are not yet exposed as algebraic operators. Existing
+compiler cleanup remains separate; it does not inherit this optimiser's policy.
+
+Rules that discard an operand, such as multiplication by zero, require evidence
+that the operand is mathematically defined. Facts come from literals and a small
+set of operations with known inputs. Runtime terminals and extension nodes are
+unknown; no user-assumptions API is implemented. In particular, `0*(1/x)` stays
+unchanged for unknown `x`, while `0*(1/2)` can simplify to zero. Delta contraction
+likewise requires the vector's components to be known to be defined.
+
+Opaque expressions are interned using alpha fingerprints followed by exact
+alpha comparison. Their free identities remain significant, and reconstruction
+retrieves an original UFLx representative. No cross-invocation cache or general
+scope-normalised e-graph is implemented. With only the `arithmetic` group selected,
+index sums are opaque and can share modulo renaming of their own bound indices.
+`PyObject` is deliberately not used: its serialised snapshots do not preserve
+UFLx's original interned object references.
+
+These are exact real/complex algebraic transformations, not guarantees of identical
+floating-point execution. Set `preserve_floating_point=True` to retain arithmetic
+operations and reduction order, including constant arithmetic and operations
+inside opaque nodes. This mode runs structural cleanup only, skips both egglog
+search and arithmetic finishing cleanup, and reports no search regions. It makes
+no guarantees about later compiler passes or generated code.
+
+Iteration and input-region limits are enforced; neither is a time or
+e-graph-memory limit. Each region reports its exploratory search stop
+(`saturated`, `iteration_limit` or `region_limit`), timings and alpha merges. A
+non-expanding constant cleanup phase follows search, so the search status does not
+claim global saturation after cleanup. Oversized-region counts stop at the limit
+plus one. Traversal remains recursive in this initial implementation.
+
+The loop cost is a tree arithmetic estimate weighted by static sum extents;
+opaque operations have zero estimated internal cost. It does not model DAG reuse,
+memory traffic or vectorisation. Alpha sharing therefore does not guarantee that
+extraction chooses `2*a` over `a+a`.
+
+Optimisation tests skip when egglog is absent. Install both `lint` and
+`optimisation` on Python 3.12+ to type-check the optional subsystem. Importing
+the core or the optimisation entry point does not import egglog.
 
 `directional_derivative(f, x, a, h)` is the sole function-derivative primitive.
 It gives the full real differential, including complex and mixed variables.
