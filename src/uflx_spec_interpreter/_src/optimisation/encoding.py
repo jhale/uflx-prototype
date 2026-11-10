@@ -15,6 +15,7 @@ from ..literals import num
 from ..nodes import (
     Absolute,
     AbstractExpression,
+    BroadcastTo,
     Conjugate,
     Division,
     ImaginaryPart,
@@ -96,6 +97,10 @@ def encode(
             case Zero():
                 return Scalar.number(BigRat(0, 1))
             case Integer(value=value):
+                return Scalar.number(BigRat(BigInt.from_string(str(value)), 1))
+            case Indexed(expression=BroadcastTo(value=Integer(value=value))):
+                # Type completion repeats scalar constants over family indices.
+                # Expose their value to algebra; decoding restores the index signature.
                 return Scalar.number(BigRat(BigInt.from_string(str(value)), 1))
             case Power(first=a, second=b):
                 return visit(a).power(visit(b))

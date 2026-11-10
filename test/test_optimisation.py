@@ -735,3 +735,136 @@ def test_zero_product_does_not_assume_arbitrary_matrix_inverses_exist():
     result = optimise(original).expression
     assert any(isinstance(n, Inverse) for n in nodes(result))
     assert_values(original, result, {"possibly-singular": np.eye(2)})
+
+
+@pytest.mark.parametrize("size", [0, 1, 2, 3])
+@pytest.mark.parametrize("preserve", [False, True])
+def test_constant_identity_matrices(size, preserve):
+    from uflx_spec_interpreter import determinant, inverse, logarithm
+    from uflx_spec_interpreter._src.nodes import Determinant, Inverse, Logarithm
+
+    matrix = identity(size)
+    options = OptimisationOptions(preserve_floating_point_evaluation=preserve)
+    for original in (determinant(matrix), inverse(matrix), logarithm(determinant(matrix))):
+        result = optimise(original, options).expression
+        if preserve:
+            assert result is original
+        else:
+            assert not any(isinstance(n, Determinant | Inverse | Logarithm) for n in nodes(result))
+        assert_values(original, result, {})
+
+
+@pytest.mark.parametrize("values", [((2,),), ((2, 1), (1, 3)), ((0, 2, 1), (1, 0, 3), (4, 1, 2))])
+def test_exact_small_matrix_determinants_and_inverses(values):
+    from uflx_spec_interpreter import determinant, inverse
+    from uflx_spec_interpreter._src.nodes import Determinant, Float, Inverse
+
+    matrix = tensor(tuple(tensor(tuple(num(v) for v in row)) for row in values))
+    for original in (determinant(matrix), inverse(matrix)):
+        result = optimise(original).expression
+        assert not any(isinstance(n, Determinant | Inverse | Float) for n in nodes(result))
+        assert_values(original, result, {})
+
+
+def test_matrix_inverse_keeps_small_exact_rational_pivots():
+    from uflx_spec_interpreter import inverse
+
+    tiny = num(1) / num(10**30)
+    matrix = tensor((tensor((tiny, num(0))), tensor((num(0), num(1)))))
+    result = optimise(inverse(matrix)).expression
+    assert result.entries[0].entries[0] is num(10**30)
+    np.testing.assert_allclose(
+        evaluate(inverse(matrix), {}), np.asarray(evaluate(result, {}), dtype=float), rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("values", [((0,),), ((1, 2), (2, 4)), ((0, 0), (0, 0))])
+def test_singular_constant_matrix_inverse_stays_undefined(values):
+    from uflx_spec_interpreter import determinant, inverse
+    from uflx_spec_interpreter._src.nodes import Inverse
+
+    matrix = tensor(tuple(tensor(tuple(num(v) for v in row)) for row in values))
+    det = optimise(determinant(matrix)).expression
+    assert isinstance(det, Zero) or det is num(0)
+    assert_values(determinant(matrix), det, {})
+    for original in (inverse(matrix), num(0) * inverse(matrix)[0, 0]):
+        result = optimise(original).expression
+        assert any(isinstance(n, Inverse) for n in nodes(result))
+
+
+def test_constant_matrix_fold_preserves_family_and_complex_zero_type():
+    from uflx_spec_interpreter import determinant
+
+    i = index("matrix-family")
+    for size in (0, 2):
+        matrix = Zero((size, size), ((i, 3),), (), "complex")
+        original = component_tensor(determinant(matrix), (i,))
+        result = optimise(original).expression
+        assert_values(original, result, {})
+
+
+def test_matrix_folding_leaves_unknown_float_rectangular_and_large_inputs():
+    from uflx_spec_interpreter import determinant, inverse
+    from uflx_spec_interpreter._src.nodes import Determinant, Inverse
+
+    matrices = (
+        RuntimeArray("matrix", (2, 2)),
+        identity(4),
+        tensor((tensor((num(1.0), num(0))), tensor((num(0), num(2))))),
+    )
+    for matrix in matrices:
+        for operation, node_type in ((determinant, Determinant), (inverse, Inverse)):
+            result = optimise(operation(matrix)).expression
+            assert isinstance(result, node_type)
+    rectangular = tensor((tensor((num(1),)), tensor((num(2),))))
+    assert isinstance(optimise(inverse(rectangular)).expression, Inverse)
+
+
+def test_matrix_fold_does_not_discard_undefined_entries_even_for_empty_matrices():
+    from uflx_spec_interpreter import broadcast_to, determinant, inverse
+    from uflx_spec_interpreter._src.nodes import Determinant, Inverse
+
+    for size in (0, 2):
+        matrix = broadcast_to(num(1) / num(0), (size, size))
+        for operation, node_type in ((determinant, Determinant), (inverse, Inverse)):
+            assert isinstance(optimise(operation(matrix)).expression, node_type)
+
+
+def test_constant_inverse_produces_exact_non_dyadic_fractions():
+    from uflx_spec_interpreter import inverse
+
+    matrix = tensor((tensor((num(2), num(1))), tensor((num(1), num(3)))))
+    expected = tensor(
+        (tensor((num(3) / num(5), num(-1) / num(5))), tensor((num(-1) / num(5), num(2) / num(5))))
+    )
+    assert optimise(inverse(matrix)).expression is expected
+
+
+@pytest.mark.parametrize("operation", ["determinant", "inverse", "logdet"])
+@pytest.mark.parametrize("preserve", [False, True])
+def test_constant_matrix_families_through_broadcast(operation, preserve):
+    from uflx_spec_interpreter import broadcast_to, determinant, inverse, logarithm
+    from uflx_spec_interpreter._src.nodes import Determinant, Inverse, Logarithm
+
+    i = index("repeated-matrix")
+    matrix = broadcast_to(identity(2), (3, 2, 2))[i]
+    expression = {
+        "determinant": determinant(matrix),
+        "inverse": inverse(matrix)[0, 0],
+        "logdet": logarithm(determinant(matrix)),
+    }[operation]
+    original = component_tensor(expression, (i,))
+    result = optimise(
+        original, OptimisationOptions(preserve_floating_point_evaluation=preserve)
+    ).expression
+    assert any(isinstance(n, Determinant | Inverse | Logarithm) for n in nodes(result)) == preserve
+    assert_values(original, result, {})
+
+
+def test_constant_matrix_selection_does_not_discard_undefined_siblings():
+    from uflx_spec_interpreter import determinant
+
+    undefined = num(1) / num(0)
+    invalid = tensor((tensor((undefined, num(0))), tensor((num(0), num(1)))))
+    original = determinant(tensor((identity(2), invalid))[0])
+    assert undefined in nodes(optimise(original).expression)

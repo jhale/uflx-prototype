@@ -17,6 +17,7 @@ from ..nodes import (
     Zero,
 )
 from ..tensors import indexed
+from .constants import fold_matrix
 
 
 def simplify(
@@ -26,7 +27,9 @@ def simplify(
     preserve_evaluation: bool,
 ) -> AbstractExpression:
     """Apply one structural rule and restore compatible static metadata."""
-    replacement = _simplify(expression, known_defined)
+    replacement = expression if preserve_evaluation else fold_matrix(expression, known_defined)
+    if replacement == expression:
+        replacement = _simplify(expression, known_defined)
     if replacement == expression or (
         preserve_evaluation and replacement.scalar_type != expression.scalar_type
     ):

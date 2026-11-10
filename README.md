@@ -67,6 +67,15 @@ Division by an unknown or zero denominator is retained; fractions are never
 converted to approximate floating-point constants. These arithmetic rewrites
 are disabled by `preserve_floating_point_evaluation=True`.
 
+The optimiser also folds determinants and nonsingular inverses of stored square
+matrices up to 3 by 3, using exact integer/rational arithmetic. It reads entries
+through tensor construction, indexing and broadcasts when the source is known
+to be defined. Empty matrices and family indices are preserved. Singular inverses,
+floating-point entries, nonzero complex entries, rectangular and larger matrices
+remain untouched. This constant folder is outside the scalar e-graph and is
+disabled by `preserve_floating_point_evaluation=True`. Its results feed back into
+egglog, so `log(det(I))` becomes zero, including for repeated matrix families.
+
 Other operations remain opaque in egglog; UFLx traversal can still optimise their
 value operands. General tensor arithmetic should be core-lowered first.
 Complex constants remain opaque. Existing compiler cleanup remains separate; it does not inherit this optimiser's policy.
