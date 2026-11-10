@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from ..algorithms.rewriting import complete_indices, rewrite
+from ..algorithms.rewriting import complete_indices, rewrite, zero_like
 from ..algorithms.traversal import everywhere, memoized
 from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..meshes import is_cell
@@ -75,8 +75,14 @@ def _rule(
         case PullBack(g, DomainMap() as phi) if isinstance(m, (DomainMap, CellMap)):
             return pb(g, composed(phi, m, pb))
         case Gradient(g, _) if is_cell(m):
+            reference = pb(g, m)
+            if reference.domain is None:
+                # Apply the constant-gradient rule before cell transport introduces K.
+                # Cell transport already requires an admissible full-rank Jacobian.
+                original = PullBack(f, m)
+                return zero_like(original, original.argument_spaces)
             return transformed(
-                Gradient(pb(g, m), m.parameter_domain), TransformationLaw(("covariant",), 0), m
+                Gradient(reference, m.parameter_domain), TransformationLaw(("covariant",), 0), m
             )
         case Gradient():
             return PullBack(f, m)

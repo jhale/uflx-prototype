@@ -724,3 +724,14 @@ def test_floating_point_divisors_remain_opaque():
     x = RuntimeArray("float-divisor", ())
     original = x / num(2.0)
     assert optimise(original).expression is original
+
+
+def test_zero_product_does_not_assume_arbitrary_matrix_inverses_exist():
+    from uflx_spec_interpreter import inverse
+    from uflx_spec_interpreter._src.nodes import Inverse
+
+    A = RuntimeArray("possibly-singular", (2, 2))
+    original = num(0) * inverse(A)[0, 0]
+    result = optimise(original).expression
+    assert any(isinstance(n, Inverse) for n in nodes(result))
+    assert_values(original, result, {"possibly-singular": np.eye(2)})

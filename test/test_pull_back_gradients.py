@@ -58,3 +58,61 @@ def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
     out = core(f)
     assert in_core_normal_form(out) and not any(isinstance(n, Inverse) for n in nodes(out))
     assert np.isclose(oracle(out, {})(()), oracle(f, {})(()))
+
+
+def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
+    from uflx_oracle import at
+    from uflx_spec_interpreter import (
+        cell_map,
+        expand_pull_backs,
+        push_forward,
+        tensor,
+        transformation_law,
+    )
+    from uflx_spec_interpreter._src.nodes import Zero
+
+    for constant in (num(0), num(3), num(2j), tensor((num(1), num(2)))):
+        mapped = push_forward(constant, D, transformation_law((), 0))
+        original = pull_back(gradient(mapped, D), cell_map(D, 0, 0))
+        result = expand_pull_backs(original)
+        assert isinstance(result, Zero)
+        assert result.value_shape == original.value_shape
+        assert result.free_indices == original.free_indices
+        assert result.scalar_type == original.scalar_type
+        assert result.argument_spaces == original.argument_spaces
+        assert not any(isinstance(n, Inverse) for n in nodes(result))
+        np.testing.assert_allclose(
+            oracle(result, {})(()),
+            at(K, np.array([0.2, 0.3]), lambda: oracle(original, {})(())),
+            atol=1e-12,
+        )
+
+
+def test_constant_gradient_preserves_cell_family_and_embedding_shape():
+    from uflx_spec_interpreter import cell_map, expand_pull_backs, image, tensor
+    from uflx_spec_interpreter._src.nodes import Zero
+
+    embedded = image(tensor((D.coordinate_function[0], D.coordinate_function[1], num(0))), RD(3))
+    i = index("constant-cell")
+    original = pull_back(gradient(num(2j), embedded), cell_map(embedded, 0, i))
+    result = expand_pull_backs(original)
+    assert isinstance(result, Zero)
+    assert result.value_shape == (3,)
+    assert result.free_indices == original.free_indices
+    assert result.scalar_type == "complex"
+
+
+def test_reference_constant_with_piola_mapping_is_not_a_physical_constant():
+    from uflx_spec_interpreter import (
+        cell_map,
+        expand_pull_backs,
+        push_forward,
+        tensor,
+        transformation_law,
+    )
+    from uflx_spec_interpreter._src.nodes import Zero
+
+    mapped = push_forward(tensor((num(1), num(2))), D, transformation_law(("covariant",), 0))
+    result = expand_pull_backs(pull_back(gradient(mapped, D), cell_map(D, 0, 0)))
+    assert not isinstance(result, Zero)
+    assert any(isinstance(n, Inverse) for n in nodes(result))
