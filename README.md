@@ -49,9 +49,11 @@ report = result.report
 
 The initial supported fragment is exact integer/scalar algebra, typed zeros,
 single-index sums with static extents, vector indexing and guarded identity-tensor
-contractions. Structural cleanup also selects known tensor entries, scalar
-broadcasts and zero components, removes double conjugation, and simplifies real
-and imaginary parts when safe. General binder substitution is not implemented.
+contractions. Egglog also represents conjugation, real parts and imaginary parts:
+its complex rules remove double conjugation and simplify real and imaginary parts
+using known scalar types and definedness. Conjugation may wrap opaque tensor or
+form values. Structural cleanup selects known tensor entries, scalar broadcasts
+and zero components. General binder substitution is not implemented.
 Other operations remain opaque in egglog; UFLx traversal can still optimise their
 value operands. General tensor arithmetic should be core-lowered first.
 Rational/complex constants are not yet exposed as algebraic operators. Existing
@@ -75,15 +77,16 @@ UFLx's original interned object references.
 These are exact real/complex algebraic transformations, not guarantees of identical
 floating-point execution. Set `preserve_floating_point_evaluation=True` to retain arithmetic
 operations and reduction order, including constant arithmetic and operations
-inside opaque nodes. This mode runs structural cleanup only, skips both egglog
-search and arithmetic finishing cleanup, and reports no search regions. It makes
-no guarantees about later compiler passes or generated code.
+inside opaque nodes. This mode runs structural cleanup and the complex egglog
+rules, keeping arithmetic and literals opaque and skipping arithmetic finishing
+cleanup. Complex searches appear in the region reports. It makes no guarantees
+about later compiler passes or generated code.
 
 Iteration and input-region limits are enforced; neither is a time or
 e-graph-memory limit. Each region reports its exploratory search stop
 (`saturated`, `iteration_limit` or `region_limit`), timings and alpha merges. A
-non-expanding constant cleanup phase follows search, so the search status does not
-claim global saturation after cleanup. Oversized-region counts stop at the limit
+non-expanding constant cleanup phase follows search when floating-point changes
+are allowed, so the search status does not claim global saturation after cleanup. Oversized-region counts stop at the limit
 plus one. Traversal remains recursive in this initial implementation.
 
 The loop cost is a tree arithmetic estimate weighted by static sum extents;

@@ -13,16 +13,43 @@ from egglog.egraph import UnstableCombinedRuleset
 
 from ..algorithms.rewriting import complete_indices, zero_like
 from ..algorithms.traversal import map_values, memoized
-from ..nodes import AbstractExpression, IndexSum, Integer, Product, Sum
+from ..nodes import (
+    AbstractExpression,
+    Conjugate,
+    ImaginaryPart,
+    IndexSum,
+    Integer,
+    Product,
+    RealPart,
+    Sum,
+)
 from .costs import loop_cost
 from .encoding import decode, encode
 from .optimise import OptimisationOptions, OptimisationReport, OptimisationResult, RegionReport
 from .properties import is_defined
-from .rules import algebra, constant_cleanup, defined, independent, indexed_rules
+from .rules import (
+    algebra,
+    complex_rules,
+    constant_cleanup,
+    defined,
+    independent,
+    indexed_rules,
+    is_real,
+)
 from .structural import simplify
 
 
-def region_size(expression: AbstractExpression, limit: int) -> int:
+def in_region(node: AbstractExpression, preserve_evaluation: bool) -> bool:
+    """Complex operations are always supported; scalar arithmetic is optional."""
+    return isinstance(node, Conjugate | RealPart | ImaginaryPart) or (
+        not preserve_evaluation
+        and isinstance(node, Sum | Product | IndexSum)
+        and not node.value_shape
+        and not node.argument_spaces
+    )
+
+
+def region_size(expression: AbstractExpression, limit: int, preserve_evaluation: bool) -> int:
     """Count unique region nodes, stopping at limit + 1 for oversized regions."""
     pending, seen = [expression], set[AbstractExpression]()
     while pending and len(seen) <= limit:
@@ -30,10 +57,13 @@ def region_size(expression: AbstractExpression, limit: int) -> int:
         if node in seen:
             continue
         seen.add(node)
-        if isinstance(node, Sum | Product):
-            pending.extend((node.first, node.second))
-        elif isinstance(node, IndexSum) and len(node.indices) == 1:
-            pending.append(node.expression)
+        if isinstance(node, Conjugate | RealPart | ImaginaryPart):
+            pending.append(node.operand)
+        elif in_region(node, preserve_evaluation):
+            if isinstance(node, Sum | Product):
+                pending.extend((node.first, node.second))
+            elif isinstance(node, IndexSum) and len(node.indices) == 1:
+                pending.append(node.expression)
     return len(seen)
 
 
@@ -54,23 +84,28 @@ def run_region(
     cost_model: TreeCostModel[Any] | None,
 ) -> tuple[AbstractExpression, RegionReport]:
     """Search one region with a private e-graph and return its result and report."""
-    size = region_size(original, options.max_region_nodes)
+    preserve = options.preserve_floating_point_evaluation
+    size = region_size(original, options.max_region_nodes, preserve)
     if size > options.max_region_nodes:
         return original, RegionReport(size, "region_limit", 0, False, 0, 0, 0, 0, 0)
-    selected = [
-        rules
-        for name, rules in (("arithmetic", algebra), ("indexed", indexed_rules))
-        if name in options.rule_groups
-    ]
-    rules = selected[0] if len(selected) == 1 else selected[0] | selected[1]
+    rules: Ruleset | UnstableCombinedRuleset = complex_rules
+    if not preserve:
+        for name, group in (("arithmetic", algebra), ("indexed", indexed_rules)):
+            if name in options.rule_groups:
+                rules = rules | group
     extraction_cost = cost_model or (loop_cost if options.cost == "loops" else None)
     start = perf_counter()
-    region = encode(original, encode_indices="indexed" in options.rule_groups)
+    region = encode(
+        original,
+        encode_indices="indexed" in options.rule_groups,
+        preserve_evaluation=preserve,
+    )
     encoded_at = perf_counter()
     graph = EGraph()
     graph.register(
         region.expression,
         *(defined(term) for node, term in region.terms if known_defined(node)),
+        *(is_real(term) for node, term in region.terms if node.scalar_type == "real"),
         *(
             independent(i64(k), i64(j))
             for k, atom in enumerate(region.originals)
@@ -79,7 +114,8 @@ def run_region(
         ),
     )
     stop, rounds = search(graph, rules, options.iterations)
-    graph.run(constant_cleanup.saturate())
+    if not preserve:
+        graph.run(constant_cleanup.saturate())
     searched_at = perf_counter()
     # egglog 14 leaves generic arguments unspecified in this overload.
     extracted = graph.extract(region.expression, cost_model=extraction_cost)  # pyright: ignore[reportUnknownMemberType]
@@ -87,6 +123,10 @@ def run_region(
     candidate = decode(extracted, region)
     if isinstance(candidate, Integer) and candidate.value == 0:
         candidate = zero_like(original, original.argument_spaces)
+    # Scalar algebra can identify a complex expression with a real value. Retain
+    # the original real result type without assuming every representative is real.
+    if original.scalar_type == "real" and candidate.scalar_type == "complex":
+        candidate = RealPart(candidate)
     candidate = complete_indices(original, candidate)
     return candidate, RegionReport(
         size,
@@ -115,18 +155,13 @@ def run(
     def region_operands(node: AbstractExpression) -> AbstractExpression:
         return (
             map_values(node, region_operands)
-            if isinstance(node, Sum | Product | IndexSum) and not node.argument_spaces
+            if in_region(node, options.preserve_floating_point_evaluation)
             else visit(node)
         )
 
     @cache
     def visit(node: AbstractExpression) -> AbstractExpression:
-        if (
-            not options.preserve_floating_point_evaluation
-            and isinstance(node, Sum | Product | IndexSum)
-            and not node.value_shape
-            and not node.argument_spaces
-        ):
+        if in_region(node, options.preserve_floating_point_evaluation):
             result, report = run_region(region_operands(node), options, known_defined, cost_model)
             reports.append(report)
         else:

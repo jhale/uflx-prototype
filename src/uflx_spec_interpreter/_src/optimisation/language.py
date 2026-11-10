@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Internal egglog language for exact scalar algebra and limited index sums."""
+"""Internal egglog language for scalar algebra, complex operations and index sums."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from egglog import BigInt, Expr, i64
 
 
 class Scalar(Expr):
-    """Exact scalar algebra; opaque atoms may be mathematically undefined."""
+    """Scalar algebra and conjugation; opaque atoms may also hold tensors or forms."""
 
     @classmethod
     def integer(cls, value: BigInt) -> Scalar: ...
@@ -27,3 +27,9 @@ class Scalar(Expr):
     def __add__(self, other: Scalar) -> Scalar: ...
 
     def __mul__(self, other: Scalar) -> Scalar: ...
+
+    def conjugate(self) -> Scalar: ...
+
+    def real_part(self) -> Scalar: ...
+
+    def imaginary_part(self) -> Scalar: ...

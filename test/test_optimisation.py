@@ -446,3 +446,92 @@ def test_unknown_zero_product_retains_family_indices_without_rewrite_cycle():
     result = optimise(original).expression
     assert a in nodes(result)
     assert_values(original, result, {"family-array": np.arange(3.0)})
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+@pytest.mark.parametrize("operation", ["conjugate", "real_part", "imaginary_part"])
+def test_complex_operators_roundtrip_through_egglog(operation, preserve):
+    from egglog.deconstruct import get_callable_args
+
+    from uflx_spec_interpreter import conjugate, imaginary_part, real_part
+    from uflx_spec_interpreter._src.optimisation.encoding import decode, encode
+    from uflx_spec_interpreter._src.optimisation.language import Scalar
+
+    z = num(complex(-0.0, 2.0))
+    constructor = {
+        "conjugate": conjugate,
+        "real_part": real_part,
+        "imaginary_part": imaginary_part,
+    }[operation]
+    original = constructor(z)
+    region = encode(original, encode_indices=False, preserve_evaluation=preserve)
+    assert get_callable_args(region.expression, getattr(Scalar, operation)) is not None
+    assert region.originals == (z,)
+    assert decode(region.expression, region) is original
+    result = optimise(original, OptimisationOptions(preserve_floating_point_evaluation=preserve))
+    assert result.report.regions
+    assert_values(original, result.expression, {})
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_complex_rules_run_in_egglog_without_changing_arithmetic_in_preserving_mode(preserve):
+    from uflx_spec_interpreter import conjugate, real_part
+
+    x = RuntimeArray("real-unary", ())
+    arithmetic = (x + num(1.0)) + num(-1.0)
+    original = real_part(conjugate(conjugate(arithmetic)))
+    result = optimise(original, OptimisationOptions(preserve_floating_point_evaluation=preserve))
+    assert any(r.changed for r in result.report.regions)
+    if preserve:
+        assert result.expression is arithmetic
+    assert_values(original, result.expression, {"real-unary": np.array(0.25)})
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_complex_rules_do_not_treat_complex_values_as_real(preserve):
+    from uflx_spec_interpreter import imaginary_part, real_part
+
+    z = num(2 + 3j)
+    for original in (real_part(z), imaginary_part(z)):
+        result = optimise(
+            original, OptimisationOptions(preserve_floating_point_evaluation=preserve)
+        )
+        assert result.expression is original
+        assert result.expression.scalar_type == "real"
+        assert_values(original, result.expression, {})
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_double_conjugation_of_tensor_and_form_atoms(preserve):
+    from uflx_spec_interpreter import conjugate, form, function
+    from uflx_toy.spaces import space
+
+    u = function(space("complex-form-atom", scalar_type="complex"), "u")
+    options = OptimisationOptions(preserve_floating_point_evaluation=preserve)
+    for value in (tensor((num(1j), num(2j))), form(u, (u,))):
+        result = optimise(conjugate(conjugate(value)), options)
+        assert result.expression is value
+        assert any(r.changed for r in result.report.regions)
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_complex_zero_rewrites_preserve_real_type_and_free_indices(preserve):
+    from uflx_spec_interpreter import imaginary_part, real_part
+
+    i = index("complex-zero-index")
+    zero = Zero((), ((i, 3),), (), "complex")
+    for original in (real_part(zero) + num(0), imaginary_part(real_part(zero))):
+        result = optimise(
+            original, OptimisationOptions(preserve_floating_point_evaluation=preserve)
+        )
+        assert_values(original, result.expression, {})
+
+
+def test_complex_search_obeys_region_budget():
+    from uflx_spec_interpreter import conjugate
+
+    x = RuntimeArray("complex-budget", ())
+    original = conjugate(conjugate(x))
+    result = optimise(original, OptimisationOptions(max_region_nodes=1))
+    assert result.expression is original
+    assert result.report.regions[0].search_stop == "region_limit"

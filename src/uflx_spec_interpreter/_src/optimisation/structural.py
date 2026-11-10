@@ -7,13 +7,10 @@ from ..algorithms.rewriting import complete_indices, zero_like
 from ..nodes import (
     AbstractExpression,
     BroadcastTo,
-    Conjugate,
-    ImaginaryPart,
     Index,
     Indexed,
     IndexSum,
     Integer,
-    RealPart,
     Tensor,
     Zero,
 )
@@ -38,18 +35,12 @@ def simplify(
 def _simplify(
     expression: AbstractExpression, known_defined: Callable[[AbstractExpression], bool]
 ) -> AbstractExpression:
-    """Select stored components and remove redundant complex operations.
+    """Select stored components and simplify empty sums.
 
     General binder substitution and gathered indices are left untouched. The
     caller completes static metadata and visits any replacement.
     """
     match expression:
-        case Conjugate(operand=Conjugate(operand=a)):
-            return a
-        case RealPart(operand=a) if a.scalar_type == "real":
-            return a
-        case ImaginaryPart(operand=a) if a.scalar_type == "real" and known_defined(a):
-            return zero_like(expression, expression.argument_spaces)
         case IndexSum(expression=a, indices=indices):
             extents = dict(a.free_indices)
             if any(extents[i] == 0 for i in indices):

@@ -24,6 +24,15 @@ def algebra(a: Scalar, b: Scalar, c: Scalar, i: BigInt, j: BigInt) -> Iterator[R
 
 independent = relation("independent", i64, i64)
 defined = relation("defined", Scalar)
+is_real = relation("is_real", Scalar)
+
+
+@ruleset
+def complex_rules(a: Scalar) -> Iterator[RewriteOrRule]:
+    """Complex identities that preserve evaluation of their remaining operands."""
+    yield rewrite(a.conjugate().conjugate()).to(a)
+    yield rewrite(a.real_part()).to(a, is_real(a))
+    yield rewrite(a.imaginary_part()).to(Scalar.integer(BigInt(0)), is_real(a), defined(a))
 
 
 @ruleset

@@ -14,11 +14,14 @@ from ..algorithms.binding import alpha_equivalent
 from ..literals import num
 from ..nodes import (
     AbstractExpression,
+    Conjugate,
+    ImaginaryPart,
     Index,
     Indexed,
     IndexSum,
     Integer,
     Product,
+    RealPart,
     Sum,
     Tensor,
     Zero,
@@ -38,7 +41,9 @@ class EncodedRegion:
     alpha_merges: int
 
 
-def encode(expression: AbstractExpression, *, encode_indices: bool) -> EncodedRegion:
+def encode(
+    expression: AbstractExpression, *, encode_indices: bool, preserve_evaluation: bool = False
+) -> EncodedRegion:
     """Encode one region, interning opaque atoms modulo alpha-equivalence.
 
     All mutable tables belong to this call. Free identities remain significant;
@@ -71,8 +76,19 @@ def encode(expression: AbstractExpression, *, encode_indices: bool) -> EncodedRe
         return terms[node]
 
     def encode_node(expression: AbstractExpression) -> Scalar:
-        if expression.value_shape or expression.argument_spaces:
-            raise ValueError("indexed codec requires scalar values with no form arguments")
+        match expression:
+            case Conjugate(operand=a):
+                return visit(a).conjugate()
+            case RealPart(operand=a):
+                return visit(a).real_part()
+            case ImaginaryPart(operand=a):
+                return visit(a).imaginary_part()
+            case _:
+                pass
+        # Conjugation also accepts tensor and form atoms. Arithmetic remains scalar;
+        # preserving evaluation keeps its exact syntax and literal types opaque.
+        if preserve_evaluation or expression.value_shape or expression.argument_spaces:
+            return Scalar.atom(i64(atom_key(expression)))
         match expression:
             case Zero():
                 return Scalar.integer(BigInt(0))
@@ -117,6 +133,12 @@ def decode(expression: Scalar, region: EncodedRegion) -> AbstractExpression:
 
     @cache
     def visit(expression: Scalar) -> AbstractExpression:
+        if (args := get_callable_args(expression, Scalar.conjugate)) is not None:
+            return Conjugate(visit(args[0]))
+        if (args := get_callable_args(expression, Scalar.real_part)) is not None:
+            return RealPart(visit(args[0]))
+        if (args := get_callable_args(expression, Scalar.imaginary_part)) is not None:
+            return ImaginaryPart(visit(args[0]))
         if (args := get_callable_args(expression, Scalar.at)) is not None:
             k, i, _ = (a.value for a in args)
             return indexed(region.originals[k], (region.indices[i],))
