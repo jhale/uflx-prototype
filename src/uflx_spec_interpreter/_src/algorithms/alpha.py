@@ -57,7 +57,7 @@ class _Recipe(NamedTuple):
     tag: object
     children: tuple[_Request, ...]
     tokens: tuple[int, ...] | None
-    scoped: tuple[bool, ...]
+    scoped_count: int
 
 
 def _key(value: Construction, environment: _Environment) -> _Key:
@@ -77,19 +77,32 @@ def _value_dependencies(value: Construction, info: Mapping[Base, _NodeInfo]) -> 
     return result
 
 
+def _node_dependencies(
+    node: Base,
+    signature: tuple[Construction, ...],
+    names: Mapping[Function | Index, int],
+    info: Mapping[Base, _NodeInfo],
+) -> Dependency | None:
+    """Compute dependencies from assigned name keys and completed child information."""
+    deps = _value_dependencies(signature, info)
+    if isinstance(node, Function | Index):
+        deps = union(deps, singleton(names[node]))
+    keys = tuple(names[name] for name in node.bound())
+    for field in node.argument_names:
+        if field in node.labels:
+            continue
+        child = _value_dependencies(getattr(node, field), info)
+        deps = union(deps, without(child, keys) if field in node.scope else child)
+    return deps
+
+
 def _assemble(recipe: _Recipe, results: tuple[Summary, ...]) -> Summary:
     """Combine child summaries independently of traversal, caches and name allocation."""
     if recipe.tokens is None:
         return constructor(recipe.tag, results)
-    signature, *fields = results
-    inside = constructor(
-        ("scoped",),
-        tuple(result for scoped, result in zip(recipe.scoped, fields, strict=True) if scoped),
-    )
-    outside = tuple(
-        result for scoped, result in zip(recipe.scoped, fields, strict=True) if not scoped
-    )
-    return constructor(recipe.tag, (signature, bind(recipe.tokens, inside), *outside))
+    boundary = 1 + recipe.scoped_count
+    inside = constructor(("scoped",), results[1:boundary])
+    return constructor(recipe.tag, (results[0], bind(recipe.tokens, inside), *results[boundary:]))
 
 
 class AlphaHasher:
@@ -127,8 +140,8 @@ class AlphaHasher:
             node, signature = pending.pop()
             if node in self._info:
                 continue
-            fields = tuple(f for f in node.argument_names if f not in node.labels)
             if signature is None:
+                fields = tuple(f for f in node.argument_names if f not in node.labels)
                 signature = binding_signature(node)
                 pending.append((node, signature))
                 children = list(construction_nodes(signature))
@@ -136,15 +149,11 @@ class AlphaHasher:
                     children.extend(construction_nodes(getattr(node, field)))
                 pending.extend((child, None) for child in children if child not in self._info)
                 continue
-            deps = _value_dependencies(signature, self._info)
             if isinstance(node, Function | Index):
-                key = self._names.setdefault(node, len(self._names))
-                deps = union(deps, singleton(key))
-            keys = tuple(self._names[name] for name in node.bound())
-            for field in fields:
-                child = _value_dependencies(getattr(node, field), self._info)
-                deps = union(deps, without(child, keys) if field in node.scope else child)
-            self._info[node] = _NodeInfo(signature, deps)
+                self._names.setdefault(node, len(self._names))
+            self._info[node] = _NodeInfo(
+                signature, _node_dependencies(node, signature, self._names, self._info)
+            )
 
     def _request(self, value: Construction, environment: _Environment) -> _Request:
         if isinstance(value, Base):
@@ -156,27 +165,29 @@ class AlphaHasher:
 
     def _recipe(self, value: Base | tuple[Construction, ...], env: _Environment) -> _Recipe:
         if isinstance(value, tuple):
-            return _Recipe(
-                ("tuple",), tuple(self._request(child, env) for child in value), None, ()
-            )
+            return _Recipe(("tuple",), tuple(self._request(child, env) for child in value), None, 0)
         names = value.bound()
         tokens = tuple(range(self._tokens, self._tokens + len(names)))
         self._tokens += len(names)
         inner = tuple(pair for pair in env if pair[0] not in names) + tuple(
             zip(names, tokens, strict=True)
         )
-        children = [self._request(self._info[value].signature, env)]
-        scoped = tuple(field in value.scope for field in value.argument_names)
-        for field, in_scope in zip(value.argument_names, scoped, strict=True):
+        signature = self._request(self._info[value].signature, env)
+        scoped: list[_Request] = []
+        outside: list[_Request] = []
+        for field in value.argument_names:
             child: Construction = getattr(value, field)
             if field in value.labels:
                 child = ("opaque", construction_encoding(child))
-            children.append(self._request(child, inner if in_scope else env))
+            if field in value.scope:
+                scoped.append(self._request(child, inner))
+            else:
+                outside.append(self._request(child, env))
         return _Recipe(
             ("node", value.identifier, value.argument_names, value.scope),
-            tuple(children),
+            (signature, *scoped, *outside),
             tokens,
-            scoped,
+            len(scoped),
         )
 
     def _summary(self, root: Base) -> Summary:

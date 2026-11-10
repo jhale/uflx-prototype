@@ -138,8 +138,15 @@ def test_dependency_sets_match_python_sets_and_preserve_snapshots():
         expected = (expected_a | expected_b).difference(removed)
         snapshots.append((result, expected))
         assert sets.union(result, result) is result
+
+    def keys(tree):
+        if tree is not None:
+            yield from keys(tree.left)
+            yield tree.key
+            yield from keys(tree.right)
+
     for tree, expected in snapshots:
-        assert (tree.size if tree else 0) == len(expected)
+        assert list(keys(tree)) == sorted(expected)
         assert {name for name in range(81) if sets.contains(tree, name)} == expected
 
 

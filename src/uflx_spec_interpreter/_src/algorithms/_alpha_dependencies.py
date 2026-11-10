@@ -19,17 +19,10 @@ class Dependency:
     priority: int
     left: Dependency | None
     right: Dependency | None
-    size: int
 
 
 def node(key: int, priority: int, left: Dependency | None, right: Dependency | None) -> Dependency:
-    return Dependency(
-        key,
-        priority,
-        left,
-        right,
-        1 + (left.size if left else 0) + (right.size if right else 0),
-    )
+    return Dependency(key, priority, left, right)
 
 
 def singleton(key: int) -> Dependency:
