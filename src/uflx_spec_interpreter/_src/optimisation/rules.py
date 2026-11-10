@@ -3,23 +3,19 @@
 
 from collections.abc import Iterator
 
-from egglog import BigInt, RewriteOrRule, i64, ne, relation, rewrite, ruleset
+from egglog import BigInt, RewriteOrRule, birewrite, i64, ne, relation, rewrite, ruleset
 
 from .language import Scalar
 
 
 @ruleset
-def algebra(a: Scalar, b: Scalar, c: Scalar, i: BigInt, j: BigInt) -> Iterator[RewriteOrRule]:
+def algebra(a: Scalar, b: Scalar, c: Scalar) -> Iterator[RewriteOrRule]:
     yield rewrite(a + b).to(b + a)
     yield rewrite(a * b).to(b * a)
     yield rewrite((a + b) + c).to(a + (b + c))
     yield rewrite((a * b) * c).to(a * (b * c))
-    yield rewrite(a * (b + c)).to(a * b + a * c)
-    yield rewrite(a * b + a * c).to(a * (b + c))
+    yield birewrite(a * (b + c)).to(a * b + a * c)
     yield rewrite(a + a).to(Scalar.integer(BigInt(2)) * a)
-    yield rewrite(Scalar.integer(i) + Scalar.integer(j)).to(Scalar.integer(i + j))
-    yield rewrite(Scalar.integer(i) * Scalar.integer(j)).to(Scalar.integer(i * j))
-    yield rewrite(a * Scalar.integer(BigInt(1))).to(a)
 
 
 independent = relation("independent", i64, i64)
@@ -41,8 +37,6 @@ def indexed_rules(a: Scalar, k: i64, i: i64, j: i64, n: i64) -> Iterator[Rewrite
     yield rewrite(Scalar.summed(a * Scalar.atom(k), j, n)).to(
         Scalar.summed(a, j, n) * Scalar.atom(k), independent(k, j), n > 0
     )
-    yield rewrite(a + zero).to(a)
-    yield rewrite(a * zero).to(zero, defined(a))
     yield rewrite(Scalar.summed(zero, j, n)).to(zero)
     yield rewrite(Scalar.delta(n, i, j)).to(Scalar.delta(n, j, i))
     # The vector is independent of both indices; n must match in all three terms.
@@ -53,7 +47,7 @@ def indexed_rules(a: Scalar, k: i64, i: i64, j: i64, n: i64) -> Iterator[Rewrite
 
 @ruleset
 def constant_cleanup(a: Scalar, i: BigInt, j: BigInt) -> Iterator[RewriteOrRule]:
-    """A non-expanding finishing phase for constants exposed by algebraic search."""
+    """Non-expanding constant rules shared by search and finishing cleanup."""
     zero, one = Scalar.integer(BigInt(0)), Scalar.integer(BigInt(1))
     yield rewrite(Scalar.integer(i) + Scalar.integer(j)).to(Scalar.integer(i + j))
     yield rewrite(Scalar.integer(i) * Scalar.integer(j)).to(Scalar.integer(i * j))

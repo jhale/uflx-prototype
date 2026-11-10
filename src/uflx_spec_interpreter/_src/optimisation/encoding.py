@@ -83,13 +83,10 @@ def encode(
                 return visit(a).real_part()
             case ImaginaryPart(operand=a):
                 return visit(a).imaginary_part()
-            case _:
-                pass
-        # Conjugation also accepts tensor and form atoms. Arithmetic remains scalar;
-        # preserving evaluation keeps its exact syntax and literal types opaque.
-        if preserve_evaluation or expression.value_shape or expression.argument_spaces:
-            return Scalar.atom(i64(atom_key(expression)))
-        match expression:
+            # Conjugation accepts tensor and form atoms; arithmetic stays scalar.
+            # Preserving evaluation also keeps arithmetic and literals opaque.
+            case _ if preserve_evaluation or expression.value_shape or expression.argument_spaces:
+                return Scalar.atom(i64(atom_key(expression)))
             case Zero():
                 return Scalar.integer(BigInt(0))
             case Integer(value=value):

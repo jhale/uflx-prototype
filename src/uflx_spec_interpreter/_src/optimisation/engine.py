@@ -23,6 +23,7 @@ from ..nodes import (
     RealPart,
     Sum,
 )
+from ..nodes.structure import expression_operands
 from .costs import loop_cost
 from .encoding import decode, encode
 from .optimise import OptimisationOptions, OptimisationReport, OptimisationResult, RegionReport
@@ -57,13 +58,10 @@ def region_size(expression: AbstractExpression, limit: int, preserve_evaluation:
         if node in seen:
             continue
         seen.add(node)
-        if isinstance(node, Conjugate | RealPart | ImaginaryPart):
-            pending.append(node.operand)
-        elif in_region(node, preserve_evaluation):
-            if isinstance(node, Sum | Product):
-                pending.extend((node.first, node.second))
-            elif isinstance(node, IndexSum) and len(node.indices) == 1:
-                pending.append(node.expression)
+        if in_region(node, preserve_evaluation) and (
+            not isinstance(node, IndexSum) or len(node.indices) == 1
+        ):
+            pending.extend(expression_operands(node))
     return len(seen)
 
 
@@ -90,6 +88,7 @@ def run_region(
         return original, RegionReport(size, "region_limit", 0, False, 0, 0, 0, 0, 0)
     rules: Ruleset | UnstableCombinedRuleset = complex_rules
     if not preserve:
+        rules = rules | constant_cleanup
         for name, group in (("arithmetic", algebra), ("indexed", indexed_rules)):
             if name in options.rule_groups:
                 rules = rules | group
@@ -148,27 +147,22 @@ def run(
 ) -> OptimisationResult:
     """Optimise maximal supported regions, caching traversal within this call."""
     start = perf_counter()
+    preserve = options.preserve_floating_point_evaluation
     reports: list[RegionReport] = []
     known_defined = memoized(is_defined)
 
     @cache
     def region_operands(node: AbstractExpression) -> AbstractExpression:
-        return (
-            map_values(node, region_operands)
-            if in_region(node, options.preserve_floating_point_evaluation)
-            else visit(node)
-        )
+        return map_values(node, region_operands) if in_region(node, preserve) else visit(node)
 
     @cache
     def visit(node: AbstractExpression) -> AbstractExpression:
-        if in_region(node, options.preserve_floating_point_evaluation):
+        if in_region(node, preserve):
             result, report = run_region(region_operands(node), options, known_defined, cost_model)
             reports.append(report)
         else:
             result = map_values(node, visit)
-        replacement = simplify(
-            result, known_defined, preserve_evaluation=options.preserve_floating_point_evaluation
-        )
+        replacement = simplify(result, known_defined, preserve_evaluation=preserve)
         return result if replacement == result else visit(replacement)
 
     result = visit(root)
