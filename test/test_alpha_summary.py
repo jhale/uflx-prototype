@@ -7,12 +7,17 @@ Both use the documented replacement hash primitives, not Haskell Hashable.
 
 import random
 
+import uflx_spec_interpreter._src.algorithms._alpha_summary as summaries
 from uflx_spec_interpreter._src.algorithms._alpha_summary import (
     MASK,
-    Hasher,
-    Maps,
+    alter,
+    application,
+    bind,
     digest,
+    entries,
+    pop,
     then_hash,
+    variable,
 )
 
 
@@ -44,28 +49,27 @@ def vm_hash(entries):
     return result
 
 
-def assert_summary(actual, structure, variables, backend):
+def assert_summary(actual, structure, variables):
     assert actual.structure == structure
     assert actual.fingerprint == then_hash(digest(structure), vm_hash(variables))
-    keys = {value: name for name, value in backend.names.items()}
-    assert {keys[e.key]: e.position for e in backend.maps.entries(actual.variables)} == variables
+    assert {e.key: e.position for e in entries(actual.variables)} == variables
 
 
 def test_reference_equations_at_every_subterm():
-    rng, h = random.Random(710), Hasher()
+    rng = random.Random(710)
 
     def expression(depth):
         if depth == 0 or rng.randrange(4) == 0:
-            name = rng.choice(("a", "b", "c", "free"))
-            actual = h.variable(name)
+            name = rng.choice((0, 1, 2, 3))
+            actual = variable(name)
             structure, variables = digest("SVar"), {name: digest("HerePL")}
         elif rng.randrange(2):
-            name = rng.choice(("a", "b", "c"))
+            name = rng.choice((0, 1, 2))
             body, child_structure, child_map = expression(depth - 1)
             variables = child_map.copy()
             positions = variables.pop(name, None)
             structure = tagged("SLam", child_structure, positions, child_structure)
-            actual = h.lam(name, body)
+            actual = bind((name,), body)
         else:
             left, sl, ml = expression(depth - 1)
             right, sr, mr = expression(depth - 1)
@@ -76,8 +80,8 @@ def test_reference_equations_at_every_subterm():
             for name in sorted(small):
                 variables[name] = tagged("JoinPL", tag, variables.get(name), small[name])
             structure = tagged("SApp", tag, left_bigger, sl, sr)
-            actual = h.app(left, right)
-        assert_summary(actual, structure, variables, h)
+            actual = application(left, right)
+        assert_summary(actual, structure, variables)
         return actual, structure, variables
 
     for _ in range(1000):
@@ -85,7 +89,7 @@ def test_reference_equations_at_every_subterm():
 
 
 def test_avl_persistence_balance_and_xor():
-    maps, rng, tree, expected = Maps(), random.Random(9), None, {}
+    rng, tree, expected = random.Random(9), None, {}
     snapshots = []
 
     def check(t):
@@ -104,31 +108,37 @@ def test_avl_persistence_balance_and_xor():
         if rng.randrange(3):
             # Include zero: a zero hash is present, not a missing entry.
             position = rng.randrange(10)
-            tree = maps.alter(tree, key, digest(key), lambda _: position)
+            tree = alter(tree, key, lambda _: position)
             expected[key] = position
         else:
-            tree, position = maps.pop(tree, key)
+            tree, position = pop(tree, key)
             assert position == expected.pop(key, None)
         check(tree)
         if k % 20 == 0:
             snapshots.append((tree, expected.copy()))
     for tree, expected in snapshots:
-        entries = list(maps.entries(tree))
-        assert [entry.key for entry in entries] == sorted(expected)
-        assert {entry.key: entry.position for entry in entries} == expected
+        items = list(entries(tree))
+        assert [entry.key for entry in items] == sorted(expected)
+        assert {entry.key: entry.position for entry in items} == expected
         assert (tree.total if tree else 0) == vm_hash(expected)
 
 
-def test_larger_map_is_shared_and_work_tracks_smaller_map():
-    h = Hasher()
-    big = h.variable("0")
+def test_larger_map_is_shared_and_work_tracks_smaller_map(monkeypatch):
+    big = variable(0)
     for k in range(1, 1024):
-        big = h.app(big, h.variable(str(k)))
-    closed = h.lam("x", h.variable("x"))
-    before = h.maps.updated_entries
-    assert h.app(big, closed).variables is big.variables
-    assert h.app(closed, big).variables is big.variables
-    assert h.maps.updated_entries == before
-    h.app(big, h.variable("0"))
-    # One singleton creation and exactly one merged entry.
-    assert h.maps.updated_entries == before + 2
+        big = application(big, variable(k))
+    closed = bind((1024,), variable(1024))
+    visited = 0
+
+    def counted_entries(tree):
+        nonlocal visited
+        for entry in entries(tree):
+            visited += 1
+            yield entry
+
+    monkeypatch.setattr(summaries, "entries", counted_entries)
+    assert application(big, closed).variables is big.variables
+    assert application(closed, big).variables is big.variables
+    assert visited == 0
+    application(big, variable(0))
+    assert visited == 1

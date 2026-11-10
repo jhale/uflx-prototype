@@ -17,6 +17,9 @@ replaces Data.Map.Strict. The reference's two-round Boost-style integer combiner
 uses unsigned 128-bit arithmetic here. BLAKE2 hashes non-integer payloads and
 fixed tags; this is not a bit-for-bit port of Haskell's Hashable/Int primitives.
 
+Summary operations are pure: callers supply integer lexical tokens, and all
+occurrence maps are immutable.
+
 UFLx adaptation is separate: constructor tags are closed constants, n-ary nodes
 are left-folded applications, and ordered binders become nested lambdas. Exact
 alpha comparison is still required after a hash match.
@@ -169,72 +172,54 @@ def balanced(tree: Entry) -> Entry:
     return tree
 
 
-class Maps:
-    """Persistent AVL map with cached XOR of entry hashes (VarMap in Haskell)."""
+def alter(
+    tree: Entry | None,
+    key: int,
+    update: Callable[[int | None], int],
+) -> Entry:
+    if tree is None or tree.key == key:
+        position = update(tree.position if tree else None)
+        return node(
+            key,
+            position,
+            then_hash(digest(key), position),
+            tree.left if tree else None,
+            tree.right if tree else None,
+        )
+    if key < tree.key:
+        return balanced(rebuild(tree, alter(tree.left, key, update), tree.right))
+    return balanced(rebuild(tree, tree.left, alter(tree.right, key, update)))
 
-    def __init__(self) -> None:
-        self.steps = 0
-        self.updated_entries = 0
 
-    def alter(
-        self,
-        tree: Entry | None,
-        key: int,
-        name_hash: int,
-        update: Callable[[int | None], int],
-    ) -> Entry:
-        self.steps += 1
-        if tree is None or tree.key == key:
-            self.updated_entries += 1
-            position = update(tree.position if tree else None)
-            return node(
-                key,
-                position,
-                then_hash(name_hash, position),
-                tree.left if tree else None,
-                tree.right if tree else None,
-            )
-        if key < tree.key:
-            return balanced(
-                rebuild(tree, self.alter(tree.left, key, name_hash, update), tree.right)
-            )
-        return balanced(rebuild(tree, tree.left, self.alter(tree.right, key, name_hash, update)))
+def pop(tree: Entry | None, key: int) -> tuple[Entry | None, int | None]:
+    if tree is None:
+        return None, None
+    if key < tree.key:
+        left, position = pop(tree.left, key)
+        return (tree if position is None else balanced(rebuild(tree, left, tree.right))), position
+    if key > tree.key:
+        right, position = pop(tree.right, key)
+        return (tree if position is None else balanced(rebuild(tree, tree.left, right))), position
+    if tree.left is None:
+        return tree.right, tree.position
+    if tree.right is None:
+        return tree.left, tree.position
+    successor = tree.right
+    while successor.left is not None:
+        successor = successor.left
+    right, _ = pop(tree.right, successor.key)
+    return balanced(rebuild(successor, tree.left, right)), tree.position
 
-    def pop(self, tree: Entry | None, key: int) -> tuple[Entry | None, int | None]:
-        self.steps += 1
-        if tree is None:
-            return None, None
-        if key < tree.key:
-            left, position = self.pop(tree.left, key)
-            return (
-                tree if position is None else balanced(rebuild(tree, left, tree.right))
-            ), position
-        if key > tree.key:
-            right, position = self.pop(tree.right, key)
-            return (
-                tree if position is None else balanced(rebuild(tree, tree.left, right))
-            ), position
-        if tree.left is None:
-            return tree.right, tree.position
-        if tree.right is None:
-            return tree.left, tree.position
-        successor = tree.right
-        while successor.left is not None:
-            self.steps += 1
-            successor = successor.left
-        right, _ = self.pop(tree.right, successor.key)
-        return balanced(rebuild(successor, tree.left, right)), tree.position
 
-    def entries(self, tree: Entry | None) -> Iterator[Entry]:
-        pending: list[Entry] = []
-        while tree is not None or pending:
-            while tree is not None:
-                pending.append(tree)
-                tree = tree.left
-            tree = pending.pop()
-            self.steps += 1
-            yield tree
-            tree = tree.right
+def entries(tree: Entry | None) -> Iterator[Entry]:
+    pending: list[Entry] = []
+    while tree is not None or pending:
+        while tree is not None:
+            pending.append(tree)
+            tree = tree.left
+        tree = pending.pop()
+        yield tree
+        tree = tree.right
 
 
 @dataclass(frozen=True, eq=False, slots=True)
@@ -248,56 +233,42 @@ class Summary:
         return then_hash(digest(self.structure), total(self.variables))
 
 
-class Hasher:
-    """Reference Var/Lam/App algorithm plus a thin UFLx constructor encoding."""
+def variable(token: int) -> Summary:
+    """Summarise one occurrence of an explicitly supplied lexical token."""
+    position = digest("HerePL")
+    return Summary(
+        digest("SVar"), node(token, position, then_hash(digest(token), position), None, None)
+    )
 
-    def __init__(self) -> None:
-        self.maps = Maps()
-        self.names: dict[object, int] = {}
-        self.name_hashes: list[int] = []
 
-    def name(self, name: object) -> int:
-        if name not in self.names:
-            self.names[name] = len(self.names)
-            self.name_hashes.append(digest(name))
-        return self.names[name]
+def bind(tokens: tuple[int, ...], body: Summary) -> Summary:
+    """Bind ordered, distinct tokens without changing the input summary."""
+    if len(set(tokens)) != len(tokens):
+        raise ValueError("duplicate binding slots")
+    for token in reversed(tokens):
+        variables, positions = pop(body.variables, token)
+        body = Summary(combine("SLam", body.structure, positions, body.structure), variables)
+    return body
 
-    def variable(self, name: object) -> Summary:
-        key = self.name(name)
-        return Summary(
-            digest("SVar"),
-            self.maps.alter(None, key, self.name_hashes[key], lambda _: digest("HerePL")),
+
+def application(left: Summary, right: Summary) -> Summary:
+    """Combine two summaries, updating only entries of the smaller occurrence map."""
+    tag = then_hash(digest(left.structure), right.structure)
+    left_bigger = size(left.variables) >= size(right.variables)
+    big, small = (left, right) if left_bigger else (right, left)
+    variables = big.variables
+    for entry in entries(small.variables):
+        variables = alter(
+            variables,
+            entry.key,
+            lambda previous: combine("JoinPL", tag, previous, entry.position),
         )
+    return Summary(combine("SApp", tag, left_bigger, left.structure, right.structure), variables)
 
-    def lam(self, name: object, body: Summary) -> Summary:
-        variables, positions = self.maps.pop(body.variables, self.name(name))
-        return Summary(combine("SLam", body.structure, positions, body.structure), variables)
 
-    def app(self, left: Summary, right: Summary) -> Summary:
-        tag = then_hash(digest(left.structure), right.structure)
-        left_bigger = size(left.variables) >= size(right.variables)
-        big, small = (left, right) if left_bigger else (right, left)
-        variables = big.variables
-        for entry in self.maps.entries(small.variables):
-            variables = self.maps.alter(
-                variables,
-                entry.key,
-                self.name_hashes[entry.key],
-                lambda previous: combine("JoinPL", tag, previous, entry.position),
-            )
-        return Summary(
-            combine("SApp", tag, left_bigger, left.structure, right.structure), variables
-        )
-
-    def constructor(self, tag: object, children: tuple[Summary, ...] = ()) -> Summary:
-        result = Summary(combine("Constant", tag, len(children)), None)
-        for child in children:
-            result = self.app(result, child)
-        return result
-
-    def binder(self, names: tuple[object, ...], body: Summary) -> Summary:
-        if len(set(names)) != len(names):
-            raise ValueError("duplicate binding slots")
-        for name in reversed(names):
-            body = self.lam(name, body)
-        return body
+def constructor(tag: object, children: tuple[Summary, ...] = ()) -> Summary:
+    """Encode a tagged UFLx constructor as a closed constant and applications."""
+    result = Summary(combine("Constant", tag, len(children)), None)
+    for child in children:
+        result = application(result, child)
+    return result

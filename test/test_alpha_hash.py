@@ -8,6 +8,8 @@ import sys
 import pytest
 from test_alpha_equivalence import geometry
 
+import uflx_spec_interpreter._src.algorithms._alpha_dependencies as sets
+import uflx_spec_interpreter._src.algorithms.alpha as alpha
 from uflx_spec_interpreter import (
     component_tensor,
     conjugate,
@@ -19,7 +21,6 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms._alpha_dependencies import Dependencies
 from uflx_spec_interpreter._src.algorithms.alpha import AlphaHasher, alpha_hash
 from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
 from uflx_spec_interpreter._src.algorithms.substitution import rename_bound
@@ -97,7 +98,7 @@ def test_opaque_labels_preserve_numeric_types(labels):
     )
 
 
-def test_deep_dag_and_clear():
+def test_deep_dag_and_clear(monkeypatch):
     V = space("hash-deep", scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     a, b = u, v
@@ -108,17 +109,23 @@ def test_deep_dag_and_clear():
     assert_same(a, b)
     h = AlphaHasher()
     first = h.fingerprint(a)
-    visits = h._visits
-    assert h.fingerprint(a) == first
-    assert h._visits == visits
+    visits = len(h._memo)
+
+    def unexpected_assembly(*args):
+        pytest.fail("cached fingerprint recomputed a summary")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(alpha, "_assemble", unexpected_assembly)
+        assert h.fingerprint(a) == first
+    assert len(h._memo) == visits
     h.clear()
-    assert not h._memo and not h._keep and not h._dependencies
+    assert not h._memo and not h._info and not h._names
     assert h.fingerprint(a) == first
     assert sys.getrecursionlimit() == limit
 
 
 def test_dependency_sets_match_python_sets_and_preserve_snapshots():
-    rng, sets = random.Random(83), Dependencies()
+    rng = random.Random(83)
     snapshots = [(None, frozenset())]
     for name in range(80):
         snapshots.append((sets.singleton(name), frozenset((name,))))
@@ -136,17 +143,28 @@ def test_dependency_sets_match_python_sets_and_preserve_snapshots():
         assert {name for name in range(81) if sets.contains(tree, name)} == expected
 
 
-def test_dependency_and_irrelevant_scope_scaling():
+def test_dependency_and_irrelevant_scope_scaling(monkeypatch):
     V = space("hash-scaling", scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
 
+    created = 0
+    original_node = sets.node
+
+    def counted_node(*args):
+        nonlocal created
+        created += 1
+        return original_node(*args)
+
+    monkeypatch.setattr(sets, "node", counted_node)
+
     def work(count, scoped):
+        before = created
         body = num(1) if scoped else u
         for k in range(count):
             body = form(body, (u,)) + form(body, (v,)) if scoped else body + function(V, str(k))
         h = AlphaHasher()
         h.fingerprint(body)
-        return h._visits, h._dependency_sets.created
+        return len(h._memo), created - before
 
     for scoped, n in ((True, 12), (False, 512)):
         small, large = work(n, scoped), work(2 * n, scoped)
@@ -173,3 +191,13 @@ print(alpha_hash(form(v * v, (v,))))
         )
         outputs.add(result.stdout)
     assert len(outputs) == 1
+
+
+def test_tuple_cache_keys_preserve_identity_and_hold_references():
+    first, second = tuple([1]), tuple([1])
+    key = alpha._key(first, ())
+    assert key == alpha._key(first, ())
+    assert hash(key) == hash(alpha._key(first, ()))
+    assert key != alpha._key(second, ())
+    assert key != alpha._key((1.0,), ())
+    assert key[1].value is first
