@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cache
 
-from egglog import BigInt, i64
+from egglog import BigInt, BigRat, i64
 from egglog.deconstruct import get_callable_args
 
 from ..algorithms.alpha import AlphaHasher
@@ -16,6 +16,7 @@ from ..nodes import (
     Absolute,
     AbstractExpression,
     Conjugate,
+    Division,
     ImaginaryPart,
     Index,
     Indexed,
@@ -93,15 +94,17 @@ def encode(
             case _ if preserve_evaluation or expression.value_shape or expression.argument_spaces:
                 return Scalar.atom(i64(atom_key(expression)))
             case Zero():
-                return Scalar.integer(BigInt(0))
+                return Scalar.number(BigRat(0, 1))
             case Integer(value=value):
-                return Scalar.integer(BigInt.from_string(str(value)))
+                return Scalar.number(BigRat(BigInt.from_string(str(value)), 1))
             case Power(first=a, second=b):
                 return visit(a).power(visit(b))
             case Logarithm(operand=a):
                 return visit(a).logarithm()
             case Sum(first=a, second=b):
                 return visit(a) + visit(b)
+            case Division(first=a, second=b):
+                return visit(a) / visit(b)
             case Product(first=a, second=b):
                 return visit(a) * visit(b)
             case IndexSum(expression=body, indices=(i,)) if encode_indices and isinstance(
@@ -121,7 +124,7 @@ def encode(
                 and isinstance(n := source.value_shape[0], int)
             ):
                 return (
-                    Scalar.integer(BigInt(0))
+                    Scalar.number(BigRat(0, 1))
                     if isinstance(source, Zero)
                     else Scalar.at(i64(atom_key(source)), i64(index_key(i)), i64(n))
                 )
@@ -164,12 +167,16 @@ def decode(expression: Scalar, region: EncodedRegion) -> AbstractExpression:
             if index not in dict(body.free_indices):
                 body = indexed(broadcast_to(body, (extent,)), (index,))
             return index_sum(body, (index,))
-        if (args := get_callable_args(expression, Scalar.integer)) is not None:
-            return num(args[0].value)
+        if (args := get_callable_args(expression, Scalar.number)) is not None:
+            value = args[0].value
+            numerator = num(value.numerator)
+            return numerator if value.denominator == 1 else numerator / num(value.denominator)
         if (args := get_callable_args(expression, Scalar.atom)) is not None:
             return region.originals[args[0].value]
         if (args := get_callable_args(expression, Scalar.__add__)) is not None:
             return visit(args[0]) + visit(args[1])
+        if (args := get_callable_args(expression, Scalar.__truediv__)) is not None:
+            return visit(args[0]) / visit(args[1])
         if (args := get_callable_args(expression, Scalar.__mul__)) is not None:
             return visit(args[0]) * visit(args[1])
         raise TypeError(f"unexpected extracted expression: {expression}")

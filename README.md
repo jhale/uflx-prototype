@@ -47,7 +47,7 @@ simplified = result.expression
 report = result.report
 ```
 
-The initial supported fragment is exact integer/scalar algebra, typed zeros,
+The initial supported fragment is exact integer/rational scalar algebra, typed zeros,
 single-index sums with static extents, vector indexing and guarded identity-tensor
 contractions. Egglog also represents conjugation, real and imaginary parts,
 powers, absolute values and logarithms. Rules include double conjugation,
@@ -60,10 +60,16 @@ substitution. It supports known-defined bodies and direct indexing permutations
 that retain the underlying tensor; other potentially singular bodies are left
 unchanged. Gathered indices and substitutions into stored metadata remain outside
 this initial scope.
+
+Integer and rational coefficients share an arbitrary-precision exact representation.
+For example, `(2*x)/2` can become `x`, and `x/2 + x/3` can become `(5/6)*x`.
+Division by an unknown or zero denominator is retained; fractions are never
+converted to approximate floating-point constants. These arithmetic rewrites
+are disabled by `preserve_floating_point_evaluation=True`.
+
 Other operations remain opaque in egglog; UFLx traversal can still optimise their
 value operands. General tensor arithmetic should be core-lowered first.
-Rational/complex constants are not yet exposed as algebraic operators. Existing
-compiler cleanup remains separate; it does not inherit this optimiser's policy.
+Complex constants remain opaque. Existing compiler cleanup remains separate; it does not inherit this optimiser's policy.
 
 Rules that discard an operand, such as multiplication by zero, require evidence
 that the operand is mathematically defined. Facts come from literals and a small

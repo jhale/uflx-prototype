@@ -22,6 +22,7 @@ from uflx_spec_interpreter._src.nodes import (
     IndexSum,
     Integer,
     Inverse,
+    Logarithm,
     Power,
     Product,
     RealPart,
@@ -268,6 +269,10 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
                 for _ in range(k - 1):
                     out = multiply(out, x)
                 return out
+            case Power(a, b):
+                return call("pow", np.float_power, entry(a, bound, comp), entry(b, bound, ()))
+            case Logarithm(a):
+                return call("log", np.log, entry(a, bound, comp))
             case Absolute(a):
                 return call("fabs", np.abs, entry(a, bound, comp))
             case SquareRoot(a):
@@ -403,8 +408,10 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
     def negate(a):
         return -a if isinstance(a, float) else temp(f"-{a}")
 
-    def call(name, f, a):
-        return float(f(a)) if isinstance(a, float) else temp(f"{name}({a})")
+    def call(name, f, *args):
+        if all(isinstance(a, float) for a in args):
+            return float(f(*args))
+        return temp(f"{name}({', '.join(map(render, args))})")
 
     @cache
     def work(n):

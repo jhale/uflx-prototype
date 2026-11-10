@@ -23,6 +23,7 @@ from uflx_spec_interpreter import (
     index_sum,
     integral,
     inverse,
+    logarithm,
     num,
     square_root,
     tensor,
@@ -111,6 +112,11 @@ def loop_examples():
     v = runtime_array("a", (3,))
     product = v[0] * v[1]
     yield "direct_product", product, np.array([2.0, 3.0, 5.0])
+    yield "logarithm", index_sum(logarithm(v[i]), (i,)), np.array([0.5, 1.0, 3.0])
+    yield "negative_power", index_sum(v[i] ** num(-2), (i,)), np.array([0.5, 1.0, 3.0])
+    yield "zero_power", index_sum(v[i] ** num(0), (i,)), np.array([0.5, 1.0, 3.0])
+    yield "fractional_power", v[0] ** (num(1) / num(2)), np.array([2.0, 3.0, 5.0])
+    yield "variable_power", v[0] ** v[1], np.array([2.0, 0.5, 5.0])
     yield "hoisted_product", index_sum(product * v[i], (i,)), np.array([2.0, 3.0, 5.0])
     yield (
         "shared_accumulated_product",

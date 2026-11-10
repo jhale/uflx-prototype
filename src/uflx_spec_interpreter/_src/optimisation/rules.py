@@ -3,7 +3,7 @@
 
 from collections.abc import Iterator
 
-from egglog import BigInt, RewriteOrRule, birewrite, i64, ne, relation, rewrite, ruleset
+from egglog import BigRat, RewriteOrRule, birewrite, eq, i64, ne, relation, rewrite, rule, ruleset
 
 from .language import Scalar
 
@@ -15,7 +15,7 @@ def algebra(a: Scalar, b: Scalar, c: Scalar) -> Iterator[RewriteOrRule]:
     yield rewrite((a + b) + c).to(a + (b + c))
     yield rewrite((a * b) * c).to(a * (b * c))
     yield birewrite(a * (b + c)).to(a * b + a * c)
-    yield rewrite(a + a).to(Scalar.integer(BigInt(2)) * a)
+    yield rewrite(a + a).to(Scalar.number(BigRat(2, 1)) * a)
 
 
 independent = relation("independent", i64, i64)
@@ -29,12 +29,12 @@ def unary_rules(a: Scalar) -> Iterator[RewriteOrRule]:
     yield rewrite(a.absolute().absolute()).to(a.absolute())
     yield rewrite(a.conjugate().conjugate()).to(a)
     yield rewrite(a.real_part()).to(a, is_real(a))
-    yield rewrite(a.imaginary_part()).to(Scalar.integer(BigInt(0)), is_real(a), defined(a))
+    yield rewrite(a.imaginary_part()).to(Scalar.number(BigRat(0, 1)), is_real(a), defined(a))
 
 
 @ruleset
 def indexed_rules(a: Scalar, k: i64, i: i64, j: i64, n: i64) -> Iterator[RewriteOrRule]:
-    zero = Scalar.integer(BigInt(0))
+    zero = Scalar.number(BigRat(0, 1))
     yield rewrite(Scalar.summed(a * Scalar.atom(k), j, n)).to(
         Scalar.summed(a, j, n) * Scalar.atom(k), independent(k, j), n > 0
     )
@@ -47,11 +47,15 @@ def indexed_rules(a: Scalar, k: i64, i: i64, j: i64, n: i64) -> Iterator[Rewrite
 
 
 @ruleset
-def constant_cleanup(a: Scalar, i: BigInt, j: BigInt) -> Iterator[RewriteOrRule]:
+def constant_cleanup(a: Scalar, i: BigRat, j: BigRat) -> Iterator[RewriteOrRule]:
     """Non-expanding constant rules shared by search and finishing cleanup."""
-    zero, one = Scalar.integer(BigInt(0)), Scalar.integer(BigInt(1))
-    yield rewrite(Scalar.integer(i) + Scalar.integer(j)).to(Scalar.integer(i + j))
-    yield rewrite(Scalar.integer(i) * Scalar.integer(j)).to(Scalar.integer(i * j))
+    zero, one = Scalar.number(BigRat(0, 1)), Scalar.number(BigRat(1, 1))
+    yield rewrite(Scalar.number(i) + Scalar.number(j)).to(Scalar.number(i + j))
+    yield rewrite(Scalar.number(i) * Scalar.number(j)).to(Scalar.number(i * j))
+    yield rule(eq(a).to(Scalar.number(i))).then(defined(a))
+    yield rewrite(a / Scalar.number(j)).to(
+        a * Scalar.number(BigRat(1, 1) / j), ne(j).to(BigRat(0, 1))
+    )
     yield rewrite(a + zero).to(a)
     yield rewrite(zero + a).to(a)
     yield rewrite(a * zero).to(zero, defined(a))

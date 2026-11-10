@@ -3,14 +3,14 @@
 
 from __future__ import annotations
 
-from egglog import BigInt, Expr, i64
+from egglog import BigRat, Expr, i64
 
 
 class Scalar(Expr):
     """Scalar algebra and conjugation; opaque atoms may also hold tensors or forms."""
 
     @classmethod
-    def integer(cls, value: BigInt) -> Scalar: ...
+    def number(cls, value: BigRat) -> Scalar: ...
 
     @classmethod
     def atom(cls, key: i64) -> Scalar: ...
@@ -27,6 +27,8 @@ class Scalar(Expr):
     def __add__(self, other: Scalar) -> Scalar: ...
 
     def __mul__(self, other: Scalar) -> Scalar: ...
+
+    def __truediv__(self, other: Scalar) -> Scalar: ...
 
     def conjugate(self) -> Scalar: ...
 

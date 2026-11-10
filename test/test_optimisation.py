@@ -642,3 +642,85 @@ def test_component_selection_does_not_discard_unknown_singularities(preserve):
     original = component_tensor(num(1) / a[i], (i,))[j]
     result = optimise(original, OptimisationOptions(preserve_floating_point_evaluation=preserve))
     assert result.expression is original
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_exact_rational_collection_and_evaluation_policy(preserve):
+    x = RuntimeArray("rational-x", ())
+    original = x / num(2) + x / num(3)
+    result = optimise(
+        original, OptimisationOptions(iterations=5, preserve_floating_point_evaluation=preserve)
+    ).expression
+    if preserve:
+        assert result is original
+    else:
+        assert result in ((num(5) / num(6)) * x, x * (num(5) / num(6)))
+    assert_values(original, result, {"rational-x": np.array(1.25)})
+
+
+def test_rational_factors_cancel_without_assuming_the_operand_is_defined():
+    x = RuntimeArray("rational-cancel", ())
+    for operand in (x, num(1) / x):
+        original = (num(2) * operand) / num(2)
+        assert optimise(original).expression is operand
+
+
+@pytest.mark.parametrize("denominator", [0, 2, -3])
+def test_rational_constant_folding_retains_zero_denominators(denominator):
+    original = num(6) / num(denominator)
+    result = optimise(original).expression
+    if denominator == 0:
+        assert result is original
+        assert num(1) / num(0) in nodes(optimise(num(0) * (num(1) / num(0))).expression)
+    else:
+        assert result is num(3 if denominator == 2 else -2)
+        assert_values(original, result, {})
+
+
+def test_rational_arithmetic_preserves_arbitrary_precision():
+    from uflx_spec_interpreter._src.nodes import Division, Integer
+
+    large = 2**100
+    original = num(large) / num(3) + num(1) / num(3)
+    result = optimise(original).expression
+    assert isinstance(result, Division)
+    assert result.first is num(large + 1)
+    assert result.second is num(3)
+    assert all(isinstance(n, Integer | Division) for n in nodes(result))
+
+
+def test_rational_cancellation_preserves_unknown_singularities():
+    x = RuntimeArray("rational-singularity", ())
+    for original in (x / x, num(0) / x, num(0) * (num(1) / x)):
+        result = optimise(original).expression
+        assert any(n is x for n in nodes(result))
+        assert not isinstance(result, Zero)
+        assert_values(original, result, {"rational-singularity": np.array(2.0)})
+
+
+def test_rational_collection_preserves_complex_values_and_indices():
+    i = index("rational-family")
+    z = tensor((num(1j), num(2 + 3j)))[i]
+    original = component_tensor(z / num(2) + z / num(3), (i,))
+    result = optimise(original, OptimisationOptions(iterations=5)).expression
+    assert_values(original, result, {})
+
+
+def test_nested_rational_denominators_and_derived_zero():
+    from uflx_spec_interpreter._src.nodes import Division
+
+    x = RuntimeArray("nested-rational", ())
+    original = x / (num(1) / num(3))
+    result = optimise(original).expression
+    assert result in (num(3) * x, x * num(3))
+    assert_values(original, result, {"nested-rational": np.array(2.0)})
+    undefined = num(1) / (num(1) - num(1))
+    result = optimise(undefined).expression
+    assert isinstance(result, Division)
+    assert isinstance(result.second, Zero) or result.second is num(0)
+
+
+def test_floating_point_divisors_remain_opaque():
+    x = RuntimeArray("float-divisor", ())
+    original = x / num(2.0)
+    assert optimise(original).expression is original

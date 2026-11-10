@@ -25,4 +25,7 @@ def loop_cost(
         or get_callable_args(expr, Scalar.__mul__) is not None
     ):
         flops += 1
+    elif get_callable_args(expr, Scalar.__truediv__) is not None:
+        # Prefer multiplication by an exact reciprocal when both are available.
+        flops += 2
     return flops, size

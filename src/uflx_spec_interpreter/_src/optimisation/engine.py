@@ -17,6 +17,7 @@ from ..nodes import (
     Absolute,
     AbstractExpression,
     Conjugate,
+    Division,
     ImaginaryPart,
     IndexSum,
     Integer,
@@ -47,7 +48,7 @@ def in_region(node: AbstractExpression, preserve_evaluation: bool) -> bool:
     """Safe unary operations are always supported; other scalar operations are optional."""
     return isinstance(node, Absolute | Conjugate | RealPart | ImaginaryPart) or (
         not preserve_evaluation
-        and isinstance(node, Sum | Product | IndexSum | Power | Logarithm)
+        and isinstance(node, Sum | Product | Division | IndexSum | Power | Logarithm)
         and not node.value_shape
         and not node.argument_spaces
     )
