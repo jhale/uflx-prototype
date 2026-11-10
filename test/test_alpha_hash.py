@@ -24,6 +24,7 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.algorithms.alpha import AlphaHasher, alpha_hash
 from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
 from uflx_spec_interpreter._src.algorithms.substitution import rename_bound
+from uflx_spec_interpreter._src.extensions.binding import rebind
 from uflx_toy.spaces import space
 
 
@@ -208,3 +209,49 @@ def test_tuple_cache_keys_preserve_identity_and_hold_references():
     assert key != alpha._key(second, ())
     assert key != alpha._key((1.0,), ())
     assert key[1].value is first
+
+
+@pytest.mark.parametrize("kind", ["simple", "swap", "group", "conjugate", "shadow"])
+def test_rebind_form_fingerprints(kind):
+    V = space("hash-rebind", scalar_type="complex")
+    u, v, w, p = (function(V, name) for name in ("u", "v", "w", "p"))
+    match kind:
+        case "simple":
+            original, renames = form(u * u + w, (u,)), {u: v}
+        case "swap":
+            original, renames = form(u + num(2) * v, (u, v)), {u: v, v: u}
+        case "group":
+            original, renames = form(u + num(2) * v, ((u, v),)), {(u, v): (w, p)}
+        case "conjugate":
+            original = form(u * conjugate(v), (u, conjugate(v)))
+            renames = {u: w, conjugate(v): conjugate(p)}
+        case "shadow":
+            original, renames = form(form(u, (w,)) + form(u, (u,)), (u,)), {u: v}
+    assert_same(original, rebind(original, renames))
+
+
+@pytest.mark.parametrize("constructor", [component_tensor, index_sum])
+def test_rebind_index_fingerprints(constructor):
+    i, j = index("i"), index("j")
+    a = tensor((num(2), num(3)))
+    original = constructor(a[i], (i,))
+    assert_same(original, rebind(original, {i: j}))
+
+
+def test_rebind_geometry_fingerprints():
+    x, y, c = geometry()
+    original = form(c, (x,))
+    renamed = rebind(original, {x: y})
+    assert_same(original, renamed)
+    assert alpha_hash(original.expression) != alpha_hash(renamed.expression)
+
+
+def test_rebind_changed_opaque_label_preserves_free_identity():
+    V = space("hash-rebind-label", scalar_type="real")
+    u, v = function(V, "u"), function(V, "v")
+    c = function(V, ("library.coefficient", u))
+    original = form(c, (u,))
+    renamed = rebind(original, {u: v})
+    assert renamed.expression.label == ("library.coefficient", v)
+    assert not alpha_equivalent(original, renamed)
+    assert alpha_hash(original) != alpha_hash(renamed)
