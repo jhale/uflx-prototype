@@ -372,7 +372,8 @@ def test_precomputed_arrays_preserve_conditional_evaluation(tmp_path):
 
 @pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
 @pytest.mark.parametrize("quadrature", [False, True])
-def test_component_specialisation_skips_zero_blocks(tmp_path, quadrature):
+@pytest.mark.parametrize("specialize", [False, True])
+def test_component_specialisation_skips_zero_blocks(tmp_path, quadrature, specialize):
     i, r, j, s = (index(name) for name in ("i", "r", "j", "s"))
     basis = tensor((num(1), num(2), num(4)))
     diagonal = tensor((tensor((num(1), num(0))), tensor((num(0), num(2)))))
@@ -388,11 +389,13 @@ def test_component_specialisation_skips_zero_blocks(tmp_path, quadrature):
         lambda label, offset: f"read_scale(w + ({offset}))",
         output_indices=(i, r, j, s),
         unroll_indices=(r, s),
+        specialize_basis=specialize,
     )
     # Two diagonal blocks are emitted; the two identically-zero blocks do no work.
-    assert code.count("A[") == 2
-    # Both component updates share the same two basis loops.
-    assert len(re.findall(r"for \(int a\d+ =", code)) == 2
+    specialized = specialize and not quadrature
+    assert code.count("A[") == (18 if specialized else 2)
+    # Both component updates share basis loops, unless their entries are specialised.
+    assert len(re.findall(r"for \(int a\d+ =", code)) == (0 if specialized else 2)
     source, library = tmp_path / "blocked.c", tmp_path / "blocked.so"
     source.write_text(
         "#include <math.h>\nint reads = 0;\n"
@@ -668,3 +671,57 @@ def test_coupled_blocks_prepare_geometry_products_before_basis_loops(tmp_path):
         counts.append(ctypes.c_int.in_dll(lib, "reads").value)
     assert counts[0] > 0
     assert counts[0] == counts[1]
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("specialize", [False, True])
+@pytest.mark.parametrize("columns", [3, 4])
+def test_small_basis_specialisation_eliminates_zero_updates(tmp_path, specialize, columns):
+    from uflx_compiler.quadrature import constant
+
+    i, j = index("i"), index("j")
+    left, right = np.array([0.0, 1.0, -1.0]), np.arange(columns, dtype=float)
+    scale = runtime_array("scale", ())
+    expression = scale * constant(left)[i] * constant(right)[j]
+    code = c_kernel(
+        expression,
+        "small",
+        lambda label, offset: f"w[{offset}]",
+        output_indices=(i, j),
+        specialize_basis=specialize,
+    )
+    specialized = specialize and columns == 3
+    assert ("for (int a" not in code) == specialized
+    if specialized:
+        assert code.count("A[") == 4  # Only the nonzero rows and columns are written.
+    source, library = tmp_path / "small.c", tmp_path / "small.so"
+    source.write_text(code)
+    subprocess.run(
+        ["cc", "-O0", "-ffp-contract=off", "-shared", "-fPIC", source, "-o", library],
+        check=True,
+    )
+    result = np.full((3, columns), 7.0)
+    data = np.array([2.5])
+    pointer = ctypes.POINTER(ctypes.c_double)
+    ctypes.CDLL(str(library)).small(
+        result.ctypes.data_as(pointer), data.ctypes.data_as(pointer), None, None, None, None, None
+    )
+    np.testing.assert_array_equal(result, 7 + data[0] * np.outer(left, right))
+
+
+def test_small_basis_specialisation_respects_total_update_budget():
+    from uflx_compiler.quadrature import constant
+
+    i, r, j, s = (index(name) for name in ("i", "r", "j", "s"))
+    basis = constant(np.array([0.0, 1.0, -1.0]))
+    components = constant(np.ones((3, 3)))
+    expression = runtime_array("scale", ()) * basis[i] * basis[j] * components[r, s]
+    code = c_kernel(
+        expression,
+        "large_blocks",
+        lambda label, offset: f"w[{offset}]",
+        output_indices=(i, r, j, s),
+        unroll_indices=(r, s),
+    )
+    # Nine blocks of nine entries exceed the 64-update specialisation budget.
+    assert "for (int a" in code

@@ -4,6 +4,7 @@ from collections import Counter
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from functools import cache
+from math import prod
 
 import numpy as np
 
@@ -203,6 +204,7 @@ def c_kernel(
     fuse_reductions=True,
     preintegrate=True,
     buffer_rows=True,
+    specialize_basis=True,
 ):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
@@ -630,6 +632,31 @@ def c_kernel(
             ]
             for _, n in blocks:
                 folded.update(fold(n, preserve_indices=(*output_indices, *(index_bindings or {}))))
+        # Expose small reference-table entries to symbolic simplification before
+        # C floating-point rules can prevent eliminating multiplication by zero.
+        if (
+            specialize_basis
+            and scope is root
+            and len(loop_indices) == 2
+            and all(extents[i] <= 3 for i in loop_indices)
+            and prod(extents[i] for i in loop_indices) * len(blocks) <= 64
+            and set(loop_indices) <= set().union(*(selected_indices(n) for _, n in blocks))
+        ):
+            for selected, n in blocks:
+                for values in np.ndindex(tuple(extents[i] for i in loop_indices)):
+                    fixed = dict(zip(loop_indices, values, strict=True))
+                    specialized = simplify(substitute(n, fixed))
+                    if isinstance(specialized, Zero):
+                        continue
+                    folded.update(fold(specialized, preserve_indices=index_bindings or {}))
+                    positions = bound | selected | fixed
+                    result = entry(specialized, positions, ())
+                    output = offset(
+                        tuple(positions[i] for i in output_indices),
+                        tuple(extents[i] for i in output_indices),
+                    )
+                    emit(_Accumulation(f"A[{output}]", render(result)))
+            return
         # Dense blocked reference contractions benefit from contiguous row stores.
         # Keep quadrature-dependent kernels and sparse blocks on the direct path.
         if (
