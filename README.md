@@ -215,15 +215,23 @@ matrices and small actions can therefore avoid runtime quadrature. Curved geomet
 reductions when this separation is unavailable. Expansion is limited to 64 terms
 and table/work extents to 65,536 entries; exceeding a limit keeps the original
 reduction. Set `preintegrate=False` on `c_kernel` to disable the pass.
+Small scalar table contractions remove exactly zero columns and combine equal
+or opposite columns before C emission. Matching permits a relative difference of
+32 double-precision epsilons, with no absolute tolerance, to account for
+roundoff in tabulated values. This may change floating-point results. The pass
+requires runtime coefficients independent of the remaining table axes and is
+limited to 16 contracted entries and 4096 table entries. Set `sparse_tables=False`
+on `c_kernel` to disable it.
+For a single small matrix block (at most three basis functions per axis),
+constant reference factors can collect quadrature-dependent geometry into metric
+coefficients before the basis contraction. This avoids constructing and
+multiplying physical gradients separately for each entry, including on curved
+cells. Bases that vary across quadrature retain their existing factorisation.
 Small matrix basis loops (at most three entries per axis and 64 output updates
 across the emitted blocks) are specialised, including inside quadrature loops,
-when they select explicit tensor entries and write directly to the output. The existing simplifier then removes zero
-contributions before C emission, including with strict C flags. Set
+when they select explicit tensor entries and write directly to the output. The
+existing simplifier then removes zero contributions before C emission, including with strict C flags. Set
 `specialize_basis=False` on `c_kernel` to retain these loops.
-Dense blocked matrices without a remaining quadrature loop use temporary rows to
-make interleaved component updates contiguous. The buffers are limited to 4096
-doubles; sparse blocks retain direct updates. Set `buffer_rows=False` on
-`c_kernel` to disable row buffering.
 Preintegration and product regrouping can change floating-point rounding, even
 with strict C flags; no language change or egglog is required.
 For dense square component blocks with a common outer reduction, the compiler
@@ -237,11 +245,7 @@ can change floating-point rounding.
 A single-use multiplication directly
 before an accumulation is emitted in that accumulation, allowing the C compiler
 to generate fused multiply-add instructions with its normal contraction settings.
-Shared and hoisted products keep their temporaries. Independent simple reductions
-with equal loop bounds share a loop, preserving each accumulator's summation order.
-Fusion stays within a lexical scope and does not cross dependent declarations,
-array writes or function calls. Set `fuse_reductions=False` on `c_kernel` to disable
-it. This scheduling pass runs before C emission; it does not require egglog.
+Shared and hoisted products keep their temporaries.
 Fused multiply-add operations may round
 differently from separate multiplication and addition; no fast-math flags are
 required. The runtime arrays keep the flat

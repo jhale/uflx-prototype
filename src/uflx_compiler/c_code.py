@@ -2,7 +2,7 @@ import re
 import sys
 from collections import Counter
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from functools import cache
 from math import prod
 
@@ -35,7 +35,7 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_spec_interpreter._src.nodes.structure import expression_operands
 from uflx_toy.nodes import RuntimeArray
 
-from .contractions import _factor_contraction, _preintegrate, _transpose_reuse
+from .contractions import _factor_contraction, _preintegrate, _sparse_contractions, _transpose_reuse
 from .folding import fold
 from .simplification import simplify
 
@@ -72,78 +72,6 @@ class _Initialisation:
         return f"double {self.target} = 0.0;"
 
 
-def _fuse_reductions(statements):
-    """Fuse simple sibling reductions across independent scalar declarations.
-
-    Only a single accumulation with no function calls is eligible. Other loops,
-    conditionals and array writes are barriers. Identifier dependencies include every
-    declaration crossed and every accumulator in the fused loop; each individual
-    accumulation retains its original iteration order.
-    """
-    result = []
-    anchor = None
-    unavailable = set()
-    for statement in statements:
-        if isinstance(statement, _Initialisation):
-            unavailable.add(statement.target)
-            result.append(statement)
-            continue
-        if isinstance(statement, _Scope):
-            body = _fuse_reductions(statement.statements)
-            statement = replace(statement, statements=body)
-            if (
-                statement.reduction_extent is not None
-                and len(body) == 1
-                and isinstance(body[0], _Accumulation)
-                and result
-                and isinstance(result[-1], _Initialisation)
-                and result[-1].target == body[0].target
-                and not re.search(r"[A-Za-z_]\w*\s*\(", body[0].value)
-            ):
-                initialisation = result.pop()
-                reads = set(re.findall(r"[A-Za-z_]\w*", body[0].value))
-                if (
-                    anchor is not None
-                    and result[anchor].reduction_extent == statement.reduction_extent
-                    and not reads & unavailable
-                ):
-                    loop = result[anchor]
-                    value = re.sub(rf"\b{statement.index}\b", loop.index, body[0].value)
-                    result[anchor] = replace(
-                        loop, statements=[*loop.statements, _Accumulation(body[0].target, value)]
-                    )
-                    result.insert(anchor, initialisation)
-                    anchor += 1
-                    unavailable.add(body[0].target)
-                    continue
-                result.append(initialisation)
-                anchor = len(result)
-                unavailable = {body[0].target}
-                result.append(statement)
-                continue
-        if (
-            isinstance(statement, _Accumulation)
-            and re.fullmatch(r"[A-Za-z_]\w*", statement.target)
-            and not re.search(r"[A-Za-z_]\w*\s*\(", statement.value)
-        ):
-            unavailable.add(statement.target)
-        elif isinstance(statement, _ProductStatement) and not re.search(
-            r"[A-Za-z_]\w*\s*\(", statement.expression
-        ):
-            unavailable.add(statement.name)
-        elif (
-            isinstance(statement, str)
-            and (declaration := re.fullmatch(r"const double (\w+) = (.*);", statement))
-            and not re.search(r"[A-Za-z_]\w*\s*\(", declaration[2])
-        ):
-            unavailable.add(declaration[1])
-        else:
-            anchor = None
-            unavailable = set()
-        result.append(statement)
-    return result
-
-
 @dataclass
 class _Scope:
     """Buffered statements and shared expressions at one lexical scope."""
@@ -152,7 +80,6 @@ class _Scope:
     header: str = ""
     index: str | None = None
     conditional: bool = False
-    reduction_extent: int | None = None
     statements: list = field(default_factory=list)
     expressions: dict = field(default_factory=dict)
 
@@ -201,11 +128,10 @@ def c_kernel(
     output_indices=(),
     index_bindings=None,
     unroll_indices=(),
-    fuse_reductions=True,
     preintegrate=True,
-    buffer_rows=True,
     specialize_basis=True,
     reuse_transposes=True,
+    sparse_tables=True,
 ):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
@@ -242,10 +168,10 @@ def c_kernel(
         scope.statements.append(code)
 
     @contextmanager
-    def block(header, *, index=None, conditional=False, reduction_extent=None):
+    def block(header, *, index=None, conditional=False):
         nonlocal scope
         parent = scope
-        child = _Scope(parent, header, index, conditional, reduction_extent)
+        child = _Scope(parent, header, index, conditional)
         scope = child
         try:
             yield
@@ -426,7 +352,6 @@ def c_kernel(
                         with block(
                             f"for (int {name} = 0; {name} < {extent[i]}; ++{name})",
                             index=name,
-                            reduction_extent=extent[i],
                         ):
                             reduce(rest, inner | {i: name})
 
@@ -616,6 +541,8 @@ def c_kernel(
         emit_blocks([({}, n)], bound)
 
     def emit_blocks(blocks, bound, local=None):
+        if sparse_tables:
+            blocks = [(selected, _sparse_contractions(n)) for selected, n in blocks]
         if len(loop_indices) in (1, 2):
             outer_indices = tuple(i for i in bound if i not in output_indices)
             # Form geometry coefficients before the basis-pair contraction when no
@@ -626,7 +553,15 @@ def c_kernel(
                 (
                     selected,
                     _factor_contraction(
-                        n, loop_indices, outer_indices, combine_geometry=combine_geometry
+                        n,
+                        loop_indices,
+                        outer_indices,
+                        combine_geometry=combine_geometry,
+                        constant_basis=(
+                            len(blocks) == 1
+                            and len(loop_indices) == 2
+                            and all(extents[i] <= 3 for i in loop_indices)
+                        ),
                     ),
                 )
                 for selected, n in blocks
@@ -658,19 +593,6 @@ def c_kernel(
                     )
                     emit(_Accumulation(f"A[{output}]", render(result)))
             return
-        # Dense blocked reference contractions benefit from contiguous row stores.
-        # Keep quadrature-dependent kernels and sparse blocks on the direct path.
-        if (
-            buffer_rows
-            and scope is root
-            and len(output_indices) == 4
-            and loop_indices == (output_indices[0], output_indices[2])
-            and set(unroll_indices) == {output_indices[1], output_indices[3]}
-            and len(blocks) == extents[output_indices[1]] * extents[output_indices[3]]
-            and (len(blocks) + extents[output_indices[3]]) * extents[output_indices[2]] <= 4096
-        ):
-            emit_buffered_rows(blocks, bound)
-            return
         # Prepare all components together, then update adjacent entries in one
         # basis-pair traversal. This exposes interleaved stores to the C compiler.
         with ExitStack() as stack:
@@ -698,37 +620,6 @@ def c_kernel(
                     i, j = (positions[k] for k in loop_indices)
                     target = f"{local}[{slot}][{i}][{j}]"
                 emit(_Accumulation(target, render(result)))
-
-    def emit_buffered_rows(blocks, bound):
-        """Compute dense component rows, then interleave contiguous output updates."""
-        i, r, j, s = output_indices
-        ni, nr, nj, ns = (extents[k] for k in output_indices)
-        rows, row = fresh("rows"), fresh("row")
-        emit(f"double {rows}[{len(blocks)}][{nj}];")
-        emit(f"double {row}[{nj * ns}];")
-        inner = bound | loop_names
-        for selected, n in blocks:
-            prepare(n, inner | selected)
-        with block(f"for (int {inner[i]} = 0; {inner[i]} < {ni}; ++{inner[i]})", index=inner[i]):
-            with block(
-                f"for (int {inner[j]} = 0; {inner[j]} < {nj}; ++{inner[j]})", index=inner[j]
-            ):
-                for slot, (selected, n) in enumerate(blocks):
-                    result = entry(n, inner | selected, ())
-                    emit(f"{rows}[{slot}][{inner[j]}] = {render(result)};")
-            slots = {(selected[r], selected[s]): k for k, (selected, _) in enumerate(blocks)}
-            for component in range(nr):
-                column = fresh("p")
-                with block(f"for (int {column} = 0; {column} < {nj}; ++{column})", index=column):
-                    for c in range(ns):
-                        emit(
-                            f"{row}[{column} * {ns} + {c}] = "
-                            f"{rows}[{slots[component, c]}][{column}];"
-                        )
-                flat = fresh("p")
-                with block(f"for (int {flat} = 0; {flat} < {nj * ns}; ++{flat})", index=flat):
-                    target = f"A[({inner[i]} * {nr} + {component}) * {nj * ns} + {flat}]"
-                    emit(_Accumulation(target, f"{row}[{flat}]"))
 
     def emit_transposed_blocks(blocks, bound, axes):
         """Accumulate proven representatives, then add all component blocks to A."""
@@ -835,8 +726,6 @@ def c_kernel(
     if all(dict(e.free_indices)[i] > 0 for i in output_indices):
         accumulate_blocks(expressions, bound)
     root.inline_products()
-    if fuse_reductions:
-        root.statements = _fuse_reductions(root.statements)
     body = "\n".join([declaration for _, declaration in tables.values()] + list(root.lines()))
     return (
         "#include <stdint.h>\n"

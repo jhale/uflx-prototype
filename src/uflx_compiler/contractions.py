@@ -30,7 +30,7 @@ from .quadrature import constant
 from .simplification import literal, simplify
 
 
-def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
+def _factor_contraction(expression, rows, outer_indices, *, combine_geometry, constant_basis=False):
     """Collect coefficients of reference basis factors for actions and matrices.
 
     Only distribute products with one index-dependent operand. Products of two
@@ -38,8 +38,11 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
     tensor-component sums in matrices are expanded when their transformation
     coefficients are invariant over the outer integration loops. For actions,
     the coefficients may vary over those loops but not over the test-basis index.
+    Small constant reference bases may also collect varying geometry into metric
+    coefficients, avoiding repeated physical-gradient products.
     """
     test, trial = rows if len(rows) == 2 else (None, rows[0])
+    reads = memoized(arrays)
 
     @cache
     def selected_indices(expression):
@@ -72,9 +75,25 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
                         for values in product(*(range(extents[i]) for i in node.indices))
                     )
                     expanded = terms(_sum(entries))
-                    if test is None or all(
-                        not set(outer_indices).intersection(i for i, _ in c.free_indices)
-                        for c in expanded.values()
+                    if (
+                        test is None
+                        or (
+                            constant_basis
+                            and all(
+                                f is None
+                                or (
+                                    not set(outer_indices).intersection(
+                                        i for i, _ in f.free_indices
+                                    )
+                                    and not reads(f)
+                                )
+                                for f in expanded
+                            )
+                        )
+                        or all(
+                            not set(outer_indices).intersection(i for i, _ in c.free_indices)
+                            for c in expanded.values()
+                        )
                     ):
                         return expanded
             if isinstance(node, Sum):
@@ -346,3 +365,79 @@ def _transpose_reuse(blocks, rows, components):
             references.append((len(representatives), False))
             representatives.append((selected, expression))
     return representatives, references
+
+
+def _sparse_contractions(expression):
+    """Remove zero table columns and combine equal or opposite columns.
+
+    Matching allows 32 double-precision epsilons of relative tabulation error,
+    with no absolute tolerance. Only small scalar contractions with runtime
+    coefficients independent of the remaining table axes are expanded.
+    """
+    reads = memoized(arrays)
+
+    def factors(node):
+        if isinstance(node, Product):
+            return (*factors(node.first), *factors(node.second))
+        return (node,)
+
+    def compress(node):
+        (axis,) = node.indices
+        parts = factors(node.expression)
+        reference = _product(p for p in parts if not reads(p))
+        coefficient = _product(p for p in parts if reads(p))
+        axes = dict(reference.free_indices)
+        if (
+            axis not in axes
+            or not 1 <= axes[axis] <= 16
+            or prod(axes.values()) > 4096
+            or not reads(coefficient)
+            or (set(axes) & dict(coefficient.free_indices).keys()) != {axis}
+        ):
+            return node
+        values = np.asarray(evaluate(reference, {}))
+        if not np.all(np.isfinite(values)):
+            return node
+        columns = np.moveaxis(values, tuple(axes).index(axis), 0)
+        groups = []
+        for k, column in enumerate(columns):
+            if not np.any(column):
+                continue
+            value = simplify(substitute(coefficient, {axis: k}))
+            for position, (representative, combined) in enumerate(groups):
+                for sign in (1, -1):
+                    if np.allclose(
+                        column,
+                        sign * columns[representative],
+                        rtol=32 * np.finfo(float).eps,
+                        atol=0,
+                    ):
+                        groups[position] = (
+                            representative,
+                            add(combined, multiply(num(sign), value)),
+                        )
+                        break
+                else:
+                    continue
+                break
+            else:
+                groups.append((k, value))
+        if len(groups) == len(columns):
+            return node
+        return complete_indices(
+            node,
+            simplify(
+                _sum(
+                    multiply(coefficient, substitute(reference, {axis: k}))
+                    for k, coefficient in groups
+                )
+            ),
+        )
+
+    def walk(walk, node):
+        node = map_values(node, walk)
+        if isinstance(node, IndexSum) and len(node.indices) == 1 and not node.value_shape:
+            return compress(node)
+        return node
+
+    return memoized(walk)(expression)

@@ -529,7 +529,7 @@ def test_geometry_contraction_is_prepared_at_its_invariant_scope(tmp_path, curve
         "calls",
     ],
 )
-def test_reduction_fusion_preserves_dependencies_and_summation_order(tmp_path, kind):
+def test_reductions_preserve_dependencies_and_summation_order(tmp_path, kind):
     i, j = index("i"), index("j")
     a = runtime_array("a", (6,))
     b = runtime_array("b", (5 if kind == "different_extent" else 6,))
@@ -546,12 +546,9 @@ def test_reduction_fusion_preserves_dependencies_and_summation_order(tmp_path, k
         access = f"w[{0 if label == 'a' else 6} + ({offset})]"
         return f"identity({access})" if kind == "calls" else access
 
-    separate = c_kernel(expression, "separate", read_value, fuse_reductions=False)
-    fused = c_kernel(expression, "fused", read_value)
-    assert separate.count("for (") == 2
-    assert fused.count("for (") == (1 if kind in ("independent", "scalar_updates") else 2)
-    source, library = tmp_path / "fusion.c", tmp_path / "fusion.so"
-    source.write_text("double identity(double x) { return x; }\n" + separate + fused)
+    code = c_kernel(expression, "reductions", read_value)
+    source, library = tmp_path / "reductions.c", tmp_path / "reductions.so"
+    source.write_text("double identity(double x) { return x; }\n" + code)
     subprocess.run(
         ["cc", "-std=c99", "-O0", "-ffp-contract=off", "-shared", "-fPIC", source, "-o", library],
         check=True,
@@ -561,37 +558,33 @@ def test_reduction_fusion_preserves_dependencies_and_summation_order(tmp_path, k
     # Cancellation makes a changed summation order observable, even without fast math.
     samples = [np.array([1.0, 1e16, -1e16, 3.0, -2.0, 4.0] * 2)]
     samples.extend(np.random.default_rng(17).normal(size=(8, 12)))
-    for sample, data in enumerate(samples):
-        outputs = []
-        for name in ("separate", "fused"):
-            result = np.array([7.0])
-            getattr(lib, name)(
-                result.ctypes.data_as(pointer),
-                data.ctypes.data_as(pointer),
-                None,
-                None,
-                None,
-                None,
-                None,
-            )
-            outputs.append(result)
-        np.testing.assert_array_equal(outputs[0], outputs[1])
-        # The NumPy evaluator may reassociate the cancellation-sensitive sample.
-        if sample:
-            np.testing.assert_allclose(
-                outputs[1],
-                7 + evaluate(expression, {"a": data[:6], "b": data[6 : 6 + b.value_shape[0]]}),
-                rtol=1e-12,
-                atol=1e-12,
-            )
+    for data in samples:
+        result = np.array([7.0])
+        lib.reductions(
+            result.ctypes.data_as(pointer),
+            data.ctypes.data_as(pointer),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        first = 0.0
+        for value in data[:6]:
+            first += float(value)
+        factor = {"dependent": first, "indirect_dependency": first * data[0]}.get(kind, 1.0)
+        second = 0.0
+        for value in data[6 : 6 + b.value_shape[0]]:
+            second += factor * float(value)
+        expected = (
+            (first + second) * data[0] if kind == "scalar_updates" else (first * data[0]) * second
+        )
+        np.testing.assert_array_equal(result, [7 + expected])
 
 
 @pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
-@pytest.mark.parametrize("buffer_rows", [False, True])
 @pytest.mark.parametrize("quadrature", [False, True])
-def test_dense_row_buffers_preserve_rectangular_layout_and_accumulation(
-    tmp_path, buffer_rows, quadrature
-):
+def test_dense_blocks_preserve_rectangular_layout_and_accumulation(tmp_path, quadrature):
     from uflx_compiler.quadrature import constant
 
     i, r, j, s, q = (index(name) for name in ("i", "r", "j", "s", "q"))
@@ -609,10 +602,8 @@ def test_dense_row_buffers_preserve_rectangular_layout_and_accumulation(
         lambda label, offset: f"w[{offset}]",
         output_indices=(i, r, j, s),
         unroll_indices=(r, s),
-        buffer_rows=buffer_rows,
     )
-    assert ("double rows" in code) == (buffer_rows and not quadrature)
-    source, library = tmp_path / "buffered.c", tmp_path / "buffered.so"
+    source, library = tmp_path / "blocked.c", tmp_path / "blocked.so"
     source.write_text(code)
     subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
     data = np.array([1.25, -0.75])
@@ -818,3 +809,135 @@ def test_action_factors_geometry_before_test_basis_loop(tmp_path):
         counts.append(ctypes.c_int.in_dll(lib, "reads").value)
     assert counts[0] > 0
     assert counts[0] == counts[1]
+
+
+@pytest.mark.parametrize("perturbation", [0.0, 2e-15, 1e-8])
+def test_sparse_table_contractions_preserve_values_and_distinct_columns(perturbation):
+    from uflx_compiler.contractions import _sparse_contractions
+    from uflx_compiler.quadrature import constant
+    from uflx_spec_interpreter._src.nodes import IndexSum
+
+    q, k = index("q"), index("k")
+    column = np.array([1.0, 2.0, -3.0])
+    table = np.column_stack((column, -column * (1 + perturbation)))
+    weights = runtime_array("weights", (2,))
+    expression = index_sum(constant(table)[q, k] * weights[k], (k,))
+    result = _sparse_contractions(expression)
+    assert isinstance(result, IndexSum) == (perturbation == 1e-8)
+    np.testing.assert_allclose(
+        evaluate(result, {"weights": np.array([2.0, 3.0])}),
+        table @ np.array([2.0, 3.0]),
+        rtol=1e-13,
+        atol=0,
+    )
+    assert result.free_indices == expression.free_indices
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("enabled", [False, True])
+def test_sparse_table_contractions_hoist_coefficients_and_skip_zero_columns(tmp_path, enabled):
+    from uflx_compiler.quadrature import constant
+
+    q, k, i = index("q"), index("k"), index("i")
+    column = np.array([1.0, 2.0, -3.0, 4.0, -2.0])
+    table = np.column_stack((column, column, -column, np.zeros(5)))
+    expression = index_sum(constant(table)[q, k] * runtime_array("weights", (4,))[k], (k,))
+    basis = np.arange(25.0).reshape(5, 5) + 1
+    expression = index_sum(expression * expression * constant(basis)[q, i], (q,))
+    code = c_kernel(
+        expression,
+        "sparse",
+        lambda label, offset: f"read_weight(w[{offset}])",
+        output_indices=(i,),
+        preintegrate=False,
+        sparse_tables=enabled,
+    )
+    source, library = tmp_path / "sparse.c", tmp_path / "sparse.so"
+    source.write_text(
+        "int reads = 0;\ndouble read_weight(double x) { reads++; return x; }\n" + code
+    )
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    lib = ctypes.CDLL(str(library))
+    data = np.array([2.0, -0.75, 0.5, 99.0])
+    actual = np.arange(5.0)
+    pointer = ctypes.POINTER(ctypes.c_double)
+    lib.sparse(
+        actual.ctypes.data_as(pointer), data.ctypes.data_as(pointer), None, None, None, None, None
+    )
+    np.testing.assert_allclose(
+        actual, np.arange(5.0) + basis.T @ (table @ data) ** 2, rtol=1e-13, atol=1e-13
+    )
+    if enabled:
+        assert ctypes.c_int.in_dll(lib, "reads").value == 3
+
+
+def test_sparse_table_contractions_preserve_tiny_and_all_zero_tables():
+    from uflx_compiler.contractions import _sparse_contractions
+    from uflx_compiler.quadrature import constant
+
+    q, k = index("q"), index("k")
+    for table in (np.zeros((3, 2)), np.array([[1e-100, 0], [2e-100, 0], [-3e-100, 0]])):
+        expression = index_sum(constant(table)[q, k] * runtime_array("weights", (2,))[k], (k,))
+        result = _sparse_contractions(expression)
+        assert result.free_indices == expression.free_indices
+        np.testing.assert_allclose(
+            evaluate(result, {"weights": np.array([2.0, 3.0])}),
+            table @ np.array([2.0, 3.0]),
+            rtol=1e-14,
+            atol=0,
+        )
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("kind", ["same_basis", "different_basis", "varying_basis"])
+def test_small_constant_bases_collect_varying_geometry_into_metric(tmp_path, kind):
+    from uflx_compiler.quadrature import constant
+
+    q, a, i, j = (index(name) for name in ("q", "a", "i", "j"))
+    rng = np.random.default_rng(217)
+    geometry = rng.normal(size=(5, 2, 2))
+    left = np.array([[-1.0, 1.0, 0.0], [-1.0, 0.0, 1.0]])
+    right = left if kind == "same_basis" else np.array([[2.0, 0.0, -1.0], [-1.0, 1.0, 0.0]])
+    if kind == "varying_basis":
+        right = rng.normal(size=(5, 2, 3))
+    G = runtime_array("geometry", geometry.shape)
+    R = constant(right)[q, a, j] if kind == "varying_basis" else constant(right)[a, j]
+    products = [
+        index_sum(G[q, r, a] * constant(left)[a, i], (a,)) * index_sum(G[q, r, a] * R, (a,))
+        for r in range(2)
+    ]
+    expression = index_sum(products[0] + products[1], (q,))
+    code = c_kernel(
+        expression,
+        "metric",
+        lambda label, offset: f"w[{offset}]",
+        output_indices=(i, j),
+        preintegrate=False,
+        sparse_tables=False,
+    )
+    if kind != "varying_basis":
+        assert "double sum" not in code  # No per-basis physical-gradient reductions.
+    source, library = tmp_path / "metric.c", tmp_path / "metric.so"
+    source.write_text(code)
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    initial = rng.normal(size=(3, 3))
+    actual = initial.copy()
+    pointer = ctypes.POINTER(ctypes.c_double)
+    ctypes.CDLL(str(library)).metric(
+        actual.ctypes.data_as(pointer),
+        geometry.ctypes.data_as(pointer),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    L = np.einsum("qra,ai->qri", geometry, left)
+    R = (
+        np.einsum("qra,qaj->qrj", geometry, right)
+        if kind == "varying_basis"
+        else np.einsum("qra,aj->qrj", geometry, right)
+    )
+    np.testing.assert_allclose(
+        actual, initial + np.einsum("qri,qrj->ij", L, R), rtol=1e-12, atol=1e-12
+    )
