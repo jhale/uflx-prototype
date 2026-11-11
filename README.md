@@ -198,9 +198,18 @@ shared across argument DOFs. Computations remain inside conditional branches
 unless a reusable value is already available in an enclosing scope. Scalar products
 are regrouped by the scope where their factors become available, so quadrature weights and geometry can be multiplied before basis
 products. Small reductions (up to three entries) that select explicit tensor
-components are expanded to expose shared geometry; DOF and quadrature loops are
-retained. Product regrouping can change floating-point rounding. Algebraic
-factorisation across sums is not performed. A single-use multiplication directly
+components are expanded to expose shared geometry. For element matrices, a bounded
+reference-contraction pass separates runtime factors that are independent of the
+reduction indices from constant basis and quadrature factors. It evaluates the
+constant sums into tables, combines identical tables, and emits the resulting
+terms in a shared matrix traversal. Affine mass and stiffness matrices can therefore
+avoid runtime quadrature. Curved geometry and varying coefficients retain their
+reductions when this separation is unavailable. Expansion is limited to 64 terms
+and table/work extents to 65,536 entries; exceeding a limit keeps the original
+reduction. Set `preintegrate=False` on `c_kernel` to disable the pass.
+Preintegration and product regrouping can change floating-point rounding, even
+with strict C flags; no language change or egglog is required.
+A single-use multiplication directly
 before an accumulation is emitted in that accumulation, allowing the C compiler
 to generate fused multiply-add instructions with its normal contraction settings.
 Shared and hoisted products keep their temporaries. Independent simple reductions

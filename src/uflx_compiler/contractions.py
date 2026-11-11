@@ -2,13 +2,30 @@
 
 from functools import cache
 from itertools import product
+from math import prod
 
-from uflx_spec_interpreter import add, multiply, num
+import numpy as np
+
+from uflx_spec_interpreter import add, divide, index_sum, multiply, num
+from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
 from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.nodes import Index, Indexed, IndexSum, Product, Sum, Tensor, Zero
+from uflx_spec_interpreter._src.algorithms.traversal import map_values, memoized
+from uflx_spec_interpreter._src.nodes import (
+    Division,
+    Index,
+    Indexed,
+    IndexSum,
+    Product,
+    Sum,
+    Tensor,
+    Zero,
+)
 from uflx_spec_interpreter._src.nodes.structure import expression_operands
 
 from .algebra import _normalizer
+from .evaluation import evaluate
+from .inputs import arrays
+from .quadrature import constant
 from .simplification import simplify
 
 
@@ -138,3 +155,122 @@ def _common_factors(expression):
     if not common:
         return expression
     return multiply(_product(common), _sum(_product(term) for term in terms))
+
+
+def _preintegrate(expression, output_indices, *, max_terms=64, max_entries=65536):
+    """Tabulate reference contractions whose runtime factors are reduction-invariant.
+
+    This is mathematical reassociation, including compile-time floating-point
+    summation. Expansion and table sizes are bounded; unsupported or varying
+    runtime factors leave the original reduction intact.
+    """
+    reads = memoized(arrays)
+    normalize = _normalizer()
+
+    @cache
+    def selected_indices(node):
+        own = (
+            {i for i in node.indices if isinstance(i, Index)}
+            if isinstance(node, Indexed) and isinstance(node.expression, Tensor)
+            else set()
+        )
+        return own.union(*(selected_indices(c) for c in expression_operands(node)))
+
+    class Unsupported(Exception):
+        pass
+
+    def integrate(node):
+        axes = set(node.indices)
+        extents = dict(node.expression.free_indices)
+
+        @cache
+        def terms(n):
+            if not reads(n):
+                return ((num(1), n),)
+            if not axes.intersection(i for i, _ in n.free_indices):
+                return ((n, num(1)),)
+            if isinstance(n, Sum):
+                result = terms(n.first) + terms(n.second)
+            elif isinstance(n, Product):
+                left, right = terms(n.first), terms(n.second)
+                if len(left) * len(right) > max_terms:
+                    raise Unsupported
+                result = tuple((multiply(a, b), multiply(x, y)) for a, x in left for b, y in right)
+            elif isinstance(n, Division):
+                denominator = n.second
+                if not reads(denominator):
+                    result = tuple((a, divide(x, denominator)) for a, x in terms(n.first))
+                elif not axes.intersection(i for i, _ in denominator.free_indices):
+                    result = tuple((divide(a, denominator), x) for a, x in terms(n.first))
+                else:
+                    raise Unsupported
+            elif isinstance(n, IndexSum) and all(
+                dict(n.expression.free_indices)[i] <= 3
+                and i not in axes
+                and i in selected_indices(n.expression)
+                for i in n.indices
+            ):
+                # Only expand explicit spatial components, not coefficient DOFs.
+                sizes = dict(n.expression.free_indices)
+                result = ()
+                for values in product(*(range(sizes[i]) for i in n.indices)):
+                    entry = simplify(
+                        substitute(n.expression, dict(zip(n.indices, values, strict=True)))
+                    )
+                    result += terms(entry)
+                    if len(result) > max_terms:
+                        raise Unsupported
+            else:
+                raise Unsupported
+            if len(result) > max_terms:
+                raise Unsupported
+            return result
+
+        try:
+            collected = {}
+            for coefficient, reference in terms(node.expression):
+                coefficient = normalize(simplify(coefficient))
+                collected[coefficient] = (
+                    add(collected[coefficient], reference)
+                    if coefficient in collected
+                    else reference
+                )
+            tables = {}
+            entries = 0
+            for coefficient, reference in collected.items():
+                free = dict(reference.free_indices)
+                bound = tuple(i for i in node.indices if i in free)
+                reference = index_sum(reference, bound) if bound else reference
+                # A summand may be independent of one or more reduction indices.
+                reference = multiply(
+                    num(prod(extents[i] for i in node.indices if i not in free)), reference
+                )
+                entries += prod(size for _, size in reference.free_indices)
+                if entries > max_entries:
+                    raise Unsupported
+                reference = normalize(reference)
+                free_indices = tuple(i for i, _ in reference.free_indices)
+                indices = tuple(i for i in output_indices if i in free_indices) + tuple(
+                    i for i in free_indices if i not in output_indices
+                )
+                data = evaluate(reference, {})
+                data = np.transpose(data, tuple(free_indices.index(i) for i in indices))
+                values = constant(data)
+                table = Indexed(values, indices) if indices else values
+                tables[table] = add(tables[table], coefficient) if table in tables else coefficient
+            return complete_indices(node, simplify(_sum(multiply(c, t) for t, c in tables.items())))
+        except Unsupported:
+            return node
+
+    def walk(walk, node):
+        node = map_values(node, walk)
+        if (
+            isinstance(node, IndexSum)
+            and not node.value_shape
+            and set(output_indices) <= dict(node.free_indices).keys()
+            and prod(size for _, size in node.expression.free_indices) <= max_entries
+        ):
+            return integrate(node)
+        return node
+
+    return memoized(walk)(expression)

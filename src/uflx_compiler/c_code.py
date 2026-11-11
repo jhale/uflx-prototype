@@ -34,7 +34,7 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_spec_interpreter._src.nodes.structure import expression_operands
 from uflx_toy.nodes import RuntimeArray
 
-from .contractions import _factor_contraction
+from .contractions import _factor_contraction, _preintegrate
 from .folding import fold
 from .simplification import simplify
 
@@ -201,6 +201,7 @@ def c_kernel(
     index_bindings=None,
     unroll_indices=(),
     fuse_reductions=True,
+    preintegrate=True,
 ):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
@@ -216,6 +217,10 @@ def c_kernel(
     for components in np.ndindex(tuple(extents[i] for i in unroll_indices)):
         selected = dict(zip(unroll_indices, components, strict=True))
         expression = simplify(substitute(e, selected)) if selected else e
+        if preintegrate and len(output_indices) - len(unroll_indices) == 2:
+            expression = _preintegrate(
+                expression, tuple(i for i in output_indices if i not in unroll_indices)
+            )
         expressions.append((selected, expression))
         folded.update(fold(expression, preserve_indices=(*output_indices, *(index_bindings or {}))))
     loop_indices = tuple(i for i in output_indices if i not in unroll_indices)
@@ -565,11 +570,25 @@ def c_kernel(
 
         visit(n)
 
+    @cache
+    def has_integral_reduction(n):
+        return (
+            isinstance(n, IndexSum) and set(loop_indices) <= dict(n.free_indices).keys()
+        ) or any(has_integral_reduction(child) for child in expression_operands(n))
+
     def accumulate(n, bound):
         if isinstance(n, Zero):
             return
         # Integral sums surround argument loops. Other reductions remain scalar
         # computations, which entry() schedules at their earliest legal scope.
+        if (
+            isinstance(n, Sum)
+            and len(loop_indices) == 2
+            and set(loop_indices) <= dict(n.free_indices).keys()
+            and not has_integral_reduction(n)
+        ):
+            emit_blocks([({}, n)], bound)
+            return
         if isinstance(n, Sum):
             accumulate(n.first, bound)
             accumulate(n.second, bound)
@@ -657,7 +676,11 @@ def c_kernel(
                         inner[i] = loop
                     accumulate_blocks([(selected, n.expression) for selected, n in blocks], inner)
                 return
-        if all(not isinstance(n, (Sum, IndexSum)) for _, n in blocks):
+        if all(
+            not isinstance(n, (Sum, IndexSum))
+            or (len(loop_indices) == 2 and not has_integral_reduction(n))
+            for _, n in blocks
+        ):
             emit_blocks(blocks, bound)
         else:
             for selected, n in blocks:
