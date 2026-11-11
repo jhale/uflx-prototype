@@ -621,3 +621,50 @@ def test_dense_row_buffers_preserve_rectangular_layout_and_accumulation(
     )
     expected = initial + (data.sum() if quadrature else data[0]) * np.kron(basis, components)
     np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+def test_coupled_blocks_prepare_geometry_products_before_basis_loops(tmp_path):
+    from uflx_compiler.quadrature import constant
+
+    counts = []
+    for nj in (4, 7):
+        i, r, j, s, a, b = (index(name) for name in ("i", "r", "j", "s", "a", "b"))
+        rng = np.random.default_rng(83)
+        left, right = rng.normal(size=(2, 3)), rng.normal(size=(2, nj))
+        geometry = rng.normal(size=(2, 2))
+        G = runtime_array("geometry", geometry.shape)
+        expression = index_sum(G[r, a] * constant(left)[a, i], (a,)) * index_sum(
+            G[s, b] * constant(right)[b, j], (b,)
+        )
+        code = c_kernel(
+            expression,
+            "coupled",
+            lambda label, offset: f"geometry_read(w, {offset})",
+            output_indices=(i, r, j, s),
+            unroll_indices=(r, s),
+        )
+        source, library = tmp_path / f"coupled{nj}.c", tmp_path / f"coupled{nj}.so"
+        source.write_text(
+            "int reads = 0;\n"
+            "double geometry_read(const double* w, int k) { reads++; return w[k]; }\n" + code
+        )
+        # Measure the scheduling done by our emitter, without C optimisation.
+        subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+        lib = ctypes.CDLL(str(library))
+        result = np.full((6, 2 * nj), 7.0)
+        pointer = ctypes.POINTER(ctypes.c_double)
+        lib.coupled(
+            result.ctypes.data_as(pointer),
+            geometry.ctypes.data_as(pointer),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        expected = np.einsum("ri,sj->irjs", geometry @ left, geometry @ right).reshape(6, 2 * nj)
+        np.testing.assert_allclose(result, 7 + expected, rtol=1e-12, atol=1e-12)
+        counts.append(ctypes.c_int.in_dll(lib, "reads").value)
+    assert counts[0] > 0
+    assert counts[0] == counts[1]

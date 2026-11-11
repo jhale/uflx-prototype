@@ -615,9 +615,10 @@ def c_kernel(
     def emit_blocks(blocks, bound):
         if len(loop_indices) == 2:
             outer_indices = tuple(i for i in bound if i not in output_indices)
-            # Coupled component blocks share physical derivatives; independently
-            # forming a metric for every block would duplicate that preparation.
-            combine_geometry = len(blocks) == 1
+            # Form geometry coefficients before the basis-pair contraction when no
+            # outer reduction remains. Within quadrature, coupled blocks retain
+            # their shared physical derivatives to avoid duplicating preparation.
+            combine_geometry = len(blocks) == 1 or not outer_indices
             blocks = [
                 (
                     selected,

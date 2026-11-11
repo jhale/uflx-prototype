@@ -198,7 +198,10 @@ shared across argument DOFs. Computations remain inside conditional branches
 unless a reusable value is already available in an enclosing scope. Scalar products
 are regrouped by the scope where their factors become available, so quadrature weights and geometry can be multiplied before basis
 products. Small reductions (up to three entries) that select explicit tensor
-components are expanded to expose shared geometry. For element matrices and actions, a bounded
+components are expanded to expose shared geometry. When no outer reduction remains,
+coupled component blocks also collect geometry products before the basis-pair
+contraction. Within quadrature loops, they retain shared physical derivatives.
+For element matrices and actions, a bounded
 reference-contraction pass separates runtime factors that are independent of the
 reduction indices from constant basis and quadrature factors. It evaluates the
 constant sums into tables and combines identical tables. For component blocks,
