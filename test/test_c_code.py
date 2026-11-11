@@ -231,7 +231,7 @@ def test_scheduling_shares_equal_reductions_and_hoists_invariants(tmp_path, late
     assert code.count("double sum") == 1
     loops = re.findall(r"for \(int ([a-z]+)\d+", code)
     assert loops[0] == "q"
-    assert loops[-2:] == ["a", "a"]
+    assert loops == ["q", "i"]  # Small basis loops are specialised inside quadrature.
     assert loops.count("i") == 1
 
 
@@ -392,7 +392,7 @@ def test_component_specialisation_skips_zero_blocks(tmp_path, quadrature, specia
         specialize_basis=specialize,
     )
     # Two diagonal blocks are emitted; the two identically-zero blocks do no work.
-    specialized = specialize and not quadrature
+    specialized = specialize
     assert code.count("A[") == (18 if specialized else 2)
     # Both component updates share basis loops, unless their entries are specialised.
     assert len(re.findall(r"for \(int a\d+ =", code)) == (0 if specialized else 2)
@@ -676,13 +676,23 @@ def test_coupled_blocks_prepare_geometry_products_before_basis_loops(tmp_path):
 @pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
 @pytest.mark.parametrize("specialize", [False, True])
 @pytest.mark.parametrize("columns", [3, 4])
-def test_small_basis_specialisation_eliminates_zero_updates(tmp_path, specialize, columns):
+@pytest.mark.parametrize("quadrature", [False, True])
+def test_small_basis_specialisation_eliminates_zero_updates(
+    tmp_path, specialize, columns, quadrature
+):
     from uflx_compiler.quadrature import constant
 
     i, j = index("i"), index("j")
     left, right = np.array([0.0, 1.0, -1.0]), np.arange(columns, dtype=float)
     scale = runtime_array("scale", ())
     expression = scale * constant(left)[i] * constant(right)[j]
+    data = np.array([2.5])
+    if quadrature:
+        q = index("q")
+        data = np.array([2.5, -0.75, 1.25, 0.5])
+        expression = index_sum(
+            runtime_array("weights", (4,))[q] * constant(left)[i] * constant(right)[j], (q,)
+        )
     code = c_kernel(
         expression,
         "small",
@@ -701,12 +711,11 @@ def test_small_basis_specialisation_eliminates_zero_updates(tmp_path, specialize
         check=True,
     )
     result = np.full((3, columns), 7.0)
-    data = np.array([2.5])
     pointer = ctypes.POINTER(ctypes.c_double)
     ctypes.CDLL(str(library)).small(
         result.ctypes.data_as(pointer), data.ctypes.data_as(pointer), None, None, None, None, None
     )
-    np.testing.assert_array_equal(result, 7 + data[0] * np.outer(left, right))
+    np.testing.assert_array_equal(result, 7 + data.sum() * np.outer(left, right))
 
 
 def test_small_basis_specialisation_respects_total_update_budget():

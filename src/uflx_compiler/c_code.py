@@ -637,7 +637,7 @@ def c_kernel(
         # C floating-point rules can prevent eliminating multiplication by zero.
         if (
             specialize_basis
-            and scope is root
+            and local is None
             and len(loop_indices) == 2
             and all(extents[i] <= 3 for i in loop_indices)
             and prod(extents[i] for i in loop_indices) * len(blocks) <= 64

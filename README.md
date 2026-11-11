@@ -216,8 +216,8 @@ reductions when this separation is unavailable. Expansion is limited to 64 terms
 and table/work extents to 65,536 entries; exceeding a limit keeps the original
 reduction. Set `preintegrate=False` on `c_kernel` to disable the pass.
 Small matrix basis loops (at most three entries per axis and 64 output updates
-across the emitted blocks) are specialised when they select explicit tensor
-entries and have no enclosing loop. The existing simplifier then removes zero
+across the emitted blocks) are specialised, including inside quadrature loops,
+when they select explicit tensor entries and write directly to the output. The existing simplifier then removes zero
 contributions before C emission, including with strict C flags. Set
 `specialize_basis=False` on `c_kernel` to retain these loops.
 Dense blocked matrices without a remaining quadrature loop use temporary rows to
