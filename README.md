@@ -203,7 +203,12 @@ retained. Product regrouping can change floating-point rounding. Algebraic
 factorisation across sums is not performed. A single-use multiplication directly
 before an accumulation is emitted in that accumulation, allowing the C compiler
 to generate fused multiply-add instructions with its normal contraction settings.
-Shared and hoisted products keep their temporaries. Fused operations may round
+Shared and hoisted products keep their temporaries. Independent simple reductions
+with equal loop bounds share a loop, preserving each accumulator's summation order.
+Fusion stays within a lexical scope and does not cross dependent declarations,
+array writes or function calls. Set `fuse_reductions=False` on `c_kernel` to disable
+it. This scheduling pass runs before C emission; it does not require egglog.
+Fused multiply-add operations may round
 differently from separate multiplication and addition; no fast-math flags are
 required. The runtime arrays keep the flat
 pointer interface: `read(label, offset)` must accept an integer or a C expression

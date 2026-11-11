@@ -512,3 +512,72 @@ def test_geometry_contraction_is_prepared_at_its_invariant_scope(tmp_path, curve
         assert counts[0] * 7 == counts[1] * 4
     else:
         assert counts[0] == counts[1]
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "independent",
+        "scalar_updates",
+        "different_extent",
+        "dependent",
+        "indirect_dependency",
+        "calls",
+    ],
+)
+def test_reduction_fusion_preserves_dependencies_and_summation_order(tmp_path, kind):
+    i, j = index("i"), index("j")
+    a = runtime_array("a", (6,))
+    b = runtime_array("b", (5 if kind == "different_extent" else 6,))
+    first = index_sum(a[i], (i,))
+    factor = {"dependent": first, "indirect_dependency": first * a[0]}.get(kind, num(1))
+    second = index_sum(factor * b[j], (j,))
+    # Force an intervening use of the first result before the second reduction.
+    expression = (first * a[0]) * second
+    if kind == "scalar_updates":
+        k = index("component")
+        expression = index_sum(tensor((first, second))[k], (k,)) * a[0]
+
+    def read_value(label, offset):
+        access = f"w[{0 if label == 'a' else 6} + ({offset})]"
+        return f"identity({access})" if kind == "calls" else access
+
+    separate = c_kernel(expression, "separate", read_value, fuse_reductions=False)
+    fused = c_kernel(expression, "fused", read_value)
+    assert separate.count("for (") == 2
+    assert fused.count("for (") == (1 if kind in ("independent", "scalar_updates") else 2)
+    source, library = tmp_path / "fusion.c", tmp_path / "fusion.so"
+    source.write_text("double identity(double x) { return x; }\n" + separate + fused)
+    subprocess.run(
+        ["cc", "-std=c99", "-O0", "-ffp-contract=off", "-shared", "-fPIC", source, "-o", library],
+        check=True,
+    )
+    lib = ctypes.CDLL(str(library))
+    pointer = ctypes.POINTER(ctypes.c_double)
+    # Cancellation makes a changed summation order observable, even without fast math.
+    samples = [np.array([1.0, 1e16, -1e16, 3.0, -2.0, 4.0] * 2)]
+    samples.extend(np.random.default_rng(17).normal(size=(8, 12)))
+    for sample, data in enumerate(samples):
+        outputs = []
+        for name in ("separate", "fused"):
+            result = np.array([7.0])
+            getattr(lib, name)(
+                result.ctypes.data_as(pointer),
+                data.ctypes.data_as(pointer),
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            outputs.append(result)
+        np.testing.assert_array_equal(outputs[0], outputs[1])
+        # The NumPy evaluator may reassociate the cancellation-sensitive sample.
+        if sample:
+            np.testing.assert_allclose(
+                outputs[1],
+                7 + evaluate(expression, {"a": data[:6], "b": data[6 : 6 + b.value_shape[0]]}),
+                rtol=1e-12,
+                atol=1e-12,
+            )

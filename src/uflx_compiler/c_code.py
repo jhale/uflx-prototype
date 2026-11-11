@@ -2,7 +2,7 @@ import re
 import sys
 from collections import Counter
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cache
 
 import numpy as np
@@ -61,6 +61,88 @@ class _Accumulation:
         return f"{self.target} += {self.value};"
 
 
+@dataclass(frozen=True)
+class _Initialisation:
+    """A scalar reduction accumulator."""
+
+    target: str
+
+    def __str__(self):
+        return f"double {self.target} = 0.0;"
+
+
+def _fuse_reductions(statements):
+    """Fuse simple sibling reductions across independent scalar declarations.
+
+    Only a single accumulation with no function calls is eligible. Other loops,
+    conditionals and array writes are barriers. Identifier dependencies include every
+    declaration crossed and every accumulator in the fused loop; each individual
+    accumulation retains its original iteration order.
+    """
+    result = []
+    anchor = None
+    unavailable = set()
+    for statement in statements:
+        if isinstance(statement, _Initialisation):
+            unavailable.add(statement.target)
+            result.append(statement)
+            continue
+        if isinstance(statement, _Scope):
+            body = _fuse_reductions(statement.statements)
+            statement = replace(statement, statements=body)
+            if (
+                statement.reduction_extent is not None
+                and len(body) == 1
+                and isinstance(body[0], _Accumulation)
+                and result
+                and isinstance(result[-1], _Initialisation)
+                and result[-1].target == body[0].target
+                and not re.search(r"[A-Za-z_]\w*\s*\(", body[0].value)
+            ):
+                initialisation = result.pop()
+                reads = set(re.findall(r"[A-Za-z_]\w*", body[0].value))
+                if (
+                    anchor is not None
+                    and result[anchor].reduction_extent == statement.reduction_extent
+                    and not reads & unavailable
+                ):
+                    loop = result[anchor]
+                    value = re.sub(rf"\b{statement.index}\b", loop.index, body[0].value)
+                    result[anchor] = replace(
+                        loop, statements=[*loop.statements, _Accumulation(body[0].target, value)]
+                    )
+                    result.insert(anchor, initialisation)
+                    anchor += 1
+                    unavailable.add(body[0].target)
+                    continue
+                result.append(initialisation)
+                anchor = len(result)
+                unavailable = {body[0].target}
+                result.append(statement)
+                continue
+        if (
+            isinstance(statement, _Accumulation)
+            and re.fullmatch(r"[A-Za-z_]\w*", statement.target)
+            and not re.search(r"[A-Za-z_]\w*\s*\(", statement.value)
+        ):
+            unavailable.add(statement.target)
+        elif isinstance(statement, _ProductStatement) and not re.search(
+            r"[A-Za-z_]\w*\s*\(", statement.expression
+        ):
+            unavailable.add(statement.name)
+        elif (
+            isinstance(statement, str)
+            and (declaration := re.fullmatch(r"const double (\w+) = (.*);", statement))
+            and not re.search(r"[A-Za-z_]\w*\s*\(", declaration[2])
+        ):
+            unavailable.add(declaration[1])
+        else:
+            anchor = None
+            unavailable = set()
+        result.append(statement)
+    return result
+
+
 @dataclass
 class _Scope:
     """Buffered statements and shared expressions at one lexical scope."""
@@ -69,6 +151,7 @@ class _Scope:
     header: str = ""
     index: str | None = None
     conditional: bool = False
+    reduction_extent: int | None = None
     statements: list = field(default_factory=list)
     expressions: dict = field(default_factory=dict)
 
@@ -109,7 +192,16 @@ class _Scope:
         visit(self)
 
 
-def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_indices=()):
+def c_kernel(
+    e,
+    name,
+    read,
+    *,
+    output_indices=(),
+    index_bindings=None,
+    unroll_indices=(),
+    fuse_reductions=True,
+):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 100000))
@@ -139,10 +231,10 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
         scope.statements.append(code)
 
     @contextmanager
-    def block(header, *, index=None, conditional=False):
+    def block(header, *, index=None, conditional=False, reduction_extent=None):
         nonlocal scope
         parent = scope
-        child = _Scope(parent, header, index, conditional)
+        child = _Scope(parent, header, index, conditional, reduction_extent)
         scope = child
         try:
             yield
@@ -306,7 +398,7 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
                 if any(extent[i] == 0 for i in indices):
                     return 0.0
                 total = fresh("sum")
-                emit(f"double {total} = 0.0;")
+                emit(_Initialisation(total))
 
                 def reduce(indices, inner):
                     if not indices:
@@ -321,7 +413,9 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
                     else:
                         name = fresh("i")
                         with block(
-                            f"for (int {name} = 0; {name} < {extent[i]}; ++{name})", index=name
+                            f"for (int {name} = 0; {name} < {extent[i]}; ++{name})",
+                            index=name,
+                            reduction_extent=extent[i],
                         ):
                             reduce(rest, inner | {i: name})
 
@@ -575,6 +669,8 @@ def c_kernel(e, name, read, *, output_indices=(), index_bindings=None, unroll_in
     if all(dict(e.free_indices)[i] > 0 for i in output_indices):
         accumulate_blocks(expressions, bound)
     root.inline_products()
+    if fuse_reductions:
+        root.statements = _fuse_reductions(root.statements)
     body = "\n".join([declaration for _, declaration in tables.values()] + list(root.lines()))
     return (
         "#include <stdint.h>\n"
