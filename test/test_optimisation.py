@@ -106,12 +106,12 @@ def test_factoring_inside_an_index_sum():
     )
 
 
-def test_region_budget_skips_without_changing_values():
+def test_region_budget_retains_expression_when_no_subregion_fits():
     i = index("i")
     a = RuntimeArray("a", (4,))
     original = index_sum(a[i] + a[i] * num(2), (i,))
     result, stats = optimise_core(original, max_region=1)
-    assert sum(region.search_stop == "region_limit" for region in stats.regions) == 1
+    assert stats.regions and all(region.search_stop == "region_limit" for region in stats.regions)
     assert result is original
 
 
@@ -297,12 +297,12 @@ def test_complex_grouped_form_and_rebind():
     assert alpha_equivalent(optimise(a).expression, optimise(rebind(a, {u: p})).expression)
 
 
-def test_coefficient_cancellation_retains_unknown_operand():
+def test_coefficient_cancellation_removes_defined_input():
     a = RuntimeArray("cancel", ())
     original = num(2) * a + num(-2) * a
     result = optimise(original, OptimisationOptions(iterations=4)).expression
-    assert not isinstance(result, Zero)
-    assert a in nodes(result)
+    assert isinstance(result, Zero)
+    assert a not in nodes(result)
     assert_values(original, result, {"cancel": np.array(7.0)})
 
 
@@ -328,12 +328,12 @@ def test_zero_product_uses_literal_definedness(denominator):
         assert partial in nodes(result)
 
 
-def test_delta_does_not_discard_unknown_vector_components():
+def test_delta_contracts_defined_runtime_vector_components():
     i, j = index("i"), index("j")
     a = RuntimeArray("unknown-vector", (3,))
     original = component_tensor(index_sum(identity(3)[i, j] * a[j], (j,)), (i,))
     result = optimise(original).expression
-    assert any(isinstance(n, IndexSum) for n in nodes(result))
+    assert not any(isinstance(n, IndexSum) for n in nodes(result))
     assert_values(original, result, {"unknown-vector": np.arange(3.0)})
 
 
@@ -437,14 +437,14 @@ def test_preserving_mode_does_not_insert_complex_promotion_arithmetic():
     assert result is original
 
 
-def test_unknown_zero_product_retains_family_indices_without_rewrite_cycle():
+def test_defined_zero_product_retains_family_indices_without_rewrite_cycle():
     i, j = index("i"), index("j")
     a = RuntimeArray("family-array", (3,))
     original = component_tensor(
         index_sum(Zero((), ((i, 2), (j, 3)), (), "real") * a[j], (j,)), (i,)
     )
     result = optimise(original).expression
-    assert a in nodes(result)
+    assert a not in nodes(result)
     assert_values(original, result, {"family-array": np.arange(3.0)})
 
 
@@ -573,7 +573,7 @@ def test_power_zero_requires_a_defined_base(denominator):
         assert partial in nodes(result)
         assert result is original
     unknown = RuntimeArray("unknown-power-base", ()) ** num(0)
-    assert optimise(unknown).expression is unknown
+    assert optimise(unknown).expression is num(1)
 
 
 def test_nested_absolute_keeps_undefined_operand():
@@ -868,3 +868,154 @@ def test_constant_matrix_selection_does_not_discard_undefined_siblings():
     invalid = tensor((tensor((undefined, num(0))), tensor((num(0), num(1)))))
     original = determinant(tensor((identity(2), invalid))[0])
     assert undefined in nodes(optimise(original).expression)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("compound", [False, True])
+def test_delta_contracts_matrix_entries_and_compound_summands(reverse, compound):
+    i, j, k = (index(name) for name in ("delta-i", "delta-j", "delta-k"))
+    matrix = tensor(tuple(tensor(tuple(num(1 + 3 * r + c) for c in range(3))) for r in range(3)))
+    body = matrix[j, k] + num(2) * matrix[k, j] if compound else matrix[j, k]
+    delta = identity(3)[j, i] if reverse else identity(3)[i, j]
+    original = component_tensor(index_sum(delta * body, (j,)), (i, k))
+    result = optimise(original).expression
+    assert not any(isinstance(n, IndexSum) for n in nodes(result))
+    assert_values(original, result, {})
+
+
+def test_delta_contraction_avoids_capture_by_nested_sum():
+    i, j = index("capture-target"), index("capture-removed")
+    matrix = tensor((tensor((num(1), num(2))), tensor((num(4), num(8)))))
+    inner = index_sum(matrix[j, i], (i,))
+    original = component_tensor(index_sum(identity(2)[i, j] * inner, (j,)), (i,))
+    result = optimise(original).expression
+    np.testing.assert_allclose(evaluate(result, {}), [3, 12])
+    assert sum(isinstance(n, IndexSum) for n in nodes(result)) == 1
+    assert_values(original, result, {})
+
+
+def test_delta_contracts_one_axis_of_multi_index_sum():
+    i, j, k = (index(name) for name in ("multi-i", "multi-j", "multi-k"))
+    matrix = tensor((tensor((num(1), num(2))), tensor((num(4), num(8)))))
+    original = component_tensor(index_sum(identity(2)[i, j] * matrix[j, k], (j, k)), (i,))
+    result = optimise(original).expression
+    sums = [n for n in nodes(result) if isinstance(n, IndexSum)]
+    assert len(sums) == 1 and len(sums[0].indices) == 1
+    assert_values(original, result, {})
+
+
+def test_delta_contraction_retains_other_bound_axis_when_both_are_summed():
+    i, j = index("both-i"), index("both-j")
+    original = index_sum(identity(3)[i, j], (i, j))
+    result = optimise(original).expression
+    assert_values(original, result, {})
+    assert float(evaluate(result, {})) == 3
+    assert not any(isinstance(n, IndexSum) and len(n.indices) == 2 for n in nodes(result))
+
+
+@pytest.mark.parametrize("preserve, groups", [(True, ("indexed",)), (False, ("arithmetic",))])
+def test_general_delta_contraction_respects_policy(preserve, groups):
+    i, j, k = (index(name) for name in ("policy-i", "policy-j", "policy-k"))
+    matrix = tensor((tensor((num(1), num(2))), tensor((num(4), num(8)))))
+    original = component_tensor(index_sum(identity(2)[i, j] * matrix[j, k], (j,)), (i, k))
+    result = optimise(
+        original,
+        OptimisationOptions(rule_groups=groups, preserve_floating_point_evaluation=preserve),
+    ).expression
+    assert any(isinstance(n, IndexSum) for n in nodes(result))
+    assert_values(original, result, {})
+
+
+def test_general_delta_contraction_distinguishes_runtime_and_undefined_entries():
+    i, j, k = (index(name) for name in ("unknown-i", "unknown-j", "unknown-k"))
+    for matrix in (
+        RuntimeArray("matrix", (2, 2)),
+        tensor((tensor((num(1), num(1) / num(0))), tensor((num(2), num(3))))),
+    ):
+        original = component_tensor(index_sum(identity(2)[i, j] * matrix[j, k], (j,)), (i, k))
+        result = optimise(original).expression
+        assert any(isinstance(n, IndexSum) for n in nodes(result)) == (not matrix.is_terminal)
+        if matrix.is_terminal:
+            assert_values(original, result, {"matrix": np.arange(4.0).reshape(2, 2)})
+
+
+def test_oversized_region_optimises_children_and_retries_smaller_parent():
+    x, y = RuntimeArray("budget-x", ()), RuntimeArray("budget-y", ())
+    original = (x + num(0)) * (y + num(0))
+    result = optimise(original, OptimisationOptions(max_region_nodes=3))
+    assert result.report.regions[0].search_stop == "region_limit"
+    assert any(r.changed for r in result.report.regions)
+    assert result.expression in (x * y, y * x)
+    assert all(r.nodes <= 3 for r in result.report.regions if r.search_stop != "region_limit")
+    assert_values(
+        original, result.expression, {"budget-x": np.array(2.0), "budget-y": np.array(3.0)}
+    )
+
+
+def test_oversized_region_reuses_a_shared_child_search(monkeypatch):
+    from uflx_spec_interpreter._src.optimisation import engine
+
+    searched = []
+    run_region = engine.run_region
+
+    def record_search(expression, *args):
+        searched.append(expression)
+        return run_region(expression, *args)
+
+    monkeypatch.setattr(engine, "run_region", record_search)
+    x, y = RuntimeArray("shared-budget-x", ()), RuntimeArray("shared-budget-y", ())
+    shared = x / num(2) + x / num(3)
+    original = shared * y + shared * (y + num(1))
+    result = optimise(original, OptimisationOptions(max_region_nodes=5, iterations=5))
+    assert searched.count(shared) == 1
+    assert any(r.search_stop == "region_limit" for r in result.report.regions)
+    assert any(r.changed for r in result.report.regions)
+    assert_values(
+        original,
+        result.expression,
+        {"shared-budget-x": np.array(2.0), "shared-budget-y": np.array(3.0)},
+    )
+
+
+@pytest.mark.parametrize("groups", [("arithmetic",), ("herbie",)])
+@pytest.mark.parametrize("preserve", [False, True])
+def test_runtime_polynomial_cancellation_respects_fp_policy(groups, preserve):
+    x = RuntimeArray("defined-polynomial", ())
+    polynomial = x * x + num(2) * x
+    expression = polynomial - polynomial
+    result = optimise(
+        expression,
+        OptimisationOptions(rule_groups=groups, preserve_floating_point_evaluation=preserve),
+    ).expression
+    if preserve:
+        assert result is expression
+    else:
+        assert isinstance(result, Zero)
+    assert_values(expression, result, {"defined-polynomial": np.array(3.0)})
+
+
+def test_definedness_propagates_to_new_egglog_arithmetic():
+    from egglog import BigRat, EGraph
+
+    from uflx_spec_interpreter._src.optimisation.language import Scalar
+    from uflx_spec_interpreter._src.optimisation.rules import constant_cleanup, defined
+
+    x, y, z = (Scalar.atom(i) for i in range(3))
+    polynomial = (x + y) * z
+    quotient = polynomial / Scalar.number(BigRat(2, 1))
+    graph = EGraph()
+    # Only terminals have facts: these compound terms need the e-graph analysis.
+    graph.register(quotient, defined(x), defined(y), defined(z))
+    graph.run(constant_cleanup * 4)
+    graph.check(defined(polynomial), defined(quotient))
+
+
+def test_defined_runtime_input_does_not_make_logarithm_total():
+    from uflx_spec_interpreter import logarithm
+
+    x = RuntimeArray("log-input", ())
+    partial = logarithm(x)
+    for groups in (("arithmetic",), ("herbie",)):
+        for expression in (num(0) * partial, partial - partial):
+            result = optimise(expression, OptimisationOptions(rule_groups=groups)).expression
+            assert partial in nodes(result)

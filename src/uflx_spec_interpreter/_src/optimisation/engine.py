@@ -30,6 +30,7 @@ from ..nodes import (
 from ..nodes.structure import expression_operands
 from .costs import loop_cost
 from .encoding import decode, encode
+from .herbie import herbie_arithmetic, herbie_polynomials
 from .optimise import OptimisationOptions, OptimisationReport, OptimisationResult, RegionReport
 from .properties import is_defined
 from .rules import (
@@ -93,7 +94,11 @@ def run_region(
     rules: Ruleset | UnstableCombinedRuleset = unary_rules
     if not preserve:
         rules = rules | constant_cleanup
-        for name, group in (("arithmetic", algebra), ("indexed", indexed_rules)):
+        for name, group in (
+            ("arithmetic", algebra),
+            ("indexed", indexed_rules),
+            ("herbie", herbie_arithmetic | herbie_polynomials),
+        ):
             if name in options.rule_groups:
                 rules = rules | group
     extraction_cost = cost_model or (loop_cost if options.cost == "loops" else None)
@@ -164,9 +169,24 @@ def run(
         if in_region(node, preserve):
             result, report = run_region(region_operands(node), options, known_defined, cost_model)
             reports.append(report)
+            if report.search_stop == "region_limit":
+                smaller = map_values(result, visit)
+                if (
+                    smaller != result
+                    and region_size(smaller, options.max_region_nodes, preserve)
+                    <= options.max_region_nodes
+                ):
+                    smaller, report = run_region(smaller, options, known_defined, cost_model)
+                    reports.append(report)
+                result = smaller
         else:
             result = map_values(node, visit)
-        replacement = simplify(result, known_defined, preserve_evaluation=preserve)
+        replacement = simplify(
+            result,
+            known_defined,
+            preserve_evaluation=preserve,
+            contract_indices="indexed" in options.rule_groups,
+        )
         return result if replacement == result else visit(replacement)
 
     result = visit(root)

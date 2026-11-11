@@ -18,6 +18,7 @@ from ..nodes import (
 )
 from ..tensors import indexed
 from .constants import fold_matrix
+from .contractions import contract_delta
 
 
 def simplify(
@@ -25,9 +26,12 @@ def simplify(
     known_defined: Callable[[AbstractExpression], bool],
     *,
     preserve_evaluation: bool,
+    contract_indices: bool = False,
 ) -> AbstractExpression:
     """Apply one structural rule and restore compatible static metadata."""
     replacement = expression if preserve_evaluation else fold_matrix(expression, known_defined)
+    if replacement == expression and contract_indices and not preserve_evaluation:
+        replacement = contract_delta(expression, known_defined)
     if replacement == expression:
         replacement = _simplify(expression, known_defined)
     if replacement == expression or (

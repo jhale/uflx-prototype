@@ -7,7 +7,6 @@ from ..nodes import (
     Absolute,
     AbstractExpression,
     BroadcastTo,
-    Complex,
     ComponentTensor,
     Conjugate,
     Division,
@@ -21,7 +20,6 @@ from ..nodes import (
     RealPart,
     Sum,
     Tensor,
-    Zero,
 )
 
 
@@ -29,12 +27,13 @@ def is_defined(known: Callable[[AbstractExpression], bool], expression: Abstract
     """Check known mathematical definedness; False means unknown, not undefined.
 
     Compose with the core's memoized traversal to share facts within one run.
-    Runtime terminals and extension nodes remain unknown. Floating-point overflow
-    and NaNs are outside this mathematical check.
+    Terminals denote supplied, defined values on admissible inputs. Nonterminal
+    extensions remain unknown. Floating-point overflow and NaNs are outside this
+    mathematical check.
     """
+    if expression.is_terminal:
+        return True
     match expression:
-        case Integer() | Float() | Complex() | Zero():
-            return True
         case Sum(first=a, second=b) | Product(first=a, second=b):
             return known(a) and known(b)
         case Division(first=a, second=Integer(value=value) | Float(value=value)):

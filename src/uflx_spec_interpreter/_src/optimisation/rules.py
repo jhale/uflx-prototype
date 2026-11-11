@@ -47,15 +47,22 @@ def indexed_rules(a: Scalar, k: i64, i: i64, j: i64, n: i64) -> Iterator[Rewrite
 
 
 @ruleset
-def constant_cleanup(a: Scalar, i: BigRat, j: BigRat) -> Iterator[RewriteOrRule]:
+def constant_cleanup(
+    a: Scalar, b: Scalar, c: Scalar, i: BigRat, j: BigRat
+) -> Iterator[RewriteOrRule]:
     """Non-expanding constant rules shared by search and finishing cleanup."""
     zero, one = Scalar.number(BigRat(0, 1)), Scalar.number(BigRat(1, 1))
     yield rewrite(Scalar.number(i) + Scalar.number(j)).to(Scalar.number(i + j))
     yield rewrite(Scalar.number(i) * Scalar.number(j)).to(Scalar.number(i * j))
     yield rule(eq(a).to(Scalar.number(i))).then(defined(a))
+    # Search creates expressions which were not present in the initial UFLx DAG.
+    yield rule(eq(a).to(b + c), defined(b), defined(c)).then(defined(a))
+    yield rule(eq(a).to(b * c), defined(b), defined(c)).then(defined(a))
+    yield rule(eq(a).to(b / Scalar.number(j)), defined(b), ne(j).to(BigRat(0, 1))).then(defined(a))
     yield rewrite(a / Scalar.number(j)).to(
         a * Scalar.number(BigRat(1, 1) / j), ne(j).to(BigRat(0, 1))
     )
+    yield rewrite(a + Scalar.number(BigRat(-1, 1)) * a).to(zero, defined(a))
     yield rewrite(a + zero).to(a)
     yield rewrite(zero + a).to(a)
     yield rewrite(a * zero).to(zero, defined(a))

@@ -67,6 +67,14 @@ Division by an unknown or zero denominator is retained; fractions are never
 converted to approximate floating-point constants. These arithmetic rewrites
 are disabled by `preserve_floating_point_evaluation=True`.
 
+An experimental `herbie` rule group provides 75 translated arithmetic and
+polynomial identities from a pinned Herbie catalogue. Select it with
+`OptimisationOptions(rule_groups=("herbie", "indexed"))`; the default remains the
+smaller `arithmetic` collection. See [the vendored rules and translation audit](third_party/herbie/README.md)
+for provenance, domain guards, exclusions and regeneration instructions. These
+rules are disabled when floating-point evaluation is preserved and can increase
+search cost substantially.
+
 The optimiser also folds determinants and nonsingular inverses of stored square
 matrices up to 3 by 3, using exact integer/rational arithmetic. It reads entries
 through tensor construction, indexing and broadcasts when the source is known
@@ -81,11 +89,18 @@ value operands. General tensor arithmetic should be core-lowered first.
 Complex constants remain opaque. Existing compiler cleanup remains separate; it does not inherit this optimiser's policy.
 
 Rules that discard an operand, such as multiplication by zero, require evidence
-that the operand is mathematically defined. Facts come from literals and a small
-set of operations with known inputs. Runtime terminals and extension nodes are
-unknown; no user-assumptions API is implemented. In particular, `0*(1/x)` stays
-unchanged for unknown `x`, while `0*(1/2)` can simplify to zero. Delta contraction
-likewise requires the vector's components to be known to be defined.
+that the operand is mathematically defined. Terminals denote supplied, defined
+values on admissible inputs; this includes runtime arrays and functions. Facts propagate through sums and products, including
+terms created during search. Nonterminal extension operations remain unknown; no
+user-assumptions API is implemented. Thus `x-x` and `0*x` can become zero for a
+runtime input, while `0*(1/x)` stays unchanged unless the denominator is known
+nonzero. Defined inputs do not make logarithms or matrix inverses total.
+Delta contraction likewise requires the remaining summand to be known to be defined. With the
+`indexed` group enabled, literal identity entries contract against vector or
+matrix entries and compound products/summands. Capture-avoiding UFLx substitution
+handles nested and multi-index sums outside the scalar e-graph; the result feeds
+back into egglog. These contractions are disabled when floating-point evaluation
+is preserved.
 
 Opaque expressions are interned using alpha fingerprints followed by exact
 alpha comparison. Their free identities remain significant, and reconstruction
@@ -108,7 +123,11 @@ e-graph-memory limit. Each region reports its exploratory search stop
 (`saturated`, `iteration_limit` or `region_limit`), timings and alpha merges. A
 non-expanding constant cleanup phase follows search when floating-point changes
 are allowed, so the search status does not claim global saturation after cleanup.
-Oversized-region counts stop at the limit plus one. Traversal remains recursive in this initial implementation.
+Oversized regions fall back to optimising their children, sharing traversal for
+repeated subexpressions. If those changes bring the parent within the limit, it
+is searched again. The limit applies to each search, not the total work across
+subregions. Oversized-region counts stop at the limit plus one. Traversal remains
+recursive in this initial implementation.
 
 The loop cost is a tree arithmetic estimate weighted by static sum extents;
 opaque operations have zero estimated internal cost. It does not model DAG reuse,
