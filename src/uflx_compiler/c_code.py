@@ -2,7 +2,7 @@ import re
 import sys
 from collections import Counter
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cache
 from math import prod
 
@@ -41,14 +41,29 @@ from .simplification import simplify
 
 
 @dataclass
-class _ProductStatement:
-    """A scalar product retained until its uses are known."""
+class _ScalarStatement:
+    """A named scalar computation."""
 
     name: str
     expression: str
 
     def __str__(self):
         return f"const double {self.name} = {self.expression};"
+
+
+@dataclass
+class _ProductStatement(_ScalarStatement):
+    """A scalar product retained until its uses are known."""
+
+
+@dataclass(frozen=True)
+class _BasisCache:
+    """Storage for a computation depending on output indices."""
+
+    declaration: str
+
+    def __str__(self):
+        return self.declaration
 
 
 @dataclass
@@ -82,6 +97,8 @@ class _Scope:
     conditional: bool = False
     statements: list = field(default_factory=list)
     expressions: dict = field(default_factory=dict)
+    quadrature_extent: int | None = None
+    basis: bool = False
 
     @property
     def depth(self):
@@ -120,6 +137,65 @@ class _Scope:
         visit(self)
 
 
+def _split_quadrature(scope):
+    """Separate pointwise preparation from basis loops, with bounded temporary storage.
+
+    Scheduling has already placed computations independent of output indices in
+    the quadrature scope. Only basis caches and basis loops depend on those indices;
+    scalar reductions in the preparation retain their original order.
+    """
+    statements = [
+        item
+        for statement in scope.statements
+        for item in (_split_quadrature(statement) if isinstance(statement, _Scope) else [statement])
+    ]
+    scope = replace(scope, statements=statements)
+    extent = scope.quadrature_extent
+    if (
+        extent is None
+        or extent < 2
+        or not any(isinstance(s, _Scope) and s.basis for s in statements)
+    ):
+        return [scope]
+    preparation, contraction = [], []
+    for statement in statements:
+        if isinstance(statement, _BasisCache) or (
+            isinstance(statement, _Scope) and statement.basis
+        ):
+            contraction.append(statement)
+        elif isinstance(statement, (_ScalarStatement, _Initialisation, _Accumulation)) or (
+            isinstance(statement, _Scope)
+            and statement.index is not None
+            and statement.quadrature_extent is None
+        ):
+            preparation.append(statement)
+        else:
+            return [scope]  # Leave conditionals, array-valued temporaries and nested sums intact.
+    defined = {
+        s.name if isinstance(s, _ScalarStatement) else s.target
+        for s in preparation
+        if isinstance(s, (_ScalarStatement, _Initialisation))
+    }
+    if any(isinstance(s, _Accumulation) and s.target not in defined for s in preparation):
+        return [scope]
+    uses = set(
+        re.findall(
+            r"[A-Za-z_][A-Za-z_0-9]*", "\n".join(replace(scope, statements=contraction).lines())
+        )
+    )
+    live = sorted(defined & uses)
+    if not live or len(live) * extent > 4096:
+        return [scope]
+    arrays = [f"double factor_{name}[{extent}];" for name in live]
+    stores = [f"factor_{name}[{scope.index}] = {name};" for name in live]
+    loads = [_ScalarStatement(name, f"factor_{name}[{scope.index}]") for name in live]
+    return [
+        *arrays,
+        replace(scope, statements=preparation + stores),
+        replace(scope, statements=loads + contraction),
+    ]
+
+
 def c_kernel(
     e,
     name,
@@ -132,6 +208,7 @@ def c_kernel(
     specialize_basis=True,
     reuse_transposes=True,
     sparse_tables=True,
+    split_quadrature=True,
 ):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
@@ -168,10 +245,12 @@ def c_kernel(
         scope.statements.append(code)
 
     @contextmanager
-    def block(header, *, index=None, conditional=False):
+    def block(header, *, index=None, conditional=False, quadrature_extent=None, basis=False):
         nonlocal scope
         parent = scope
-        child = _Scope(parent, header, index, conditional)
+        child = _Scope(
+            parent, header, index, conditional, quadrature_extent=quadrature_extent, basis=basis
+        )
         scope = child
         try:
             yield
@@ -182,7 +261,7 @@ def c_kernel(
 
     def temp(code):
         name = fresh("t")
-        emit(f"const double {name} = {code};")
+        emit(_ScalarStatement(name, code))
         return name
 
     def placement(n, bound, comp=()):
@@ -479,13 +558,17 @@ def c_kernel(
                 and any(dict(e.free_indices)[i] > 1 for i in loop_indices if i not in free)
             ):
                 name = fresh("cache")
-                emit(f"double {name}" + "".join(f"[{free[i]}]" for i in axes) + ";")
+                emit(_BasisCache(f"double {name}" + "".join(f"[{free[i]}]" for i in axes) + ";"))
                 with ExitStack() as stack:
                     inner = dict(bound)
                     for i in axes:
                         loop = fresh("p")
                         stack.enter_context(
-                            block(f"for (int {loop} = 0; {loop} < {free[i]}; ++{loop})", index=loop)
+                            block(
+                                f"for (int {loop} = 0; {loop} < {free[i]}; ++{loop})",
+                                index=loop,
+                                basis=True,
+                            )
                         )
                         inner[i] = loop
                     value = entry(n, inner, ())
@@ -533,7 +616,11 @@ def c_kernel(
                         return
                     loop = fresh("q")
                     stack.enter_context(
-                        block(f"for (int {loop} = 0; {loop} < {extent[i]}; ++{loop})", index=loop)
+                        block(
+                            f"for (int {loop} = 0; {loop} < {extent[i]}; ++{loop})",
+                            index=loop,
+                            quadrature_extent=extent[i],
+                        )
                     )
                     inner[i] = loop
                 accumulate(n.expression, inner)
@@ -605,6 +692,7 @@ def c_kernel(
                     block(
                         f"for (int {loop} = 0; {loop} < {dict(e.free_indices)[i]}; ++{loop})",
                         index=loop,
+                        basis=True,
                     )
                 )
             for slot, (selected, n) in enumerate(blocks):
@@ -652,7 +740,11 @@ def c_kernel(
             for axis, extent in axes:
                 loop = fresh("q")
                 stack.enter_context(
-                    block(f"for (int {loop} = 0; {loop} < {extent}; ++{loop})", index=loop)
+                    block(
+                        f"for (int {loop} = 0; {loop} < {extent}; ++{loop})",
+                        index=loop,
+                        quadrature_extent=extent,
+                    )
                 )
                 inner[axis] = loop
             emit_blocks(representatives, inner, local)
@@ -706,7 +798,11 @@ def c_kernel(
                             return
                         loop = fresh("q")
                         stack.enter_context(
-                            block(f"for (int {loop} = 0; {loop} < {size}; ++{loop})", index=loop)
+                            block(
+                                f"for (int {loop} = 0; {loop} < {size}; ++{loop})",
+                                index=loop,
+                                quadrature_extent=size,
+                            )
                         )
                         inner[i] = loop
                     accumulate_blocks([(selected, n.expression) for selected, n in blocks], inner)
@@ -726,6 +822,8 @@ def c_kernel(
     if all(dict(e.free_indices)[i] > 0 for i in output_indices):
         accumulate_blocks(expressions, bound)
     root.inline_products()
+    if split_quadrature:
+        [root] = _split_quadrature(root)
     body = "\n".join([declaration for _, declaration in tables.values()] + list(root.lines()))
     return (
         "#include <stdint.h>\n"

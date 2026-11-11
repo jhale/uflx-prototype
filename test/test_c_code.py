@@ -941,3 +941,69 @@ def test_small_constant_bases_collect_varying_geometry_into_metric(tmp_path, kin
     np.testing.assert_allclose(
         actual, initial + np.einsum("qri,qrj->ij", L, R), rtol=1e-12, atol=1e-12
     )
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("matrix", [False, True])
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("nq", [1, 5])
+def test_split_quadrature_preserves_reductions_and_accumulation(tmp_path, matrix, nested, nq):
+    from uflx_compiler.quadrature import constant
+
+    q, r, k, i, j = (index(name) for name in ("q", "r", "k", "i", "j"))
+    rng = np.random.default_rng(721)
+    coefficients = rng.normal(size=7)
+    values = rng.normal(size=(nq, 7))
+    left = rng.normal(size=(nq, 4))
+    right = rng.normal(size=(nq, 6))
+    weights = rng.normal(size=(3, nq))
+    c = runtime_array("coefficient", (7,))
+    factor = index_sum(c[k] * constant(values)[q, k], (k,))
+    integrand = factor * constant(left)[q, i]
+    if matrix:
+        integrand = integrand * constant(right)[q, j]
+    if nested:
+        integrand = integrand * constant(weights)[r, q]
+    expression = index_sum(integrand, (r, q) if nested else (q,))
+    shape = (4, 6) if matrix else (4,)
+    initial = rng.normal(size=shape)
+    results = []
+    for split in (False, True):
+        code = c_kernel(
+            expression,
+            "split",
+            lambda label, offset: f"w[{offset}]",
+            output_indices=(i, j) if matrix else (i,),
+            preintegrate=False,
+            sparse_tables=False,
+            split_quadrature=split,
+        )
+        assert ("double factor_" in code) == (split and nq > 1)
+        source, library = tmp_path / f"split_{split}.c", tmp_path / f"split_{split}.so"
+        source.write_text(code)
+        subprocess.run(
+            ["cc", "-O0", "-ffp-contract=off", "-shared", "-fPIC", source, "-o", library],
+            check=True,
+        )
+        actual = initial.copy()
+        pointer = ctypes.POINTER(ctypes.c_double)
+        ctypes.CDLL(str(library)).split(
+            actual.ctypes.data_as(pointer),
+            coefficients.ctypes.data_as(pointer),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        results.append(actual)
+    factor = values @ coefficients
+    if nested:
+        factor *= weights.sum(axis=0)
+    expected = (
+        np.einsum("q,qi,qj->ij", factor, left, right)
+        if matrix
+        else np.einsum("q,qi->i", factor, left)
+    )
+    np.testing.assert_array_equal(*results)
+    np.testing.assert_allclose(results[1], initial + expected, rtol=1e-12, atol=1e-12)

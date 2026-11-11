@@ -203,6 +203,16 @@ coupled component blocks also collect geometry products before the basis-pair
 contraction. Within quadrature loops, coupled matrices retain shared physical derivatives.
 Actions collect geometry and coefficient factors before the test-basis loop,
 including when those factors vary over quadrature points.
+Where a quadrature loop contains basis loops, the emitter can first compute the
+pointwise geometry and coefficient factors for all quadrature points, then run the
+basis contractions in a second loop. This exposes preparation to vectorisation
+without changing the order of the scalar reductions or output accumulation.
+Only scalar values used by the basis loops are stored, with at most 4096 doubles
+per split. Single-point loops and unsupported scopes retain their original schedule.
+This is enabled by default; set `split_quadrature=False` on `c_kernel` to disable
+it. Splitting can cost more than it saves for small kernels, so the best choice
+also depends on the target C compiler.
+
 For element matrices and actions, a bounded
 reference-contraction pass separates runtime factors that are independent of the
 reduction indices from constant basis and quadrature factors. It evaluates the
