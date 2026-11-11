@@ -725,3 +725,87 @@ def test_small_basis_specialisation_respects_total_update_budget():
     )
     # Nine blocks of nine entries exceed the 64-update specialisation budget.
     assert "for (int a" in code
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("reuse", [False, True])
+@pytest.mark.parametrize("kind", ["symmetric", "different_material", "different_basis"])
+def test_transpose_reuse_requires_equal_blocks_and_preserves_existing_output(tmp_path, reuse, kind):
+    from uflx_compiler.quadrature import constant
+
+    q, i, r, j, s = (index(name) for name in ("q", "i", "r", "j", "s"))
+    rng = np.random.default_rng(81)
+    basis = rng.normal(size=(4, 5))
+    right = rng.normal(size=(4, 5)) if kind == "different_basis" else basis
+    blocks = np.array([[2.0, 3.0], [4.0 if kind == "different_material" else 3.0, 5.0]])
+    weights = runtime_array("weights", (4,))
+    expression = index_sum(
+        weights[q] * constant(basis)[q, i] * constant(right)[q, j] * constant(blocks)[r, s],
+        (q,),
+    )
+    code = c_kernel(
+        expression,
+        "symmetric",
+        lambda label, offset: f"w[{offset}]",
+        output_indices=(i, r, j, s),
+        unroll_indices=(r, s),
+        reuse_transposes=reuse,
+    )
+    assert ("double local" in code) == (reuse and kind == "symmetric")
+    source, library = tmp_path / "symmetric.c", tmp_path / "symmetric.so"
+    source.write_text(code)
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    data = rng.normal(size=4)
+    initial = rng.normal(size=(10, 10))  # Intentionally not symmetric.
+    actual = initial.copy()
+    pointer = ctypes.POINTER(ctypes.c_double)
+    ctypes.CDLL(str(library)).symmetric(
+        actual.ctypes.data_as(pointer), data.ctypes.data_as(pointer), None, None, None, None, None
+    )
+    expected = initial + np.kron(basis.T @ (data[:, None] * right), blocks)
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+def test_action_factors_geometry_before_test_basis_loop(tmp_path):
+    from uflx_compiler.quadrature import constant
+
+    counts = []
+    for dofs in (4, 7):
+        q, i, a = (index(name) for name in ("q", "i", "a"))
+        rng = np.random.default_rng(46)
+        basis = rng.normal(size=(2, 3, dofs))
+        geometry = rng.normal(size=(3, 2, 2))
+        G = runtime_array("G", geometry.shape)
+        derivative = index_sum(G[q, 0, a] * constant(basis)[a, q, i], (a,))
+        expression = index_sum(G[q, 1, 0] * derivative, (q,))
+        code = c_kernel(
+            expression,
+            "action",
+            lambda label, off: f"read_geometry(w, {off})",
+            output_indices=(i,),
+            preintegrate=False,
+        )
+        source, library = tmp_path / f"action{dofs}.c", tmp_path / f"action{dofs}.so"
+        source.write_text(
+            "int reads = 0;\n"
+            "double read_geometry(const double* w, int k) { reads++; return w[k]; }\n" + code
+        )
+        subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+        lib = ctypes.CDLL(str(library))
+        actual = np.full(dofs, 7.0)
+        pointer = ctypes.POINTER(ctypes.c_double)
+        lib.action(
+            actual.ctypes.data_as(pointer),
+            geometry.ctypes.data_as(pointer),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        expected = 7 + np.einsum("q,qa,aqi->i", geometry[:, 1, 0], geometry[:, 0, :], basis)
+        np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+        counts.append(ctypes.c_int.in_dll(lib, "reads").value)
+    assert counts[0] > 0
+    assert counts[0] == counts[1]

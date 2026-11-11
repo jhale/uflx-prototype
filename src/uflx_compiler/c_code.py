@@ -35,7 +35,7 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_spec_interpreter._src.nodes.structure import expression_operands
 from uflx_toy.nodes import RuntimeArray
 
-from .contractions import _factor_contraction, _preintegrate
+from .contractions import _factor_contraction, _preintegrate, _transpose_reuse
 from .folding import fold
 from .simplification import simplify
 
@@ -205,6 +205,7 @@ def c_kernel(
     preintegrate=True,
     buffer_rows=True,
     specialize_basis=True,
+    reuse_transposes=True,
 ):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
@@ -614,13 +615,13 @@ def c_kernel(
             return
         emit_blocks([({}, n)], bound)
 
-    def emit_blocks(blocks, bound):
-        if len(loop_indices) == 2:
+    def emit_blocks(blocks, bound, local=None):
+        if len(loop_indices) in (1, 2):
             outer_indices = tuple(i for i in bound if i not in output_indices)
             # Form geometry coefficients before the basis-pair contraction when no
             # outer reduction remains. Within quadrature, coupled blocks retain
             # their shared physical derivatives to avoid duplicating preparation.
-            combine_geometry = len(blocks) == 1 or not outer_indices
+            combine_geometry = len(loop_indices) == 1 or len(blocks) == 1 or not outer_indices
             blocks = [
                 (
                     selected,
@@ -684,14 +685,19 @@ def c_kernel(
                         index=loop,
                     )
                 )
-            for selected, n in blocks:
+            for slot, (selected, n) in enumerate(blocks):
                 positions = inner | selected
                 result = entry(n, positions, ())
-                output = offset(
-                    tuple(positions[i] for i in output_indices),
-                    tuple(dict(e.free_indices)[i] for i in output_indices),
-                )
-                emit(_Accumulation(f"A[{output}]", render(result)))
+                if local is None:
+                    output = offset(
+                        tuple(positions[i] for i in output_indices),
+                        tuple(extents[i] for i in output_indices),
+                    )
+                    target = f"A[{output}]"
+                else:
+                    i, j = (positions[k] for k in loop_indices)
+                    target = f"{local}[{slot}][{i}][{j}]"
+                emit(_Accumulation(target, render(result)))
 
     def emit_buffered_rows(blocks, bound):
         """Compute dense component rows, then interleave contiguous output updates."""
@@ -724,6 +730,67 @@ def c_kernel(
                     target = f"A[({inner[i]} * {nr} + {component}) * {nj * ns} + {flat}]"
                     emit(_Accumulation(target, f"{row}[{flat}]"))
 
+    def emit_transposed_blocks(blocks, bound, axes):
+        """Accumulate proven representatives, then add all component blocks to A."""
+        if not (
+            reuse_transposes
+            and scope is root
+            and len(output_indices) == 4
+            and loop_indices == (output_indices[0], output_indices[2])
+            and set(unroll_indices) == {output_indices[1], output_indices[3]}
+            and extents[output_indices[0]] == extents[output_indices[2]]
+            and extents[output_indices[1]] == extents[output_indices[3]]
+            and len(blocks) == extents[output_indices[1]] ** 2
+            and len(blocks) * extents[output_indices[0]] ** 2 <= 4096
+            and all(not has_integral_reduction(n.expression) for _, n in blocks)
+        ):
+            return False
+        i, r, j, s = output_indices
+        representatives, references = _transpose_reuse(
+            [(selected, n.expression) for selected, n in blocks], (i, j), (r, s)
+        )
+        if len(representatives) == len(blocks):
+            return False
+        if any(size == 0 for _, size in axes):
+            return True
+        size, components = extents[i], extents[r]
+        local, row = fresh("local"), fresh("row")
+        emit(f"double {local}[{len(representatives)}][{size}][{size}] = {{{{0.0}}}};")
+        with ExitStack() as stack:
+            inner = dict(bound)
+            for axis, extent in axes:
+                loop = fresh("q")
+                stack.enter_context(
+                    block(f"for (int {loop} = 0; {loop} < {extent}; ++{loop})", index=loop)
+                )
+                inner[axis] = loop
+            emit_blocks(representatives, inner, local)
+        slots = {
+            (selected[r], selected[s]): reference
+            for (selected, _), reference in zip(blocks, references, strict=True)
+        }
+        emit(f"double {row}[{size * components}];")
+        a, b = fresh("p"), fresh("p")
+        with block(f"for (int {a} = 0; {a} < {size}; ++{a})", index=a):
+            for component in range(components):
+                with block(f"for (int {b} = 0; {b} < {size}; ++{b})", index=b):
+                    for c in range(components):
+                        slot, transposed = slots[component, c]
+                        first, second = (b, a) if transposed else (a, b)
+                        emit(
+                            f"{row}[{b} * {components} + {c}] = {local}[{slot}][{first}][{second}];"
+                        )
+                column = fresh("p")
+                with block(
+                    f"for (int {column} = 0; {column} < {size * components}; ++{column})",
+                    index=column,
+                ):
+                    target = (
+                        f"A[({a} * {components} + {component}) * {size * components} + {column}]"
+                    )
+                    emit(_Accumulation(target, f"{row}[{column}]"))
+        return True
+
     def accumulate_blocks(blocks, bound):
         # Share a common quadrature traversal across component blocks, so geometry
         # and basis computations can be reused at each point.
@@ -739,6 +806,8 @@ def c_kernel(
                 and tuple((i, dict(n.expression.free_indices)[i]) for i in n.indices) == axes
                 for _, n in blocks
             ):
+                if emit_transposed_blocks(blocks, bound, axes):
+                    return
                 with ExitStack() as stack:
                     inner = dict(bound)
                     for i, size in axes:

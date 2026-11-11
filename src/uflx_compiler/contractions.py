@@ -7,6 +7,7 @@ from math import prod
 import numpy as np
 
 from uflx_spec_interpreter import add, divide, index_sum, multiply, num
+from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
 from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
 from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.algorithms.traversal import map_values, memoized
@@ -30,14 +31,15 @@ from .simplification import literal, simplify
 
 
 def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
-    """Prepare coefficients of repeated trial factors outside the basis-pair loop.
+    """Collect coefficients of reference basis factors for actions and matrices.
 
     Only distribute products with one index-dependent operand. Products of two
     dependent expressions remain intact, avoiding polynomial expansion. Small
-    tensor-component sums are expanded when their transformation coefficients
-    are invariant over the outer integration loops.
+    tensor-component sums in matrices are expanded when their transformation
+    coefficients are invariant over the outer integration loops. For actions,
+    the coefficients may vary over those loops but not over the test-basis index.
     """
-    test, trial = rows
+    test, trial = rows if len(rows) == 2 else (None, rows[0])
 
     @cache
     def selected_indices(expression):
@@ -70,7 +72,7 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
                         for values in product(*(range(extents[i]) for i in node.indices))
                     )
                     expanded = terms(_sum(entries))
-                    if all(
+                    if test is None or all(
                         not set(outer_indices).intersection(i for i, _ in c.free_indices)
                         for c in expanded.values()
                     ):
@@ -109,6 +111,10 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
     ):
         return expression
     expanded = collect(expression, trial)
+    if test is None:
+        return simplify(
+            combine({f: normalize(_common_factors(simplify(c))) for f, c in expanded.items()})
+        )
     changed = expanded.keys() != trial_terms.keys()
     terms = {}
     for factor, coefficient in expanded.items():
@@ -310,3 +316,33 @@ def _preintegrate(
         return node
 
     return memoized(walk)(expression)
+
+
+def _transpose_reuse(blocks, rows, components):
+    """Find off-diagonal blocks provably equal after exchanging the basis indices.
+
+    Expansion is only for the proof; the emitted expressions keep their original
+    factorisation. Alpha comparison confirms equality, never just a fingerprint.
+    """
+    normalize = _normalizer()
+    i, j = rows
+    r, s = components
+
+    @cache
+    def canonical(expression):
+        return normalize(_factor_contraction(simplify(expression), rows, (), combine_geometry=True))
+
+    representatives, references, positions = [], [], {}
+    for selected, expression in blocks:
+        component = selected[r], selected[s]
+        other = positions.get(component[::-1]) if component[0] > component[1] else None
+        if other is not None and alpha_equivalent(
+            canonical(expression),
+            canonical(substitute(representatives[other][1], {i: j, j: i})),
+        ):
+            references.append((other, True))
+        else:
+            positions[component] = len(representatives)
+            references.append((len(representatives), False))
+            representatives.append((selected, expression))
+    return representatives, references

@@ -200,7 +200,9 @@ are regrouped by the scope where their factors become available, so quadrature w
 products. Small reductions (up to three entries) that select explicit tensor
 components are expanded to expose shared geometry. When no outer reduction remains,
 coupled component blocks also collect geometry products before the basis-pair
-contraction. Within quadrature loops, they retain shared physical derivatives.
+contraction. Within quadrature loops, coupled matrices retain shared physical derivatives.
+Actions collect geometry and coefficient factors before the test-basis loop,
+including when those factors vary over quadrature points.
 For element matrices and actions, a bounded
 reference-contraction pass separates runtime factors that are independent of the
 reduction indices from constant basis and quadrature factors. It evaluates the
@@ -224,6 +226,14 @@ doubles; sparse blocks retain direct updates. Set `buffer_rows=False` on
 `c_kernel` to disable row buffering.
 Preintegration and product regrouping can change floating-point rounding, even
 with strict C flags; no language change or egglog is required.
+For dense square component blocks with a common outer reduction, the compiler
+can reuse an off-diagonal block after proving transpose equality. It compares
+normalised expressions with the basis indices exchanged, using alpha equivalence
+to handle bound indices. Only proven representatives are accumulated into local
+tables, then added to the existing output; nonsymmetric blocks are computed
+independently. Local tables are limited to 4096 doubles. Set
+`reuse_transposes=False` on `c_kernel` to disable this path. Accumulating locally
+can change floating-point rounding.
 A single-use multiplication directly
 before an accumulation is emitted in that accumulation, allowing the C compiler
 to generate fused multiply-add instructions with its normal contraction settings.
