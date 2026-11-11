@@ -300,7 +300,12 @@ remain separate: component choices are specialised before C emission, removing
 structural zeros. Component updates share a basis-pair loop and write directly
 into the interleaved output. Scalar contractions collect repeated trial factors
 and prepare their material/geometry-scaled coefficients outside the basis-pair
-loop. Quadrature-invariant basis contractions retain their existing grouping
+loop. A divisor independent of the collected basis index stays with the
+coefficient, so divided linear combinations can be factored in the same way
+as products. This also moves transformations of test functions onto their
+coefficients in action kernels. Divided reference-only factors retain their existing schedule; factoring
+is applied when the numerator contains runtime computations and is itself
+factored by the collector. Quadrature-invariant basis contractions retain their existing grouping
 to preserve hoisting. In single-block kernels, small spatial contractions with
 invariant transformation coefficients are collected into geometry metrics before basis evaluation;
 for affine Poisson this computes the symmetric metric outside quadrature.

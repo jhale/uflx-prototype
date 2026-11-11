@@ -34,7 +34,10 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry, co
     """Collect coefficients of reference basis factors for actions and matrices.
 
     Only distribute products with one index-dependent operand. Products of two
-    dependent expressions remain intact, avoiding polynomial expansion. Small
+    dependent expressions remain intact, avoiding polynomial expansion. Divisors
+    independent of the collected index belong to the coefficient when the numerator
+    contains runtime computations that can be factored. Divided reference-only factors retain
+    their existing schedule. Small
     tensor-component sums in matrices are expanded when their transformation
     coefficients are invariant over the outer integration loops. For actions,
     the coefficients may vary over those loops but not over the test-basis index.
@@ -103,6 +106,17 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry, co
                         add(result[factor], coefficient) if factor in result else coefficient
                     )
                 return result
+            if (
+                isinstance(node, Division)
+                and index not in dict(node.second.free_indices)
+                and reads(node.first)
+            ):
+                numerator = terms(node.first)
+                if node.first not in numerator:
+                    return {
+                        factor: divide(coefficient, node.second)
+                        for factor, coefficient in numerator.items()
+                    }
             if isinstance(node, Product):
                 left, right = node.first, node.second
                 if index not in dict(right.free_indices):

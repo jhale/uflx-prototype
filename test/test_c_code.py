@@ -1007,3 +1007,127 @@ def test_split_quadrature_preserves_reductions_and_accumulation(tmp_path, matrix
     )
     np.testing.assert_array_equal(*results)
     np.testing.assert_allclose(results[1], initial + expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("dependent_denominator", [False, True])
+def test_action_factoring_through_division(tmp_path, dependent_denominator):
+    from uflx_compiler.quadrature import constant
+
+    q, i = index("q"), index("i")
+    rng = np.random.default_rng(931)
+    matrix = rng.normal(size=(4, 3, 3))
+    force = rng.normal(size=(4, 3))
+    basis = rng.normal(size=(4, 3, 5))
+    denominator = rng.uniform(0.5, 2, size=(4, 5) if dependent_denominator else (4,))
+    G = runtime_array("matrix", matrix.shape)
+    F = runtime_array("force", force.shape)
+    D = runtime_array("denominator", denominator.shape)
+    scale = D[q, i] if dependent_denominator else D[q]
+    terms = []
+    for r in range(3):
+        components = sum((G[q, r, k] * constant(basis)[q, k, i] for k in range(3)), num(0))
+        terms.append(F[q, r] * (components / scale))
+    expression = index_sum(terms[0] + terms[1] + terms[2], (q,))
+    offsets = {"matrix": 0, "force": matrix.size, "denominator": matrix.size + force.size}
+    code = c_kernel(
+        expression,
+        "divided_action",
+        lambda label, offset: f"w[{offsets[label]} + ({offset})]",
+        output_indices=(i,),
+        preintegrate=False,
+        sparse_tables=False,
+        split_quadrature=False,
+    )
+    # An independent divisor is applied before the test-basis loop. A divisor
+    # depending on the test index must remain inside it.
+    assert (" / " in code.split("for (int a0", 1)[1]) == dependent_denominator
+    source, library = tmp_path / "action.c", tmp_path / "action.so"
+    source.write_text(code)
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    data = np.concatenate((matrix.ravel(), force.ravel(), denominator.ravel()))
+    initial = rng.normal(size=5)
+    actual = initial.copy()
+    pointer = ctypes.POINTER(ctypes.c_double)
+    ctypes.CDLL(str(library)).divided_action(
+        actual.ctypes.data_as(pointer),
+        data.ctypes.data_as(pointer),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    values = np.einsum("qr,qrc,qci->qi", force, matrix, basis)
+    expected = (values / (denominator if dependent_denominator else denominator[:, None])).sum(
+        axis=0
+    )
+    np.testing.assert_allclose(actual, initial + expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+def test_division_factoring_keeps_reference_sums_factored(tmp_path):
+    from uflx_compiler.contractions import _factor_contraction
+    from uflx_compiler.quadrature import constant
+    from uflx_spec_interpreter._src.algorithms.traversal import everywhere
+
+    q, c, i, j = (index(name) for name in ("q", "c", "i", "j"))
+    rng = np.random.default_rng(933)
+    left, right = rng.normal(size=(5, 3, 4)), rng.normal(size=(5, 3, 6))
+    denominator = rng.uniform(0.5, 2, size=5)
+    D = runtime_array("denominator", (5,))
+    L = index_sum(constant(left)[q, c, i], (c,))
+    R = index_sum(constant(right)[q, c, j], (c,))
+    expression = index_sum((L / D[q]) * (R / D[q]), (q,))
+    code = c_kernel(
+        expression,
+        "reference_sums",
+        lambda label, offset: f"w[{offset}]",
+        output_indices=(i, j),
+        preintegrate=False,
+        sparse_tables=False,
+    )
+    factored = _factor_contraction(expression.expression, (i, j), (q,), combine_geometry=True)
+    nodes = set()
+    everywhere(factored, lambda n: not nodes.add(n))
+    assert L in nodes and R in nodes  # Preserve sums instead of expanding nine products.
+    source, library = tmp_path / "reference.c", tmp_path / "reference.so"
+    source.write_text(code)
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    initial = rng.normal(size=(4, 6))
+    actual = initial.copy()
+    pointer = ctypes.POINTER(ctypes.c_double)
+    ctypes.CDLL(str(library)).reference_sums(
+        actual.ctypes.data_as(pointer),
+        denominator.ctypes.data_as(pointer),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    expected = np.einsum("qi,qj,q->ij", left.sum(axis=1), right.sum(axis=1), 1 / denominator**2)
+    np.testing.assert_allclose(actual, initial + expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("transpose", [False, True])
+def test_division_factoring_preserves_unexpanded_contractions(transpose):
+    from uflx_compiler.contractions import _factor_contraction
+    from uflx_compiler.quadrature import constant
+    from uflx_spec_interpreter._src.algorithms.traversal import everywhere
+
+    q, c, i, j = (index(name) for name in ("q", "c", "i", "j"))
+    rng = np.random.default_rng(935)
+    G = runtime_array("material", (5, 2))
+    D = runtime_array("denominator", (5,))
+    row, col = (j, i) if transpose else (i, j)
+    basis = constant(rng.normal(size=(5, 2, 4)))
+    components = tensor(tuple(G[q, k] * basis[q, k, col] for k in range(2)))
+    quotient = index_sum(components[c], (c,)) / D[q]
+    expression = constant(rng.normal(size=(5, 6)))[q, row] * quotient
+    factored = _factor_contraction(expression, (i, j), (q,), combine_geometry=True)
+    nodes = set()
+    everywhere(factored, lambda n: not nodes.add(n))
+    # The matrix collector declined component expansion; division must not
+    # bypass that scheduling decision by extracting a reciprocal anyway.
+    assert quotient in nodes
