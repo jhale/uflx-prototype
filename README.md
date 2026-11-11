@@ -198,15 +198,22 @@ shared across argument DOFs. Computations remain inside conditional branches
 unless a reusable value is already available in an enclosing scope. Scalar products
 are regrouped by the scope where their factors become available, so quadrature weights and geometry can be multiplied before basis
 products. Small reductions (up to three entries) that select explicit tensor
-components are expanded to expose shared geometry. For element matrices, a bounded
+components are expanded to expose shared geometry. For element matrices and actions, a bounded
 reference-contraction pass separates runtime factors that are independent of the
 reduction indices from constant basis and quadrature factors. It evaluates the
-constant sums into tables, combines identical tables, and emits the resulting
-terms in a shared matrix traversal. Affine mass and stiffness matrices can therefore
-avoid runtime quadrature. Curved geometry and varying coefficients retain their
+constant sums into tables and combines identical tables. For component blocks,
+scalar scales stay outside the tables so that different blocks can reuse them;
+for scalar outputs, equal runtime coefficients are combined first to reduce
+arithmetic per entry. The resulting terms share an output traversal. Actions can also
+expand coefficient DOF sums within the same term budget. Affine mass and stiffness
+matrices and small actions can therefore avoid runtime quadrature. Curved geometry and varying coefficients retain their
 reductions when this separation is unavailable. Expansion is limited to 64 terms
 and table/work extents to 65,536 entries; exceeding a limit keeps the original
 reduction. Set `preintegrate=False` on `c_kernel` to disable the pass.
+Dense blocked matrices without a remaining quadrature loop use temporary rows to
+make interleaved component updates contiguous. The buffers are limited to 4096
+doubles; sparse blocks retain direct updates. Set `buffer_rows=False` on
+`c_kernel` to disable row buffering.
 Preintegration and product regrouping can change floating-point rounding, even
 with strict C flags; no language change or egglog is required.
 A single-use multiplication directly
@@ -231,6 +238,11 @@ constant and local tensor layouts. The source includes FFCx's `ufcx.h` and expor
 Compile it with the include directory containing your installed FFCx header.
 Explicit input sequences set packing order; omitted sequences use graph traversal
 order. Offsets count scalar entries in `w` and `c`.
+
+Basis values and reference derivatives close to −1, 0 or 1 are clamped to those
+exact values before simplification. This applies to compile-time and runtime
+basis tables, with FFCx-compatible tolerances (`rtol=1e-6`, `atol=1e-9`).
+Quadrature points, weights and general expression constants are not clamped.
 
 This backend tabulates directly in standard Basix element ordering. It does not
 use the toy mesh's global DOF map or tensor-product DOF reordering. A kernel

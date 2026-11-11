@@ -26,7 +26,7 @@ from .algebra import _normalizer
 from .evaluation import evaluate
 from .inputs import arrays
 from .quadrature import constant
-from .simplification import simplify
+from .simplification import literal, simplify
 
 
 def _factor_contraction(expression, rows, outer_indices, *, combine_geometry):
@@ -157,12 +157,15 @@ def _common_factors(expression):
     return multiply(_product(common), _sum(_product(term) for term in terms))
 
 
-def _preintegrate(expression, output_indices, *, max_terms=64, max_entries=65536):
+def _preintegrate(
+    expression, output_indices, *, share_tables=False, max_terms=64, max_entries=65536
+):
     """Tabulate reference contractions whose runtime factors are reduction-invariant.
 
     This is mathematical reassociation, including compile-time floating-point
     summation. Expansion and table sizes are bounded; unsupported or varying
-    runtime factors leave the original reduction intact.
+    runtime factors leave the original reduction intact. Shared tables keep scalar
+    scales outside the reference factors, allowing reuse across component blocks.
     """
     reads = memoized(arrays)
     normalize = _normalizer()
@@ -179,13 +182,31 @@ def _preintegrate(expression, output_indices, *, max_terms=64, max_entries=65536
     class Unsupported(Exception):
         pass
 
+    @cache
+    def tabulate(reference):
+        reference = normalize(reference)
+        free_indices = tuple(i for i, _ in reference.free_indices)
+        indices = tuple(i for i in output_indices if i in free_indices) + tuple(
+            i for i in free_indices if i not in output_indices
+        )
+        data = evaluate(reference, {})
+        data = np.transpose(data, tuple(free_indices.index(i) for i in indices))
+        values = constant(data)
+        return Indexed(values, indices) if indices else values
+
     def integrate(node):
         axes = set(node.indices)
         extents = dict(node.expression.free_indices)
 
         @cache
         def terms(n):
-            if not reads(n):
+            # Keep scalar scales in the coefficient, rather than creating scaled
+            # copies of a reference table. Split constant products for the same reason.
+            if share_tables and (value := literal(n)) is not None:
+                return ((num(value), num(1)),)
+            if share_tables and not n.free_indices and not n.value_shape:
+                return ((n, num(1)),)
+            if not reads(n) and (not share_tables or not isinstance(n, (Product, Division))):
                 return ((num(1), n),)
             if not axes.intersection(i for i, _ in n.free_indices):
                 return ((n, num(1)),)
@@ -198,19 +219,29 @@ def _preintegrate(expression, output_indices, *, max_terms=64, max_entries=65536
                 result = tuple((multiply(a, b), multiply(x, y)) for a, x in left for b, y in right)
             elif isinstance(n, Division):
                 denominator = n.second
-                if not reads(denominator):
-                    result = tuple((a, divide(x, denominator)) for a, x in terms(n.first))
-                elif not axes.intersection(i for i, _ in denominator.free_indices):
+                if (share_tables and not denominator.free_indices) or (
+                    reads(denominator)
+                    and not axes.intersection(i for i, _ in denominator.free_indices)
+                ):
                     result = tuple((divide(a, denominator), x) for a, x in terms(n.first))
+                elif not reads(denominator):
+                    result = tuple((a, divide(x, denominator)) for a, x in terms(n.first))
                 else:
                     raise Unsupported
-            elif isinstance(n, IndexSum) and all(
-                dict(n.expression.free_indices)[i] <= 3
-                and i not in axes
-                and i in selected_indices(n.expression)
-                for i in n.indices
+            elif isinstance(n, IndexSum) and (
+                not axes.intersection(n.indices)
+                and prod(dict(n.expression.free_indices)[i] for i in n.indices) <= max_terms
+                and (
+                    len(output_indices) == 1
+                    or all(
+                        dict(n.expression.free_indices)[i] <= 3
+                        and i in selected_indices(n.expression)
+                        for i in n.indices
+                    )
+                )
             ):
-                # Only expand explicit spatial components, not coefficient DOFs.
+                # Actions may expose coefficient DOFs as well as spatial components.
+                # The same term budget bounds products of these expansions.
                 sizes = dict(n.expression.free_indices)
                 result = ()
                 for values in product(*(range(sizes[i]) for i in n.indices)):
@@ -227,17 +258,23 @@ def _preintegrate(expression, output_indices, *, max_terms=64, max_entries=65536
             return result
 
         try:
-            collected = {}
-            for coefficient, reference in terms(node.expression):
-                coefficient = normalize(simplify(coefficient))
-                collected[coefficient] = (
-                    add(collected[coefficient], reference)
-                    if coefficient in collected
-                    else reference
-                )
+            separated = terms(node.expression)
+            if not share_tables:
+                # A single output block needs fewer runtime products when equal
+                # coefficients are combined before reference integration.
+                collected = {}
+                for coefficient, reference in separated:
+                    coefficient = normalize(simplify(coefficient))
+                    collected[coefficient] = (
+                        add(collected[coefficient], reference)
+                        if coefficient in collected
+                        else reference
+                    )
+                separated = tuple(collected.items())
             tables = {}
             entries = 0
-            for coefficient, reference in collected.items():
+            for coefficient, reference in separated:
+                coefficient = normalize(simplify(coefficient))
                 free = dict(reference.free_indices)
                 bound = tuple(i for i in node.indices if i in free)
                 reference = index_sum(reference, bound) if bound else reference
@@ -248,17 +285,16 @@ def _preintegrate(expression, output_indices, *, max_terms=64, max_entries=65536
                 entries += prod(size for _, size in reference.free_indices)
                 if entries > max_entries:
                     raise Unsupported
-                reference = normalize(reference)
-                free_indices = tuple(i for i, _ in reference.free_indices)
-                indices = tuple(i for i in output_indices if i in free_indices) + tuple(
-                    i for i in free_indices if i not in output_indices
-                )
-                data = evaluate(reference, {})
-                data = np.transpose(data, tuple(free_indices.index(i) for i in indices))
-                values = constant(data)
-                table = Indexed(values, indices) if indices else values
+                table = tabulate(reference)
                 tables[table] = add(tables[table], coefficient) if table in tables else coefficient
-            return complete_indices(node, simplify(_sum(multiply(c, t) for t, c in tables.items())))
+            return complete_indices(
+                node,
+                simplify(
+                    _sum(
+                        multiply(normalize(c) if share_tables else c, t) for t, c in tables.items()
+                    )
+                ),
+            )
         except Unsupported:
             return node
 

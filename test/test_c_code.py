@@ -581,3 +581,43 @@ def test_reduction_fusion_preserves_dependencies_and_summation_order(tmp_path, k
                 rtol=1e-12,
                 atol=1e-12,
             )
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("buffer_rows", [False, True])
+@pytest.mark.parametrize("quadrature", [False, True])
+def test_dense_row_buffers_preserve_rectangular_layout_and_accumulation(
+    tmp_path, buffer_rows, quadrature
+):
+    from uflx_compiler.quadrature import constant
+
+    i, r, j, s, q = (index(name) for name in ("i", "r", "j", "s", "q"))
+    rng = np.random.default_rng(73)
+    basis = rng.normal(size=(4, 5))
+    components = rng.normal(size=(2, 3))
+    coefficient = runtime_array("w", (2,) if quadrature else ())
+    expression = constant(basis)[i, j] * constant(components)[r, s]
+    expression = (
+        index_sum(expression * coefficient[q], (q,)) if quadrature else expression * coefficient
+    )
+    code = c_kernel(
+        expression,
+        "blocked",
+        lambda label, offset: f"w[{offset}]",
+        output_indices=(i, r, j, s),
+        unroll_indices=(r, s),
+        buffer_rows=buffer_rows,
+    )
+    assert ("double rows" in code) == (buffer_rows and not quadrature)
+    source, library = tmp_path / "buffered.c", tmp_path / "buffered.so"
+    source.write_text(code)
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    data = np.array([1.25, -0.75])
+    initial = rng.normal(size=(8, 15))
+    result = initial.copy()
+    pointer = ctypes.POINTER(ctypes.c_double)
+    ctypes.CDLL(str(library)).blocked(
+        result.ctypes.data_as(pointer), data.ctypes.data_as(pointer), None, None, None, None, None
+    )
+    expected = initial + (data.sum() if quadrature else data[0]) * np.kron(basis, components)
+    np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)

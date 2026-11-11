@@ -179,7 +179,19 @@ def basis(F, directions, X, c=0):
     # any leading shape.
     counts = [directions.count(m) for m in range(X.shape[-1])]
     tables = F.tabulate(len(directions), X.reshape(-1, X.shape[-1]))[..., c]
-    return tables[basix.index(*counts)].reshape(*X.shape[:-1], -1)
+    return clamp_table(tables[basix.index(*counts)].reshape(*X.shape[:-1], -1))
+
+
+def clamp_table(values, *, rtol=1e-6, atol=1e-9):
+    """Snap tabulated basis values close to -1, 0 or 1 to those exact values.
+
+    The tolerances match FFCx. This numerical cleanup applies only to basis
+    tabulation, including runtime tables, and leaves the input array unchanged.
+    """
+    values = np.asarray(values)
+    for target in (-1.0, 0.0, 1.0):
+        values = np.where(np.isclose(values, target, rtol=rtol, atol=atol), target, values)
+    return values
 
 
 def runtime_tables(e, env):

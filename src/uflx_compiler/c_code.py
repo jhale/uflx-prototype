@@ -202,6 +202,7 @@ def c_kernel(
     unroll_indices=(),
     fuse_reductions=True,
     preintegrate=True,
+    buffer_rows=True,
 ):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
@@ -217,9 +218,11 @@ def c_kernel(
     for components in np.ndindex(tuple(extents[i] for i in unroll_indices)):
         selected = dict(zip(unroll_indices, components, strict=True))
         expression = simplify(substitute(e, selected)) if selected else e
-        if preintegrate and len(output_indices) - len(unroll_indices) == 2:
+        if preintegrate and 1 <= len(output_indices) - len(unroll_indices) <= 2:
             expression = _preintegrate(
-                expression, tuple(i for i in output_indices if i not in unroll_indices)
+                expression,
+                tuple(i for i in output_indices if i not in unroll_indices),
+                share_tables=bool(unroll_indices),
             )
         expressions.append((selected, expression))
         folded.update(fold(expression, preserve_indices=(*output_indices, *(index_bindings or {}))))
@@ -583,7 +586,7 @@ def c_kernel(
         # computations, which entry() schedules at their earliest legal scope.
         if (
             isinstance(n, Sum)
-            and len(loop_indices) == 2
+            and loop_indices
             and set(loop_indices) <= dict(n.free_indices).keys()
             and not has_integral_reduction(n)
         ):
@@ -626,6 +629,19 @@ def c_kernel(
             ]
             for _, n in blocks:
                 folded.update(fold(n, preserve_indices=(*output_indices, *(index_bindings or {}))))
+        # Dense blocked reference contractions benefit from contiguous row stores.
+        # Keep quadrature-dependent kernels and sparse blocks on the direct path.
+        if (
+            buffer_rows
+            and scope is root
+            and len(output_indices) == 4
+            and loop_indices == (output_indices[0], output_indices[2])
+            and set(unroll_indices) == {output_indices[1], output_indices[3]}
+            and len(blocks) == extents[output_indices[1]] * extents[output_indices[3]]
+            and (len(blocks) + extents[output_indices[3]]) * extents[output_indices[2]] <= 4096
+        ):
+            emit_buffered_rows(blocks, bound)
+            return
         # Prepare all components together, then update adjacent entries in one
         # basis-pair traversal. This exposes interleaved stores to the C compiler.
         with ExitStack() as stack:
@@ -648,6 +664,37 @@ def c_kernel(
                     tuple(dict(e.free_indices)[i] for i in output_indices),
                 )
                 emit(_Accumulation(f"A[{output}]", render(result)))
+
+    def emit_buffered_rows(blocks, bound):
+        """Compute dense component rows, then interleave contiguous output updates."""
+        i, r, j, s = output_indices
+        ni, nr, nj, ns = (extents[k] for k in output_indices)
+        rows, row = fresh("rows"), fresh("row")
+        emit(f"double {rows}[{len(blocks)}][{nj}];")
+        emit(f"double {row}[{nj * ns}];")
+        inner = bound | loop_names
+        for selected, n in blocks:
+            prepare(n, inner | selected)
+        with block(f"for (int {inner[i]} = 0; {inner[i]} < {ni}; ++{inner[i]})", index=inner[i]):
+            with block(
+                f"for (int {inner[j]} = 0; {inner[j]} < {nj}; ++{inner[j]})", index=inner[j]
+            ):
+                for slot, (selected, n) in enumerate(blocks):
+                    result = entry(n, inner | selected, ())
+                    emit(f"{rows}[{slot}][{inner[j]}] = {render(result)};")
+            slots = {(selected[r], selected[s]): k for k, (selected, _) in enumerate(blocks)}
+            for component in range(nr):
+                column = fresh("p")
+                with block(f"for (int {column} = 0; {column} < {nj}; ++{column})", index=column):
+                    for c in range(ns):
+                        emit(
+                            f"{row}[{column} * {ns} + {c}] = "
+                            f"{rows}[{slots[component, c]}][{column}];"
+                        )
+                flat = fresh("p")
+                with block(f"for (int {flat} = 0; {flat} < {nj * ns}; ++{flat})", index=flat):
+                    target = f"A[({inner[i]} * {nr} + {component}) * {nj * ns} + {flat}]"
+                    emit(_Accumulation(target, f"{row}[{flat}]"))
 
     def accumulate_blocks(blocks, bound):
         # Share a common quadrature traversal across component blocks, so geometry
@@ -677,8 +724,7 @@ def c_kernel(
                     accumulate_blocks([(selected, n.expression) for selected, n in blocks], inner)
                 return
         if all(
-            not isinstance(n, (Sum, IndexSum))
-            or (len(loop_indices) == 2 and not has_integral_reduction(n))
+            not isinstance(n, (Sum, IndexSum)) or (loop_indices and not has_integral_reduction(n))
             for _, n in blocks
         ):
             emit_blocks(blocks, bound)
