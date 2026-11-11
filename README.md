@@ -271,13 +271,27 @@ Compile it with the include directory containing your installed FFCx header.
 Explicit input sequences set packing order; omitted sequences use graph traversal
 order. Offsets count scalar entries in `w` and `c`.
 
+`sum_factorisation=True` on `compile_ufcx` enables an experimental path for
+scalar cell actions on tensor-product elements. It retains one-dimensional
+basis tables, evaluates fields and geometry through staged contractions, computes
+pointwise weights or fluxes, and projects back one direction at a time. Constant
+quadrature weights are folded into the corresponding 1D tables. Broadcast axes
+from constant derivatives retain separate directional factors. Each
+stage computes an output entry with a local reduction and writes it once,
+without a separate pass to zero the intermediate array. Standard Basix input
+and output ordering is preserved. Matrices, vector arguments and facets
+use the ordinary emitter; staged arrays exceeding 256 KiB also fall back to it.
+The option defaults to `False` while scheduling is being evaluated. These
+contractions change floating-point summation order.
+
 Basis values and reference derivatives close to −1, 0 or 1 are clamped to those
 exact values before simplification. This applies to compile-time and runtime
 basis tables, with FFCx-compatible tolerances (`rtol=1e-6`, `atol=1e-9`).
 Quadrature points, weights and general expression constants are not clamped.
 
-This backend tabulates directly in standard Basix element ordering. It does not
-use the toy mesh's global DOF map or tensor-product DOF reordering. A kernel
+The external interface uses standard Basix element ordering and cell-local DOFs.
+The experimental sum-factorised path converts to tensor-product ordering internally
+and scatters the result back. A kernel
 computes one cell or facet contribution, with outer loops over local argument DOFs;
 the solver packs cell-local coefficients and three-component coordinate DOFs,
 performs DOF transformations, and assembles the result. Mesh connectivity and

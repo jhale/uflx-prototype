@@ -22,7 +22,7 @@ from uflx_spec_interpreter import (
     reference_integral,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.names import derived_index
+from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
 from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.algorithms.traversal import bottom_up, map_fields, memoized
 from uflx_spec_interpreter._src.nodes import (
@@ -40,7 +40,7 @@ from uflx_spec_interpreter._src.nodes import (
 from uflx_spec_interpreter._src.nodes.structure import operands
 from uflx_toy.basix_nodes import BasixSpace
 from uflx_toy.basix_spaces import basix_space
-from uflx_toy.nodes import VertexCoordinates
+from uflx_toy.nodes import IndexTable, VertexCoordinates
 from uflx_toy.runtime import runtime_array
 from uflx_toy.topology import tabulated_topology
 
@@ -50,7 +50,8 @@ from .evaluation import evaluate
 from .facets import _facet_tables
 from .quadrature import apply_quadrature, constant
 from .simplification import simplify
-from .tabulation import arrayed, leaf, table_read
+from .sum_factorisation import action_kernel
+from .tabulation import arrayed, leaf, nested, separable, table_read
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,7 @@ def compile_ufcx(
     name: str = "uflx_form",
     coefficients: Sequence[Function] | None = None,
     constants: Sequence[Function] | None = None,
+    sum_factorisation: bool = False,
 ) -> UFCxCode:
     """Emit one UFCx cell, exterior-facet or interior-facet integral.
 
@@ -124,6 +126,9 @@ def compile_ufcx(
     selects exterior facets; two sides named + and - select interior facets.
     Blocked scalar elements support vector/tensor arguments and coefficients
     with interleaved components. Mixed arguments are rejected.
+    ``sum_factorisation=True`` enables experimental staged tensor-product
+    contractions for scalar cell actions. Unsupported forms or schedules exceeding
+    256 KiB of temporary storage use the ordinary emitter.
     The caller compiles the returned source with FFCx's ``ufcx.h``.
     """
     if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name) is None:
@@ -220,6 +225,19 @@ def compile_ufcx(
         local, reference_values, bindings = _facet_tables(mesh, domain, width)
         mapping = {domain.topology: local}
         f, domain = (substitute(n, mapping) for n in (f, domain))
+    factor_axes = {}
+    if (
+        sum_factorisation
+        and integral_type == "cell"
+        and len(arguments) == 1
+        and not arguments[0].value_shape
+        and arguments[0].space.factors(0)
+    ):
+        factor_axes = {
+            arguments[0]: derived_indices(
+                "compiler.ufcx.factor", (arguments[0],), len(arguments[0].space.factors(0))
+            )
+        }
     expression = _local_expression(
         f,
         degree,
@@ -231,20 +249,45 @@ def compile_ufcx(
         domain,
         width,
         reference_values,
+        factor_axes,
     )
-    expected_indices = tuple(zip(output_indices, output_extents, strict=True))
-    if set(dict(expression.free_indices)) - (set(output_indices) | bindings.keys()):
-        raise ValueError("local tensor has unexpected free indices")
-    if set(output_indices) - dict(expression.free_indices).keys():
-        expression = add(expression, Zero((), expected_indices, (), "real"))
-    kernel = c_kernel(
-        expression,
-        name + "_kernel",
-        lambda label, off: f"{label[0]}[{label[1]} + ({off})]",
-        output_indices=output_indices,
-        unroll_indices=tuple(components.values()),
-        index_bindings=bindings,
-    )
+    kernel = None
+    if factor_axes and set(factor_axes[arguments[0]]) == dict(expression.free_indices).keys():
+        permutation = np.argsort(arguments[0].space.element(0).dof_ordering).tolist()
+        kernel = action_kernel(
+            expression,
+            name + "_kernel",
+            lambda label, off: f"{label[0]}[{label[1]} + ({off})]",
+            factor_axes[arguments[0]],
+            permutation,
+        )
+    if kernel is None:
+        if factor_axes:
+            expression = _local_expression(
+                f,
+                degree,
+                argument_rows,
+                components,
+                geometry,
+                inputs,
+                coordinate_element.dim,
+                domain,
+                width,
+                reference_values,
+            )
+        expected_indices = tuple(zip(output_indices, output_extents, strict=True))
+        if set(dict(expression.free_indices)) - (set(output_indices) | bindings.keys()):
+            raise ValueError("local tensor has unexpected free indices")
+        if set(output_indices) - dict(expression.free_indices).keys():
+            expression = add(expression, Zero((), expected_indices, (), "real"))
+        kernel = c_kernel(
+            expression,
+            name + "_kernel",
+            lambda label, off: f"{label[0]}[{label[1]} + ({off})]",
+            output_indices=output_indices,
+            unroll_indices=tuple(components.values()),
+            index_bindings=bindings,
+        )
     source = _descriptors(
         name, kernel, shape, coefficients, constants, elements, coordinate_element, integral_type
     )
@@ -336,6 +379,7 @@ def _local_expression(
     domain,
     width,
     reference_values,
+    factor_axes=None,
 ):
     coordinate_data = runtime_array(("coordinate_dofs", 0), (width, coordinate_dimension, 3))
 
@@ -364,6 +408,33 @@ def _local_expression(
         block_size = u.space.block_size
         if width == 1 and u in argument_rows:
             dof = argument_rows[u]
+
+        if factor_axes and u.space.factors(0) and separable(points) and not u.value_shape:
+            factors = u.space.factors(0)
+            axes = factor_axes.get(u) or derived_indices(
+                "compiler.ufcx.factor_dof", (u, cell), len(factors)
+            )
+            permutation = np.argsort(u.space.element(0).dof_ordering).reshape(
+                tuple(F.dim for F in factors)
+            )
+            dofs = IndexTable(nested(permutation), E.dim)
+            position = GatheredIndex(dofs, axes)
+
+            def factored_component(directions):
+                value = None
+                for k, (F, X, axis) in enumerate(zip(factors, points.entries, axes, strict=True)):
+                    term = table_read(u.space, 0, F, X, (0,) * directions.count(k), axis, 0)
+                    value = term if value is None else multiply(value, term)
+                if u in argument_rows:
+                    return value
+                data = (
+                    coordinate_data[cell, position, geometry.index(u)]
+                    if u in geometry
+                    else inputs[u][cell, position, 0]
+                )
+                return index_sum(data * value, axes)
+
+            return arrayed((points.value_shape[0],) * order, factored_component)
 
         def component(idx):
             rank = len(u.value_shape)

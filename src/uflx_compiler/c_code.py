@@ -77,6 +77,14 @@ class _Accumulation:
         return f"{self.target} += {self.value};"
 
 
+@dataclass
+class _Assignment(_Accumulation):
+    """A completed scalar value written to a private output array."""
+
+    def __str__(self):
+        return f"{self.target} = {self.value};"
+
+
 @dataclass(frozen=True)
 class _Initialisation:
     """A scalar reduction accumulator."""
@@ -131,7 +139,7 @@ class _Scope:
                         and uses[previous.name] == 2  # Declaration and sole use.
                     ):
                         statements.pop()
-                        statement = _Accumulation(statement.target, previous.expression)
+                        statement = replace(statement, value=previous.expression)
                 statements.append(statement)
             scope.statements = statements
 
@@ -262,6 +270,7 @@ def c_kernel(
     reuse_transposes=True,
     sparse_tables=True,
     split_quadrature=True,
+    _assign=False,
 ):
     # Schedule reductions and scalar arithmetic by their bound-index dependencies.
     # read(label, offset) supplies a C array read; offset is an integer or a C expression.
@@ -487,7 +496,7 @@ def c_kernel(
                     i, *rest = indices
                     # Resolve small spatial component selections before scheduling;
                     # quadrature and DOF reductions retain their loops.
-                    if extent[i] <= 3 and i in selected_indices(x):
+                    if not _assign and extent[i] <= 3 and i in selected_indices(x):
                         for k in range(extent[i]):
                             reduce(rest, inner | {i: k})
                     else:
@@ -742,7 +751,9 @@ def c_kernel(
                         tuple(positions[i] for i in output_indices),
                         tuple(extents[i] for i in output_indices),
                     )
-                    emit(_Accumulation(f"A[{output}]", render(result)))
+                    emit(
+                        (_Assignment if _assign else _Accumulation)(f"A[{output}]", render(result))
+                    )
             return
         # Prepare all components together, then update adjacent entries in one
         # basis-pair traversal. This exposes interleaved stores to the C compiler.
@@ -772,7 +783,7 @@ def c_kernel(
                 else:
                     i, j = (positions[k] for k in loop_indices)
                     target = f"{local}[{slot}][{i}][{j}]"
-                emit(_Accumulation(target, render(result)))
+                emit((_Assignment if _assign else _Accumulation)(target, render(result)))
 
     def emit_transposed_blocks(blocks, bound, axes):
         """Accumulate proven representatives, then add all component blocks to A."""
@@ -885,7 +896,12 @@ def c_kernel(
     loop_names = {i: fresh("a") for i in loop_indices}
     bound = {i: 0 for i, _ in e.free_indices} | (index_bindings or {})
     if all(dict(e.free_indices)[i] > 0 for i in output_indices):
-        accumulate_blocks(expressions, bound)
+        if _assign:
+            # Private stage outputs are evaluated one entry at a time. A reduction
+            # becomes a local scalar accumulator inside these output loops.
+            emit_blocks(expressions, bound)
+        else:
+            accumulate_blocks(expressions, bound)
     root.inline_products()
     if split_quadrature:
         [root] = _split_quadrature(root)
