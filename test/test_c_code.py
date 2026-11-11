@@ -1131,3 +1131,52 @@ def test_division_factoring_preserves_unexpanded_contractions(transpose):
     # The matrix collector declined component expansion; division must not
     # bypass that scheduling decision by extracting a reciprocal anyway.
     assert quotient in nodes
+
+
+@pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
+@pytest.mark.parametrize("shape", [(4, 7), (3, 4, 5)])
+@pytest.mark.parametrize("access", ["contiguous", "transposed", "row"])
+def test_dense_output_flattening(tmp_path, shape, access):
+    from uflx_compiler.quadrature import constant
+
+    rng = np.random.default_rng(937)
+    axes = tuple(index(f"i{k}") for k in range(len(shape)))
+    values = rng.normal(size=shape)
+    weight = runtime_array("weight", (1,))
+    expression = weight[0] * constant(values)[axes]
+    expected = 1.7 * values
+    if access == "transposed":
+        other = rng.normal(size=shape[::-1])
+        expression = expression + constant(other)[axes[::-1]]
+        expected = expected + other.transpose()
+    elif access == "row":
+        rows = runtime_array("rows", (shape[0],))
+        expression = expression + rows[axes[0]]
+        expected = expected + np.arange(shape[0]).reshape((-1,) + (1,) * (len(shape) - 1))
+    code = c_kernel(
+        expression,
+        "dense",
+        lambda label, offset: f"w[{offset}]" if label == "weight" else f"w[1 + {offset}]",
+        output_indices=axes,
+        specialize_basis=False,
+        sparse_tables=False,
+    )
+    # Partial flattening of the inner axes is allowed when the row is used separately.
+    assert (f"flat_a0 < {values.size}" in code) == (access == "contiguous")
+    source, library = tmp_path / "dense.c", tmp_path / "dense.so"
+    source.write_text(code)
+    subprocess.run(["cc", "-O0", "-shared", "-fPIC", source, "-o", library], check=True)
+    initial = rng.normal(size=shape)
+    actual = initial.copy()
+    data = np.r_[1.7, np.arange(shape[0], dtype=float)]
+    pointer = ctypes.POINTER(ctypes.c_double)
+    ctypes.CDLL(str(library)).dense(
+        actual.ctypes.data_as(pointer),
+        data.ctypes.data_as(pointer),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    np.testing.assert_allclose(actual, initial + expected, rtol=1e-12, atol=1e-12)

@@ -298,7 +298,11 @@ coefficients use this layout on cells and both kinds of facets; a vector form
 produces one full local tensor in one kernel call. Basis and component indices
 remain separate: component choices are specialised before C emission, removing
 structural zeros. Component updates share a basis-pair loop and write directly
-into the interleaved output. Scalar contractions collect repeated trial factors
+into the interleaved output. Dense output loop nests are flattened when every
+access uses the contiguous output offset. Tables laid out along those output
+axes use flat row-major storage, allowing direct access without recovering
+individual indices. Row-dependent computations and transposed accesses keep
+their existing loops. Scalar contractions collect repeated trial factors
 and prepare their material/geometry-scaled coefficients outside the basis-pair
 loop. A divisor independent of the collected basis index stays with the
 coefficient, so divided linear combinations can be factored in the same way

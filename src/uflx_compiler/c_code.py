@@ -99,6 +99,7 @@ class _Scope:
     expressions: dict = field(default_factory=dict)
     quadrature_extent: int | None = None
     basis: bool = False
+    output_extent: int | None = None
 
     @property
     def depth(self):
@@ -135,6 +136,58 @@ class _Scope:
             scope.statements = statements
 
         visit(self)
+
+
+def _offset(comp, shape):
+    """Row-major offset, shared by table access and dense-loop flattening."""
+    result = 0
+    for i, n in zip(comp, shape, strict=True):
+        if result == 0:
+            result = i
+        elif isinstance(result, int) and isinstance(i, int):
+            result = result * n + i
+        else:
+            result = f"({result} * {n} + {i})"
+    return result
+
+
+def _flatten_output(scope):
+    """Collapse perfect output nests accessed only through their contiguous offset.
+
+    Any separate use of an axis (including a row cache or a transposed access)
+    leaves the nest intact. No division or remainder is introduced to recover axes.
+    This runs after scheduling, when only rendered statements remain relevant.
+    """
+    nest = [scope]
+    while (
+        nest[-1].output_extent is not None
+        and len(nest[-1].statements) == 1
+        and isinstance(child := nest[-1].statements[0], _Scope)
+        and child.output_extent is not None
+    ):
+        nest.append(child)
+    if len(nest) > 1 and all(
+        isinstance(s, (_ScalarStatement, _Accumulation)) for s in nest[-1].statements
+    ):
+        indices = tuple(s.index for s in nest)
+        extents = tuple(s.output_extent for s in nest)
+        index = "flat_" + indices[0]
+        offset = _offset(indices, extents)
+        statements = [str(s).replace(offset, index) for s in nest[-1].statements]
+        uses = set(re.findall(r"[A-Za-z_][A-Za-z_0-9]*", " ".join(statements)))
+        if not uses.intersection(indices):
+            extent = prod(extents)
+            return replace(
+                scope,
+                header=f"for (int {index} = 0; {index} < {extent}; ++{index})",
+                index=index,
+                output_extent=extent,
+                statements=statements,
+            )
+    return replace(
+        scope,
+        statements=[_flatten_output(s) if isinstance(s, _Scope) else s for s in scope.statements],
+    )
 
 
 def _split_quadrature(scope):
@@ -245,11 +298,25 @@ def c_kernel(
         scope.statements.append(code)
 
     @contextmanager
-    def block(header, *, index=None, conditional=False, quadrature_extent=None, basis=False):
+    def block(
+        header,
+        *,
+        index=None,
+        conditional=False,
+        quadrature_extent=None,
+        basis=False,
+        output_extent=None,
+    ):
         nonlocal scope
         parent = scope
         child = _Scope(
-            parent, header, index, conditional, quadrature_extent=quadrature_extent, basis=basis
+            parent,
+            header,
+            index,
+            conditional,
+            quadrature_extent=quadrature_extent,
+            basis=basis,
+            output_extent=output_extent,
         )
         scope = child
         try:
@@ -297,26 +364,23 @@ def c_kernel(
             return float(values[indices]) if dtype == "double" else int(values[indices])
         if key not in tables:
             name = fresh("table")
-            shape = "".join(f"[{n}]" for n in values.shape)
-            tables[key] = (name, f"  static const {dtype} {name}{shape} = {initializer(values)};")
-        name = tables[key][0]
+            flat = len(loop_indices) > 1 and indices == tuple(loop_names.values())
+            stored = values.reshape(-1) if flat else values
+            shape = "".join(f"[{n}]" for n in stored.shape)
+            tables[key] = (
+                name,
+                f"  static const {dtype} {name}{shape} = {initializer(stored)};",
+                flat,
+            )
+        name, _, flat = tables[key]
+        if flat:
+            return f"{name}[{_offset(indices, values.shape)}]"
         return name + "".join(f"[{i}]" for i in indices)
 
     def initializer(values):
         if values.ndim == 0:
             return repr(values.item())
         return "{" + ", ".join(initializer(v) for v in values) + "}"
-
-    def offset(comp, shape):
-        result = 0
-        for i, n in zip(comp, shape, strict=True):
-            if result == 0:
-                result = i
-            elif isinstance(result, int) and isinstance(i, int):
-                result = result * n + i
-            else:
-                result = f"({result} * {n} + {i})"
-        return result
 
     def ordered_product(n, bound):
         factors = []
@@ -358,7 +422,7 @@ def c_kernel(
             case Zero():
                 return 0.0
             case RuntimeArray(label, shape):
-                return read(label, offset(comp, shape))
+                return read(label, _offset(comp, shape))
             case Sum(a, b):
                 return add(entry(a, bound, comp), entry(b, bound, comp))
             case Product(a, b) if a.value_shape:
@@ -674,7 +738,7 @@ def c_kernel(
                     folded.update(fold(specialized, preserve_indices=index_bindings or {}))
                     positions = bound | selected | fixed
                     result = entry(specialized, positions, ())
-                    output = offset(
+                    output = _offset(
                         tuple(positions[i] for i in output_indices),
                         tuple(extents[i] for i in output_indices),
                     )
@@ -693,13 +757,14 @@ def c_kernel(
                         f"for (int {loop} = 0; {loop} < {dict(e.free_indices)[i]}; ++{loop})",
                         index=loop,
                         basis=True,
+                        output_extent=extents[i],
                     )
                 )
             for slot, (selected, n) in enumerate(blocks):
                 positions = inner | selected
                 result = entry(n, positions, ())
                 if local is None:
-                    output = offset(
+                    output = _offset(
                         tuple(positions[i] for i in output_indices),
                         tuple(extents[i] for i in output_indices),
                     )
@@ -824,7 +889,8 @@ def c_kernel(
     root.inline_products()
     if split_quadrature:
         [root] = _split_quadrature(root)
-    body = "\n".join([declaration for _, declaration in tables.values()] + list(root.lines()))
+    root = _flatten_output(root)
+    body = "\n".join([declaration for _, declaration, _ in tables.values()] + list(root.lines()))
     return (
         "#include <stdint.h>\n"
         f"void {name}(double* restrict A, const double* restrict w, const double* restrict c,\n"
