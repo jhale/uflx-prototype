@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
-from ..algorithms.substitution import substitute
 from ..arithmetic import divide, square_root
 from ..geometry import inverse_jacobian
-from ..meshes import inclusion
 from ..nodes import (
     CellMap,
     DomainMap,
@@ -16,44 +14,34 @@ from ..nodes import (
     SideMap,
 )
 from ..tensors import transpose
-from ..topology import cell_index
 
 if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
-    from ..nodes.indices import GatheredIndex, Index
 
 
-def side_cell(
-    side_map: SideMap, map: DomainMap | CellMap | SideMap
-) -> tuple[int, int | Index | GatheredIndex] | None:
-    """Identify a cell of the side topology, including cells of its physical mesh."""
-    if isinstance(map, CellMap) and map.topology == side_map.side_topology:
-        return map.cell_group, map.entry
+def side_cell(side_map: SideMap, map: DomainMap | CellMap | SideMap) -> int | None:
+    """Identify a cell of the exact restriction domain."""
+    if isinstance(map, CellMap) and map.parent == side_map.restriction_domain:
+        return map.cell_slot
     return None
 
 
 def side_maps(
-    side_map: SideMap, group: int, entry: int | Index | GatheredIndex
+    side_map: SideMap, slot: int
 ) -> tuple[CellMap, DomainMap, AbstractExpression | None]:
-    # B and a of cell e of group i, and the reference normal of the side tables.
     topology, side = side_map.side_topology, side_map.side
-    outer, inner = inclusion(side_map.ambient_domain, topology, group, side, entry)
-    reference_normal = topology.side_tables(group, side)[2]
-    if reference_normal is not None:
-        reference_normal = cast(
-            "AbstractExpression",
-            substitute(reference_normal, {cell_index(topology, group): entry}),
-        )
-    return outer, inner, reference_normal
+    _, _, parent_slot = next(s for s in topology.sides[slot] if s[0] == side)
+    inner, reference_normal = topology.side_data(slot, side)
+    return CellMap(side_map.parent, parent_slot), inner, reference_normal
 
 
 def pull_back_normal(
     f: Normal,
-    cell: tuple[int, int | Index | GatheredIndex],
+    cell: int,
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
 ) -> AbstractExpression:
     # K^T m_hat / |K^T m_hat|, with the normal supplied by the side table.
-    outer, inner, reference_normal = side_maps(f.side_map, *cell)
+    outer, inner, reference_normal = side_maps(f.side_map, cell)
     if reference_normal is None:
         raise TypeError("the side table supplies no reference normal")
     w = transpose(pb(inverse_jacobian(outer), inner)) @ reference_normal

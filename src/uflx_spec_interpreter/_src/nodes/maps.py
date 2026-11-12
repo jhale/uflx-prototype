@@ -71,6 +71,12 @@ class PullBack(AbstractExpression):
     @property
     @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
+        from .meshes import CellMap, SideMap
+
+        if isinstance(self.map, CellMap):
+            return self.map.reference_cell
+        if isinstance(self.map, SideMap):
+            return self.map.restriction_domain
         return self.map.parameter_domain
 
     @property
@@ -83,8 +89,9 @@ class PullBack(AbstractExpression):
     def _validate(self) -> None:
         from .validation import merge_indices, require
 
+        target = self.map.ambient_domain if isinstance(self.map, DomainMap) else self.map.parent
         require(
-            self.expression.domain in (None, self.map.ambient_domain),
+            self.expression.domain in (None, target),
             "pull-back target differs from expression domain",
         )
         merge_indices(self.expression.free_indices, self.map.free_indices)

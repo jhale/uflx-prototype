@@ -68,7 +68,7 @@ def _rule(
         case Coordinate() if isinstance(m, (DomainMap, CellMap)):
             return m.parameterisation
         case PullBack(g, SideMap() as sm) if (cell := side_cell(sm, m)) is not None:
-            outer, inner, _ = side_maps(sm, *cell)
+            outer, inner, _ = side_maps(sm, cell)
             return pb(pb(g, outer), inner)
         case PullBack(_, (SideMap() | CellMap())):
             return PullBack(f, m)
@@ -82,27 +82,27 @@ def _rule(
                 original = PullBack(f, m)
                 return zero_like(original, original.argument_spaces)
             return transformed(
-                Gradient(reference, m.parameter_domain), TransformationLaw(("covariant",), 0), m
+                Gradient(reference, m.reference_cell), TransformationLaw(("covariant",), 0), m
             )
         case Gradient():
             return PullBack(f, m)
         case Divergence() | Curl() if (law := piola_law(f)) is not None:
-            if not is_cell(m) or m.ambient_domain != f.domain:
+            if not is_cell(m) or m.parent != f.domain:
                 return PullBack(f, m)
             # The Piola identity applies only to a mapped field.
             assert isinstance(f.expression, PushForward)
             expand = trace_of_gradient if isinstance(f, Divergence) else rotation_of_gradient
-            reference_cell = CellMap(m.topology, m.cell_group, m.entry)
+            reference_cell = CellMap(m.topology, m.cell_slot)
             reference = pb(f.expression.expression, reference_cell)
-            return transformed(expand(reference, m.parameter_domain), law, m)
+            return transformed(expand(reference, m.reference_cell), law, m)
         case Divergence(g, domain):
             return pb(trace_of_gradient(g, domain), m)
         case Curl(g, domain):
             return pb(rotation_of_gradient(g, domain), m)
         case Normal(sm) if (cell := side_cell(sm, m)) is not None:
             return pull_back_normal(f, cell, pb)
-        case PushForward(g, domain, law) if m.ambient_domain == domain and is_cell(m):
-            reference_cell = CellMap(m.topology, m.cell_group, m.entry)
+        case PushForward(g, domain, law) if is_cell(m) and m.parent == domain:
+            reference_cell = CellMap(m.topology, m.cell_slot)
             reference_value = pb(g, reference_cell)
             return transformed(reference_value, law, m)
         case _ if field_terminal(f) or isinstance(f, PushForward):

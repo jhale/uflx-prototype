@@ -70,7 +70,7 @@ def read(x, points):
 
 def cell(C):
     # The group and the entry of a cell map, or of a cell of a mesh.
-    return (C.cell_group, C.entry) if isinstance(C, CellMap) else None
+    return (C.cell_slot, 0) if isinstance(C, CellMap) else None
 
 
 def values(u, found_cell, order, points):

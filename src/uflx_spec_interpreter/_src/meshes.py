@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, TypeGuard, cast
+from typing import TYPE_CHECKING, Literal, TypeGuard
 
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.nodes import (
     AbstractTopology,
     CellMap,
-    GatheredIndex,
     Mesh,
     Normal,
     PullBack,
@@ -14,21 +12,16 @@ from uflx_spec_interpreter._src.nodes import (
     SideMap,
     TransformationLaw,
 )
-from uflx_spec_interpreter._src.topology import cell_index
 
 if TYPE_CHECKING:
     from uflx_spec_interpreter._src.nodes.expressions import AbstractExpression
-    from uflx_spec_interpreter._src.nodes.indices import Index
 
     from .nodes.domains import AbstractCoordinateDomain
     from .nodes.maps import DomainMap
 
 
-def cell_map(
-    X: AbstractTopology | Mesh, j: int, e: int | Index | GatheredIndex | None = None
-) -> CellMap:
-    T = X.topology if isinstance(X, Mesh) else X
-    return CellMap(X, j, cell_index(T, j) if e is None else e)
+def cell_map(parent: AbstractTopology | Mesh, cell_slot: int) -> CellMap:
+    return CellMap(parent, cell_slot)
 
 
 def image(x: AbstractExpression, Q: AbstractCoordinateDomain) -> Mesh:
@@ -45,20 +38,15 @@ def push_forward(f: AbstractExpression, D: Mesh, m: TransformationLaw) -> PushFo
     return PushForward(f, D, m)
 
 
-def cell_of(m: DomainMap | CellMap | SideMap) -> tuple[int, int | Index | GatheredIndex] | None:
-    return (
-        (m.cell_group, m.entry)
-        if isinstance(m, CellMap) and isinstance(m.ambient_domain, Mesh)
-        else None
-    )
-
-
 def is_cell(m: DomainMap | CellMap | SideMap) -> TypeGuard[CellMap]:
-    return cell_of(m) is not None
+    """Whether a map selects a cell of a physical mesh."""
+    return isinstance(m, CellMap) and isinstance(m.parent, Mesh)
 
 
-def side_map(X: Mesh | AbstractTopology, P: Mesh | AbstractTopology, s: str) -> SideMap:
-    return SideMap(X, P, s)
+def side_map(
+    parent: Mesh | AbstractTopology, restriction_domain: Mesh | AbstractTopology, side: str
+) -> SideMap:
+    return SideMap(parent, restriction_domain, side)
 
 
 def side_domain(D: Mesh, S: AbstractTopology, s: str) -> Mesh:
@@ -67,15 +55,11 @@ def side_domain(D: Mesh, S: AbstractTopology, s: str) -> Mesh:
 
 
 def inclusion(
-    X: Mesh | AbstractTopology, S: AbstractTopology, i: int, s: str, e: int | Index | GatheredIndex
+    X: Mesh | AbstractTopology, S: AbstractTopology, i: int, s: str
 ) -> tuple[CellMap, DomainMap]:
-    # B, the cell on the side s of cell e of group i, and A, the inclusion of cell e into it.
     (_, _, j) = next(side for side in S.sides[i] if side[0] == s)
-    cells, A, _ = S.side_tables(i, s)
-    c = cell_index(S, i)
-    g = GatheredIndex(cells, (e,))
-    B = CellMap(X, j, g)
-    return B, cast("DomainMap", substitute(A, {c: e}))
+    A, _ = S.side_data(i, s)
+    return CellMap(X, j), A
 
 
 def normal(sm: SideMap) -> Normal:

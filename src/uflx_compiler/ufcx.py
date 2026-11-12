@@ -147,7 +147,7 @@ def compile_ufcx(
     if width == 2:
         # A generic two-cell topology keeps local side 1 valid even for periodic
         # or symbolic input topologies. User inputs are returned in their original identity.
-        local = tabulated_topology("ufcx_pair", mesh.topology.cell_types, (2,), (), ())
+        local = tabulated_topology("ufcx_pair", mesh.topology.cell_types * 2, (), ())
         mapping = {mesh.topology: local}
         originals = {substitute(u, mapping): u for u in _nodes(f) if isinstance(u, Function)}
         f, mesh, domain = (substitute(n, mapping) for n in (f, mesh, domain))
@@ -388,7 +388,7 @@ def _local_expression(
             return node
         if node.integration_domain != domain:
             raise NotImplementedError("one integration domain is required per UFCx form")
-        return reference_integral(node.expression, domain, 0, 0)
+        return reference_integral(node.expression, domain, 0)
 
     f = apply_quadrature(lower(bottom_up(f, local_integral)), degree)
     f = substitute(f, reference_values)

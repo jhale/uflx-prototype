@@ -3,10 +3,8 @@
 import basix
 import numpy as np
 
-from uflx_spec_interpreter import tensor
 from uflx_spec_interpreter._src.algorithms.names import derived_index
 from uflx_toy.basix_cells import basix_cell
-from uflx_toy.indices import index_table
 from uflx_toy.runtime import runtime_array
 from uflx_toy.topology import tabulated_topology
 
@@ -66,9 +64,9 @@ def _facet_tables(mesh, domain, width):
             replacements[positions] = constant(tables)[facet, permutation]
         else:
             replacements[positions] = constant(tables[:, 0])[facet]
-        sides.append((name, mesh.topology, 0))
-        data.append((index_table((side,), mesh.topology.num_cells[0]), tensor((positions,))))
+        sides.append((name, mesh.topology, side))
+        data.append(positions)
     topology = tabulated_topology(
-        "ufcx_local_facet", (basix_cell(facet_type),), (1,), (tuple(sides),), (tuple(data),)
+        "ufcx_local_facet", (basix_cell(facet_type),), (tuple(sides),), (tuple(data),)
     )
     return topology, replacements, bindings

@@ -3,9 +3,8 @@ import itertools
 import basix
 import numpy as np
 
-from uflx_spec_interpreter import cell_index
 from uflx_spec_interpreter._src.calculus import rotation_of_gradient, trace_of_gradient
-from uflx_spec_interpreter._src.meshes import cell_of
+from uflx_spec_interpreter._src.meshes import is_cell
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
@@ -105,8 +104,7 @@ def index_value(i, ienv):
 
 def cell_value(m, ienv):
     # The group and the cell that a cell reads, as a library.
-    found = cell_of(m)
-    return None if found is None else (found[0], index_value(found[1], ienv))
+    return (m.cell_slot, 0) if is_cell(m) else None
 
 
 def transformed(ghat, law, J):
@@ -133,10 +131,10 @@ def lookup(env, node, label):
 def side_cell(sm):
     # The group and the cell on the side of the current cell of the parameter domain of the side
     # map, through the side tables.
-    E, S = sm.parameter_domain, sm.side_topology
+    E, S = sm.restriction_domain, sm.side_topology
     i = POINTS.get(("piece", E), 0)
     (_, _, j) = next(s for s in S.sides[i] if s[0] == sm.side)
-    return j, S.side_tables(i, sm.side)[0].values[POINTS[("cell", E)]]
+    return j, 0
 
 
 def on_cell(D, piece, cell, fn):
@@ -182,23 +180,22 @@ def tangent_projector(P, env):
     if ("chart", P) in POINTS:
         T = jacobian_of(POINTS[("chart", P)], POINTS[("ref", P)])
     else:
-        piece = P.pieces[0]
-        index = next(iter(dict(piece.parameterisation.free_indices)))
-        cell = POINTS[("cell", P)] if ("cell", P) in POINTS else locate(P, POINTS[P], env)
-        chart = piece_map(piece, {index: cell}, env)
+        slot = POINTS.get(("piece", P))
+        if slot is None:
+            slot = locate(P, POINTS[P], env)
+        piece = P.pieces[slot]
+        chart = piece_map(piece, {}, env)
         T = jacobian_of(chart, reference_point(chart, POINTS[P], P.dimension))
     return T @ np.linalg.pinv(T)
 
 
 def locate(P, x, env):
     # The cell of P that contains x, as a mesh library finds it for a point.
-    piece = P.pieces[0]
-    index = next(iter(dict(piece.parameterisation.free_indices)))
-    for cell in range(dict(piece.parameterisation.free_indices)[index]):
-        chart = piece_map(piece, {index: cell}, env)
+    for slot, piece in enumerate(P.pieces):
+        chart = piece_map(piece, {}, env)
         X = reference_point(chart, x, P.dimension)
         if inside(piece.parameter_domain, X) and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
-            return cell
+            return slot
     raise ValueError(f"no cell of P contains {x}")
 
 
@@ -262,7 +259,7 @@ def integrate(P, fn, env):
                     T = jacobian_of(chart_in, ref)
                     Je = jacobian_of(chart, ref)
                     scale = np.sqrt(abs(np.linalg.det(Je.T @ Je)) / abs(np.linalg.det(T.T @ T)))
-                cell = next(iter(members.values()), None)
+                cell = 0
                 inside = lambda: at(
                     ("piece", P),
                     number,
@@ -345,7 +342,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
                 piece = D.pieces[j]
                 chart = piece_map(
-                    piece, {next(iter(dict(piece.parameterisation.free_indices))): cell}, env
+                    piece, {}, env
                 )
                 X = reference_point(chart, POINTS[D], D.dimension)
                 T = D.topology
@@ -377,7 +374,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                     # A function that differs between cells, read on the current cell.
                     D = space.domain
                     cell = POINTS[("cell", D)]
-                    key = (POINTS.get(("piece", D), 0), cell) if len(D.pieces) > 1 else cell
+                    key = POINTS.get(("piece", D), 0)
                     return v[key](POINTS[D])
                 return v(POINTS[space.domain]) if callable(v) else v
 
@@ -512,15 +509,15 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def restricted_on_topology(vals):
                 # The reference point of the cell on the side, through the inclusion A of the cell.
                 i, e = POINTS.get(("piece", S), 0), POINTS[("cell", S)]
-                _, A, _ = S.side_tables(i, side)
-                inside = evaluate(A.parameterisation, env, {cell_index(S, i): e})
+                A, _ = S.side_data(i, side)
+                inside = evaluate(A.parameterisation, env, ienv)
                 X = at(A.parameter_domain, POINTS[S], lambda: np.real(np.asarray(inside(()))))
                 j, cell = side_cell(sm)
                 return on_cell(T, j, cell, lambda: at(T, X, lambda: fb(vals)))
 
             return restricted_on_topology
         case PullBack(b, SideMap(Dd) as sm):
-            fb, Ed = ev(b), sm.parameter_domain
+            fb, Ed = ev(b), sm.restriction_domain
 
             def restricted(vals):
                 # The point of E, read from the cell on the side through the table of cells.
@@ -528,13 +525,13 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return on_cell(Dd, j, cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
 
             return restricted
-        case PullBack(b, CellMap(AbstractTopology() as T, j, entry) as m):
+        case PullBack(b, CellMap(AbstractTopology() as T, j) as m):
             fb = ev(b)
 
             def read(vals):
                 # A point of a topology is a cell and a point of the reference cell of the cell.
-                X = POINTS[m.parameter_domain]
-                cell = index_value(entry, ienv)
+                X = POINTS[m.reference_cell]
+                cell = 0
                 return on_cell(T, j, cell, lambda: at(T, X, lambda: fb(vals)))
 
             return read
@@ -545,13 +542,13 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 y = np.real(np.asarray(psi(())))
                 found = cell_value(m, ienv)
                 if found is not None:
-                    D = m.ambient_domain
+                    D = m.parent
                     return on_cell(D, *found, lambda: at(D, y, lambda: fb(vals)))
                 return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
         case Normal(SideMap(Dd) as sm):
-            Ed = sm.parameter_domain
+            Ed = sm.restriction_domain
 
             def normal(vals):
                 # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
@@ -559,13 +556,13 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 j, cell = side_cell(sm)
                 facet = Ed.pieces[POINTS.get(("piece", Ed), 0)]
                 edge = piece_map(
-                    facet, {next(iter(dict(facet.parameterisation.free_indices))): e}, env
+                    facet, {}, env
                 )
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)
                 piece = Dd.pieces[j]
                 chart = piece_map(
-                    piece, {next(iter(dict(piece.parameterisation.free_indices))): cell}, env
+                    piece, {}, env
                 )
                 X = reference_point(chart, x, Dd.dimension)
                 d = jacobian_of(chart, X) @ (X - reference_centroid(piece.parameter_domain))

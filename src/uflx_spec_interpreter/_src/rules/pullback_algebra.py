@@ -38,7 +38,8 @@ def composed(
         lambda node: pb(node.expression, node.map) if isinstance(node, PullBack) else node,
     )
     composed_parameterisation = pb(parameterisation, m)
-    return DomainMap(m.parameter_domain, composed_parameterisation, phi.ambient_domain)
+    return DomainMap(m.reference_cell if isinstance(m, CellMap) else m.parameter_domain,
+                     composed_parameterisation, phi.ambient_domain)
 
 
 def pointwise(
@@ -61,5 +62,5 @@ def pullback_remains(f: AbstractExpression, m: DomainMap | CellMap | SideMap) ->
         or isinstance(f, PushForward)
         or (isinstance(f, PullBack) and isinstance(f.map, SideMap | CellMap))
         or (isinstance(f, Gradient) and not is_cell(m))
-        or (piola_law(f) is not None and (not is_cell(m) or m.ambient_domain != f.domain))
+        or (piola_law(f) is not None and (not is_cell(m) or m.parent != f.domain))
     )

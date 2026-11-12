@@ -8,7 +8,6 @@ from .base import Base
 from .caching import cached
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
 from .expressions import AbstractExpression
-from .indices import GatheredIndex, Index
 from .scalar_types import ScalarType
 from .topology import AbstractTopology
 
@@ -83,92 +82,72 @@ class Mesh(AbstractDomain):
 @final
 class CellMap(Base):
     identifier = "uflx.CellMap"
-    ambient_domain: AbstractTopology | Mesh
-    cell_group: int
-    entry: int | Index | GatheredIndex
+    parent: AbstractTopology | Mesh
+    cell_slot: int
+    free_indices = ()
 
     @property
     def topology(self) -> AbstractTopology:
-        X = self.ambient_domain
-        return X.topology if isinstance(X, Mesh) else X
+        return self.parent.topology if isinstance(self.parent, Mesh) else self.parent
 
     @property
-    def parameter_domain(self) -> AbstractReferenceCell:
-        cell = self.topology.cell_types[self.cell_group]
-        if not isinstance(cell, AbstractReferenceCell):
-            raise TypeError("cell must be a reference cell")
-        return cell
+    def reference_cell(self) -> AbstractReferenceCell:
+        return cast("AbstractReferenceCell", self.topology.cell_types[self.cell_slot])
 
     @property
     @cached
     def parameterisation(self) -> AbstractExpression:
         from .maps import PullBack
 
-        if not isinstance(self.ambient_domain, Mesh):
+        if not isinstance(self.parent, Mesh):
             raise TypeError("a topology cell has no parameterisation")
-        return PullBack(
-            self.ambient_domain.coordinate_function,
-            CellMap(self.topology, self.cell_group, self.entry),
-        )
-
-    @property
-    @cached
-    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        if isinstance(self.entry, GatheredIndex):
-            return self.entry.free_indices
-        if isinstance(self.entry, int):
-            return ()
-        return ((self.entry, self.topology.num_cells[self.cell_group]),)
+        return PullBack(self.parent.coordinate_function, CellMap(self.topology, self.cell_slot))
 
     def _validate(self) -> None:
         from .validation import require
 
-        if type(self.cell_group) is not int:
-            raise TypeError("cell group must be an integer")
-        require(0 <= self.cell_group < len(self.topology.cell_types), "invalid cell group")
-        self.parameter_domain  # Check that the selected cell is a reference cell.
-        size = self.topology.num_cells[self.cell_group]
-        if isinstance(self.entry, int):
-            require(
-                type(size) is int and 0 <= self.entry < size,
-                "cell selection is outside the group",
-            )
-        elif isinstance(self.entry, GatheredIndex):
-            require(self.entry.extent == size, "cell gather has the wrong extent")
-        else:
-            pass
+        if not isinstance(self.parent, (AbstractTopology, Mesh)):
+            raise TypeError("cell parent must be a topology or mesh")
+        if type(self.cell_slot) is not int:
+            raise TypeError("cell slot must be an integer")
+        require(0 <= self.cell_slot < len(self.topology.cell_types), "invalid cell slot")
+        require(isinstance(self.reference_cell, AbstractReferenceCell),
+                "cell must be a reference cell")
 
 
 @final
 class SideMap(Base):
     identifier = "uflx.SideMap"
-    ambient_domain: Mesh | AbstractTopology
-    parameter_domain: Mesh | AbstractTopology
+    parent: Mesh | AbstractTopology
+    restriction_domain: Mesh | AbstractTopology
     side: str
     free_indices = ()
 
     @property
     def side_topology(self) -> AbstractTopology:
-        P = self.parameter_domain
-        return P if isinstance(P, AbstractTopology) else P.topology
+        P = self.restriction_domain
+        return P.topology if isinstance(P, Mesh) else P
 
     def _validate(self) -> None:
         from .validation import require
 
-        X = self.ambient_domain
+        require(
+            (isinstance(self.parent, Mesh) and isinstance(self.restriction_domain, Mesh))
+            or (isinstance(self.parent, AbstractTopology)
+                and isinstance(self.restriction_domain, AbstractTopology)),
+            "side parent and restriction domain must both be topologies or both be meshes",
+        )
         S = self.side_topology
-        T = X.topology if isinstance(X, Mesh) else X
-        require(
-            all(isinstance(K, AbstractReferenceCell) for K in S.cell_types),
-            "side cells must be reference cells",
-        )
-        require(
-            len(S.sides) == len(S.cell_types)
-            and all(
-                any((name == self.side and U == T for name, U, _ in sides)) for sides in S.sides
-            ),
-            "side is absent from a cell group",
-        )
+        T = self.parent.topology if isinstance(self.parent, Mesh) else self.parent
+        require(len(S.sides) == len(S.cell_types), "side is absent from a cell slot")
+        for K, sides in zip(S.cell_types, S.sides, strict=True):
+            require(isinstance(K, AbstractReferenceCell), "side cells must be reference cells")
+            selected = [j for name, U, j in sides if name == self.side and U == T]
+            require(len(selected) == 1, "side must select one parent cell per slot")
+            j = selected[0]
+            require(type(j) is int and 0 <= j < len(T.cell_types), "invalid parent cell slot")
+            require(isinstance(T.cell_types[j], AbstractReferenceCell),
+                    "parent cell must be a reference cell")
 
 
 _Variance = Literal["covariant", "contravariant"]
@@ -257,7 +236,7 @@ class Normal(AbstractExpression):
     @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
 
-        domain = self.side_map.ambient_domain
+        domain = self.side_map.parent
         if not isinstance(domain, Mesh):
             raise TypeError("normal requires a mesh side")
         return (domain.ambient_coordinate_domain.dimension,)
@@ -270,7 +249,7 @@ class Normal(AbstractExpression):
     @property
     @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.side_map.parameter_domain
+        return self.side_map.restriction_domain
 
     @property
     @cached
@@ -288,8 +267,8 @@ class Normal(AbstractExpression):
         from .validation import require
 
         require(
-            isinstance(self.side_map.ambient_domain, Mesh)
-            and self.side_map.parameter_domain.dimension
-            == self.side_map.ambient_domain.dimension - 1,
+            isinstance(self.side_map.parent, Mesh)
+            and self.side_map.restriction_domain.dimension
+            == self.side_map.parent.dimension - 1,
             "normal requires a codimension-one mesh side",
         )

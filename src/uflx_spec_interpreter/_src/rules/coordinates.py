@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from ..algorithms.names import derived_index, derived_indices
 from ..arithmetic import divide, multiply
 from ..geometry import density, geometric_map, inverse_jacobian, jacobian
-from ..meshes import is_cell
 from ..nodes import (
     CellMap,
     Curl,
@@ -46,8 +45,8 @@ def piola_law(expression: AbstractExpression) -> TransformationLaw | None:
 
 
 def chained(f: AbstractExpression) -> bool:
-    # A pull-back by a domain map that is not a cell, whose gradient is the chain rule.
-    return isinstance(f, PullBack) and isinstance(f.map, DomainMap) and not is_cell(f.map)
+    # A pull-back by a domain map, whose gradient is the chain rule.
+    return isinstance(f, PullBack) and isinstance(f.map, DomainMap)
 
 
 def chain_partial(

@@ -42,9 +42,10 @@ def inverse_jacobian(D: DomainMap | CellMap) -> AbstractExpression:
 def geometric_map(
     D: DomainMap | CellMap,
 ) -> tuple[AbstractCoordinateDomain, AbstractCoordinateDomain]:
-    from .nodes import AbstractCoordinateDomain, Mesh
+    from .nodes import AbstractCoordinateDomain, CellMap, Mesh
 
-    source, target = D.parameter_domain, D.ambient_domain
+    source, target = ((D.reference_cell, D.parent) if isinstance(D, CellMap)
+                      else (D.parameter_domain, D.ambient_domain))
     if not isinstance(source, AbstractCoordinateDomain):
         raise TypeError("geometry requires a coordinate parameter domain")
     if isinstance(target, Mesh):

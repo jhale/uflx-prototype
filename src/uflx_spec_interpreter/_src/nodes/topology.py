@@ -7,7 +7,6 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .expressions import AbstractExpression
-    from .indices import AbstractExtent, AbstractIndexTable
     from .maps import DomainMap
     from .topology import AbstractCellType, AbstractTopology
 
@@ -30,16 +29,12 @@ class AbstractTopology(Base):
 
     @property
     @abstractmethod
-    def num_cells(self) -> tuple[int | AbstractExtent, ...]: ...
-
-    @property
-    @abstractmethod
     def sides(self) -> tuple[tuple[tuple[str, AbstractTopology, int], ...], ...]: ...
 
     @abstractmethod
-    def side_tables(
+    def side_data(
         self, i: int, side: str
-    ) -> tuple[AbstractIndexTable, DomainMap, AbstractExpression | None]: ...
+    ) -> tuple[DomainMap, AbstractExpression | None]: ...
 
     @property
     def dimension(self) -> int:

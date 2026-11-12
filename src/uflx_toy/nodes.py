@@ -17,7 +17,7 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 
-from .inclusions import side_tables, vertex_rows
+from .inclusions import side_data, vertex_rows
 
 
 @final
@@ -144,33 +144,17 @@ class StaticTopology(AbstractTopology):
     _sides: tuple
 
     @property
-    def num_cells(self):
-        return tuple(len(c) for c in self.cells)
-
-    @property
     def sides(self):
         return self._sides
 
-    def side_tables(self, i, side):
-        # The cells of the side that contain the vertices, and the vertices of K_j there.
-        # Of the cells around a cell, the r-th side of the same group gets the r-th lowest.
-        named = next(s for s in self.sides[i] if s[0] == side)
-        (_, T, j) = named
-        rank = [s for s in self.sides[i] if s[1:] == (T, j)].index(named)
+    def side_data(self, i, side):
+        _, T, j = next(s for s in self.sides[i] if s[0] == side)
         K = T.cell_types[j]
-        chosen, local = [], []
-        for vertices in self.cells[i]:
-            around = [c for c, cell in enumerate(T.cells[j]) if set(vertices) <= set(cell)]
-            c = around[min(rank, len(around) - 1)]
-            chosen.append(c)
-            local.append([T.cells[j][c].index(v) for v in vertices])
-        cells = IndexTable(tuple(chosen), T.num_cells[j])
-        positions = Tensor(tuple(vertex_rows(K, vs) for vs in local))
-        # A cell that tabulates its facet normals reads them by the local facet of each cell.
-        facets = None
-        if hasattr(K, "facet_normals") and self.cell_types[i].dimension == K.dimension - 1:
-            facets = IndexTable(tuple(K.local_facet(vs) for vs in local), K.num_facets)
-        return side_tables(self, i, side, cells, positions, facets)
+        local = [T.cells[j][0].index(v) for v in self.cells[i][0]]
+        positions = vertex_rows(K, local)
+        facet = (K.local_facet(local) if hasattr(K, "facet_normals")
+                 and self.cell_types[i].dimension == K.dimension - 1 else None)
+        return side_data(self, i, side, positions, facet)
 
     @property
     def cell_types(self):
@@ -183,7 +167,6 @@ class TabulatedTopology(AbstractTopology):
     # The cells and vertex positions of each side as a mesh library computes them.
     label: str
     _cell_types: tuple
-    _num_cells: tuple
     _sides: tuple
     tables: tuple
 
@@ -191,15 +174,11 @@ class TabulatedTopology(AbstractTopology):
     def sides(self):
         return self._sides
 
-    def side_tables(self, i, side):
+    def side_data(self, i, side):
         names = [s[0] for s in self.sides[i]]
-        cells, positions = self.tables[i][names.index(side)]
-        return side_tables(self, i, side, cells, positions)
+        return side_data(self, i, side, self.tables[i][names.index(side)])
 
     @property
     def cell_types(self):
         return self._cell_types
 
-    @property
-    def num_cells(self):
-        return self._num_cells
