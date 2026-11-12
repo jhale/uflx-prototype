@@ -1,7 +1,7 @@
 # The classic FEniCS layer of EXAMPLES.md, for functions on a topology. A function of the layer
 # is the push-forward of a function on the topology, so a user script has one name for each.
 import basix
-from testutil import push_forward, side_map
+from testutil import normal, push_forward, side_domain, side_map
 
 from uflx_spec_interpreter import (
     ScalarType,
@@ -13,9 +13,7 @@ from uflx_spec_interpreter import (
     index,
     index_sum,
     integral,
-    normal,
     pull_back,
-    side_domain,
     tensor,
 )
 from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, Function
@@ -152,10 +150,9 @@ class Measure:
             E = side_domain(
                 mesh.domain,
                 self.subdomain_data[self.subdomain_id],
-                self.subdomain_data[self.subdomain_id].sides[0][0][0],
             )
         elif self.integral_type == "ds":
-            E = side_domain(mesh.domain, mesh.boundary, mesh.boundary.sides[0][0][0])
+            E = side_domain(mesh.domain, mesh.boundary)
         else:
             E = integrand.domain if mesh is None else mesh.domain
         if E != integrand.domain:

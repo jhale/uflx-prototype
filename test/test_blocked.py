@@ -8,19 +8,11 @@ import numpy as np
 import pytest
 from test_basix import quadrilaterals, square
 from test_ufcx import boundary_mesh, build, interior_mesh, model, paired_geometry
+from testutil import side_map
 
 from uflx_compiler import compile_form, compile_ufcx, evaluate
 from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
-    form,
-    function,
-    gradient,
-    integral,
-    num,
-    pull_back,
-    push_forward,
-    side_map,
-)
+from uflx_spec_interpreter import form, function, gradient, integral, num, pull_back, push_forward
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.spaces import space

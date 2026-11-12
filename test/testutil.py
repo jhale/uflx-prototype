@@ -171,25 +171,84 @@ def push_forward(f, domain, law=None):
     return uflx_spec_interpreter.push_forward(f, domain, f.space.law if law is None else law)
 
 
-def side_map(domain, side, selection=None):
-    """Use the first side selection when an example omits it."""
-    topology = side.topology if isinstance(side, Mesh) else side
-    return uflx_spec_interpreter.side_map(
-        domain, side, topology.sides[0][0][0] if selection is None else selection
-    )
+# Named selections belong to these legacy test fixtures, not to topology nodes.
+# Production examples construct relations directly with uflx_toy.sides.
+_fixture_sides = {}
+
+
+def side_map(domain, source, selection=None):
+    T = domain.topology if isinstance(domain, Mesh) else domain
+    S = source.topology if isinstance(source, Mesh) else source
+    named = _fixture_sides.get(source, _fixture_sides[S])
+    selected = selection if selection is not None else next(iter(named))
+    relation = named[selected]
+    if relation.parent != T:
+        raise ValueError("fixture side has a different parent")
+    return uflx_spec_interpreter.side_map(domain, source, *relation.entries)
 
 
 def side_domain(domain, topology, selection=None):
-    """Use the first side selection when an example omits it."""
-    return uflx_spec_interpreter.side_domain(
-        domain, topology, topology.sides[0][0][0] if selection is None else selection
+    relation = side_map(domain.topology, topology, selection)
+    result = image(
+        uflx_spec_interpreter.pull_back(domain.coordinate_function, relation), domain.ambient_domain
     )
+    _fixture_sides[result] = dict(_fixture_sides[topology])
+    return result
+
+
+def normal(relation):
+    from uflx_toy.sides import outward_normal
+
+    return outward_normal(relation)
+
+
+def side_data(source, slot, name):
+    from uflx_toy.sides import outward_conormals
+
+    relation = _fixture_sides[source][name]
+    return relation.entries[slot][1], outward_conormals(relation)[slot]
+
+
+def static_topology(cell_types, cells, sides=()):
+    from uflx_toy.sides import static_side_map
+    from uflx_toy.topology import static_topology as construct
+
+    source = construct(cell_types, cells)
+    if sides:
+        _fixture_sides[source] = {
+            name: static_side_map(
+                parent,
+                source,
+                *(next(j for n, T, j in entries if n == name and T == parent) for entries in sides),
+            )
+            for name, parent, _ in sides[0]
+        }
+    return source
+
+
+def tabulated_topology(label, cell_types, sides, positions):
+    from uflx_toy.sides import tabulated_side_map
+    from uflx_toy.topology import tabulated_topology as construct
+
+    source = construct(label, cell_types)
+    _fixture_sides[source] = {
+        name: tabulated_side_map(
+            parent,
+            source,
+            *(
+                next(
+                    (j, row[k]) for k, (n, T, j) in enumerate(entries) if n == name and T == parent
+                )
+                for entries, row in zip(sides, positions, strict=True)
+            ),
+        )
+        for name, parent, _ in sides[0]
+    }
+    return source
 
 
 def grouped_topology(cell_types, cells, sides):
     """Build fixed local slots from vertex groups used by whole-mesh test fixtures."""
-    from uflx_toy.topology import static_topology
-
     types, rows, declarations = [], [], []
     for group, (K, group_cells) in enumerate(zip(cell_types, cells, strict=True)):
         for vertices in group_cells:

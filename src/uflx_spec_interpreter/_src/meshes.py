@@ -44,15 +44,33 @@ def is_cell(m: DomainMap | CellMap | SideMap) -> TypeGuard[CellMap]:
 
 
 def side_map(
-    parent: Mesh | AbstractTopology, restriction_domain: Mesh | AbstractTopology, side: str
+    parent: Mesh | AbstractTopology,
+    source: Mesh | AbstractTopology,
+    *entries: tuple[int, DomainMap],
 ) -> SideMap:
-    return SideMap(parent, restriction_domain, side)
+    return SideMap(parent, source, entries)
 
 
-def side_domain(D: Mesh, S: AbstractTopology, s: str) -> Mesh:
-    x = D.coordinate_function
-    return image(PullBack(x, side_map(D.topology, S, s)), D.ambient_domain)
+def side_domain(D: Mesh, S: AbstractTopology, *entries: tuple[int, DomainMap]) -> Mesh:
+    return image(
+        PullBack(D.coordinate_function, side_map(D.topology, S, *entries)), D.ambient_domain
+    )
 
 
-def normal(sm: SideMap) -> Normal:
-    return Normal(sm)
+def normal(sm: SideMap, *reference_conormals: AbstractExpression) -> Normal:
+    return Normal(sm, reference_conormals)
+
+
+def compose(outer: SideMap, inner: SideMap) -> SideMap:
+    """Compose evaluation relations, inner first, without transporting orientation."""
+    from .maps import domain_map
+
+    if inner.parent != outer.source:
+        raise ValueError("side-map composition requires matching intermediate endpoints")
+    entries: list[tuple[int, DomainMap]] = []
+    for j, A in inner.entries:
+        k, B = outer.entries[j]
+        entries.append(
+            (k, domain_map(A.parameter_domain, PullBack(B.parameterisation, A), B.ambient_domain))
+        )
+    return SideMap(outer.parent, inner.source, tuple(entries))

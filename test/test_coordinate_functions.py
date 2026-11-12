@@ -2,7 +2,7 @@ import basix
 import numpy as np
 from test_basix import square
 from test_compiler import functionals, runtime_mesh
-from testutil import grouped_topology, push_forward, side_map, vertex_mesh
+from testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
@@ -15,7 +15,6 @@ from uflx_spec_interpreter import (
     integral,
     num,
     pull_back,
-    side_domain,
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms.traversal import everywhere
@@ -195,11 +194,11 @@ def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():
     D, _ = p1_mesh()
     I = basix_cell(basix.CellType.interval)
     S = grouped_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
-    E = side_domain(D, S, S.sides[0][0][0])
+    E = side_domain(D, S)
     assert E.topology == S
     assert E.coordinate_function == pull_back(
         D.coordinate_function,
-        side_map(T, S, (S.topology if hasattr(S, "topology") else S).sides[0][0][0]),
+        side_map(T, S),
     )
 
 

@@ -76,7 +76,7 @@ class PullBack(AbstractExpression):
         if isinstance(self.map, CellMap):
             return self.map.reference_cell
         if isinstance(self.map, SideMap):
-            return self.map.restriction_domain
+            return self.map.source
         return self.map.parameter_domain
 
     @property

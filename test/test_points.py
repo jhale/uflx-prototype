@@ -4,7 +4,16 @@ import sys
 import numpy as np
 from test_integrals import D, u
 from test_surface import M
-from testutil import assert_clean, check_types, contains, keeps_static_type, table
+from testutil import (
+    assert_clean,
+    check_types,
+    contains,
+    keeps_static_type,
+    side_domain,
+    side_map,
+    table,
+    tabulated_topology,
+)
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -23,8 +32,6 @@ from uflx_spec_interpreter import (
     multiply,
     num,
     pull_back,
-    side_domain,
-    side_map,
 )
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
@@ -39,7 +46,6 @@ from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
-from uflx_toy.topology import tabulated_topology
 
 i, k = index("i"), index("k")
 POINT = RD(0)
@@ -91,7 +97,7 @@ def topology_of_points(Q, label, located):
         tuple((("inside", Q.topology, slot),) for slot, _ in located),
         tuple((table([X]),) for _, X in located),
     )
-    E = side_domain(Q, S, S.sides[0][0][0])
+    E = side_domain(Q, S)
     return E, side_map(Q, E, "inside")
 
 

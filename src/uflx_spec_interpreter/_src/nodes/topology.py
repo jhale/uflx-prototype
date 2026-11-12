@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING
 
 from .base import Base
-
-if TYPE_CHECKING:
-    from .expressions import AbstractExpression
-    from .maps import DomainMap
 
 
 class AbstractCellType(Base):
@@ -25,13 +20,6 @@ class AbstractTopology(Base):
     @property
     @abstractmethod
     def cell_types(self) -> tuple[AbstractCellType, ...]: ...
-
-    @property
-    @abstractmethod
-    def sides(self) -> tuple[tuple[tuple[str, AbstractTopology, int], ...], ...]: ...
-
-    @abstractmethod
-    def side_data(self, i: int, side: str) -> tuple[DomainMap, AbstractExpression | None]: ...
 
     @property
     def dimension(self) -> int:

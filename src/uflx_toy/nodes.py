@@ -17,8 +17,6 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 
-from .inclusions import side_data, vertex_rows
-
 
 @final
 class IndexTable(AbstractIndexTable):
@@ -138,26 +136,9 @@ class ReferenceSimplex(AbstractReferenceCell):
 @final
 class StaticTopology(AbstractTopology):
     identifier = "toy.StaticTopology"
-    # Cells as vertex numbers, with the side data computed from the vertex numbers.
+    # Vertex labels are library connectivity, not core side or orientation data.
     _cell_types: tuple
     cells: tuple
-    _sides: tuple
-
-    @property
-    def sides(self):
-        return self._sides
-
-    def side_data(self, i, side):
-        _, T, j = next(s for s in self.sides[i] if s[0] == side)
-        K = T.cell_types[j]
-        local = [T.cells[j].index(v) for v in self.cells[i]]
-        positions = vertex_rows(K, local)
-        facet = (
-            K.local_facet(local)
-            if hasattr(K, "facet_normals") and self.cell_types[i].dimension == K.dimension - 1
-            else None
-        )
-        return side_data(self, i, side, positions, facet)
 
     @property
     def cell_types(self):
@@ -167,19 +148,8 @@ class StaticTopology(AbstractTopology):
 @final
 class TabulatedTopology(AbstractTopology):
     identifier = "toy.TabulatedTopology"
-    # The cells and vertex positions of each side as a mesh library computes them.
     label: str
     _cell_types: tuple
-    _sides: tuple
-    tables: tuple
-
-    @property
-    def sides(self):
-        return self._sides
-
-    def side_data(self, i, side):
-        names = [s[0] for s in self.sides[i]]
-        return side_data(self, i, side, self.tables[i][names.index(side)])
 
     @property
     def cell_types(self):

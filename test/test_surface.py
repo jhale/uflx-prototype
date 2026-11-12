@@ -3,7 +3,15 @@ import sys
 
 import numpy as np
 from test_integrals import BOUNDARY, DIAGONAL, SQUARE
-from testutil import assert_clean, check_types, contains, keeps_static_type
+from testutil import (
+    assert_clean,
+    check_types,
+    contains,
+    keeps_static_type,
+    normal,
+    side_domain,
+    side_map,
+)
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -20,11 +28,8 @@ from uflx_spec_interpreter import (
     indexed,
     integral,
     multiply,
-    normal,
     num,
     pull_back,
-    side_domain,
-    side_map,
     tensor,
 )
 from uflx_spec_interpreter._src.nodes import (
@@ -78,8 +83,8 @@ C = image(deform(FOLD), R3)
 def sides(D):
     # The fold and the boundary of the surface D, from the topologies of the square.
     E_int, E_bnd = (
-        side_domain(D, DIAGONAL, DIAGONAL.sides[0][0][0]),
-        side_domain(D, BOUNDARY, BOUNDARY.sides[0][0][0]),
+        side_domain(D, DIAGONAL),
+        side_domain(D, BOUNDARY),
     )
     interior = {s: side_map(D, E_int, s) for s in ("+", "-")}
     return [(E_int, interior), (E_bnd, {"inside": side_map(D, E_bnd, "inside")})]

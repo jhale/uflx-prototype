@@ -1,6 +1,6 @@
 import basix
 import numpy as np
-from testutil import grouped_topology, push_forward
+from testutil import grouped_topology, push_forward, side_domain
 
 from uflx_compiler import assemble, compile_form, evaluate
 from uflx_spec_interpreter import (
@@ -15,7 +15,6 @@ from uflx_spec_interpreter import (
     index_sum,
     integral,
     num,
-    side_domain,
     tensor,
 )
 from uflx_toy.assembly import conforming_dofmap
@@ -74,7 +73,7 @@ def functionals():
         "area": integral(num(1), D),
         "energy": integral(g[0] * g[0] + g[1] * g[1], D),
         "field in the coordinates": integral(y[0] * y[0] * y[1], D),
-        "perimeter": integral(num(1), side_domain(D, BOUNDARY, BOUNDARY.sides[0][0][0])),
+        "perimeter": integral(num(1), side_domain(D, BOUNDARY)),
         "mass of a Raviart-Thomas function": integral(w[0] * w[0] + w[1] * w[1], D),
     }
 

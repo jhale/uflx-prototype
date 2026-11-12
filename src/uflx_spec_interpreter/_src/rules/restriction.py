@@ -21,16 +21,14 @@ if TYPE_CHECKING:
 
 def side_cell(side_map: SideMap, map: DomainMap | CellMap | SideMap) -> int | None:
     """Identify a cell of the exact restriction domain."""
-    if isinstance(map, CellMap) and map.parent == side_map.restriction_domain:
+    if isinstance(map, CellMap) and map.parent == side_map.source:
         return map.cell_slot
     return None
 
 
-def side_maps(side_map: SideMap, slot: int) -> tuple[CellMap, DomainMap, AbstractExpression | None]:
-    topology, side = side_map.side_topology, side_map.side
-    _, _, parent_slot = next(s for s in topology.sides[slot] if s[0] == side)
-    inner, reference_normal = topology.side_data(slot, side)
-    return CellMap(side_map.parent, parent_slot), inner, reference_normal
+def side_maps(side_map: SideMap, slot: int) -> tuple[CellMap, DomainMap]:
+    parent_slot, inclusion = side_map.entries[slot]
+    return CellMap(side_map.parent, parent_slot), inclusion
 
 
 def pull_back_normal(
@@ -38,9 +36,8 @@ def pull_back_normal(
     cell: int,
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
 ) -> AbstractExpression:
-    # K^T m_hat / |K^T m_hat|, with the normal supplied by the side data.
-    outer, inner, reference_normal = side_maps(f.side_map, cell)
-    if reference_normal is None:
-        raise TypeError("the side data supplies no reference normal")
+    # K^T m_hat / |K^T m_hat|, with orientation supplied independently of the map.
+    outer, inner = side_maps(f.side_map, cell)
+    reference_normal = f.reference_conormals[cell]
     w = transpose(pb(inverse_jacobian(outer), inner)) @ reference_normal
     return divide(w, square_root(w @ w))

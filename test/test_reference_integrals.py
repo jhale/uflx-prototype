@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from test_facets import E_bnd, E_int, sides_int
 from test_integrals import D, K
-from testutil import grouped_topology, vertex_mesh
+from testutil import grouped_topology, normal, vertex_mesh
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -14,7 +14,6 @@ from uflx_spec_interpreter import (
     indexed,
     integral,
     lower,
-    normal,
     num,
     reference_integral,
     tensor,

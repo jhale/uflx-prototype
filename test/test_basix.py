@@ -1,7 +1,7 @@
 import basix
 import numpy as np
 import pytest
-from testutil import grouped_topology, table, vertex_mesh
+from testutil import grouped_topology, normal, side_data, side_domain, side_map, table, vertex_mesh
 
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
@@ -11,11 +11,8 @@ from uflx_spec_interpreter import (
     function,
     gradient,
     integral,
-    normal,
     num,
     pull_back,
-    side_domain,
-    side_map,
 )
 from uflx_spec_interpreter._src.passes import integrals
 from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
@@ -71,8 +68,8 @@ def square(K):
     boundary = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", T, 0),),))
     return (
         D,
-        side_domain(D, diagonal, diagonal.sides[0][0][0]),
-        side_domain(D, boundary, boundary.sides[0][0][0]),
+        side_domain(D, diagonal),
+        side_domain(D, boundary),
     )
 
 
@@ -103,12 +100,13 @@ def test_a_mesh_of_basix_triangles_integrates_as_one_of_unit_simplices():
     )
 
 
-def test_a_basix_cell_gives_its_facet_normals_as_a_table():
-    # A table read through the local facet has no support, a cofactor normal the support F.
-    for K, constant in ((basix_cell(basix.CellType.triangle), True), (reference_simplex(2), False)):
+def test_library_conormals_are_separate_from_the_inclusion():
+    for K in (basix_cell(basix.CellType.triangle), reference_simplex(2)):
         _, E, _ = square(K)
-        _, m = E.topology.side_data(0, "+")
-        assert (m.domain is None) == constant and m.value_shape == (2,)
+        A, m = side_data(E.topology, 0, "+")
+        vector = value(m, A.parameter_domain, (0.5,))
+        assert m.value_shape == (2,) and A.ambient_domain == K
+        assert np.all(np.isfinite(vector)) and np.linalg.norm(vector) > 0
 
 
 def quadrilaterals():
@@ -122,8 +120,8 @@ def quadrilaterals():
     )
     return (
         D,
-        side_domain(D, interior, interior.sides[0][0][0]),
-        side_domain(D, boundary, boundary.sides[0][0][0]),
+        side_domain(D, interior),
+        side_domain(D, boundary),
     )
 
 
@@ -173,8 +171,8 @@ def mixed():
     )
     return (
         D,
-        side_domain(D, interior, interior.sides[0][0][0]),
-        side_domain(D, boundary, boundary.sides[0][0][0]),
+        side_domain(D, interior),
+        side_domain(D, boundary),
     )
 
 

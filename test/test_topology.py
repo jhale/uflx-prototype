@@ -1,10 +1,10 @@
 import numpy as np
 from test_integrals import DIAGONAL, SQUARE, D, K
 from test_integrals import I as interval
-from testutil import grouped_topology
+from testutil import grouped_topology, side_data, side_domain, side_map
 
 from uflx_oracle import at, evaluate
-from uflx_spec_interpreter import function, pull_back, side_domain, side_map
+from uflx_spec_interpreter import function, pull_back
 from uflx_spec_interpreter._src.nodes import SideMap
 from uflx_toy.spaces import space
 
@@ -15,8 +15,8 @@ def test_the_side_data_of_the_diagonal_of_the_example():
     diagonal = grouped_topology((interval,), (((1, 2),),), ((("+", square, 0), ("-", square, 0)),))
     expected = {"+": ((0,), lambda t: (1 - t, t)), "-": ((1,), lambda t: (0, t))}
     for side, (cells, inclusion) in expected.items():
-        A, m = diagonal.side_data(0, side)
-        assert next(j for name, _, j in diagonal.sides[0] if name == side) == cells[0]
+        A, m = side_data(diagonal, 0, side)
+        assert side_map(square, diagonal, side).entries[0][0] == cells[0]
         assert A.parameter_domain == interval
         for t in (0.0, 0.4, 1.0):
             point = at(
@@ -30,12 +30,12 @@ def test_the_side_data_of_the_diagonal_of_the_example():
 
 def test_a_mesh_and_its_sides_have_topologies():
     assert D.topology == SQUARE
-    E = side_domain(D, DIAGONAL, DIAGONAL.sides[0][0][0])
+    E = side_domain(D, DIAGONAL)
     assert E.topology == DIAGONAL and E.dimension == 1 and E.ambient_domain == D.ambient_domain
 
 
 def test_a_restriction_is_a_pull_back_by_a_side_map():
-    E = side_domain(D, DIAGONAL, DIAGONAL.sides[0][0][0])
+    E = side_domain(D, DIAGONAL)
     u = function(space("V", domain=D), "u")
     f = pull_back(u, side_map(D, E, "+"))
     assert isinstance(f.map, SideMap) and f.domain == E and f.free_indices == ()

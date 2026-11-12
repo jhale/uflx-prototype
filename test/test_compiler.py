@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from test_basix import mixed, quadrilaterals, square
-from testutil import contains, grouped_topology, push_forward
+from testutil import contains, grouped_topology, normal, push_forward, side_map
 
 from uflx_compiler import (
     assemble,
@@ -30,10 +30,8 @@ from uflx_spec_interpreter import (
     index,
     index_sum,
     integral,
-    normal,
     num,
     pull_back,
-    side_map,
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms.traversal import everywhere, memoized

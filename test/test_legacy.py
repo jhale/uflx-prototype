@@ -14,7 +14,7 @@ from legacy import (
     grad,
     inner,
 )
-from testutil import grouped_topology, push_forward, side_map, vertex_mesh
+from testutil import grouped_topology, normal, push_forward, side_domain, side_map, vertex_mesh
 
 from uflx_compiler import assemble_bound
 from uflx_spec_interpreter import (
@@ -25,9 +25,7 @@ from uflx_spec_interpreter import (
     index,
     index_sum,
     integral,
-    normal,
     pull_back,
-    side_domain,
 )
 from uflx_spec_interpreter._src.nodes import Conjugate, Integer, Product, Sum
 from uflx_toy.assembly import conforming_dofmap
@@ -78,8 +76,8 @@ def core():
     a = form(integral(kappa * index_sum(gu[i] * conjugate(gv[i]), (i,)), D), (conjugate(v), u))
     div_q = gradient(qD[0], D)[0] + gradient(qD[1], D)[1]
     lower, left = (
-        side_domain(D, LOWER, LOWER.sides[0][0][0]),
-        side_domain(D, LEFT, LEFT.sides[0][0][0]),
+        side_domain(D, LOWER),
+        side_domain(D, LEFT),
     )
     on_lower, on_left = side_map(D, lower, "inside"), side_map(D, left, "inside")
     n = normal(on_left)

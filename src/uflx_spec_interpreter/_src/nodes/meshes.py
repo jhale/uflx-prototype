@@ -120,39 +120,52 @@ class CellMap(Base):
 class SideMap(Base):
     identifier = "uflx.SideMap"
     parent: Mesh | AbstractTopology
-    restriction_domain: Mesh | AbstractTopology
-    side: str
-    free_indices = ()
+    source: Mesh | AbstractTopology
+    entries: tuple[tuple[int, DomainMap], ...]
 
     @property
-    def side_topology(self) -> AbstractTopology:
-        P = self.restriction_domain
-        return P.topology if isinstance(P, Mesh) else P
+    def source_topology(self) -> AbstractTopology:
+        return self.source.topology if isinstance(self.source, Mesh) else self.source
+
+    @property
+    def parent_topology(self) -> AbstractTopology:
+        return self.parent.topology if isinstance(self.parent, Mesh) else self.parent
+
+    free_indices = ()
 
     def _validate(self) -> None:
+        from .maps import DomainMap
         from .validation import require
 
         require(
-            (isinstance(self.parent, Mesh) and isinstance(self.restriction_domain, Mesh))
-            or (
-                isinstance(self.parent, AbstractTopology)
-                and isinstance(self.restriction_domain, AbstractTopology)
-            ),
-            "side parent and restriction domain must both be topologies or both be meshes",
+            isinstance(cast("object", self.parent), (Mesh, AbstractTopology)), "invalid side parent"
         )
-        S = self.side_topology
-        T = self.parent.topology if isinstance(self.parent, Mesh) else self.parent
-        require(len(S.sides) == len(S.cell_types), "side is absent from a cell slot")
-        for K, sides in zip(S.cell_types, S.sides, strict=True):
-            require(isinstance(K, AbstractReferenceCell), "side cells must be reference cells")
-            selected = [j for name, U, j in sides if name == self.side and U == T]
-            require(len(selected) == 1, "side must select one parent cell per slot")
-            j = selected[0]
+        require(
+            isinstance(cast("object", self.source), (Mesh, AbstractTopology)), "invalid side source"
+        )
+        S, T = self.source_topology, self.parent_topology
+        require(
+            len(self.entries) == len(S.cell_types), "one side entry is required per source slot"
+        )
+        for F, entry in zip(S.cell_types, self.entries, strict=True):
+            require(len(entry) == 2, "a side entry is a parent slot and an inclusion")
+            j, A = entry
             require(type(j) is int and 0 <= j < len(T.cell_types), "invalid parent cell slot")
+            require(isinstance(F, AbstractReferenceCell), "source cell must be a reference cell")
             require(
                 isinstance(T.cell_types[j], AbstractReferenceCell),
                 "parent cell must be a reference cell",
             )
+            require(isinstance(cast("object", A), DomainMap), "side inclusion must be a DomainMap")
+            require(
+                A.parameter_domain == cast("AbstractReferenceCell", F),
+                "side inclusion source differs from source reference cell",
+            )
+            require(
+                A.ambient_domain == cast("AbstractReferenceCell", T.cell_types[j]),
+                "side inclusion target differs from parent reference cell",
+            )
+            require(not A.free_indices, "side inclusions must have no free indices")
 
 
 _Variance = Literal["covariant", "contravariant"]
@@ -236,6 +249,7 @@ class Normal(AbstractExpression):
     is_terminal = True
     identifier = "uflx.Normal"
     side_map: SideMap
+    reference_conormals: tuple[AbstractExpression, ...]
 
     @property
     @cached
@@ -254,7 +268,7 @@ class Normal(AbstractExpression):
     @property
     @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.side_map.restriction_domain
+        return self.side_map.source
 
     @property
     @cached
@@ -273,6 +287,24 @@ class Normal(AbstractExpression):
 
         require(
             isinstance(self.side_map.parent, Mesh)
-            and self.side_map.restriction_domain.dimension == self.side_map.parent.dimension - 1,
+            and self.side_map.source.dimension == self.side_map.parent.dimension - 1,
             "normal requires a codimension-one mesh side",
         )
+
+        require(
+            len(self.reference_conormals) == len(self.side_map.entries),
+            "one reference conormal is required per source slot",
+        )
+        for (_, A), m in zip(self.side_map.entries, self.reference_conormals, strict=True):
+            require(
+                m.domain in (None, A.parameter_domain), "reference conormal has the wrong domain"
+            )
+            require(
+                m.value_shape == (A.ambient_domain.dimension,),
+                "reference conormal has the wrong shape",
+            )
+            require(
+                m.scalar_type == ScalarType.real and not m.argument_spaces,
+                "reference conormal must be a real field without arguments",
+            )
+            require(not m.free_indices, "reference conormals must have no free indices")

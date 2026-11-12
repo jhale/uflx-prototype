@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from test_basix import mixed, square
-from testutil import push_forward
+from testutil import normal, push_forward, side_map
 
 from uflx_compiler import assemble, assemble_bound, compile_form, evaluate, fold
 from uflx_oracle import evaluate as oracle
@@ -13,10 +13,8 @@ from uflx_spec_interpreter import (
     function,
     gradient,
     integral,
-    normal,
     num,
     pull_back,
-    side_map,
 )
 from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell

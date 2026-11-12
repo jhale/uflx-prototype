@@ -108,12 +108,12 @@ def test_partial_applications_of_transformed_operators_remain_and_are_accepted()
 def test_side_pullback_transforms_output_before_deferral_and_keeps_tuple_family():
     import basix
     from test_basix import square
+    from testutil import side_map
 
-    from uflx_spec_interpreter import side_map
     from uflx_toy.basix_cells import basix_cell
 
     D, E, _ = square(basix_cell(basix.CellType.triangle))
-    sm = side_map(D, E, (E.topology if hasattr(E, "topology") else E).sides[0][0][0])
+    sm = side_map(D, E)
     assert isinstance(sm, SideMap)
     V = space("tuple-input", domain=D, scalar_type=ScalarType.real)
     A = function(OperatorSpace(D, ((V, V),)), "tuple-operator")

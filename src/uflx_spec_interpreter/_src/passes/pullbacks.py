@@ -68,7 +68,7 @@ def _rule(
         case Coordinate() if isinstance(m, (DomainMap, CellMap)):
             return m.parameterisation
         case PullBack(g, SideMap() as sm) if (cell := side_cell(sm, m)) is not None:
-            outer, inner, _ = side_maps(sm, cell)
+            outer, inner = side_maps(sm, cell)
             return pb(pb(g, outer), inner)
         case PullBack(_, (SideMap() | CellMap())):
             return PullBack(f, m)

@@ -123,12 +123,18 @@ def lookup(env, node, label):
     return env[node] if node in env else env[label]
 
 
-def side_cell(sm):
-    # The parent slot selected by the current restriction slot's named side.
-    E, S = sm.restriction_domain, sm.side_topology
-    i = POINTS.get(("piece", E), 0)
-    (_, _, j) = next(s for s in S.sides[i] if s[0] == sm.side)
-    return j
+def side_reference(sm, env, ienv):
+    # Resolve the source reference point, then apply the declared inclusion.
+    source = sm.source
+    i = POINTS.get(("piece", source), 0)
+    j, A = sm.entries[i]
+    point = POINTS[source]
+    if isinstance(source, Mesh):
+        chart = piece_map(source.pieces[i], {}, env)
+        point = reference_point(chart, point, source.dimension)
+    inside = evaluate(A.parameterisation, env, ienv)
+    target = at(A.parameter_domain, point, lambda: np.real(np.asarray(inside(()))))
+    return i, j, A, point, target
 
 
 def on_cell(D, slot, fn):
@@ -160,6 +166,8 @@ def piece_map(piece, members, env):
 
 def reference_point(chart, x, dim):
     # Gauss-Newton for the reference point that the chart maps to x.
+    if dim == 0:
+        return np.empty(0)
     X = np.full(dim, 1 / (dim + 1))
     for _ in range(30):
         step = np.linalg.lstsq(jacobian_of(chart, X), chart(X) - np.real(x), rcond=None)[0]
@@ -468,26 +476,15 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: (fp(vals) - fm(vals)) / (2 * EPS)
         case Coordinate(P):
             return lambda vals: np.asarray(POINTS[P], dtype=complex)
-        case PullBack(b, SideMap(AbstractTopology() as T, S, side) as sm):
+        case PullBack(b, SideMap() as sm):
             fb = ev(b)
 
-            def restricted_on_topology(vals):
-                # The reference point of the cell on the side, through the inclusion A of the cell.
-                i = POINTS.get(("piece", S), 0)
-                A, _ = S.side_data(i, side)
-                inside = evaluate(A.parameterisation, env, ienv)
-                X = at(A.parameter_domain, POINTS[S], lambda: np.real(np.asarray(inside(()))))
-                j = side_cell(sm)
-                return on_cell(T, j, lambda: at(T, X, lambda: fb(vals)))
-
-            return restricted_on_topology
-        case PullBack(b, SideMap(Dd) as sm):
-            fb, Ed = ev(b), sm.restriction_domain
-
             def restricted(vals):
-                # The point of E, read from the cell on the side through the table of cells.
-                j = side_cell(sm)
-                return on_cell(Dd, j, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
+                _, j, _, _, target = side_reference(sm, env, ienv)
+                parent = sm.parent
+                if isinstance(parent, Mesh):
+                    target = piece_map(parent.pieces[j], {}, env)(target)
+                return on_cell(parent, j, lambda: at(parent, target, lambda: fb(vals)))
 
             return restricted
         case PullBack(b, CellMap(AbstractTopology() as T, j) as m):
@@ -510,23 +507,16 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
-        case Normal(SideMap(Dd) as sm):
-            Ed = sm.restriction_domain
+        case Normal(sm, conormals):
 
             def normal(vals):
-                # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
-                x = POINTS[Ed]
-                j = side_cell(sm)
-                facet = Ed.pieces[POINTS.get(("piece", Ed), 0)]
-                edge = piece_map(facet, {}, env)
-                t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
-                t = t / np.linalg.norm(t)
-                piece = Dd.pieces[j]
-                chart = piece_map(piece, {}, env)
-                X = reference_point(chart, x, Dd.dimension)
-                d = jacobian_of(chart, X) @ (X - reference_centroid(piece.parameter_domain))
-                n = d - (d @ t) * t
-                return n / np.linalg.norm(n)
+                i, j, A, source_point, target = side_reference(sm, env, ienv)
+                chart = piece_map(sm.parent.pieces[j], {}, env)
+                J = jacobian_of(chart, target)
+                field = evaluate(conormals[i], env, ienv)
+                m = at(A.parameter_domain, source_point, lambda: np.real(np.asarray(field(()))))
+                vector = np.linalg.pinv(J).T @ m
+                return vector / np.linalg.norm(vector)
 
             return normal
         case Divergence(b, P):

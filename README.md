@@ -162,10 +162,10 @@ checks:
 - `uflx_toy`: a language extension, with the classes that the specification
   leaves to a library or to an extension, `IndexTable`, `RuntimeExtent`,
   `RuntimeArray`, the space `Space`, the reference cell `ReferenceSimplex`, and the
-  topologies `StaticTopology` and `TabulatedTopology`, whose side data
-  `inclusions.py` builds from vertex positions with `affine_map`, and `BasixCell`,
-  a reference cell of Basix, whose facet normals the side data read from the
-  tables of Basix, and `BasixSpace`, a space of Basix elements with independent
+  topologies `StaticTopology` and `TabulatedTopology`. `sides.py` constructs explicit
+  relations from vertex correspondences or reference positions and supplies
+  separately chosen outward conormals. `BasixCell` supplies reference geometry
+  from Basix, and `BasixSpace` supplies finite elements with independent
   cell-local coefficients. `uflx_toy.assembly` supplies explicit library DOF maps
   for gathering coefficients and scattering local tensors
 - `uflx_oracle`: the oracle that the tests compare the passes against
@@ -344,7 +344,7 @@ integrals of rank 0, 1 or 2, on one mesh with one Basix cell type. Facet kernels
 currently require a uniform reference facet type. The expression must describe
 the local configuration: one parent cell slot for cell and exterior-facet
 kernels, or two distinct parent cell slots for interior-facet kernels. Facet
-kernels require one integration slot, with one side selecting each parent
+kernels require one integration slot; each explicit relation selects a parent
 slot. Unsupported configurations are rejected; zero and one-sided integrands
 retain the complete declared layout. Geometry is a vector Basix function, a tensor of scalar Basix coordinate
 functions (including curved geometry), or vertex coordinates interpreted as P1.
@@ -380,11 +380,11 @@ supported.
 The source targets the UFCx interface in FFCx 0.12; other versions need their own compatibility validation.
 
 For exterior facets (`ds`), construct the boundary with `side_domain` on a
-one-sided topology and pull the cell integrand back through its `side_map`:
+source topology and an explicit reference inclusion `A` into parent slot 0:
 
 ```python
-boundary = side_domain(mesh, boundary_topology, "inside")
-trace = pull_back(integrand, side_map(mesh, boundary, "inside"))
+boundary = side_domain(mesh, boundary_topology, (0, A))
+trace = pull_back(integrand, side_map(mesh, boundary, (0, A)))
 code = compile_ufcx(integral(trace, boundary), mesh, degree=4)
 assert code.integral_type == "exterior_facet"
 ```
@@ -396,15 +396,15 @@ embedded. Exterior facets require no quadrature permutation. Compile cell and
 boundary contributions separately: one generated form currently has one
 integration domain and the default integral ID `-1`.
 
-For interior facets (`dS`), the side topology has two sides named `"+"` and `"-"`.
-Use `side_domain(mesh, interface_topology, "+")` for the integration domain and
-`side_map(mesh, interface, side)` to restrict each field to the chosen cell.
+For interior facets (`dS`), the parent has two cell slots. Reference inclusions
+`A0` and `A1` map the interface reference cell into those slots. Construct the
+integration geometry explicitly, then restrict each field through its relation.
 `code.integral_type` is then `"interior_facet"`. For example:
 
 ```python
-interface = side_domain(mesh, interface_topology, "+")
-plus = side_map(mesh, interface, "+")
-minus = side_map(mesh, interface, "-")
+interface = side_domain(mesh, interface_topology, (0, A0))
+plus = side_map(mesh, interface, (0, A0))
+minus = side_map(mesh, interface, (1, A1))
 jump = pull_back(u, plus) - pull_back(u, minus)
 code = compile_ufcx(integral(jump * jump, interface), mesh, degree=4)
 ```
@@ -416,8 +416,13 @@ runtime. It does not generate kernels for every pair of facets or permutations.
 Constant folding preserves output and dispatch indices to avoid materialising
 cross-products of the two sides' tables.
 
+The UFCx adapter binds complete affine reference facets at runtime. It rejects
+cut inclusions and reference conormals whose orientation is not reference-constant;
+for supported normals it preserves the separately supplied orientation sign.
+General inclusions remain available to the core and reference compiler.
+
 Interior coefficients use `w[coefficient][side][local_dof]`, in parent cell-slot order.
-The side names select their declared slots; `"+"` does not implicitly mean slot 0.
+The map entries select their declared slots; names such as `plus` have no core meaning.
 Coordinates use `coordinate_dofs[side][coordinate_dof][3]`; constants are shared
 between sides. Each argument axis has twice the element dimension, in parent
 cell-slot order. A bilinear kernel therefore fills all four coupling
@@ -556,9 +561,14 @@ literal classes, `RD`, scalar types and the convenience helper `num`.
 Mesh expansion adds these integrals over the fixed slots without introducing
 an array index or cell sum. UFCx compilation selects its local slot directly.
 It works for cells and facet meshes. `CellMap(parent, cell_slot)` selects a slot;
-`SideMap(parent, restriction_domain, side)` reads through a named inclusion.
-Topologies supply `side_data(cell_slot, side)` as `(inclusion, reference_normal)`;
-cell counts and neighbour lookup belong to the calling finite element package.
+`SideMap(parent, source, entries)` stores one `(parent_slot, inclusion)` per
+source slot. The factory accepts `side_map(D, E, (0, A))`. Topologies carry no
+side or normal data. `normal(relation, m0, ...)` supplies one oriented reference
+conormal per source slot, independently of map identity. `compose(outer, inner)`
+builds another relation by slot selection and coordinate-map composition.
+The optional `side_domain(D, S, *entries)` helper derives source geometry; a
+source mesh can also be constructed independently. Cell bindings and neighbour
+lookup belong to the calling finite element package.
 A user, and a test that builds expressions, imports only these, as in
 `from uflx_spec_interpreter import add, index`. `AbstractExpression` also has
 the operator overloads of the specification, which call these free functions

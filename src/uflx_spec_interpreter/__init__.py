@@ -28,6 +28,7 @@ from ._src.literals import num
 from ._src.maps import domain_map, pull_back
 from ._src.meshes import (
     cell_map,
+    compose,
     image,
     normal,
     push_forward,
@@ -77,6 +78,7 @@ __all__ = [
     "cell_map",
     "component",
     "component_tensor",
+    "compose",
     "conjugate",
     "conjugate_space",
     "coordinate",

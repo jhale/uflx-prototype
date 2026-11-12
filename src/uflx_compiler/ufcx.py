@@ -23,7 +23,7 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
+from uflx_spec_interpreter._src.algorithms.substitution import substitute, substitute_values
 from uflx_spec_interpreter._src.algorithms.traversal import bottom_up, map_fields, memoized
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
@@ -123,7 +123,7 @@ def compile_ufcx(
     scalar Basix functions, or vertex coordinates (P1). Explicit sequences set input
     order; otherwise construction order is used. Cell and exterior-facet kernels
     require one parent cell slot; interior-facet kernels require two distinct
-    parent slots, each selected by one of the sides named + and -. Facet kernels
+    parent slots. Explicit side-map entries select these slots. Facet kernels
     require one integration slot. Unsupported configurations are rejected rather
     than truncated or expanded; zero and one-sided integrands keep that layout.
     Blocked scalar elements support vector/tensor arguments and coefficients
@@ -212,9 +212,10 @@ def compile_ufcx(
         integral_type = "cell"
     else:
         integral_type = "interior_facet" if width == 2 else "exterior_facet"
-        local, reference_values, bindings = _facet_tables(mesh, domain, width)
-        mapping = {domain.topology: local}
-        f, domain = (substitute(n, mapping) for n in (f, domain))
+        domain, mapping, reference_values, bindings = _facet_tables(
+            tuple(_nodes(f)), mesh, domain, width
+        )
+        f = substitute(f, mapping)
     factor_axes = {}
     if (
         sum_factorisation
@@ -306,21 +307,10 @@ def _integration_domain(f, mesh):
         return domain
     if not isinstance(domain, Mesh) or domain.dimension != mesh.dimension - 1:
         raise NotImplementedError("expected a cell or facet integration domain")
-    if len(domain.topology.cell_types) != 1 or len(domain.topology.sides) != 1:
+    if len(domain.topology.cell_types) != 1:
         raise NotImplementedError("UFCx facet kernels require exactly one integration cell slot")
-    (sides,) = domain.topology.sides
-    width = len(mesh.topology.cell_types)
-    if (
-        width not in (1, 2)
-        or len(sides) != width
-        or any(parent != mesh.topology for _, parent, _ in sides)
-        or {slot for _, _, slot in sides} != set(range(width))
-    ):
-        raise NotImplementedError(
-            "UFCx facet kernels require one side for each distinct parent cell slot"
-        )
-    if width == 2 and {name for name, _, _ in sides} != {"+", "-"}:
-        raise NotImplementedError("interior facets require sides named '+' and '-'")
+    if len(mesh.topology.cell_types) not in (1, 2):
+        raise NotImplementedError("UFCx facet kernels require one or two parent cell slots")
     match domain.coordinate_function:
         case PullBack(x, SideMap(T, S, _)) if T == mesh.topology and S == domain.topology:
             if x == mesh.coordinate_function:
@@ -388,7 +378,7 @@ def _local_expression(
         return reference_integral(node.expression, domain, 0)
 
     f = apply_quadrature(lower(bottom_up(f, local_integral)), degree)
-    f = substitute(f, reference_values)
+    f = substitute_values(f, reference_values)
 
     def tabulate(node):
         if node in inputs:
@@ -397,6 +387,7 @@ def _local_expression(
         if found is None:
             return node
         u, cell, order, points = found
+        points = substitute(points, reference_values)
         if not isinstance(u, Function) or cell not in range(width):
             raise NotImplementedError("expected a local Basix field read")
         E = _element(u.space)

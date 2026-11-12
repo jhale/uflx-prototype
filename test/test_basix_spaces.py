@@ -2,17 +2,10 @@ import basix
 import numpy as np
 import pytest
 from test_basix import mixed, square
-from testutil import push_forward
+from testutil import push_forward, side_map
 
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
-    expand_arithmetic,
-    function,
-    gradient,
-    integral,
-    pull_back,
-    side_map,
-)
+from uflx_spec_interpreter import expand_arithmetic, function, gradient, integral, pull_back
 from uflx_spec_interpreter._src.passes import integrals
 from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial

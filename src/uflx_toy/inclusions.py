@@ -7,7 +7,6 @@ from uflx_spec_interpreter import (
     coordinate,
     determinant,
     divide,
-    domain_map,
     index,
     inverse,
     jacobian,
@@ -26,17 +25,6 @@ def affine_map(F, points):
     Y = inverse(E) @ (coordinate(F) - V[0])
     terms = [(points[d + 1, l] - points[0, l]) * Y[d] for d in range(k)]
     return component_tensor(reduce(add, terms, points[0, l]), (l,))
-
-
-def side_data(S, i, side, positions, facet=None):
-    _, T, j = next(s for s in S.sides[i] if s[0] == side)
-    F, K = S.cell_types[i], T.cell_types[j]
-    A = domain_map(F, affine_map(F, positions), K)
-    if F.dimension != K.dimension - 1:
-        return A, None
-    if facet is not None:
-        return A, K.facet_normals[facet]
-    return A, reference_normal(A, positions, K)
 
 
 def reference_normal(A, points, K):

@@ -3,7 +3,15 @@ import sys
 
 import numpy as np
 from test_integrals import BOUNDARY, DIAGONAL, D
-from testutil import assert_clean, check_types, contains, keeps_static_type
+from testutil import (
+    assert_clean,
+    check_types,
+    contains,
+    keeps_static_type,
+    normal,
+    side_domain,
+    side_map,
+)
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -16,11 +24,8 @@ from uflx_spec_interpreter import (
     indexed,
     integral,
     multiply,
-    normal,
     num,
     pull_back,
-    side_domain,
-    side_map,
 )
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
@@ -42,9 +47,9 @@ k, e = index("k"), index("e")
 
 
 # The diagonal and the boundary of the square, as meshes of their topologies.
-E_int = side_domain(D, DIAGONAL, DIAGONAL.sides[0][0][0])
+E_int = side_domain(D, DIAGONAL)
 sides_int = {s: side_map(D, E_int, s) for s in ("+", "-")}
-E_bnd = side_domain(D, BOUNDARY, BOUNDARY.sides[0][0][0])
+E_bnd = side_domain(D, BOUNDARY)
 sides_bnd = {"inside": side_map(D, E_bnd, "inside")}
 
 V = space("V", domain=D)

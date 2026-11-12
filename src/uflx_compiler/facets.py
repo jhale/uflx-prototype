@@ -3,11 +3,25 @@
 import basix
 import numpy as np
 
+from uflx_spec_interpreter import (
+    RD,
+    domain_map,
+    image,
+    jacobian,
+    lower,
+    normal,
+    pull_back,
+    side_map,
+)
 from uflx_spec_interpreter._src.algorithms.names import derived_index
+from uflx_spec_interpreter._src.nodes import Normal, SideMap
 from uflx_toy.basix_cells import basix_cell
+from uflx_toy.inclusions import affine_map, reference_normal
 from uflx_toy.runtime import runtime_array
-from uflx_toy.topology import tabulated_topology
+from uflx_toy.sides import outward_conormals
 
+from .algebra import _normalizer
+from .evaluation import evaluate
 from .quadrature import constant
 
 
@@ -35,7 +49,7 @@ def _permutations(cell_type):
             yield tuple(int(np.argmin(np.linalg.norm(vertices - p, axis=1))) for p in points)
 
 
-def _facet_tables(mesh, domain, width):
+def _facet_tables(nodes, mesh, domain, width):
     """One local facet with separately selected reference maps for each side.
 
     Placeholders keep facet selection outside core lowering. Afterwards they
@@ -52,20 +66,90 @@ def _facet_tables(mesh, domain, width):
     orders = tuple(_permutations(facet_type))
     vertices = basix.cell.geometry(K.cell_type)
     tables = np.array([[vertices[np.array(f)[list(order)]] for order in orders] for f in facets])
-    replacements, bindings, sides, data = {}, {}, [], []
-    for name, _, side in sorted(domain.topology.sides[0], key=lambda entry: entry[2]):
-        facet = derived_index("compiler.ufcx.facet", side)
-        permutation = derived_index("compiler.ufcx.permutation", side)
-        positions = runtime_array(("ufcx.reference_facet", side), tables.shape[-2:])
-        bindings[facet] = f"entity_local_index[{side}]"
+    F = basix_cell(facet_type)
+    if domain.topology.cell_types != (F,):
+        raise NotImplementedError("UFCx integration cell must be the parent reference facet type")
+    replacements, bindings, inclusions, conormals = {}, {}, [], []
+    for slot in range(width):
+        facet = derived_index("compiler.ufcx.facet", slot)
+        permutation = derived_index("compiler.ufcx.permutation", slot)
+        positions = runtime_array(("ufcx.reference_facet", slot), tables.shape[-2:])
+        bindings[facet] = f"entity_local_index[{slot}]"
         if width == 2:
-            bindings[permutation] = f"quadrature_permutation[{side}]"
+            bindings[permutation] = f"quadrature_permutation[{slot}]"
             replacements[positions] = constant(tables)[facet, permutation]
         else:
             replacements[positions] = constant(tables[:, 0])[facet]
-        sides.append((name, mesh.topology, side))
-        data.append(positions)
-    topology = tabulated_topology(
-        "ufcx_local_facet", (basix_cell(facet_type),), (tuple(sides),), (tuple(data),)
+        A = domain_map(F, affine_map(F, positions), K)
+        inclusions.append(A)
+        conormals.append(reference_normal(A, positions, K))
+
+    source = domain.topology
+    maps = tuple(
+        n
+        for n in nodes
+        if isinstance(n, SideMap)
+        and n.parent in (mesh, mesh.topology)
+        and n.source in (domain, source)
     )
-    return topology, replacements, bindings
+    # This ABI binds complete reference facets at runtime, not arbitrary cuts.
+    # Reject inclusions it cannot represent instead of silently changing them.
+    normalize = _normalizer()
+    for relation in maps:
+        A = relation.entries[0][1]
+        try:
+            evaluate(normalize(lower(jacobian(A))), {})  # Must be reference-constant.
+            points = np.asarray(
+                [
+                    evaluate(
+                        normalize(
+                            lower(
+                                pull_back(A.parameterisation, domain_map(RD(0), F.vertices[v], F))
+                            )
+                        ),
+                        {},
+                    )
+                    for v in range(F.num_vertices)
+                ],
+                dtype=float,
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise NotImplementedError(
+                "UFCx requires affine, complete reference-facet inclusions"
+            ) from error
+        if not any(np.allclose(points, table) for table in tables.reshape(-1, *tables.shape[-2:])):
+            raise NotImplementedError("UFCx requires complete reference-facet inclusions")
+    geometry_map = domain.coordinate_function.map
+    slot = geometry_map.entries[0][0]
+    local_geometry = side_map(mesh.topology, source, (slot, inclusions[slot]))
+    local_domain = image(pull_back(mesh.coordinate_function, local_geometry), domain.ambient_domain)
+    mapping = {domain: local_domain}
+    for relation in maps:
+        slot = relation.entries[0][0]
+        endpoint = local_domain if relation.source == domain else source
+        mapping[relation] = side_map(relation.parent, endpoint, (slot, inclusions[slot]))
+
+    # A normal's orientation is data, not part of the evaluation relation. The
+    # UFCx ABI changes the selected facet at runtime; retain the declared sign.
+    for node in nodes:
+        if not isinstance(node, Normal) or node.side_map not in maps:
+            continue
+        slot = node.side_map.entries[0][0]
+        try:
+            declared = np.asarray(
+                evaluate(normalize(lower(node.reference_conormals[0])), {}), dtype=float
+            )
+            outward = np.asarray(
+                evaluate(normalize(lower(outward_conormals(node.side_map)[0])), {}), dtype=float
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise NotImplementedError(
+                "UFCx requires constant reference conormal orientations"
+            ) from error
+        scale = np.dot(declared, outward) / np.dot(outward, outward)
+        if not np.isfinite(scale) or scale == 0 or not np.allclose(declared, scale * outward):
+            raise ValueError("reference conormal must be nonzero and normal to the declared facet")
+        mapping[node] = normal(
+            mapping[node.side_map], conormals[slot] if scale > 0 else -conormals[slot]
+        )
+    return local_domain, mapping, replacements, bindings
