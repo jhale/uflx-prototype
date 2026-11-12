@@ -2,7 +2,7 @@
 
 import basix
 import numpy as np
-from testutil import push_forward, table, vertex_mesh
+from testutil import grouped_topology, push_forward, table, vertex_mesh
 
 from uflx_compiler import compile_form
 from uflx_compiler import evaluate as compiled_value
@@ -32,7 +32,6 @@ from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
-from uflx_toy.topology import static_topology
 
 
 def test_integrate_members_then_sum_only_the_selected_index():
@@ -62,12 +61,12 @@ def test_integration_patches_need_no_field_domain():
 
 def test_coincident_cells_keep_independent_finite_element_fields():
     K = basix_cell(basix.CellType.interval)
-    T = static_topology((K,), (((0, 1), (2, 3)),), ())
+    T = grouped_topology((K,), (((0, 1), (2, 3)),), ())
     D = vertex_mesh(T, [(0,), (1,), (0,), (1,)])
     V = basix_space("independent", T, basix.ElementFamily.P, 1)
     u = push_forward(function(V, "u"), D)
     coefficients = np.empty(V.num_dofs)
-    for row, value in zip(V.dofmap[0], (2, 7), strict=True):
+    for row, value in zip(V.dofmap, (2, 7), strict=True):
         coefficients[list(row)] = value
     result = compiled_value(compile_form(integral(u, D), 2), {"coefficients:u": coefficients})
     assert np.isclose(result, 9)
@@ -76,7 +75,7 @@ def test_coincident_cells_keep_independent_finite_element_fields():
 
 def test_mesh_identity_and_geometry_follow_coordinate_replacement():
     K = reference_simplex(1)
-    T = static_topology((K,), (((0, 1),),), ())
+    T = grouped_topology((K,), (((0, 1),),), ())
     V = space("coordinate", value_shape=(1,), domain=T, scalar_type=ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
     D, E = image(x, RD(1)), image(y, RD(1))
@@ -91,7 +90,7 @@ def test_diffusion_on_independent_analytic_curve_patches():
     # Two patch charts x_a(r) = (r, a*r**2), with a=1 and a=2.
     # No shared vertices or sides, and no new coordinate-expression class.
     K = basix_cell(basix.CellType.interval)
-    T = static_topology((K,), (((0, 1), (2, 3)),), ())
+    T = grouped_topology((K,), (((0, 1), (2, 3)),), ())
     R = basix_space("patch-coordinate", T, basix.ElementFamily.P, 1)
     A = basix_space("patch-curvature", T, basix.ElementFamily.P, 0, discontinuous=True)
     r, a = function(R, "r"), function(A, "a")
@@ -101,9 +100,9 @@ def test_diffusion_on_independent_analytic_curve_patches():
     energy = integral(g[0] * g[0] + g[1] * g[1], D)
     r_values = np.empty(R.num_dofs)
     a_values = np.empty(A.num_dofs)
-    for row in R.dofmap[0]:
+    for row in R.dofmap:
         r_values[list(row)] = (0, 1)
-    for row, curvature in zip(A.dofmap[0], (1, 2), strict=True):
+    for row, curvature in zip(A.dofmap, (1, 2), strict=True):
         a_values[list(row)] = curvature
     env = {"coefficients:r": r_values, "coefficients:a": a_values}
     value = compiled_value(compile_form(energy, 40), env)
@@ -116,7 +115,7 @@ def test_mesh_rejects_free_coordinate_indices_but_keeps_symbolic_coordinates():
     import pytest
 
     K = reference_simplex(1)
-    T = static_topology((K,), (((0, 1),),), ())
+    T = grouped_topology((K,), (((0, 1),),), ())
     D = vertex_mesh(T, [(0,), (1,)])
     q = index("configuration")
     coordinates = table([2, 3])[q] * D.coordinate_function
@@ -133,13 +132,12 @@ def test_mesh_rejects_free_coordinate_indices_but_keeps_symbolic_coordinates():
 
 
 def test_mesh_integral_retains_integrand_indices_across_substitution():
-    from uflx_spec_interpreter import cell_index
     from uflx_spec_interpreter._src.passes.integrals import expand_integrals
 
     K = reference_simplex(1)
-    T = static_topology((K,), (((0, 1), (2, 3)),), ())
+    T = grouped_topology((K,), (((0, 1), (2, 3)),), ())
     D = vertex_mesh(T, [(0,), (1,), (0,), (1,)])
-    c = cell_index(T, 0)
+    c = index("load-entry")
     r = function(space("load"), "r")
     load = table([2, 7])[c]
     expression = integral(r, D)

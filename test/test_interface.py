@@ -1,7 +1,7 @@
 import basix
 import numpy as np
 import pytest
-from testutil import push_forward, vertex_mesh
+from testutil import grouped_topology, push_forward, vertex_mesh
 
 from uflx_compiler import assemble, compile_form, evaluate, runtime_tables
 from uflx_oracle import evaluate as oracle
@@ -16,7 +16,6 @@ from uflx_spec_interpreter import (
 )
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
-from uflx_toy.topology import static_topology
 
 P = basix.ElementFamily.P
 K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
@@ -25,10 +24,10 @@ TRIANGLES, INTERVALS = ((0, 1, 2), (0, 2, 3)), ((0, 1), (1, 2))
 
 
 # Triangles, and a submesh of intervals on the bottom and right of the boundary.
-T = static_topology((K,), (TRIANGLES,), ())
-M = static_topology((I,), (INTERVALS,), ())
+T = grouped_topology((K,), (TRIANGLES,), ())
+M = grouped_topology((I,), (INTERVALS,), ())
 D, DM = vertex_mesh(T, VERTICES), vertex_mesh(M, VERTICES)
-S = static_topology((I,), (INTERVALS,), ((("mesh", T, 0), ("submesh", M, 0)),))
+S = grouped_topology((I,), (INTERVALS,), ((("mesh", T, 0), ("submesh", M, 0)),))
 E = side_domain(D, S, S.sides[0][0][0])
 V, L = basix_space("V", T, P, 2), basix_space("L", M, P, 1, discontinuous=True)
 

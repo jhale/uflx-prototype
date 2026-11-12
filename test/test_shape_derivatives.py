@@ -1,6 +1,6 @@
 import basix
 import numpy as np
-from testutil import push_forward
+from testutil import grouped_topology, push_forward
 
 from uflx_compiler import assemble, compile_form, evaluate
 from uflx_spec_interpreter import (
@@ -20,12 +20,11 @@ from uflx_spec_interpreter import (
 )
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
-from uflx_toy.topology import static_topology
 
 P, RT = basix.ElementFamily.P, basix.ElementFamily.RT
 K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
-T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
-BOUNDARY = static_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("inside", T, 0),),))
+T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
+BOUNDARY = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("inside", T, 0),),))
 X = basix_space("X", T, P, 1)
 x0, x1 = function(X, "x0"), function(X, "x1")
 v0, v1 = function(X, "v0"), function(X, "v1")

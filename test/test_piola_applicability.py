@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from testutil import push_forward
+from testutil import grouped_topology, push_forward
 
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
@@ -26,12 +26,11 @@ from uflx_spec_interpreter._src.passes.contracts import _allowed_in_core_normal_
 from uflx_spec_interpreter._src.rules.coordinates import piola_law
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
-from uflx_toy.topology import static_topology
 
 
 def mapped(k, n, variance, weight):
     K = reference_simplex(k)
-    T = static_topology((K,), ((tuple(range(k + 1)),),), ())
+    T = grouped_topology((K,), ((tuple(range(k + 1)),),), ())
     x = function(
         space("piola-coordinates", value_shape=(n,), domain=T, scalar_type=ScalarType.real), "x"
     )

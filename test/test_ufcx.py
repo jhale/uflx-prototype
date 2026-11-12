@@ -9,6 +9,7 @@ from pathlib import Path
 import basix
 import numpy as np
 import pytest
+from testutil import grouped_topology
 
 from uflx_compiler import compile_ufcx
 from uflx_spec_interpreter import (
@@ -25,7 +26,6 @@ from uflx_spec_interpreter import (
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.spaces import space
-from uflx_toy.topology import static_topology
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def ufcx_include():
 def model(cell, degree, coordinate_degree, kind, cells=1):
     K = basix_cell(cell)
     vertices = tuple(range(K.num_vertices))
-    T = static_topology((K,), (tuple(vertices for _ in range(cells)),), ())
+    T = grouped_topology((K,), (tuple(vertices for _ in range(cells)),), ())
     X = basix_space("X", T, basix.ElementFamily.P, coordinate_degree)
     coords = tuple(function(X, f"x{i}") for i in range(K.dimension))
     D = image(tensor(coords), RD(K.dimension))
@@ -401,7 +401,7 @@ def boundary_mesh(D):
     dim = D.dimension
     facets = basix.cell.topology(cell)[dim - 1]
     facet_type = basix.cell.sub_entity_type(cell, dim - 1, 0)
-    S = static_topology(
+    S = grouped_topology(
         (basix_cell(facet_type),), (tuple(map(tuple, facets)),), ((("inside", D.topology, 0),),)
     )
     return side_domain(D, S, "inside")
@@ -533,7 +533,7 @@ def interior_mesh(D):
     cell = D.topology.cell_types[0].cell_type
     dim = D.dimension
     facets = basix.cell.topology(cell)[dim - 1]
-    S = static_topology(
+    S = grouped_topology(
         (basix_cell(basix.cell.sub_entity_type(cell, dim - 1, 0)),),
         (tuple(map(tuple, facets)),),
         ((("+", D.topology, 0), ("-", D.topology, 0)),),

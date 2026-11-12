@@ -16,7 +16,6 @@ from uflx_spec_interpreter._src.nodes import (
     Form,
     Function,
     GatheredIndex,
-    Index,
     Indexed,
     Product,
     PullBack,
@@ -165,13 +164,11 @@ def test_a_reference_cell_is_a_coordinate_domain_and_a_cell_type():
     assert K != nodes.RD(2) and reference_simplex(0) != nodes.RD(0)
 
 
-def testcell_maps_are_domain_maps_into_the_mesh():
-    piece = D.pieces[0]
-    cells = cell_map(D, 0)
-    assert cells == CellMap(D, 0, nodes.Index(("uflx.cell_index", D.topology, 0, 0)))
-    assert dict(cells.free_indices) == dict(piece.parameterisation.free_indices)
-    g = GatheredIndex(IndexTable((1, 0), 2), (Index("e"),))
-    # A cell of a mesh is piece j with the entry of its cell map in place of the cell index.
-    x = piece.parameterisation.expression
-    cell = PullBack(x, CellMap(x.domain, 0, g))
-    assert cell_map(D, 0, g).parameterisation == cell
+def test_cell_maps_select_local_slots_of_the_mesh():
+    cell = cell_map(D, 0)
+    assert cell == CellMap(D, 0)
+    assert cell.free_indices == ()
+    assert cell.reference_cell == D.topology.cell_types[0]
+    x = D.coordinate_function
+    assert cell.parameterisation == PullBack(x, CellMap(x.domain, 0))
+    assert cell_map(D, 1).parameterisation == PullBack(x, CellMap(x.domain, 1))

@@ -143,34 +143,31 @@ class BasixSpace(AbstractFunctionSpace):
         # continuous. A discontinuous element has all of its dofs inside the cell.
         T, first, count = self.topology, {}, 0
         dofmap = []
-        for j, cells in enumerate(T.cells):
+        for j, vertices in enumerate(T.cells):
             E = self.element(j)
             entities = basix.cell.topology(T.cell_types[j].cell_type)
             tdim = len(entities) - 1
-            rows = []
-            for c, vertices in enumerate(cells):
-                row = [0] * E.dim
-                for d, on_dim in enumerate(E.entity_dofs):
-                    for n, local in enumerate(on_dim):
-                        if d == tdim:
-                            key = (j, c)
-                        else:
-                            # One dof on an edge or a face needs no orientation.
-                            assert d == 0 or len(local) <= 1, "dof orientation is not covered"
-                            key = (d, frozenset(vertices[v] for v in entities[d][n]))
-                        if key not in first:
-                            first[key], count = count, count + len(local)
-                        for m, dof in enumerate(local):
-                            row[dof] = first[key] + m
-                rows.append(
-                    tuple(self.block_size * dof + c for dof in row for c in range(self.block_size))
-                )
-            dofmap.append(tuple(rows))
+            row = [0] * E.dim
+            for d, on_dim in enumerate(E.entity_dofs):
+                for n, local in enumerate(on_dim):
+                    if d == tdim:
+                        key = ("cell", j)
+                    else:
+                        # One dof on an edge or a face needs no orientation.
+                        assert d == 0 or len(local) <= 1, "dof orientation is not covered"
+                        key = (d, frozenset(vertices[v] for v in entities[d][n]))
+                    if key not in first:
+                        first[key], count = count, count + len(local)
+                    for m, dof in enumerate(local):
+                        row[dof] = first[key] + m
+            dofmap.append(
+                tuple(self.block_size * dof + c for dof in row for c in range(self.block_size))
+            )
         return tuple(dofmap)
 
     @property
     def num_dofs(self):
-        return 1 + max(d for rows in self.dofmap for row in rows for d in row)
+        return 1 + max(d for row in self.dofmap for d in row)
 
     @property
     def domain(self):

@@ -1,6 +1,6 @@
 import basix
 import numpy as np
-from testutil import push_forward, vertex_mesh
+from testutil import grouped_topology, push_forward, vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
@@ -24,12 +24,11 @@ from uflx_spec_interpreter._src.nodes import Gradient, PushForward
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
-from uflx_toy.topology import static_topology
 
 P, RT, N1 = basix.ElementFamily.P, basix.ElementFamily.RT, basix.ElementFamily.N1E
 K = basix_cell(basix.CellType.triangle)
 # The vertices of each cell are in increasing order, so the facets of Basix need no signs.
-T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
+T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 VERTICES = [(0, 0), (1, 0), (1.1, 0.9), (-0.1, 1)]
 
 
@@ -41,10 +40,10 @@ def curved():
         P, basix.CellType.triangle, 2, basix.LagrangeVariant.equispaced
     ).points
     values = np.zeros((X.num_dofs, 2))
-    for c, rows in enumerate(X.dofmap[0]):
-        a, b, d = np.asarray(VERTICES, dtype=float)[list(T.cells[0][c])]
+    for c, rows in enumerate(X.dofmap):
+        a, b, d = np.asarray(VERTICES, dtype=float)[list(T.cells[c])]
         values[list(rows)] = a + np.outer(points[:, 0], b - a) + np.outer(points[:, 1], d - a)
-    middle = next(d for d in X.dofmap[0][0] if np.allclose(values[d], (0.55, 0.45)))
+    middle = next(d for d in X.dofmap[0] if np.allclose(values[d], (0.55, 0.45)))
     values[middle] += (0.06, -0.04)
     geometry = {x0: values[:, 0], x1: values[:, 1]}
     return image(tensor((x0, x1)), RD(2)), geometry
@@ -141,7 +140,7 @@ def test_the_curl_of_a_nedelec_function_is_the_reference_curl():
 
 def test_the_curl_of_a_nedelec_function_on_a_tetrahedron_is_the_reference_curl():
     K3 = basix_cell(basix.CellType.tetrahedron)
-    T3 = static_topology((K3,), (((0, 1, 2, 3),),), ())
+    T3 = grouped_topology((K3,), (((0, 1, 2, 3),),), ())
     D = vertex_mesh(T3, [(0, 0, 0), (1, 0.1, 0), (0.2, 1, 0.1), (0.1, 0.2, 0.9)])
     uT = function(basix_space("N", T3, N1, 1), "u")
     u = push_forward(uT, D)

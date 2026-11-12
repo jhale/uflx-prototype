@@ -29,12 +29,11 @@ def interpolate(V, f, coordinates):
     # The coefficients of the interpolant of f, at the points of the element in each cell.
     U = np.zeros(V.num_dofs)
     T = V.topology
-    for j, cells in enumerate(T.cells):
+    for j, vertices in enumerate(T.cells):
         E, cell_type = V.element(j), T.cell_types[j].cell_type
         shapes = basix.create_element(P, cell_type, 1).tabulate(0, E.points)[0, :, :, 0]
-        for c, vertices in enumerate(cells):
-            x = shapes @ np.array([coordinates[v] for v in vertices], dtype=float)
-            U[list(V.dofmap[j][c])] = [f(p) for p in x]
+        x = shapes @ np.array([coordinates[v] for v in vertices], dtype=float)
+        U[list(V.dofmap[j])] = [f(p) for p in x]
     return U
 
 

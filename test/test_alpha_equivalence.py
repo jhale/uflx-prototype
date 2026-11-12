@@ -3,6 +3,7 @@
 import sys
 
 import pytest
+from testutil import grouped_topology
 
 from uflx_spec_interpreter import RD, form, function, image, index, integral, num
 from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
@@ -10,12 +11,11 @@ from uflx_spec_interpreter._src.algorithms.substitution import rename_bound
 from uflx_spec_interpreter._src.extensions.binding import rebind
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
-from uflx_toy.topology import static_topology
 
 
 def geometry():
     K = reference_simplex(1)
-    topology = static_topology((K,), (((0, 1),),), ())
+    topology = grouped_topology((K,), (((0, 1),),), ())
     X = space("alpha-coordinates", value_shape=(1,), domain=topology, scalar_type="real")
     x, y = function(X, "x"), function(X, "y")
     V = space("alpha-physical", domain=image(x, RD(1)), scalar_type="real")

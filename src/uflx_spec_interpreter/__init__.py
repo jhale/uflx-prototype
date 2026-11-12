@@ -57,7 +57,6 @@ from ._src.tensors import (
     tensor,
     transpose,
 )
-from ._src.topology import cell_index
 
 # The free functions of the specification, the class RD, the scalar types, and the
 # short name num.
@@ -75,7 +74,6 @@ __all__ = [
     "apply_derivatives",
     "apply_gradients",
     "broadcast_to",
-    "cell_index",
     "cell_map",
     "component",
     "component_tensor",

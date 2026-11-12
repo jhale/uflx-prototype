@@ -1,7 +1,7 @@
 import basix
 import numpy as np
 import pytest
-from testutil import table, vertex_mesh
+from testutil import grouped_topology, table, vertex_mesh
 
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
@@ -24,7 +24,6 @@ from uflx_toy.basix_cells import basix_cell
 from uflx_toy.cells import reference_simplex
 from uflx_toy.inclusions import affine_map, reference_normal
 from uflx_toy.spaces import space
-from uflx_toy.topology import static_topology
 
 
 def value(e, P=None, X=()):
@@ -66,10 +65,10 @@ def square(K):
         if K == basix_cell(basix.CellType.triangle)
         else reference_simplex(1)
     )
-    T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
+    T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
     D = vertex_mesh(T, [(0, 0), (1, 0), (1, 1), (0, 1)])
-    diagonal = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
-    boundary = static_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", T, 0),),))
+    diagonal = grouped_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
+    boundary = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", T, 0),),))
     return (
         D,
         side_domain(D, diagonal, diagonal.sides[0][0][0]),
@@ -108,17 +107,17 @@ def test_a_basix_cell_gives_its_facet_normals_as_a_table():
     # A table read through the local facet has no support, a cofactor normal the support F.
     for K, constant in ((basix_cell(basix.CellType.triangle), True), (reference_simplex(2), False)):
         _, E, _ = square(K)
-        _, _, m = E.topology.side_tables(0, "+")
+        _, m = E.topology.side_data(0, "+")
         assert (m.domain is None) == constant and m.value_shape == (2,)
 
 
 def quadrilaterals():
     # The unit square as two quadrilaterals split at x = 1/2, with bilinear cell maps.
     Q, I = basix_cell(basix.CellType.quadrilateral), basix_cell(basix.CellType.interval)
-    T = static_topology((Q,), (((0, 1, 3, 4), (1, 2, 4, 5)),), ())
+    T = grouped_topology((Q,), (((0, 1, 3, 4), (1, 2, 4, 5)),), ())
     D = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
-    interior = static_topology((I,), (((1, 4),),), ((("+", T, 0), ("-", T, 0)),))
-    boundary = static_topology(
+    interior = grouped_topology((I,), (((1, 4),),), ((("+", T, 0), ("-", T, 0)),))
+    boundary = grouped_topology(
         (I,), (((0, 1), (1, 2), (2, 5), (5, 4), (4, 3), (3, 0)),), ((("inside", T, 0),),)
     )
     return (
@@ -159,15 +158,15 @@ def mixed():
         basix_cell(t)
         for t in (basix.CellType.triangle, basix.CellType.quadrilateral, basix.CellType.interval)
     )
-    T = static_topology((Tri, Q), (((0, 1, 4), (0, 4, 3)), ((1, 2, 4, 5),)), ())
+    T = grouped_topology((Tri, Q), (((0, 1, 4), (0, 4, 3)), ((1, 2, 4, 5),)), ())
     D = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
     # A group of facets between two triangles, and one between a triangle and a quadrilateral.
-    interior = static_topology(
+    interior = grouped_topology(
         (I, I),
         (((0, 4),), ((1, 4),)),
         ((("+", T, 0), ("-", T, 0)), (("+", T, 0), ("-", T, 1))),
     )
-    boundary = static_topology(
+    boundary = grouped_topology(
         (I, I),
         (((0, 1), (4, 3), (3, 0)), ((1, 2), (2, 5), (5, 4))),
         ((("inside", T, 0),), (("inside", T, 1),)),
@@ -181,15 +180,15 @@ def mixed():
 
 def test_a_mesh_of_triangles_and_a_quadrilateral():
     D, E, B = mixed()
-    assert D.topology is not None and len(D.pieces) == 2 and len(E.pieces) == 2
+    assert D.topology is not None and len(D.pieces) == 3 and len(E.pieces) == 2
     u = function(space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
-    # A function that differs between the cells, keyed by the cell type and the cell.
+    # A function that differs between the cells, keyed by the local cell slot.
     env = {
         u: {
-            (0, 0): lambda x: 1 + x[0] + 2 * x[1],
-            (0, 1): lambda x: 2 - x[0],
-            (1, 0): lambda x: 3 - x[0] * x[1],
+            0: lambda x: 1 + x[0] + 2 * x[1],
+            1: lambda x: 2 - x[0],
+            2: lambda x: 3 - x[0] * x[1],
         }
     }
     Z = coordinate(D)

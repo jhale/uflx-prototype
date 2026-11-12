@@ -69,28 +69,28 @@ def read(x, points):
 
 
 def cell(C):
-    # The group and the entry of a cell map, or of a cell of a mesh.
-    return (C.cell_slot, 0) if isinstance(C, CellMap) else None
+    # The fixed local slot selected by a topology or mesh cell map.
+    return C.cell_slot if isinstance(C, CellMap) else None
 
 
 def values(u, found_cell, order, points):
     # The gathered coefficients of the cell times a table for each factor of the element, summed
     # over a dof index for each factor. An element that does not factor is its one factor.
-    V, (j, entry) = u.space, found_cell
+    V, j = u.space, found_cell
     dimension = points.value_shape[0]
     if V.factors(j) and separable(points):
         factors = [(F, X, (k,)) for k, (F, X) in enumerate(zip(V.factors(j), points.entries))]
     else:
         factors = [(V.element(j), points, tuple(range(dimension)))]
-    i = derived_indices("compiler.tabulation", (u, entry, points), len(factors))
-    rows = np.asarray(V.dofmap[j]).reshape(-1, *(F.dim for F, _, _ in factors), V.block_size)
+    i = derived_indices("compiler.tabulation", (u, j, points), len(factors))
+    rows = np.asarray(V.dofmap[j]).reshape(*(F.dim for F, _, _ in factors), V.block_size)
     dofs = tuple(IndexTable(nested(rows[..., c]), V.num_dofs) for c in range(V.block_size))
 
     def term(idx):
         # Component c of Basix and the directions of the derivative, for each factor its own.
         rank = len(V.value_shape)
         c, directions = int(np.ravel_multi_index(idx[:rank], V.value_shape)), idx[rank:]
-        out = coefficients(u)[GatheredIndex(dofs[c if V.block_shape else 0], (entry, *i))]
+        out = coefficients(u)[GatheredIndex(dofs[c if V.block_shape else 0], i)]
         for k, (F, X, covered) in enumerate(factors):
             own = tuple(covered.index(m) for m in directions if m in covered)
             out = out * table_read(V, j, F, X, own, i[k], 0 if V.block_shape else c)
@@ -108,17 +108,17 @@ def arrayed(shape, entry, idx=()):
 def vertex_values(x, found_cell, order, points):
     # The coordinates of the vertices of the cell times the shape functions of the vertices, which
     # are the basis of degree 1 of Basix, in the order of the vertices.
-    T, (j, entry) = x.topology, found_cell
+    T, j = x.topology, found_cell
     # The shape functions are the basis of a space of degree 1 on T, which also labels a table
     # at points known only at assembly.
     V = basix_space("vertices", T, basix.ElementFamily.P, 1)
     F = V.element(j)
-    a = derived_index("compiler.tabulation", x, entry, points, "a")
+    a = derived_index("compiler.tabulation", x, j, points, "a")
     # The element may order its dofs for sum factorisation, so each dof reads its own vertex.
     vertex_of = {d: v for v, dofs in enumerate(F.entity_dofs[0]) for d in dofs}
-    rows = [[cell[vertex_of[d]] for d in range(F.dim)] for cell in T.cells[j]]
+    rows = [T.cells[j][vertex_of[d]] for d in range(F.dim)]
     cells = IndexTable(nested(np.asarray(rows)), len(x.vertices))
-    vertex = constant(x.vertices)[GatheredIndex(cells, (entry, a))]
+    vertex = constant(x.vertices)[GatheredIndex(cells, (a,))]
 
     def term(idx):
         return index_sum(vertex[idx[0]] * table_read(V, j, F, points, idx[1:], a, 0), (a,))

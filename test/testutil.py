@@ -184,3 +184,23 @@ def side_domain(domain, topology, selection=None):
     return uflx_spec_interpreter.side_domain(
         domain, topology, topology.sides[0][0][0] if selection is None else selection
     )
+
+
+def grouped_topology(cell_types, cells, sides):
+    """Build fixed local slots from vertex groups used by whole-mesh test fixtures."""
+    from uflx_toy.topology import static_topology
+
+    types, rows, declarations = [], [], []
+    for group, (K, group_cells) in enumerate(zip(cell_types, cells, strict=True)):
+        for vertices in group_cells:
+            types.append(K)
+            rows.append(tuple(vertices))
+            chosen = []
+            for name, parent, _ in sides[group] if sides else ():
+                candidates = [
+                    j for j, cell in enumerate(parent.cells) if set(vertices) <= set(cell)
+                ]
+                rank = sum(U is parent for _, U, _ in chosen)
+                chosen.append((name, parent, candidates[min(rank, len(candidates) - 1)]))
+            declarations.append(tuple(chosen))
+    return static_topology(types, rows, tuple(declarations) if sides else ())

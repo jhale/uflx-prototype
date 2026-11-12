@@ -8,6 +8,7 @@ from .base import Base
 from .caching import cached
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
 from .expressions import AbstractExpression
+from .indices import Index
 from .scalar_types import ScalarType
 from .topology import AbstractTopology
 
@@ -106,13 +107,13 @@ class CellMap(Base):
     def _validate(self) -> None:
         from .validation import require
 
-        if not isinstance(self.parent, (AbstractTopology, Mesh)):
-            raise TypeError("cell parent must be a topology or mesh")
         if type(self.cell_slot) is not int:
             raise TypeError("cell slot must be an integer")
         require(0 <= self.cell_slot < len(self.topology.cell_types), "invalid cell slot")
-        require(isinstance(self.reference_cell, AbstractReferenceCell),
-                "cell must be a reference cell")
+        require(
+            isinstance(self.topology.cell_types[self.cell_slot], AbstractReferenceCell),
+            "cell must be a reference cell",
+        )
 
 
 @final
@@ -133,8 +134,10 @@ class SideMap(Base):
 
         require(
             (isinstance(self.parent, Mesh) and isinstance(self.restriction_domain, Mesh))
-            or (isinstance(self.parent, AbstractTopology)
-                and isinstance(self.restriction_domain, AbstractTopology)),
+            or (
+                isinstance(self.parent, AbstractTopology)
+                and isinstance(self.restriction_domain, AbstractTopology)
+            ),
             "side parent and restriction domain must both be topologies or both be meshes",
         )
         S = self.side_topology
@@ -146,8 +149,10 @@ class SideMap(Base):
             require(len(selected) == 1, "side must select one parent cell per slot")
             j = selected[0]
             require(type(j) is int and 0 <= j < len(T.cell_types), "invalid parent cell slot")
-            require(isinstance(T.cell_types[j], AbstractReferenceCell),
-                    "parent cell must be a reference cell")
+            require(
+                isinstance(T.cell_types[j], AbstractReferenceCell),
+                "parent cell must be a reference cell",
+            )
 
 
 _Variance = Literal["covariant", "contravariant"]
@@ -268,7 +273,6 @@ class Normal(AbstractExpression):
 
         require(
             isinstance(self.side_map.parent, Mesh)
-            and self.side_map.restriction_domain.dimension
-            == self.side_map.parent.dimension - 1,
+            and self.side_map.restriction_domain.dimension == self.side_map.parent.dimension - 1,
             "normal requires a codimension-one mesh side",
         )

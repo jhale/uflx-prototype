@@ -35,9 +35,9 @@ def mesh_integral(e: AbstractExpression) -> AbstractExpression:
             return e
 
 
-def reference_integral(f: AbstractExpression, D: Mesh, slot: int) -> Integral:
+def reference_integral(f: AbstractExpression, D: Mesh, cell_slot: int) -> Integral:
     """Express one local mesh cell's integral on its reference cell."""
-    cell = cell_map(D, slot)
+    cell = cell_map(D, cell_slot)
     P = cell.reference_cell
     piece = DomainMap(P, cell.parameterisation, D.ambient_domain)
     g = PullBack(f, piece if f.domain == D.ambient_domain else cell)

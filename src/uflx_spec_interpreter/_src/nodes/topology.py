@@ -8,7 +8,6 @@ from .base import Base
 if TYPE_CHECKING:
     from .expressions import AbstractExpression
     from .maps import DomainMap
-    from .topology import AbstractCellType, AbstractTopology
 
 
 class AbstractCellType(Base):
@@ -22,7 +21,7 @@ class AbstractCellType(Base):
 
 
 class AbstractTopology(Base):
-    # A set of cells of given cell types, without coordinates.
+    # A fixed local cell configuration, without physical coordinates.
     @property
     @abstractmethod
     def cell_types(self) -> tuple[AbstractCellType, ...]: ...
@@ -32,9 +31,7 @@ class AbstractTopology(Base):
     def sides(self) -> tuple[tuple[tuple[str, AbstractTopology, int], ...], ...]: ...
 
     @abstractmethod
-    def side_data(
-        self, i: int, side: str
-    ) -> tuple[DomainMap, AbstractExpression | None]: ...
+    def side_data(self, i: int, side: str) -> tuple[DomainMap, AbstractExpression | None]: ...
 
     @property
     def dimension(self) -> int:

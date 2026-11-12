@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from test_basix import mixed, quadrilaterals, square
-from testutil import contains, push_forward
+from testutil import contains, grouped_topology, push_forward
 
 from uflx_compiler import (
     assemble,
@@ -21,7 +21,6 @@ from uflx_compiler.inputs import arrays
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
-    cell_index,
     coordinate,
     domain_map,
     form,
@@ -52,7 +51,6 @@ from uflx_spec_interpreter._src.nodes.structure import expression_operands
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.runtime import runtime_array, runtime_extent
-from uflx_toy.topology import static_topology
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P
@@ -170,18 +168,28 @@ def test_a_function_at_points_known_only_at_assembly():
     V = basix_space("V", D.topology, P, 2)
     u = push_forward(function(V, "u"), D)
     K = D.pieces[0].parameter_domain
-    ((c, cells),) = D.pieces[0].parameterisation.free_indices
+    cells = len(D.topology.cell_types)
     q, i = runtime_extent("q"), index("i")
     points = runtime_array("points", (cells, q, 2))
     weights = runtime_array("weights", (cells, q))
-    xs = domain_map(RD(0), points[c, i], K)
-    cell = cell_map(D, 0)
     rng = np.random.default_rng(11)
     U = rng.normal(size=V.num_dofs)
     for f in (u, gradient(u, D)[0]):
-        e = index_sum(
-            index_sum(weights[c, i] * integral(pull_back(pull_back(f, cell), xs), RD(0)), (i,)),
-            (c,),
+        e = sum(
+            (
+                index_sum(
+                    weights[slot, i]
+                    * integral(
+                        pull_back(
+                            pull_back(f, cell_map(D, slot)), domain_map(RD(0), points[slot, i], K)
+                        ),
+                        RD(0),
+                    ),
+                    (i,),
+                )
+                for slot in range(cells)
+            ),
+            num(0),
         )
         compiled = compile_form(e, 2)
         for n in (1, 3, 6):
@@ -212,7 +220,7 @@ def runtime_mesh():
     # A solver gives the coordinates of the vertices of each cell to the kernel, as for any mesh,
     # as the dofs of a discontinuous coordinate function of degree 1.
     K = basix_cell(basix.CellType.triangle)
-    T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
+    T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
     X = basix_space("X", T, P, 1, discontinuous=True)
     x0, x1 = function(X, "x0"), function(X, "x1")
 
@@ -220,7 +228,7 @@ def runtime_mesh():
         cells = np.asarray(cells, dtype=float)
         return {"coefficients:x0": cells[..., 0].ravel(), "coefficients:x1": cells[..., 1].ravel()}
 
-    return geometry, cell_index(T, 0), image(tensor((x0, x1)), RD(2))
+    return geometry, None, image(tensor((x0, x1)), RD(2))
 
 
 def test_geometry_from_coordinates_given_at_assembly():
@@ -245,7 +253,7 @@ def test_geometry_from_coordinates_given_at_assembly():
 
 
 def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form():
-    _, c, D = runtime_mesh()
+    _, _c, D = runtime_mesh()
     V = basix_space("V", D.topology, P, 2)
     u, w = push_forward(function(V, "u"), D), push_forward(function(V, "w"), D)
     gu, gw = gradient(u, D), gradient(w, D)
@@ -257,8 +265,8 @@ def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form(
             lambda n: not isinstance(n, Division) or not dets.add(n.second),
         )
     # K is the adjugate over det J, and no zero term adds the index of the points to det J.
-    assert found[0] == found[1] and len(found[0]) == 1
-    assert [i for i, _ in next(iter(found[0])).free_indices] == [c]
+    assert found[0] == found[1] and len(found[0]) == 2
+    assert all(d.free_indices == () for d in found[0])
 
 
 def mesh_only(e, D):

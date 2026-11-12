@@ -102,11 +102,6 @@ def index_value(i, ienv):
     return i
 
 
-def cell_value(m, ienv):
-    # The group and the cell that a cell reads, as a library.
-    return (m.cell_slot, 0) if is_cell(m) else None
-
-
 def transformed(ghat, law, J):
     # K^T on each covariant axis and J on each contravariant axis of the last axes, divided by
     # det J, or by the density for a cell of lower dimension, to the weight.
@@ -129,24 +124,23 @@ def lookup(env, node, label):
 
 
 def side_cell(sm):
-    # The group and the cell on the side of the current cell of the parameter domain of the side
-    # map, through the side tables.
+    # The parent slot selected by the current restriction slot's named side.
     E, S = sm.restriction_domain, sm.side_topology
     i = POINTS.get(("piece", E), 0)
     (_, _, j) = next(s for s in S.sides[i] if s[0] == sm.side)
-    return j, 0
+    return j
 
 
-def on_cell(D, piece, cell, fn):
-    return at(("piece", D), piece, lambda: at(("cell", D), cell, fn))
+def on_cell(D, slot, fn):
+    return at(("piece", D), slot, fn)
 
 
 def basix_function(space, coefficients):
     # The value at the reference point of the current cell of the topology of the space.
     T = space.domain
-    j, cell = POINTS.get(("piece", T), 0), POINTS[("cell", T)]
+    j = POINTS.get(("piece", T), 0)
     phi = space.element(j).tabulate(0, np.array([POINTS[T]], dtype=float))[0, 0]
-    local = np.asarray(coefficients)[list(space.dofmap[j][cell])]
+    local = np.asarray(coefficients)[list(space.dofmap[j])]
     value = local.reshape(-1, space.block_size).T @ phi[:, 0] if space.block_shape else local @ phi
     return value.reshape(space.value_shape)
 
@@ -230,51 +224,25 @@ def reference_centroid(K):
 
 
 def integrate(P, fn, env):
-    # The integral of fn over P, with fn reading the point of P from POINTS.
+    # Integrate each fixed local slot, counting coincident cells separately.
     if isinstance(P, AbstractCoordinateDomain):
         return sum(w * at(P, p, lambda: fn({})) for p, w in rule_on(P))
     total = 0
-    for number, piece in enumerate(P.pieces):
-        fr = dict(piece.parameterisation.free_indices)
-        for combo in itertools.product(*(range(n) for n in fr.values())):
-            members = dict(zip(fr, combo))
-            psi = evaluate(piece.parameterisation, env, members)
+    for slot, piece in enumerate(P.pieces):
+        psi = evaluate(piece.parameterisation, env)
 
-            def mapped(inner, piece=piece, psi=psi, members=members, number=number):
-                y = np.real(np.asarray(psi(())))
-                if isinstance(piece.parameter_domain, AbstractCoordinateDomain):
-                    ref = POINTS[piece.parameter_domain]
-                    chart_in = lambda X: X
-                else:
-                    ref, chart_in = (
-                        POINTS[("ref", piece.parameter_domain)],
-                        POINTS[("chart", piece.parameter_domain)],
-                    )
-                chart = lambda X: np.real(
-                    np.asarray(at(piece.parameter_domain, chart_in(X), lambda: psi(())))
-                )
-                if len(ref) == 0:
-                    scale = 1.0
-                else:
-                    T = jacobian_of(chart_in, ref)
-                    Je = jacobian_of(chart, ref)
-                    scale = np.sqrt(abs(np.linalg.det(Je.T @ Je)) / abs(np.linalg.det(T.T @ T)))
-                cell = 0
-                inside = lambda: at(
-                    ("piece", P),
-                    number,
-                    lambda: at(P, y, lambda: at(P.ambient_domain, y, lambda: fn(members))),
-                )
-                return (
-                    at(
-                        ("ref", P),
-                        ref,
-                        lambda: at(("chart", P), chart, lambda: at(("cell", P), cell, inside)),
-                    )
-                    * scale
-                )
+        def mapped(inner, piece=piece, psi=psi, slot=slot):
+            ref = POINTS[piece.parameter_domain]
+            chart = lambda X: np.real(np.asarray(at(piece.parameter_domain, X, lambda: psi(()))))
+            y = chart(ref)
+            J = jacobian_of(chart, ref)
+            scale = np.sqrt(abs(np.linalg.det(J.T @ J))) if len(ref) else 1.0
+            value = lambda: on_cell(
+                P, slot, lambda: at(P, y, lambda: at(P.ambient_domain, y, lambda: fn({})))
+            )
+            return at(("ref", P), ref, lambda: at(("chart", P), chart, value)) * scale
 
-            total += integrate(piece.parameter_domain, mapped, env)
+        total += integrate(piece.parameter_domain, mapped, env)
     return total
 
 
@@ -339,14 +307,12 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def pushed(vals):
                 # The value of g on the topology at the reference point of the point, by the law.
-                j, cell = POINTS.get(("piece", D), 0), POINTS[("cell", D)]
+                j = POINTS.get(("piece", D), 0)
                 piece = D.pieces[j]
-                chart = piece_map(
-                    piece, {}, env
-                )
+                chart = piece_map(piece, {}, env)
                 X = reference_point(chart, POINTS[D], D.dimension)
                 T = D.topology
-                ghat = on_cell(T, j, cell, lambda: at(T, X, lambda: np.asarray(fg(vals))))
+                ghat = on_cell(T, j, lambda: at(T, X, lambda: np.asarray(fg(vals))))
                 return transformed(ghat, law, jacobian_of(chart, X))
 
             return pushed
@@ -354,9 +320,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def vertex_value(vals):
                 # The shape functions of the vertices of the current cell at the reference point.
-                j, cell = POINTS.get(("piece", T), 0), POINTS[("cell", T)]
+                j = POINTS.get(("piece", T), 0)
                 phi = shape_functions(T.cell_types[j], POINTS[T])
-                return phi @ np.asarray(V)[list(T.cells[j][cell])]
+                return phi @ np.asarray(V)[list(T.cells[j])]
 
             return vertex_value
         case Function(BasixSpace() as space, _):
@@ -373,7 +339,6 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 if isinstance(v, dict):
                     # A function that differs between cells, read on the current cell.
                     D = space.domain
-                    cell = POINTS[("cell", D)]
                     key = POINTS.get(("piece", D), 0)
                     return v[key](POINTS[D])
                 return v(POINTS[space.domain]) if callable(v) else v
@@ -508,12 +473,12 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def restricted_on_topology(vals):
                 # The reference point of the cell on the side, through the inclusion A of the cell.
-                i, e = POINTS.get(("piece", S), 0), POINTS[("cell", S)]
+                i = POINTS.get(("piece", S), 0)
                 A, _ = S.side_data(i, side)
                 inside = evaluate(A.parameterisation, env, ienv)
                 X = at(A.parameter_domain, POINTS[S], lambda: np.real(np.asarray(inside(()))))
-                j, cell = side_cell(sm)
-                return on_cell(T, j, cell, lambda: at(T, X, lambda: fb(vals)))
+                j = side_cell(sm)
+                return on_cell(T, j, lambda: at(T, X, lambda: fb(vals)))
 
             return restricted_on_topology
         case PullBack(b, SideMap(Dd) as sm):
@@ -521,8 +486,8 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def restricted(vals):
                 # The point of E, read from the cell on the side through the table of cells.
-                j, cell = side_cell(sm)
-                return on_cell(Dd, j, cell, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
+                j = side_cell(sm)
+                return on_cell(Dd, j, lambda: at(Dd, POINTS[Ed], lambda: fb(vals)))
 
             return restricted
         case PullBack(b, CellMap(AbstractTopology() as T, j) as m):
@@ -531,8 +496,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def read(vals):
                 # A point of a topology is a cell and a point of the reference cell of the cell.
                 X = POINTS[m.reference_cell]
-                cell = 0
-                return on_cell(T, j, cell, lambda: at(T, X, lambda: fb(vals)))
+                return on_cell(T, j, lambda: at(T, X, lambda: fb(vals)))
 
             return read
         case PullBack(b, m):
@@ -540,10 +504,9 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def pulled(vals):
                 y = np.real(np.asarray(psi(())))
-                found = cell_value(m, ienv)
-                if found is not None:
+                if is_cell(m):
                     D = m.parent
-                    return on_cell(D, *found, lambda: at(D, y, lambda: fb(vals)))
+                    return on_cell(D, m.cell_slot, lambda: at(D, y, lambda: fb(vals)))
                 return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
@@ -552,18 +515,14 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def normal(vals):
                 # In the tangent plane of the cell, orthogonal to the edge, away from the cell.
-                x, e = POINTS[Ed], POINTS[("cell", Ed)]
-                j, cell = side_cell(sm)
+                x = POINTS[Ed]
+                j = side_cell(sm)
                 facet = Ed.pieces[POINTS.get(("piece", Ed), 0)]
-                edge = piece_map(
-                    facet, {}, env
-                )
+                edge = piece_map(facet, {}, env)
                 t = jacobian_of(edge, reference_point(edge, x, 1))[:, 0]
                 t = t / np.linalg.norm(t)
                 piece = Dd.pieces[j]
-                chart = piece_map(
-                    piece, {}, env
-                )
+                chart = piece_map(piece, {}, env)
                 X = reference_point(chart, x, Dd.dimension)
                 d = jacobian_of(chart, X) @ (X - reference_centroid(piece.parameter_domain))
                 n = d - (d @ t) * t

@@ -138,7 +138,7 @@ class ReferenceSimplex(AbstractReferenceCell):
 @final
 class StaticTopology(AbstractTopology):
     identifier = "toy.StaticTopology"
-    # Cells as vertex numbers, with the side tables computed from the vertex numbers.
+    # Cells as vertex numbers, with the side data computed from the vertex numbers.
     _cell_types: tuple
     cells: tuple
     _sides: tuple
@@ -150,10 +150,13 @@ class StaticTopology(AbstractTopology):
     def side_data(self, i, side):
         _, T, j = next(s for s in self.sides[i] if s[0] == side)
         K = T.cell_types[j]
-        local = [T.cells[j][0].index(v) for v in self.cells[i][0]]
+        local = [T.cells[j].index(v) for v in self.cells[i]]
         positions = vertex_rows(K, local)
-        facet = (K.local_facet(local) if hasattr(K, "facet_normals")
-                 and self.cell_types[i].dimension == K.dimension - 1 else None)
+        facet = (
+            K.local_facet(local)
+            if hasattr(K, "facet_normals") and self.cell_types[i].dimension == K.dimension - 1
+            else None
+        )
         return side_data(self, i, side, positions, facet)
 
     @property
@@ -181,4 +184,3 @@ class TabulatedTopology(AbstractTopology):
     @property
     def cell_types(self):
         return self._cell_types
-

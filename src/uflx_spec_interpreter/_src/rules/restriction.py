@@ -26,9 +26,7 @@ def side_cell(side_map: SideMap, map: DomainMap | CellMap | SideMap) -> int | No
     return None
 
 
-def side_maps(
-    side_map: SideMap, slot: int
-) -> tuple[CellMap, DomainMap, AbstractExpression | None]:
+def side_maps(side_map: SideMap, slot: int) -> tuple[CellMap, DomainMap, AbstractExpression | None]:
     topology, side = side_map.side_topology, side_map.side
     _, _, parent_slot = next(s for s in topology.sides[slot] if s[0] == side)
     inner, reference_normal = topology.side_data(slot, side)
@@ -40,9 +38,9 @@ def pull_back_normal(
     cell: int,
     pb: Callable[[AbstractExpression, DomainMap | CellMap | SideMap], AbstractExpression],
 ) -> AbstractExpression:
-    # K^T m_hat / |K^T m_hat|, with the normal supplied by the side table.
+    # K^T m_hat / |K^T m_hat|, with the normal supplied by the side data.
     outer, inner, reference_normal = side_maps(f.side_map, cell)
     if reference_normal is None:
-        raise TypeError("the side table supplies no reference normal")
+        raise TypeError("the side data supplies no reference normal")
     w = transpose(pb(inverse_jacobian(outer), inner)) @ reference_normal
     return divide(w, square_root(w @ w))

@@ -6,7 +6,7 @@ import subprocess
 import basix
 import numpy as np
 import pytest
-from testutil import push_forward
+from testutil import grouped_topology, push_forward
 
 from uflx_compiler import compile_form, evaluate
 from uflx_compiler.c_code import c_kernel
@@ -32,10 +32,9 @@ from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.indices import index_table
 from uflx_toy.runtime import runtime_array
-from uflx_toy.topology import static_topology
 
 P, RT = basix.ElementFamily.P, basix.ElementFamily.RT
-T = static_topology((basix_cell(basix.CellType.triangle),), (((0, 1, 2),),), ())
+T = grouped_topology((basix_cell(basix.CellType.triangle),), (((0, 1, 2),),), ())
 NODES = np.array([(0.1, 0.0), (1.0, 0.2), (0.3, 0.9), (0.7, 0.6), (0.2, 0.45), (0.55, 0.1)])
 
 

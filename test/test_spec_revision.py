@@ -6,6 +6,7 @@ from collections import namedtuple
 
 import numpy as np
 import pytest
+from testutil import grouped_topology
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -44,7 +45,6 @@ from uflx_toy.cells import reference_simplex
 from uflx_toy.indices import index_table
 from uflx_toy.runtime import runtime_array, runtime_extent
 from uflx_toy.spaces import space
-from uflx_toy.topology import static_topology
 
 
 class Payload(Base):
@@ -132,18 +132,18 @@ def test_calculus_domain_is_the_result_domain():
 
 
 def test_mesh_cells_retain_selection_after_geometry_substitution():
-    T = static_topology((reference_simplex(1),), (((0, 1), (2, 3)),), ())
+    T = grouped_topology((reference_simplex(1),), (((0, 1), (2, 3)),), ())
     V = space("coordinates", (1,), T, ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
     D, E = image(x, RD(1)), image(y, RD(1))
-    C = cell_map(D, 0, 1)
-    assert C.entry == 1 and C.free_indices == ()
-    assert C.parameterisation.map is cell_map(T, 0, 1)
-    assert replace(C, {x: y}) is cell_map(E, 0, 1)
+    C = cell_map(D, 1)
+    assert C.cell_slot == 1 and C.free_indices == ()
+    assert C.parameterisation.map is cell_map(T, 1)
+    assert replace(C, {x: y}) is cell_map(E, 1)
     with pytest.raises(ValueError):
         cell_map(D, -1)
     with pytest.raises(ValueError):
-        cell_map(D, 0, 2)
+        cell_map(D, 2)
 
 
 def test_space_factories_and_substitution_keep_canonical_forms():

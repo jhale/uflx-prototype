@@ -193,9 +193,8 @@ def test_blocked_fields_in_array_compiler_and_oracle(cell, shape):
     V = basix_space("blocked", D.topology, basix.ElementFamily.P, 2, shape=shape)
     scalar = basix_space("scalar", D.topology, basix.ElementFamily.P, 2)
     assert V.num_dofs == scalar.num_dofs * np.prod(shape)
-    for rows, base_rows in zip(V.dofmap, scalar.dofmap, strict=True):
-        for row, base in zip(rows, base_rows, strict=True):
-            assert row == tuple(V.block_size * i + c for i in base for c in range(V.block_size))
+    for row, base in zip(V.dofmap, scalar.dofmap, strict=True):
+        assert row == tuple(V.block_size * i + c for i in base for c in range(V.block_size))
     u = function(V, "u")
     U = push_forward(u, D, V.law)
     f = integral(sum((U[idx] * U[idx] for idx in np.ndindex(shape)), num(0)), D)

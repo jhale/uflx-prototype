@@ -44,8 +44,11 @@ def geometric_map(
 ) -> tuple[AbstractCoordinateDomain, AbstractCoordinateDomain]:
     from .nodes import AbstractCoordinateDomain, CellMap, Mesh
 
-    source, target = ((D.reference_cell, D.parent) if isinstance(D, CellMap)
-                      else (D.parameter_domain, D.ambient_domain))
+    source, target = (
+        (D.reference_cell, D.parent)
+        if isinstance(D, CellMap)
+        else (D.parameter_domain, D.ambient_domain)
+    )
     if not isinstance(source, AbstractCoordinateDomain):
         raise TypeError("geometry requires a coordinate parameter domain")
     if isinstance(target, Mesh):

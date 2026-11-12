@@ -2,22 +2,18 @@ import basix
 import numpy as np
 from test_basix import square
 from test_compiler import functionals, runtime_mesh
-from testutil import push_forward, side_map, vertex_mesh
+from testutil import grouped_topology, push_forward, side_map, vertex_mesh
 
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     RD,
-    apply_gradients,
-    cell_index,
     cell_map,
     expand_integrals,
     function,
-    gathered_index,
     image,
-    index,
-    index_sum,
     integral,
+    num,
     pull_back,
     side_domain,
     tensor,
@@ -29,13 +25,11 @@ from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
-from uflx_toy.indices import index_table
-from uflx_toy.topology import static_topology
 
 P = basix.ElementFamily.P
 K = basix_cell(basix.CellType.triangle)
 # The unit square as two triangles, with the vertices of square(K) of test_basix.
-T = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
+T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 VERTICES = np.array([(0, 0), (1, 0), (1, 1), (0, 1)], dtype=float)
 
 
@@ -48,7 +42,7 @@ def coordinates(degree, discontinuous=False):
 def p1_mesh():
     # The dofs of a P1 space on T are numbered by the vertices, in the order of their first cell.
     X, x0, x1, x = coordinates(1)
-    assert X.dofmap == (((0, 1, 2), (0, 2, 3)),)
+    assert X.dofmap == ((0, 1, 2), (0, 2, 3))
     return image(x, RD(2)), {x0: VERTICES[:, 0], x1: VERTICES[:, 1]}
 
 
@@ -66,10 +60,9 @@ def test_a_mesh_from_a_coordinate_function_has_the_topology_and_the_cells_of_the
     D, _ = p1_mesh()
     x = D.coordinate_function
     assert D.topology == T and x.domain == T
-    g = gathered_index(index_table((1, 0), 2), (index("i"),))
-    C = cell_map(D, 0, g)
-    assert C.parameterisation == pull_back(x, CellMap(T, 0, g)) and is_cell(C)
-    assert cell_map(T, 0) == CellMap(T, 0, cell_index(T, 0))
+    C = cell_map(D, 1)
+    assert C.parameterisation == pull_back(x, CellMap(T, 1)) and is_cell(C)
+    assert cell_map(T, 0) == CellMap(T, 0)
 
 
 def test_a_p1_coordinate_function_gives_the_values_of_the_explicit_mesh():
@@ -111,10 +104,10 @@ def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
         P, basix.CellType.triangle, 2, basix.LagrangeVariant.equispaced
     ).points
     values = np.zeros((X.num_dofs, 2))
-    for c, rows in enumerate(X.dofmap[0]):
-        a, b, d = VERTICES[list(T.cells[0][c])]
+    for c, rows in enumerate(X.dofmap):
+        a, b, d = VERTICES[list(T.cells[c])]
         values[list(rows)] = a + np.outer(points[:, 0], b - a) + np.outer(points[:, 1], d - a)
-    midpoint = next(d for d in X.dofmap[0][0] if np.allclose(values[d], (0.5, 0.5)))
+    midpoint = next(d for d in X.dofmap[0] if np.allclose(values[d], (0.5, 0.5)))
     values[midpoint] += (0.08, -0.05)
     geometry = {x0: values[:, 0], x1: values[:, 1]}
     u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
@@ -134,7 +127,7 @@ def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
     rng = np.random.default_rng(12)
     corners = np.array([(0, 0), (1, 0), (1.2, 1.1), (-0.1, 0.9)]) + rng.normal(size=(4, 2)) * 0.05
     cells = corners[[[0, 1, 2], [0, 2, 3]]]
-    flat = cells.reshape(-1, 2)[np.argsort(np.ravel(X.dofmap[0]))]
+    flat = cells.reshape(-1, 2)[np.argsort(np.ravel(X.dofmap))]
     geometry = {"coefficients:x0": flat[:, 0], "coefficients:x1": flat[:, 1]}
     U = rng.normal(size=basix_space("V", T, P, 2).num_dofs)
     u, w = (
@@ -147,19 +140,20 @@ def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
         assert np.isclose(value, expected)
 
 
-def test_a_gathered_cell_of_a_mesh_reads_the_cells_that_the_entry_selects():
+def test_fixed_cells_read_independent_fields():
     D, geometry = p1_mesh()
     u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
     U = np.random.default_rng(2).normal(size=u.expression.space.num_dofs)
-    i, c = index("i"), cell_index(T, 0)
-    g = gathered_index(index_table((1, 0), 2), (i,))
-    gathered = index_sum(integral(pull_back(u, cell_map(D, 0, g)), K), (i,))
-    plain = index_sum(integral(pull_back(u, cell_map(D, 0)), K), (c,))
+    reads = [integral(pull_back(u, cell_map(D, slot)), K) for slot in (1, 0)]
     env = labelled(geometry) | {"coefficients:u": U}
-    value = evaluate(compile_form(gathered, 4), env)
-    assert np.isclose(value, evaluate(compile_form(plain, 4), env))
-    assert np.isclose(value, oracle(gathered, geometry | {u.expression: U})(()))
-    assert in_core_normal_form(apply_gradients(gathered))
+    for expression in reads:
+        assert expression.free_indices == ()
+        value = evaluate(compile_form(expression, 4), env)
+        assert np.isclose(value, oracle(expression, geometry | {u.expression: U})(()))
+    assert np.isclose(
+        evaluate(compile_form(sum(reads, num(0)), 4), env),
+        sum(evaluate(compile_form(e, 4), env) for e in reads),
+    )
 
 
 def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
@@ -170,7 +164,7 @@ def test_lowering_keeps_the_mesh_and_the_functions_of_the_user():
     out = lower_spatial(expand_integrals(functionals(D, push_forward(uT, D))[3]))
     # The function of the user is read through the cell maps of the topology of the user.
     reads = [n for n in nodes(out) if isinstance(n, PullBack) and n.expression == uT]
-    assert reads and all(n.map.ambient_domain == T for n in reads)
+    assert reads and all(n.map.parent == T for n in reads)
 
 
 def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
@@ -179,7 +173,7 @@ def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
     u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
     compiled = compile_form(functionals(D, u)[3], 4)
     dets = {n.second for n in nodes(compiled) if isinstance(n, Division)}
-    assert dets and all([i for i, _ in d.free_indices] == [cell_index(T, 0)] for d in dets)
+    assert dets and all(d.free_indices == () for d in dets)
 
 
 def test_a_mesh_from_the_coordinates_of_the_vertices_gives_the_values_of_the_explicit_mesh():
@@ -198,7 +192,7 @@ def test_a_mesh_from_the_coordinates_of_the_vertices_gives_the_values_of_the_exp
 def test_a_side_domain_is_the_mesh_of_the_trace_of_the_coordinate_function():
     D, _ = p1_mesh()
     I = basix_cell(basix.CellType.interval)
-    S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
+    S = grouped_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     E = side_domain(D, S, S.sides[0][0][0])
     assert E.topology == S
     assert E.coordinate_function == pull_back(
@@ -211,10 +205,10 @@ def test_the_jump_of_a_function_on_a_topology_across_a_facet():
     # A discontinuous function on T, restricted to the diagonal from both triangles, read on the
     # reference interval of each cell of the side topology.
     I = basix_cell(basix.CellType.interval)
-    S = static_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
+    S = grouped_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     d = function(basix_space("W", T, P, 1, discontinuous=True), "d")
     jump = pull_back(d, side_map(T, S, "+")) - pull_back(d, side_map(T, S, "-"))
-    f = index_sum(integral(pull_back(jump, cell_map(S, 0)), I), (cell_index(S, 0),))
+    f = integral(pull_back(jump, cell_map(S, 0)), I)
     W = np.array([0.0, 1.0, 2.0, 5.0, -1.0, 3.0])
     value = evaluate(compile_form(f, 2), {"coefficients:d": W})
     assert np.isclose(value, oracle(f, {d: W})(()))

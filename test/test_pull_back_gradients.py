@@ -73,7 +73,7 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
 
     for constant in (num(0), num(3), num(2j), tensor((num(1), num(2)))):
         mapped = push_forward(constant, D, transformation_law((), 0))
-        original = pull_back(gradient(mapped, D), cell_map(D, 0, 0))
+        original = pull_back(gradient(mapped, D), cell_map(D, 0))
         result = expand_pull_backs(original)
         assert isinstance(result, Zero)
         assert result.value_shape == original.value_shape
@@ -88,13 +88,12 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
         )
 
 
-def test_constant_gradient_preserves_cell_family_and_embedding_shape():
+def test_constant_gradient_preserves_embedding_shape():
     from uflx_spec_interpreter import cell_map, expand_pull_backs, image, tensor
     from uflx_spec_interpreter._src.nodes import Zero
 
     embedded = image(tensor((D.coordinate_function[0], D.coordinate_function[1], num(0))), RD(3))
-    i = index("constant-cell")
-    original = pull_back(gradient(num(2j), embedded), cell_map(embedded, 0, i))
+    original = pull_back(gradient(num(2j), embedded), cell_map(embedded, 0))
     result = expand_pull_backs(original)
     assert isinstance(result, Zero)
     assert result.value_shape == (3,)
@@ -113,6 +112,6 @@ def test_reference_constant_with_piola_mapping_is_not_a_physical_constant():
     from uflx_spec_interpreter._src.nodes import Zero
 
     mapped = push_forward(tensor((num(1), num(2))), D, transformation_law(("covariant",), 0))
-    result = expand_pull_backs(pull_back(gradient(mapped, D), cell_map(D, 0, 0)))
+    result = expand_pull_backs(pull_back(gradient(mapped, D), cell_map(D, 0)))
     assert not isinstance(result, Zero)
     assert any(isinstance(n, Inverse) for n in nodes(result))

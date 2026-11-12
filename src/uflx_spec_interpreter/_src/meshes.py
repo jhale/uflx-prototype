@@ -54,13 +54,5 @@ def side_domain(D: Mesh, S: AbstractTopology, s: str) -> Mesh:
     return image(PullBack(x, side_map(D.topology, S, s)), D.ambient_domain)
 
 
-def inclusion(
-    X: Mesh | AbstractTopology, S: AbstractTopology, i: int, s: str
-) -> tuple[CellMap, DomainMap]:
-    (_, _, j) = next(side for side in S.sides[i] if side[0] == s)
-    A, _ = S.side_data(i, s)
-    return CellMap(X, j), A
-
-
 def normal(sm: SideMap) -> Normal:
     return Normal(sm)

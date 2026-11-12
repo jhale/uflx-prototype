@@ -3,13 +3,12 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, check_types, keeps_static_type, vertex_mesh
+from testutil import assert_clean, check_types, grouped_topology, keeps_static_type, vertex_mesh
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     RD,
     add,
-    cell_index,
     component_tensor,
     coordinate,
     function,
@@ -28,19 +27,18 @@ from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
-from uflx_toy.topology import static_topology
 
 R2 = RD(2)
 K = reference_simplex(2)
 X = coordinate(K)
 k = index("k")
 # The cells of the square, which the folded surface of test_surface shares.
-SQUARE = static_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
+SQUARE = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 I = reference_simplex(1)
 # The diagonal, seen from both triangles, and the boundary, seen from inside.
-DIAGONAL = static_topology((I,), (((0, 2),),), ((("+", SQUARE, 0), ("-", SQUARE, 0)),))
-BOUNDARY = static_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", SQUARE, 0),),))
-c = cell_index(SQUARE, 0)
+DIAGONAL = grouped_topology((I,), (((0, 2),),), ((("+", SQUARE, 0), ("-", SQUARE, 0)),))
+BOUNDARY = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", SQUARE, 0),),))
+c = index("load-entry")
 
 
 def affine(vertices, at):
@@ -63,11 +61,11 @@ T0, T1 = [(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]
 D = vertex_mesh(SQUARE, [(0, 0), (1, 0), (1, 1), (0, 1)])
 
 # Point fields get an explicit topology of independent zero-dimensional cells.
-POINTS = static_topology((reference_simplex(0),), (((0,), (1,), (2,)),), ())
+POINTS = grouped_topology((reference_simplex(0),), (((0,), (1,), (2,)),), ())
 Dp = vertex_mesh(POINTS, [(0.2, 0.3), (0.5, 0.5), (0.9, 0.1)])
 
 # Two independent triangle patches: no shared vertices or sides are required.
-PATCHES = static_topology((K,), (((0, 1, 2), (3, 4, 5)),), ())
+PATCHES = grouped_topology((K,), (((0, 1, 2), (3, 4, 5)),), ())
 D2 = vertex_mesh(PATCHES, [*T0, *T1])
 
 V = space("V", domain=D)

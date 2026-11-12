@@ -88,7 +88,7 @@ def _nodes(expression):
 
 
 def _element(space):
-    if not isinstance(space, BasixSpace) or len(space.topology.cell_types) != 1:
+    if not isinstance(space, BasixSpace) or len(set(space.topology.cell_types)) != 1:
         raise NotImplementedError("UFCx cell kernels require single-cell-type Basix spaces")
     return basix.create_element(
         space.family,
@@ -135,7 +135,7 @@ def compile_ufcx(
         raise ValueError("name must be a C identifier beginning with a letter")
     if f.scalar_type != "real" or f.value_shape or f.free_indices:
         raise NotImplementedError("UFCx cell forms must be real scalars without free indices")
-    if len(mesh.topology.cell_types) != 1:
+    if len(set(mesh.topology.cell_types)) != 1:
         raise NotImplementedError("UFCx cell kernels require one cell type")
     f, mesh, geometry, coordinate_element = _coordinate_fields(f, mesh)
 
@@ -147,7 +147,7 @@ def compile_ufcx(
     if width == 2:
         # A generic two-cell topology keeps local side 1 valid even for periodic
         # or symbolic input topologies. User inputs are returned in their original identity.
-        local = tabulated_topology("ufcx_pair", mesh.topology.cell_types * 2, (), ())
+        local = tabulated_topology("ufcx_pair", (mesh.topology.cell_types[0],) * 2, (), ())
         mapping = {mesh.topology: local}
         originals = {substitute(u, mapping): u for u in _nodes(f) if isinstance(u, Function)}
         f, mesh, domain = (substitute(n, mapping) for n in (f, mesh, domain))
@@ -316,9 +316,9 @@ def _integration_domain(f, mesh):
         raise NotImplementedError("expected a cell or facet integration domain")
     widths = {len(sides) for sides in domain.topology.sides}
     if widths not in ({1}, {2}) or any(
-        parent != mesh.topology or group != 0
+        parent != mesh.topology or slot not in range(len(mesh.topology.cell_types))
         for sides in domain.topology.sides
-        for _, parent, group in sides
+        for _, parent, slot in sides
     ):
         raise NotImplementedError("expected one or two sides on the supplied topology")
     if widths == {2} and any(
@@ -330,15 +330,6 @@ def _integration_domain(f, mesh):
             if x == mesh.coordinate_function:
                 return domain
     raise NotImplementedError("facet geometry must be a side_domain of the supplied mesh")
-
-
-def _cell_number(cell):
-    if isinstance(cell, GatheredIndex) and all(isinstance(i, int) for i in cell.indices):
-        values = cell.table.values
-        for i in cell.indices:
-            values = values[i]
-        return values
-    return cell
 
 
 def _coordinate_fields(f, mesh):
@@ -399,9 +390,8 @@ def _local_expression(
         found = leaf(node)
         if found is None:
             return node
-        u, (piece, cell), order, points = found
-        cell = _cell_number(cell)
-        if not isinstance(u, Function) or piece != 0 or cell not in range(width):
+        u, cell, order, points = found
+        if not isinstance(u, Function) or cell not in range(width):
             raise NotImplementedError("expected a local Basix field read")
         E = _element(u.space)
         dof = derived_index("compiler.ufcx.dof", u, cell)

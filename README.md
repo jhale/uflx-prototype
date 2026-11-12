@@ -162,9 +162,9 @@ checks:
 - `uflx_toy`: a language extension, with the classes that the specification
   leaves to a library or to an extension, `IndexTable`, `RuntimeExtent`,
   `RuntimeArray`, the space `Space`, the reference cell `ReferenceSimplex`, and the
-  topologies `StaticTopology` and `TabulatedTopology`, whose side tables
+  topologies `StaticTopology` and `TabulatedTopology`, whose side data
   `inclusions.py` builds from vertex positions with `affine_map`, and `BasixCell`,
-  a reference cell of Basix, whose facet normals the side tables read from the
+  a reference cell of Basix, whose facet normals the side data read from the
   tables of Basix, and `BasixSpace`, a space of Basix elements on a
   mesh, whose dof map shares the dofs of shared entities so that the space is
   continuous
@@ -505,10 +505,14 @@ The core splits a public API from a private one, as JAX does with `jax._src`.
 The public API is `uflx_spec_interpreter/__init__.py`, which re-exports the
 free functions of the specification and declares them in `__all__`, with the
 literal classes, `RD`, scalar types and the convenience helper `num`.
-`reference_integral(f, D, group, entry)` gives one selected entity’s reference
-integral. Mesh expansion wraps it in a fresh cell sum; UFCx compilation supplies
-a local entry directly. It works for cells and facet meshes. A user,
-and a test that builds expressions, imports only these, as in
+`reference_integral(f, D, cell_slot)` gives one local cell’s reference integral.
+Mesh expansion adds these integrals over the fixed slots without introducing
+an array index or cell sum. UFCx compilation selects its local slot directly.
+It works for cells and facet meshes. `CellMap(parent, cell_slot)` selects a slot;
+`SideMap(parent, restriction_domain, side)` reads through a named inclusion.
+Topologies supply `side_data(cell_slot, side)` as `(inclusion, reference_normal)`;
+cell counts and neighbour lookup belong to the calling finite element package.
+A user, and a test that builds expressions, imports only these, as in
 `from uflx_spec_interpreter import add, index`. `AbstractExpression` also has
 the operator overloads of the specification, which call these free functions
 and reject Python numbers.
@@ -532,7 +536,6 @@ modules of `_src`:
   `integral`
 - `maps.py`: `domain_map` and `pull_back`
 - `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
-- `topology.py`: `cell_index`
 - `meshes.py`: `image`, `cell_map`, `side_domain`,
   `side_map` and `normal`
 - `spaces.py`: `conjugate_space` and `dual_space`

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from test_basix import quadrilaterals
 from test_compiler import functionals
-from testutil import contains, push_forward, vertex_mesh
+from testutil import contains, grouped_topology, push_forward, vertex_mesh
 
 from uflx_compiler import compile_form, evaluate, fold, tabulation
 from uflx_oracle import evaluate as oracle
@@ -12,7 +12,6 @@ from uflx_spec_interpreter import function, gradient, integral
 from uflx_spec_interpreter._src.nodes import GatheredIndex
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
-from uflx_toy.topology import static_topology
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P
@@ -21,7 +20,7 @@ P = basix.ElementFamily.P
 def factored(compiled, dimension):
     # The coefficients are gathered with a dof index for each factor of the element.
     return contains(
-        compiled, lambda n: isinstance(n, GatheredIndex) and len(n.indices) == 1 + dimension
+        compiled, lambda n: isinstance(n, GatheredIndex) and len(n.indices) == dimension
     )
 
 
@@ -43,7 +42,7 @@ def test_quadrilateral_kernels_factor_and_agree_with_the_oracle(degree, disconti
 
 def test_a_hexahedron_kernel_factors_and_agrees_with_the_oracle():
     H = basix_cell(basix.CellType.hexahedron)
-    T = static_topology((H,), ((tuple(range(8)),),), ())
+    T = grouped_topology((H,), ((tuple(range(8)),),), ())
     # The unit cube shifted by (1, 2, 3), with vertex v at the bits of v, as Basix numbers them.
     D = vertex_mesh(T, [(1 + (v & 1), 2 + (v >> 1 & 1), 3 + (v >> 2 & 1)) for v in range(8)])
     V = basix_space("V", D.topology, P, 2, True)

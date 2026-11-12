@@ -2,7 +2,6 @@ import random
 import sys
 
 import numpy as np
-from test_integrals import SQUARE as SQUARE_TOPOLOGY
 from test_integrals import D, u
 from test_surface import M
 from testutil import assert_clean, check_types, contains, keeps_static_type, table
@@ -17,10 +16,8 @@ from uflx_spec_interpreter import (
     domain_map,
     expand_arithmetic,
     function,
-    gathered_index,
     gradient,
     index,
-    index_sum,
     indexed,
     integral,
     multiply,
@@ -41,7 +38,6 @@ from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
-from uflx_toy.indices import index_table
 from uflx_toy.spaces import space
 from uflx_toy.topology import tabulated_topology
 
@@ -76,9 +72,9 @@ def in_square(x):
 
 
 def selected_points(Q, located):
-    cells = index_table(tuple(c for c, _ in located), Q.topology.num_cells[0])
-    return cell_map(Q, 0, gathered_index(cells, (i,))), points(
-        [X for _, X in located], Q.topology.cell_types[0]
+    return tuple(
+        (cell_map(Q, slot), domain_map(POINT, table(X), Q.topology.cell_types[slot]))
+        for slot, X in located
     )
 
 
@@ -89,14 +85,11 @@ SURFACE_POINTS = selected_points(M, SURFACE)
 def topology_of_points(Q, label, located):
     # The points as a topology with the side "inside", with the side tables of a mesh library.
     # The cells of the topology of the points are of a reference cell type of dimension 0.
-    cells = index_table(tuple(cell for cell, _ in located), 2)
-    positions = table([[X] for _, X in located])
     S = tabulated_topology(
         label,
-        (reference_simplex(0),),
-        (len(located),),
-        ((("inside", SQUARE_TOPOLOGY, 0),),),
-        (((cells, positions),),),
+        (reference_simplex(0),) * len(located),
+        tuple((("inside", Q.topology, slot),) for slot, _ in located),
+        tuple((table([X]),) for _, X in located),
     )
     E = side_domain(Q, S, S.sides[0][0][0])
     return E, side_map(Q, E, "inside")
@@ -144,8 +137,8 @@ def by_the_points(n):
     return (
         isinstance(n, PullBack)
         and isinstance(n.map, CellMap)
-        and n.map.ambient_domain in (D, M)
-        and n.map.parameter_domain == POINT
+        and n.map.parent in (D, M)
+        and n.map.reference_cell == POINT
     )
 
 
@@ -165,9 +158,13 @@ def main(trials):
             E, sm = side
             e = integral(pull_back(integrand(rnd, Q, f), sm), E)
         else:
-            e = index_sum(
-                integral(pull_back(pull_back(integrand(rnd, Q, f), family[0]), family[1]), POINT),
-                (i,),
+            value = integrand(rnd, Q, f)
+            e = sum(
+                (
+                    integral(pull_back(pull_back(value, cell), point), POINT)
+                    for cell, point in family
+                ),
+                num(0),
             )
         out4 = pullbacks.expand_pull_backs(integrals.expand_integrals(e))
         out4 = expand_arithmetic(out4)

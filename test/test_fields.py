@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 from test_integrals import D as MESH
-from test_integrals import K, c
+from test_integrals import K
 from testutil import assert_clean, check_types
 
 from uflx_oracle import evaluate
@@ -66,8 +66,15 @@ def integral_of(rnd, body):
     # The integral over the mesh, or the same written by hand with a pull-back by the cells.
     if rnd.random() < 0.7:
         return integral(body, MESH)
-    cells = cell_map(MESH, 0)
-    return index_sum(integral(multiply(pull_back(body, cells), density(cells)), K), (c,))
+    return sum(
+        (
+            integral(
+                multiply(pull_back(body, cell_map(MESH, slot)), density(cell_map(MESH, slot))), K
+            )
+            for slot in range(len(MESH.topology.cell_types))
+        ),
+        num(0),
+    )
 
 
 def random_form(rnd, n, depth):
