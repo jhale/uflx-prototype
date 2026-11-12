@@ -121,13 +121,13 @@ def _facet_tables(nodes, mesh, domain, width):
             raise NotImplementedError("UFCx requires complete reference-facet inclusions")
     geometry_map = domain.coordinate_function.map
     slot = geometry_map.entries[0][0]
-    local_geometry = side_map(mesh.topology, source, (slot, inclusions[slot]))
+    local_geometry = side_map(source, (mesh.topology[slot], inclusions[slot]))
     local_domain = image(pull_back(mesh.coordinate_function, local_geometry), domain.ambient_domain)
     mapping = {domain: local_domain}
     for relation in maps:
         slot = relation.entries[0][0]
         endpoint = local_domain if relation.source == domain else source
-        mapping[relation] = side_map(relation.parent, endpoint, (slot, inclusions[slot]))
+        mapping[relation] = side_map(endpoint, (relation.parent[slot], inclusions[slot]))
 
     # A normal's orientation is data, not part of the evaluation relation. The
     # UFCx ABI changes the selected facet at runtime; retain the declared sign.

@@ -384,7 +384,7 @@ source topology and an explicit reference inclusion `A` into parent slot 0:
 
 ```python
 boundary = side_domain(mesh, boundary_topology, (0, A))
-trace = pull_back(integrand, side_map(mesh, boundary, (0, A)))
+trace = pull_back(integrand, side_map(boundary, (mesh[0], A)))
 code = compile_ufcx(integral(trace, boundary), mesh, degree=4)
 assert code.integral_type == "exterior_facet"
 ```
@@ -403,8 +403,8 @@ integration geometry explicitly, then restrict each field through its relation.
 
 ```python
 interface = side_domain(mesh, interface_topology, (0, A0))
-plus = side_map(mesh, interface, (0, A0))
-minus = side_map(mesh, interface, (1, A1))
+plus = side_map(interface, (mesh[0], A0))
+minus = side_map(interface, (mesh[1], A1))
 jump = pull_back(u, plus) - pull_back(u, minus)
 code = compile_ufcx(integral(jump * jump, interface), mesh, degree=4)
 ```
@@ -562,10 +562,11 @@ Mesh expansion adds these integrals over the fixed slots without introducing
 an array index or cell sum. UFCx compilation selects its local slot directly.
 It works for cells and facet meshes. `CellMap(parent, cell_slot)` selects a slot;
 `SideMap(parent, source, entries)` stores one `(parent_slot, inclusion)` per
-source slot. The factory accepts `side_map(D, E, (0, A))`. Topologies carry no
+source slot. The factory accepts `side_map(E, (cell, A))`, inferring the parent from
+the `CellMap` handle `cell`. All entries must share that parent. Topologies carry no
 side or normal data. `normal(relation, m0, ...)` supplies one oriented reference
-conormal per source slot, independently of map identity. `compose(outer, inner)`
-builds another relation by slot selection and coordinate-map composition.
+conormal per source slot, independently of map identity. Successive restrictions
+use nested pull-backs: `pull_back(pull_back(u, outer), inner)`.
 The optional `side_domain(D, S, *entries)` helper derives source geometry; a
 source mesh can also be constructed independently. Cell bindings and neighbour
 lookup belong to the calling finite element package.

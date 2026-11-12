@@ -184,7 +184,7 @@ def side_map(domain, source, selection=None):
     relation = named[selected]
     if relation.parent != T:
         raise ValueError("fixture side has a different parent")
-    return uflx_spec_interpreter.side_map(domain, source, *relation.entries)
+    return uflx_spec_interpreter.side_map(source, *((domain[j], A) for j, A in relation.entries))
 
 
 def side_domain(domain, topology, selection=None):

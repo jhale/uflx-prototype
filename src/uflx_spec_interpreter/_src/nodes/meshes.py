@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, cast, final
+from typing import TYPE_CHECKING, Literal, Never, cast, final
 
 from .base import Base
 from .caching import cached
@@ -24,6 +24,14 @@ class Mesh(AbstractDomain):
 
     coordinate_function: AbstractExpression
     _ambient_domain: AbstractCoordinateDomain
+
+    def __getitem__(self, cell_slot: int) -> CellMap:
+        from ..meshes import cell_map
+
+        return cell_map(self, cell_slot)
+
+    def __iter__(self) -> Never:
+        raise TypeError(f"{type(self).__name__} is not iterable")
 
     @property
     def ambient_domain(self) -> AbstractCoordinateDomain:

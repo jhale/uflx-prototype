@@ -14,16 +14,21 @@ from uflx_spec_interpreter import (
     form,
     lower,
     num,
+    side_map,
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
 from uflx_spec_interpreter._src.nodes import (
     AbstractDomain,
     AbstractExpression,
+    AbstractTopology,
     BroadcastTo,
+    CellMap,
+    DomainMap,
     Function,
     Gradient,
     Mesh,
+    SideMap,
 )
 from uflx_spec_interpreter._src.passes.contracts import (
     core_normal_form,
@@ -70,3 +75,15 @@ def incomplete(node: Integer | Float) -> int | None:
     match node:  # expect: reportMatchNotExhaustive
         case Integer(n):
             return n
+
+
+def cell_selection(topology: AbstractTopology, mesh: Mesh) -> None:
+    assert_type(topology[0], CellMap)
+    assert_type(mesh[0], CellMap)
+    topology["cell"]  # expect: reportArgumentType
+    mesh[:]  # expect: reportArgumentType
+
+
+def side_selection(source: AbstractTopology, cell: CellMap, inclusion: DomainMap) -> None:
+    assert_type(side_map(source, (cell, inclusion)), SideMap)
+    side_map(source, (0, inclusion))  # expect: reportArgumentType
