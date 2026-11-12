@@ -140,7 +140,7 @@ def basix_function(space, coefficients):
     T = space.domain
     j = POINTS.get(("piece", T), 0)
     phi = space.element(j).tabulate(0, np.array([POINTS[T]], dtype=float))[0, 0]
-    local = np.asarray(coefficients)[list(space.dofmap[j])]
+    local = np.asarray(coefficients)[list(space.cell_dofs[j])]
     value = local.reshape(-1, space.block_size).T @ phi[:, 0] if space.block_shape else local @ phi
     return value.reshape(space.value_shape)
 

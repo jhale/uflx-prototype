@@ -66,7 +66,7 @@ def test_coincident_cells_keep_independent_finite_element_fields():
     V = basix_space("independent", T, basix.ElementFamily.P, 1)
     u = push_forward(function(V, "u"), D)
     coefficients = np.empty(V.num_dofs)
-    for row, value in zip(V.dofmap, (2, 7), strict=True):
+    for row, value in zip(V.cell_dofs, (2, 7), strict=True):
         coefficients[list(row)] = value
     result = compiled_value(compile_form(integral(u, D), 2), {"coefficients:u": coefficients})
     assert np.isclose(result, 9)
@@ -100,9 +100,9 @@ def test_diffusion_on_independent_analytic_curve_patches():
     energy = integral(g[0] * g[0] + g[1] * g[1], D)
     r_values = np.empty(R.num_dofs)
     a_values = np.empty(A.num_dofs)
-    for row in R.dofmap:
+    for row in R.cell_dofs:
         r_values[list(row)] = (0, 1)
-    for row, curvature in zip(A.dofmap, (1, 2), strict=True):
+    for row, curvature in zip(A.cell_dofs, (1, 2), strict=True):
         a_values[list(row)] = curvature
     env = {"coefficients:r": r_values, "coefficients:a": a_values}
     value = compiled_value(compile_form(energy, 40), env)

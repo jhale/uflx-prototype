@@ -1,4 +1,4 @@
-from .assembly import assemble
+from .assembly import assemble, assemble_bound
 from .evaluation import evaluate
 from .folding import fold
 from .inputs import kernel_inputs
@@ -10,6 +10,7 @@ from .ufcx import compile_ufcx
 __all__ = [
     "apply_quadrature",
     "assemble",
+    "assemble_bound",
     "coefficients",
     "compile_form",
     "compile_ufcx",

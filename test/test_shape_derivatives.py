@@ -18,6 +18,7 @@ from uflx_spec_interpreter import (
     side_domain,
     tensor,
 )
+from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -29,7 +30,7 @@ X = basix_space("X", T, P, 1)
 x0, x1 = function(X, "x0"), function(X, "x1")
 v0, v1 = function(X, "v0"), function(X, "v1")
 D = image(tensor((x0, x1)), RD(2))
-# The dofs of P1 on T are the vertices, so the coordinates are those of a skewed square.
+# Library coordinate data at shared vertices of a skewed square.
 COORDINATES = np.array([(0.0, 0.0), (1.0, 0.1), (1.2, 1.1), (-0.1, 0.9)])
 RNG = np.random.default_rng(3)
 DIRECTION = RNG.normal(size=(4, 2))
@@ -38,11 +39,14 @@ W = RNG.normal(size=basix_space("R", T, RT, 1).num_dofs)
 
 
 def env(coordinates):
+    mapping = conforming_dofmap(X)
+    coordinates = mapping.gather(coordinates)
+    direction = mapping.gather(DIRECTION)
     return {
         "coefficients:x0": coordinates[:, 0],
         "coefficients:x1": coordinates[:, 1],
-        "coefficients:v0": DIRECTION[:, 0],
-        "coefficients:v1": DIRECTION[:, 1],
+        "coefficients:v0": direction[:, 0],
+        "coefficients:v1": direction[:, 1],
         "coefficients:u": U,
         "coefficients:w": W,
     }
@@ -93,6 +97,7 @@ def test_the_shape_gradient_assembles_to_the_derivative_in_each_dof():
     gradient_x0 = assemble(
         form(directional_derivative(f, (x0, x1), (x0, x1), (z, num(0))), (z,)), 8
     )(env(COORDINATES))
+    gradient_x0 = conforming_dofmap(X).scatter(gradient_x0)
     step = 1e-6
     for dof in range(4):
         e = np.zeros((4, 2))
@@ -107,8 +112,8 @@ def test_a_mesh_moved_by_a_displacement_is_the_mesh_of_the_moved_coordinates():
     moved = image(tensor((x0 + d0, x1 + d1)), RD(2))
     displacement = RNG.normal(size=(4, 2)) * 0.05
     data = env(COORDINATES) | {
-        "coefficients:d0": displacement[:, 0],
-        "coefficients:d1": displacement[:, 1],
+        "coefficients:d0": conforming_dofmap(X).gather(displacement[:, 0]),
+        "coefficients:d1": conforming_dofmap(X).gather(displacement[:, 1]),
     }
     for f, g in zip(area_and_energy(moved), area_and_energy(D), strict=True):
         assert np.isclose(evaluate(compile_form(f, 8), data), value(g, COORDINATES + displacement))

@@ -10,6 +10,7 @@ from uflx_compiler import compile_form, evaluate, fold, tabulation
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import function, gradient, integral
 from uflx_spec_interpreter._src.nodes import GatheredIndex
+from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -32,7 +33,8 @@ def test_quadrilateral_kernels_factor_and_agree_with_the_oracle(degree, disconti
     V = basix_space("V", D.topology, P, degree, discontinuous)
     uT = function(V, "u")
     u = push_forward(uT, D)
-    U = np.random.default_rng(degree).normal(size=V.num_dofs)
+    mapping = conforming_dofmap(V)
+    U = mapping.gather(np.random.default_rng(degree).normal(size=mapping.num_dofs))
     for e in functionals(D, u)[1:]:
         compiled = compile_form(e, 2 * degree + 2)
         assert factored(compiled, 2), e

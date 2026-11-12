@@ -16,6 +16,7 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.passes import integrals
 from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial
+from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -33,7 +34,7 @@ def interpolate(V, f, coordinates):
         E, cell_type = V.element(j), T.cell_types[j].cell_type
         shapes = basix.create_element(P, cell_type, 1).tabulate(0, E.points)[0, :, :, 0]
         x = shapes @ np.array([coordinates[v] for v in vertices], dtype=float)
-        U[list(V.dofmap[j])] = [f(p) for p in x]
+        U[list(V.cell_dofs[j])] = [f(p) for p in x]
     return U
 
 
@@ -65,14 +66,15 @@ def test_an_interpolated_polynomial_integrates_exactly(degree):
     assert np.isclose(value(integral(gradient(u, D)[1], D), env), 2 if degree == 1 else 0.5)
 
 
-def test_a_continuous_space_has_no_jump_for_any_coefficients():
-    # The two cells share the dofs of the diagonal, whatever the values of the dofs.
+def test_library_gathering_makes_traces_continuous():
+    # The library gathers shared DOFs into independent local coefficient slots.
     D, E, _ = square(basix_cell(basix.CellType.triangle))
     rng = np.random.default_rng(3)
     for degree in (1, 2):
         V = basix_space("V", D.topology, P, degree)
         uT = function(V, "u")
-        coefficients = {uT: rng.normal(size=V.num_dofs)}
+        mapping = conforming_dofmap(V)
+        coefficients = {uT: mapping.gather(rng.normal(size=mapping.num_dofs))}
         assert np.isclose(
             value(jump_squared(push_forward(uT, D), D, E), coefficients), 0, atol=1e-10
         )
@@ -93,5 +95,6 @@ def test_a_continuous_space_on_triangles_and_a_quadrilateral():
     env = {uT: interpolate(V, lambda x: x[0] ** 2 + x[0] * x[1] - x[1], MIXED)}
     assert np.isclose(value(integral(u, D), env), 1 / 3 + 1 / 4 - 1 / 2)
     rng = np.random.default_rng(4)
-    random = {uT: rng.normal(size=V.num_dofs)}
+    mapping = conforming_dofmap(V)
+    random = {uT: mapping.gather(rng.normal(size=mapping.num_dofs))}
     assert np.isclose(value(jump_squared(u, D, E), random), 0, atol=1e-10)

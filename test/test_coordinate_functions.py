@@ -23,6 +23,7 @@ from uflx_spec_interpreter._src.meshes import is_cell
 from uflx_spec_interpreter._src.nodes import CellMap, Division, Gradient, PullBack
 from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial
+from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -40,10 +41,11 @@ def coordinates(degree, discontinuous=False):
 
 
 def p1_mesh():
-    # The dofs of a P1 space on T are numbered by the vertices, in the order of their first cell.
+    # The library gathers shared vertex coordinates into the two local cells.
     X, x0, x1, x = coordinates(1)
-    assert X.dofmap == ((0, 1, 2), (0, 2, 3))
-    return image(x, RD(2)), {x0: VERTICES[:, 0], x1: VERTICES[:, 1]}
+    assert X.cell_dofs == ((0, 1, 2), (3, 4, 5))
+    mapping = conforming_dofmap(X)
+    return image(x, RD(2)), {x0: mapping.gather(VERTICES[:, 0]), x1: mapping.gather(VERTICES[:, 1])}
 
 
 def labelled(env):
@@ -104,11 +106,11 @@ def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
         P, basix.CellType.triangle, 2, basix.LagrangeVariant.equispaced
     ).points
     values = np.zeros((X.num_dofs, 2))
-    for c, rows in enumerate(X.dofmap):
+    for c, rows in enumerate(X.cell_dofs):
         a, b, d = VERTICES[list(T.cells[c])]
         values[list(rows)] = a + np.outer(points[:, 0], b - a) + np.outer(points[:, 1], d - a)
-    midpoint = next(d for d in X.dofmap[0] if np.allclose(values[d], (0.5, 0.5)))
-    values[midpoint] += (0.08, -0.05)
+    midpoints = np.all(np.isclose(values, (0.5, 0.5)), axis=1)
+    values[midpoints] += (0.08, -0.05)
     geometry = {x0: values[:, 0], x1: values[:, 1]}
     u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
     U = np.random.default_rng(1).normal(size=u.expression.space.num_dofs)
@@ -127,7 +129,7 @@ def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
     rng = np.random.default_rng(12)
     corners = np.array([(0, 0), (1, 0), (1.2, 1.1), (-0.1, 0.9)]) + rng.normal(size=(4, 2)) * 0.05
     cells = corners[[[0, 1, 2], [0, 2, 3]]]
-    flat = cells.reshape(-1, 2)[np.argsort(np.ravel(X.dofmap))]
+    flat = cells.reshape(-1, 2)[np.argsort(np.ravel(X.cell_dofs))]
     geometry = {"coefficients:x0": flat[:, 0], "coefficients:x1": flat[:, 1]}
     U = rng.normal(size=basix_space("V", T, P, 2).num_dofs)
     u, w = (

@@ -16,7 +16,7 @@ from legacy import (
 )
 from testutil import grouped_topology, push_forward, side_map, vertex_mesh
 
-from uflx_compiler import assemble
+from uflx_compiler import assemble_bound
 from uflx_spec_interpreter import (
     conjugate,
     form,
@@ -30,6 +30,7 @@ from uflx_spec_interpreter import (
     side_domain,
 )
 from uflx_spec_interpreter._src.nodes import Conjugate, Integer, Product, Sum
+from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -98,7 +99,19 @@ def assembled(f):
     if isinstance(f, Product) and isinstance(f.construction_arguments[0], Integer):
         c, g = f.construction_arguments
         return c.value * assembled(g)
-    return assemble(f, 4)(DATA)
+    from uflx_spec_interpreter._src.algorithms.traversal import everywhere
+    from uflx_spec_interpreter._src.nodes import Function
+    from uflx_toy.basix_nodes import BasixSpace
+
+    bindings = {}
+
+    def bind(node):
+        if isinstance(node, Function) and isinstance(node.space, BasixSpace):
+            bindings[node] = conforming_dofmap(node.space)
+        return True
+
+    everywhere(f, bind)
+    return assemble_bound(f, 4, bindings)(DATA)
 
 
 def test_the_classic_poisson_script_gives_the_forms_of_the_core():

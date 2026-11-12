@@ -40,10 +40,10 @@ def curved():
         P, basix.CellType.triangle, 2, basix.LagrangeVariant.equispaced
     ).points
     values = np.zeros((X.num_dofs, 2))
-    for c, rows in enumerate(X.dofmap):
+    for c, rows in enumerate(X.cell_dofs):
         a, b, d = np.asarray(VERTICES, dtype=float)[list(T.cells[c])]
         values[list(rows)] = a + np.outer(points[:, 0], b - a) + np.outer(points[:, 1], d - a)
-    middle = next(d for d in X.dofmap[0] if np.allclose(values[d], (0.55, 0.45)))
+    middle = np.all(np.isclose(values, (0.55, 0.45)), axis=1)
     values[middle] += (0.06, -0.04)
     geometry = {x0: values[:, 0], x1: values[:, 1]}
     return image(tensor((x0, x1)), RD(2)), geometry

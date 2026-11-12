@@ -62,7 +62,7 @@ class BasixCell(AbstractReferenceCell):
 @final
 class BasixSpace(AbstractFunctionSpace):
     identifier = "toy.BasixSpace"
-    # A Basix element on each cell type of a topology, with the global dofs of each cell. Every
+    # A Basix element on each cell slot, with independent cell-local coefficients. Every
     # element of Basix that the toy builds is Piola equivalent, so the space is on a topology.
     label: str
     _domain: AbstractTopology
@@ -138,36 +138,18 @@ class BasixSpace(AbstractFunctionSpace):
         raise ValueError(f"no transformation law for {self.element(0).map_type}")
 
     @cached_property
-    def dofmap(self):
-        # Cells share the dofs of their shared vertices, edges and faces, so the space is
-        # continuous. A discontinuous element has all of its dofs inside the cell.
-        T, first, count = self.topology, {}, 0
-        dofmap = []
-        for j, vertices in enumerate(T.cells):
-            E = self.element(j)
-            entities = basix.cell.topology(T.cell_types[j].cell_type)
-            tdim = len(entities) - 1
-            row = [0] * E.dim
-            for d, on_dim in enumerate(E.entity_dofs):
-                for n, local in enumerate(on_dim):
-                    if d == tdim:
-                        key = ("cell", j)
-                    else:
-                        # One dof on an edge or a face needs no orientation.
-                        assert d == 0 or len(local) <= 1, "dof orientation is not covered"
-                        key = (d, frozenset(vertices[v] for v in entities[d][n]))
-                    if key not in first:
-                        first[key], count = count, count + len(local)
-                    for m, dof in enumerate(local):
-                        row[dof] = first[key] + m
-            dofmap.append(
-                tuple(self.block_size * dof + c for dof in row for c in range(self.block_size))
-            )
-        return tuple(dofmap)
+    def cell_dofs(self):
+        # Packed cell-local coefficients. Vertex labels never identify field DOFs.
+        rows, offset = [], 0
+        for E, _ in self.elements:
+            size = E.dim * self.block_size
+            rows.append(tuple(range(offset, offset + size)))
+            offset += size
+        return tuple(rows)
 
     @property
     def num_dofs(self):
-        return 1 + max(d for row in self.dofmap for d in row)
+        return sum(len(row) for row in self.cell_dofs)
 
     @property
     def domain(self):

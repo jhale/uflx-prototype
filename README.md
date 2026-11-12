@@ -165,9 +165,9 @@ checks:
   topologies `StaticTopology` and `TabulatedTopology`, whose side data
   `inclusions.py` builds from vertex positions with `affine_map`, and `BasixCell`,
   a reference cell of Basix, whose facet normals the side data read from the
-  tables of Basix, and `BasixSpace`, a space of Basix elements on a
-  mesh, whose dof map shares the dofs of shared entities so that the space is
-  continuous
+  tables of Basix, and `BasixSpace`, a space of Basix elements with independent
+  cell-local coefficients. `uflx_toy.assembly` supplies explicit library DOF maps
+  for gathering coefficients and scattering local tensors
 - `uflx_oracle`: the oracle that the tests compare the passes against
 - `uflx_compiler`: a form compiler after the core normal form, with a quadrature
   pass that rewrites an integral over a Basix cell as a weighted sum over the
@@ -179,7 +179,48 @@ checks:
   an evaluator of the arithmetic that remains on NumPy or JAX arrays, after
   `fold` has computed once the subgraphs that read no kernel input
   and `assemble`, which puts the unit vectors in place of the coefficients of
-  each argument of a form, so that the form evaluates to its assembled tensor
+  each argument of a form, so that the form evaluates to its local tensor.
+  `assemble_bound` additionally gathers and scatters using caller-supplied DOF maps
+
+### Local coefficients and library assembly
+
+[The air–liquid–solid example](examples/air_liquid_solid.py) constructs five
+separate local contributions with abstract vector geometry and explains their
+library bindings in diagrams. It does not require a three-cell patch.
+
+`BasixSpace.cell_dofs` describes a packed local layout, and `num_dofs` is its
+size. Two P1 triangle slots have rows `((0, 1, 2), (3, 4, 5))`, even if the
+topology identifies their vertices. The Basix `discontinuous` option selects
+an element; it does not instruct the compiler to identify DOFs across cells.
+
+A library supplies a separate `DofMap`. Its indices associate each packed
+local coefficient with an assembled DOF. Repeated indices establish shared
+values when gathering and accumulate contributions when scattering:
+
+```python
+from uflx_compiler import assemble, assemble_bound
+from uflx_toy.assembly import DofMap
+
+# For two triangles with vertex rows (0,1,2) and (0,2,3).
+mapping = DofMap((0, 1, 2, 0, 2, 3), 4)
+local_values = mapping.gather(assembled_values)  # 4 -> 6 coefficients
+local_matrix = assemble(a, degree=2)({})        # 6 x 6
+matrix = assemble_bound(a, 2, {u: mapping, v: mapping})({})  # 4 x 4
+```
+
+`assemble_bound` bindings are keyed by symbolic functions; coefficient and
+coordinate functions may be bound as well as arguments. Unbound functions keep
+the local layout. `conforming_dofmap(V)` is a toy policy that derives such a map
+from vertex labels and Basix entity DOFs for elements requiring no DOF
+transformations. Other solvers provide their own connectivity and transformations.
+The toy scatter operation uses NumPy; local evaluation and `DofMap.gather`
+can also use JAX.
+
+Geometry data are subject to the same packing contract. Declaring a vector
+coordinate function does not make two cells' traces agree: the library supplies
+compatible coordinates and facet correspondence. Side names do not determine
+outward orientation. A physical region's shape does not determine its kernel's
+reference cell type; local expressions are instantiated on selected mesh cells.
 
 The C emitter, `uflx_compiler.c_code.c_kernel`, emits scalar arithmetic with
 loops over `output_indices`. `index_bindings` maps remaining
@@ -300,8 +341,13 @@ may still produce differently ordered arithmetic after canonicalisation.
 
 The supported UFCx subset is float64 cell, exterior-facet and interior-facet
 integrals of rank 0, 1 or 2, on one mesh with one Basix cell type. Facet kernels
-currently require a uniform reference facet type. Geometry is a tensor of scalar
-Basix coordinate functions (including curved geometry), or vertex coordinates interpreted as P1.
+currently require a uniform reference facet type. The expression must describe
+the local configuration: one parent cell slot for cell and exterior-facet
+kernels, or two distinct parent cell slots for interior-facet kernels. Facet
+kernels require one integration slot, with one side selecting each parent
+slot. Unsupported configurations are rejected; zero and one-sided integrands
+retain the complete declared layout. Geometry is a vector Basix function, a tensor of scalar Basix coordinate
+functions (including curved geometry), or vertex coordinates interpreted as P1.
 Element families and degrees follow the toy Basix spaces, with the equispaced
 variant; custom variants are not yet exposed. Mixed arguments and complex inputs
 are rejected. Scalar and tensor constants are packed separately from coefficients.
@@ -370,10 +416,11 @@ runtime. It does not generate kernels for every pair of facets or permutations.
 Constant folding preserves output and dispatch indices to avoid materialising
 cross-products of the two sides' tables.
 
-Interior coefficients use `w[coefficient][side][local_dof]`, with `+` before `-`.
+Interior coefficients use `w[coefficient][side][local_dof]`, in parent cell-slot order.
+The side names select their declared slots; `"+"` does not implicitly mean slot 0.
 Coordinates use `coordinate_dofs[side][coordinate_dof][3]`; constants are shared
-between sides. Each argument axis has twice the element dimension, again with
-`+` DOFs before `-` DOFs. A bilinear kernel therefore fills all four coupling
+between sides. Each argument axis has twice the element dimension, in parent
+cell-slot order. A bilinear kernel therefore fills all four coupling
 blocks. The solver remains responsible for element DOF transformations and for
 packing two conforming cells with their facet permutations.
 

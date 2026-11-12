@@ -42,7 +42,6 @@ from uflx_toy.basix_nodes import BasixSpace
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.nodes import IndexTable, VertexCoordinates
 from uflx_toy.runtime import runtime_array
-from uflx_toy.topology import tabulated_topology
 
 from .algebra import _normalizer
 from .c_code import c_kernel
@@ -120,10 +119,13 @@ def compile_ufcx(
     """Emit one UFCx cell, exterior-facet or interior-facet integral.
 
     Supports real scalar functionals and forms of rank one or two on one mesh
-    with one Basix cell type. Geometry is a tensor of scalar Basix functions or
-    vertex coordinates (P1). Explicit coefficient/constant sequences set input
-    order; otherwise construction order is used. A side_domain with one side
-    selects exterior facets; two sides named + and - select interior facets.
+    with one Basix cell type. Geometry is a vector Basix function, a tensor of
+    scalar Basix functions, or vertex coordinates (P1). Explicit sequences set input
+    order; otherwise construction order is used. Cell and exterior-facet kernels
+    require one parent cell slot; interior-facet kernels require two distinct
+    parent slots, each selected by one of the sides named + and -. Facet kernels
+    require one integration slot. Unsupported configurations are rejected rather
+    than truncated or expanded; zero and one-sided integrands keep that layout.
     Blocked scalar elements support vector/tensor arguments and coefficients
     with interleaved components. Mixed arguments are rejected.
     ``sum_factorisation=True`` enables experimental staged tensor-product
@@ -139,23 +141,11 @@ def compile_ufcx(
         raise NotImplementedError("UFCx cell kernels require one cell type")
     f, mesh, geometry, coordinate_element = _coordinate_fields(f, mesh)
 
-    originals = {}
     normalize = _normalizer()
     f = apply_derivatives(apply_actions(f))
     domain = _integration_domain(f, mesh)
-    width = 1 if domain == mesh else len(domain.topology.sides[0])
-    if width == 2:
-        # A generic two-cell topology keeps local side 1 valid even for periodic
-        # or symbolic input topologies. User inputs are returned in their original identity.
-        local = tabulated_topology("ufcx_pair", (mesh.topology.cell_types[0],) * 2, (), ())
-        mapping = {mesh.topology: local}
-        originals = {substitute(u, mapping): u for u in _nodes(f) if isinstance(u, Function)}
-        f, mesh, domain = (substitute(n, mapping) for n in (f, mesh, domain))
-        geometry = tuple(substitute(n, mapping) for n in geometry)
-        if coefficients is not None:
-            coefficients = tuple(substitute(n, mapping) for n in coefficients)
-        if constants is not None:
-            constants = tuple(substitute(n, mapping) for n in constants)
+    # The expression owns the complete local configuration, including unused slots.
+    width = len(mesh.topology.cell_types)
     f = normalize(f)
     arguments = ()
     while isinstance(f, Form):
@@ -295,8 +285,8 @@ def compile_ufcx(
         source,
         name,
         shape,
-        tuple(originals.get(u, u) for u in coefficients),
-        tuple(originals.get(u, u) for u in constants),
+        tuple(coefficients),
+        tuple(constants),
         coefficient_offsets,
         constant_offsets,
         integral_type,
@@ -306,24 +296,30 @@ def compile_ufcx(
 def _integration_domain(f, mesh):
     domains = {n.integration_domain for n in _nodes(f) if isinstance(n, Integral)}
     if not domains:
-        return mesh  # A zero form may have no surviving integral.
+        domains = {mesh}  # A domain-free zero form may represent a cell kernel.
     if len(domains) != 1:
         raise NotImplementedError("one integration domain is required per UFCx form")
     (domain,) = domains
     if domain == mesh:
+        if len(mesh.topology.cell_types) != 1:
+            raise NotImplementedError("UFCx cell kernels require exactly one parent cell slot")
         return domain
     if not isinstance(domain, Mesh) or domain.dimension != mesh.dimension - 1:
         raise NotImplementedError("expected a cell or facet integration domain")
-    widths = {len(sides) for sides in domain.topology.sides}
-    if widths not in ({1}, {2}) or any(
-        parent != mesh.topology or slot not in range(len(mesh.topology.cell_types))
-        for sides in domain.topology.sides
-        for _, parent, slot in sides
+    if len(domain.topology.cell_types) != 1 or len(domain.topology.sides) != 1:
+        raise NotImplementedError("UFCx facet kernels require exactly one integration cell slot")
+    (sides,) = domain.topology.sides
+    width = len(mesh.topology.cell_types)
+    if (
+        width not in (1, 2)
+        or len(sides) != width
+        or any(parent != mesh.topology for _, parent, _ in sides)
+        or {slot for _, _, slot in sides} != set(range(width))
     ):
-        raise NotImplementedError("expected one or two sides on the supplied topology")
-    if widths == {2} and any(
-        {s[0] for s in sides} != {"+", "-"} for sides in domain.topology.sides
-    ):
+        raise NotImplementedError(
+            "UFCx facet kernels require one side for each distinct parent cell slot"
+        )
+    if width == 2 and {name for name, _, _ in sides} != {"+", "-"}:
         raise NotImplementedError("interior facets require sides named '+' and '-'")
     match domain.coordinate_function:
         case PullBack(x, SideMap(T, S, _)) if T == mesh.topology and S == domain.topology:
@@ -345,13 +341,23 @@ def _coordinate_fields(f, mesh):
         )
         mesh = local_mesh
     else:
-        if not isinstance(mesh.coordinate_function, Tensor):
-            raise NotImplementedError("UFCx geometry must be a tensor of scalar Basix functions")
-        geometry = mesh.coordinate_function.entries
-    if not 1 <= len(geometry) <= 3 or any(
-        not isinstance(x, Function) or x.value_shape or x.domain != mesh.topology for x in geometry
+        x = mesh.coordinate_function
+        if isinstance(x, Function) and isinstance(x.space, BasixSpace):
+            if x.space.block_shape != (mesh.ambient_domain.dimension,):
+                raise NotImplementedError("UFCx vector geometry requires a blocked scalar element")
+            geometry = (x,)
+        elif isinstance(x, Tensor):
+            geometry = x.entries
+        else:
+            raise NotImplementedError(
+                "UFCx geometry requires a vector Basix function or a tensor of scalar functions"
+            )
+    if not 1 <= mesh.ambient_domain.dimension <= 3 or any(
+        not isinstance(x, Function) or x.domain != mesh.topology for x in geometry
     ):
-        raise NotImplementedError("UFCx geometry requires one to three scalar coordinate functions")
+        raise NotImplementedError("UFCx geometry requires one to three coordinate components")
+    if isinstance(mesh.coordinate_function, Tensor) and any(x.value_shape for x in geometry):
+        raise NotImplementedError("UFCx coordinate tensor entries must be scalar functions")
     coordinate_element = _element(geometry[0].space)
     if any(_element(x.space) != coordinate_element for x in geometry):
         raise ValueError("coordinate components must use the same element")
@@ -443,7 +449,7 @@ def _local_expression(
                     value = multiply(selector[components[u]], value)
                 return value
             data = (
-                coordinate_data[cell, dof, geometry.index(u)]
+                coordinate_data[cell, dof, c if u.space.block_shape else geometry.index(u)]
                 if u in geometry
                 else inputs[u][cell, dof, component_number]
             )

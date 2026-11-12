@@ -83,7 +83,7 @@ def values(u, found_cell, order, points):
     else:
         factors = [(V.element(j), points, tuple(range(dimension)))]
     i = derived_indices("compiler.tabulation", (u, j, points), len(factors))
-    rows = np.asarray(V.dofmap[j]).reshape(*(F.dim for F, _, _ in factors), V.block_size)
+    rows = np.asarray(V.cell_dofs[j]).reshape(*(F.dim for F, _, _ in factors), V.block_size)
     dofs = tuple(IndexTable(nested(rows[..., c]), V.num_dofs) for c in range(V.block_size))
 
     def term(idx):

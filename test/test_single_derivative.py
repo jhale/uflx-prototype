@@ -108,8 +108,9 @@ def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomo
     from test_basix import square
     from testutil import push_forward
 
-    from uflx_compiler import assemble
+    from uflx_compiler import assemble_bound
     from uflx_spec_interpreter import gradient, integral
+    from uflx_toy.assembly import conforming_dofmap
     from uflx_toy.basix_cells import basix_cell
     from uflx_toy.basix_spaces import basix_space
 
@@ -133,8 +134,10 @@ def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomo
     U = np.array([0.4 + 0.1j, -0.2 + 0.3j, 0.6 - 0.2j, 0.1 - 0.4j])
     H = np.array([0.2 - 0.1j, 0.4 + 0.2j, -0.1j, 0.3 + 0.1j])
     env = {"coefficients:u": U}
-    Jp, Jm = assemble(plus, 5)(env), assemble(minus, 5)(env)
-    R = assemble(residual, 5)
+    mapping = conforming_dofmap(V)
+    bindings = {uT: mapping, vT: mapping, wT: mapping}
+    Jp, Jm = assemble_bound(plus, 5, bindings)(env), assemble_bound(minus, 5, bindings)(env)
+    R = assemble_bound(residual, 5, bindings)
     step = 1e-6
     difference = (R({"coefficients:u": U + step * H}) - R({"coefficients:u": U - step * H})) / (
         2 * step
@@ -153,6 +156,7 @@ def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphi
     from uflx_compiler import compile_form
     from uflx_compiler import evaluate as compiled_value
     from uflx_spec_interpreter import gradient, integral
+    from uflx_toy.assembly import conforming_dofmap
     from uflx_toy.basix_cells import basix_cell
     from uflx_toy.basix_spaces import basix_space
 
@@ -181,6 +185,8 @@ def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphi
     U = np.array([0.4 + 0.1j, -0.2 + 0.3j, 0.6 - 0.2j, 0.1 - 0.4j])
     H = np.array([0.2 - 0.1j, 0.4 + 0.2j, -0.1j, 0.3 + 0.1j])
     Z = np.array([0.1j, 0.2 - 0.3j, 0.7 + 0.1j, 0.4])
+    mapping = conforming_dofmap(V)
+    U, H, Z = (mapping.gather(values) for values in (U, H, Z))
     env = {"coefficients:u": U, "coefficients:h": H, "coefficients:z": Z}
     step = 1e-6
     difference = (

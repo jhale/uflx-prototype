@@ -5,7 +5,7 @@ import numpy as np
 from test_basix import mixed, square
 from testutil import push_forward
 
-from uflx_compiler import assemble, compile_form, evaluate, fold
+from uflx_compiler import assemble, assemble_bound, compile_form, evaluate, fold
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
     directional_derivative,
@@ -18,6 +18,7 @@ from uflx_spec_interpreter import (
     pull_back,
     side_map,
 )
+from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 
@@ -35,8 +36,10 @@ def test_the_mass_and_stiffness_matrices_of_two_triangles():
     V = basix_space("V", D.topology, P, 1)
     uT, vT = function(V, "u"), function(V, "v")
     u, v = push_forward(uT, D), push_forward(vT, D)
-    M = assemble(form(integral(u * v, D), (vT, uT)), 2)({})
-    K = assemble(form(integral(dot(u, v, D), D), (vT, uT)), 2)({})
+    mapping = conforming_dofmap(V)
+    bindings = {uT: mapping, vT: mapping}
+    M = assemble_bound(form(integral(u * v, D), (vT, uT)), 2, bindings)({})
+    K = assemble_bound(form(integral(dot(u, v, D), D), (vT, uT)), 2, bindings)({})
     expected = np.array([[4, 1, 2, 1], [1, 2, 1, 0], [2, 1, 4, 1], [1, 0, 1, 2]]) / 24
     assert np.allclose(M, expected) and np.isclose(M.sum(), 1)
     stiffness = [[1, -0.5, 0, -0.5], [-0.5, 1, -0.5, 0], [0, -0.5, 1, -0.5], [-0.5, 0, -0.5, 1]]
@@ -94,3 +97,28 @@ def test_bound_directional_derivatives_assemble_to_the_energy_derivatives():
     f = lambda U: evaluate(compiled, {key: U}, jnp, folded)
     assert np.allclose(assemble(residual, 8)({key: U}), jax.grad(f)(jnp.asarray(U)), atol=1e-10)
     assert np.allclose(assemble(tangent, 8)({key: U}), jax.hessian(f)(jnp.asarray(U)), atol=1e-10)
+
+
+def test_zero_form_uses_argument_spaces_for_rectangular_complex_tensor():
+    from uflx_spec_interpreter import ScalarType
+
+    D = square(basix_cell(basix.CellType.triangle))[0]
+    V = basix_space("rows", D.topology, P, 1, True, ScalarType.complex)
+    W = basix_space("columns", D.topology, P, 2, True, ScalarType.complex)
+    v, u = function(V, "v"), function(W, "u")
+    f = form(integral(num(0j), D), (v, u))
+    value = assemble(f, 2)({})
+    assert value.shape == (V.num_dofs, W.num_dofs) == (6, 12)
+    assert np.iscomplexobj(value)
+    assert np.all(value == 0)
+    np.testing.assert_array_equal(assemble(f, 2)({}, jnp), value)
+
+
+def test_unused_argument_keeps_its_axis():
+    D = square(basix_cell(basix.CellType.triangle))[0]
+    V = basix_space("unused", D.topology, P, 1, True)
+    v = function(V, "v")
+    f = form(integral(num(0), D), (v,))
+    value = assemble(f, 2)({})
+    assert value.shape == (V.num_dofs,)
+    assert np.all(value == 0)

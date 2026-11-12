@@ -41,7 +41,11 @@ def ufcx_include():
 def model(cell, degree, coordinate_degree, kind, cells=1):
     K = basix_cell(cell)
     vertices = tuple(range(K.num_vertices))
-    T = grouped_topology((K,), (tuple(vertices for _ in range(cells)),), ())
+    T = grouped_topology(
+        (K,),
+        (tuple(tuple(v + slot * K.num_vertices for v in vertices) for slot in range(cells)),),
+        (),
+    )
     X = basix_space("X", T, basix.ElementFamily.P, coordinate_degree)
     coords = tuple(function(X, f"x{i}") for i in range(K.dimension))
     D = image(tensor(coords), RD(K.dimension))
@@ -153,7 +157,7 @@ def reference(cell, degree, coordinate_degree, kind):
 @pytest.mark.parametrize("kind", ["energy", "load", "mass", "stiffness"])
 def test_local_tensors_match_ffcx(tmp_path, ufcx_include, cell, degree, coordinate_degree, kind):
     ffcx_jit = pytest.importorskip("ffcx.codegeneration.jit")
-    f, mesh, coefficients, constants = model(cell, degree, coordinate_degree, kind, cells=3)
+    f, mesh, coefficients, constants = model(cell, degree, coordinate_degree, kind)
     code = compile_ufcx(f, mesh, 6, coefficients=coefficients, constants=constants)
     evaluate, lib = build(code, tmp_path, ufcx_include)
     uf, coordinate_hash = reference(cell, degree, coordinate_degree, kind)
@@ -202,23 +206,15 @@ def test_local_tensors_match_ffcx(tmp_path, ufcx_include, cell, degree, coordina
         assert descriptor.finite_element_hashes[i] == E.hash()
 
 
-def test_kernels_use_cell_local_data(tmp_path, ufcx_include):
-    results = []
-    for cells in (1, 9):
-        f, mesh, coefficients, constants = model(basix.CellType.triangle, 3, 2, "mass", cells)
-        code = compile_ufcx(f, mesh, 4, coefficients=coefficients, constants=constants)
-        evaluate, _ = build(code, tmp_path / str(cells), ufcx_include)
-        E = basix.create_element(
-            basix.ElementFamily.P, basix.CellType.triangle, 2, basix.LagrangeVariant.equispaced
-        )
-        xyz = np.zeros((6, 3))
-        xyz[:, :2] = E.points
-        results.append(evaluate(np.arange(20.0), np.array([0.5]), xyz))
-    assert np.allclose(*results)
+def test_cell_kernels_reject_multicell_configurations():
+    # The adapter must not silently drop all but the first local cell.
+    f, mesh, coefficients, constants = model(basix.CellType.triangle, 3, 2, "mass", cells=9)
+    with pytest.raises(NotImplementedError, match="exactly one parent cell slot"):
+        compile_ufcx(f, mesh, 4, coefficients=coefficients, constants=constants)
 
 
-def simple_form(zero=False, discontinuous=False):
-    _, mesh, _, _ = model(basix.CellType.triangle, 1, 1, "mass")
+def simple_form(zero=False, discontinuous=False, cells=1):
+    _, mesh, _, _ = model(basix.CellType.triangle, 1, 1, "mass", cells=cells)
     V = basix_space("V", mesh.topology, basix.ElementFamily.P, 1, discontinuous)
     u, v = function(V, "u"), function(V, "v")
     U, W = (push_forward(f, mesh, V.law) for f in (u, v))
@@ -259,7 +255,10 @@ def test_dolfinx_assembles_generated_form(tmp_path, ufcx_include, integral_type)
     import basix.ufl
     from dolfinx.fem.forms import form_cpp_class
 
-    f, mesh = simple_form(discontinuous=integral_type == "interior_facet")
+    f, mesh = simple_form(
+        discontinuous=integral_type == "interior_facet",
+        cells=2 if integral_type == "interior_facet" else 1,
+    )
     if integral_type == "exterior_facet":
         from uflx_spec_interpreter import pull_back, side_map
 
@@ -362,9 +361,11 @@ def test_piola_elements_match_ffcx(tmp_path, ufcx_include, kind):
 
 
 def test_tensor_constants_and_vertex_geometry(tmp_path, ufcx_include):
-    from test_basix import square
+    from testutil import vertex_mesh
 
-    D = square(basix_cell(basix.CellType.triangle))[0]
+    K = basix_cell(basix.CellType.triangle)
+    T = grouped_topology((K,), (((0, 1, 2),),), ())
+    D = vertex_mesh(T, [(0, 0), (1, 0), (0, 1)])
     a = function(space("a", (2,), scalar_type="real"), "a")
     b = function(space("b", scalar_type="real"), "b")
     code = compile_ufcx(integral(a[0] + num(2) * a[1] + b, D), D, 2, constants=(a, b))
@@ -402,7 +403,7 @@ def boundary_mesh(D):
     facets = basix.cell.topology(cell)[dim - 1]
     facet_type = basix.cell.sub_entity_type(cell, dim - 1, 0)
     S = grouped_topology(
-        (basix_cell(facet_type),), (tuple(map(tuple, facets)),), ((("inside", D.topology, 0),),)
+        (basix_cell(facet_type),), ((tuple(facets[0]),),), ((("inside", D.topology, 0),),)
     )
     return side_domain(D, S, "inside")
 
@@ -410,7 +411,7 @@ def boundary_mesh(D):
 def boundary_model(cell, degree, coordinate_degree, kind):
     from uflx_spec_interpreter import normal, pull_back, side_map
 
-    _, D, (a, b), (c,) = model(cell, degree, coordinate_degree, "mass", cells=3)
+    _, D, (a, b), (c,) = model(cell, degree, coordinate_degree, "mass")
     dim = D.dimension
     boundary = boundary_mesh(D)
     restriction = side_map(D, boundary, "inside")
@@ -508,9 +509,12 @@ def test_exterior_facets_match_ffcx(tmp_path, ufcx_include, cell, degree, coordi
 
 @pytest.mark.parametrize("zero", [False, True])
 def test_exterior_vertex_geometry_and_zero(tmp_path, ufcx_include, zero):
-    from test_basix import square
+    from testutil import vertex_mesh
 
-    D, _, boundary = square(basix_cell(basix.CellType.triangle))
+    K = basix_cell(basix.CellType.triangle)
+    T = grouped_topology((K,), (((0, 1, 2),),), ())
+    D = vertex_mesh(T, [(0, 0), (1, 0), (0, 1)])
+    boundary = boundary_mesh(D)
     code = compile_ufcx(integral(num(0 if zero else 1), boundary), D, 2)
     assert code.integral_type == "exterior_facet"
     evaluate, _ = build(code, tmp_path, ufcx_include)
@@ -529,14 +533,19 @@ def test_cell_and_facet_integrals_require_separate_compilation():
 
 def interior_mesh(D):
     from uflx_spec_interpreter import side_domain
+    from uflx_toy.inclusions import vertex_rows
+    from uflx_toy.topology import tabulated_topology
 
-    cell = D.topology.cell_types[0].cell_type
-    dim = D.dimension
-    facets = basix.cell.topology(cell)[dim - 1]
-    S = grouped_topology(
-        (basix_cell(basix.cell.sub_entity_type(cell, dim - 1, 0)),),
-        (tuple(map(tuple, facets)),),
-        ((("+", D.topology, 0), ("-", D.topology, 0)),),
+    assert len(D.topology.cell_types) == 2
+    K = D.topology.cell_types[0]
+    facet = basix.cell.topology(K.cell_type)[K.dimension - 1][0]
+    F = basix_cell(basix.cell.sub_entity_type(K.cell_type, K.dimension - 1, 0))
+    points = vertex_rows(K, facet)
+    S = tabulated_topology(
+        "interior",
+        (F,),
+        ((("+", D.topology, 0), ("-", D.topology, 1)),),
+        ((points, points),),
     )
     return side_domain(D, S, "+")
 
@@ -544,7 +553,7 @@ def interior_mesh(D):
 def interior_model(cell, degree, coordinate_degree, kind):
     from uflx_spec_interpreter import normal, pull_back, side_map
 
-    _, D, (a, b), (c,) = model(cell, degree, coordinate_degree, "mass")
+    _, D, (a, b), (c,) = model(cell, degree, coordinate_degree, "mass", cells=2)
     boundary = interior_mesh(D)
     plus, minus = side_map(D, boundary, "+"), side_map(D, boundary, "-")
     V = a.space
@@ -728,7 +737,7 @@ def test_interior_normals_are_opposite(tmp_path, ufcx_include, cell, degree):
 
     from uflx_spec_interpreter import normal, side_map
 
-    _, D, _, _ = model(cell, 1, degree, "mass")
+    _, D, _, _ = model(cell, 1, degree, "mass", cells=2)
     boundary = interior_mesh(D)
     a, b = (normal(side_map(D, boundary, side)) for side in ("+", "-"))
     expr = sum((a[i] * b[i] for i in range(D.dimension)), num(0))
@@ -761,7 +770,7 @@ def test_interior_normals_are_opposite(tmp_path, ufcx_include, cell, degree):
 def test_zero_interior_form_keeps_both_argument_blocks(tmp_path, ufcx_include):
     from uflx_spec_interpreter import pull_back, side_map
 
-    f, D = simple_form(zero=True)
+    f, D = simple_form(zero=True, cells=2)
     boundary = interior_mesh(D)
     trace = pull_back(f.expression.expression, side_map(D, boundary, "+"))
     code = compile_ufcx(form(integral(trace, boundary), f.arguments), D, 2)
@@ -779,7 +788,7 @@ def test_interior_piola_normal_jumps(tmp_path, ufcx_include):
 
     from uflx_spec_interpreter import normal, pull_back, side_map
 
-    _, D = simple_form()
+    _, D = simple_form(cells=2)
     interface = interior_mesh(D)
     V = basix_space("RT", D.topology, basix.ElementFamily.RT, 1)
     u, v = function(V, "u"), function(V, "v")
@@ -869,3 +878,145 @@ def test_hhj_compliance(tmp_path, ufcx_include, degree, geometry_degree, action)
         actual = run(coefficients if action else np.empty(0), np.empty(0), xyz)
         expected = matrix @ coefficients if action else matrix
         np.testing.assert_allclose(actual, expected, rtol=1e-11, atol=1e-11)
+
+
+def explicit_pair(plus_slot=0):
+    """Two independent cells; coincident geometry does not identify their fields."""
+    from testutil import vertex_mesh
+
+    from uflx_spec_interpreter import side_domain
+    from uflx_toy.inclusions import vertex_rows
+    from uflx_toy.topology import static_topology, tabulated_topology
+
+    K, F = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
+    T = static_topology((K, K), ((0, 1, 2), (3, 4, 5)), ())
+    D = vertex_mesh(T, [(0, 0), (1, 0), (0, 1)] * 2)
+    points = vertex_rows(K, (1, 2))
+    S = tabulated_topology(
+        "explicit-pair",
+        (F,),
+        ((("+", T, plus_slot), ("-", T, 1 - plus_slot)),),
+        ((points, points),),
+    )
+    return D, side_domain(D, S, "+")
+
+
+@pytest.mark.parametrize("plus_slot", [0, 1])
+def test_one_sided_kernel_preserves_declared_cell_reads(tmp_path, ufcx_include, plus_slot):
+    from uflx_compiler import assemble
+    from uflx_spec_interpreter import cell_map, expand_pull_backs, pull_back, side_map
+
+    D, E = explicit_pair(plus_slot)
+    V = basix_space("DG", D.topology, basix.ElementFamily.P, 1, discontinuous=True)
+    u, v = function(V, "u"), function(V, "v")
+    U, W = (push_forward(f, D, V.law) for f in (u, v))
+    plus, minus = side_map(D, E, "+"), side_map(D, E, "-")
+    plus_read = expand_pull_backs(pull_back(pull_back(U, plus), cell_map(E, 0)))
+    minus_read = expand_pull_backs(pull_back(pull_back(U, minus), cell_map(E, 0)))
+    assert plus_read is not minus_read
+    f = form(integral(pull_back(U, plus) * pull_back(W, plus), E), (v, u))
+    expected = assemble(f, 2)({})
+    code = compile_ufcx(f, D, 2)
+    assert code.tensor_shape == expected.shape == (6, 6)
+    evaluate, _ = build(code, tmp_path, ufcx_include)
+    xyz = np.array([[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]] * 2)
+    actual = evaluate(np.empty(0), np.empty(0), xyz, (0, 0), (0, 0))
+    np.testing.assert_allclose(actual, expected, atol=1e-12)
+    unused = slice(3 * (1 - plus_slot), 3 * (2 - plus_slot))
+    assert np.all(actual[unused, :] == 0) and np.all(actual[:, unused] == 0)
+    assert np.linalg.norm(actual) > 0
+
+
+def test_interior_layout_cannot_be_manufactured_from_two_names():
+    from uflx_spec_interpreter import side_domain
+    from uflx_toy.inclusions import vertex_rows
+    from uflx_toy.topology import tabulated_topology
+
+    _, D = simple_form()
+    K = D.topology.cell_types[0]
+    F = basix_cell(basix.CellType.interval)
+    points = vertex_rows(K, (1, 2))
+    S = tabulated_topology(
+        "aliased-sides",
+        (F,),
+        ((("+", D.topology, 0), ("-", D.topology, 0)),),
+        ((points, points),),
+    )
+    E = side_domain(D, S, "+")
+    with pytest.raises(NotImplementedError, match="distinct parent cell slot"):
+        compile_ufcx(integral(num(0), E), D, 2)
+
+
+def test_exterior_kernel_cannot_drop_an_unused_parent_cell():
+    from uflx_spec_interpreter import side_domain
+    from uflx_toy.inclusions import vertex_rows
+    from uflx_toy.topology import tabulated_topology
+
+    D, _ = explicit_pair()
+    K = D.topology.cell_types[0]
+    F = basix_cell(basix.CellType.interval)
+    S = tabulated_topology(
+        "one-side-two-cells",
+        (F,),
+        ((("inside", D.topology, 0),),),
+        ((vertex_rows(K, (1, 2)),),),
+    )
+    E = side_domain(D, S, "inside")
+    with pytest.raises(NotImplementedError, match="distinct parent cell slot"):
+        compile_ufcx(integral(num(0), E), D, 2)
+
+
+def test_facet_kernel_cannot_drop_integration_slots():
+    from uflx_spec_interpreter import side_domain
+    from uflx_toy.inclusions import vertex_rows
+    from uflx_toy.topology import tabulated_topology
+
+    _, D = simple_form()
+    K = D.topology.cell_types[0]
+    F = basix_cell(basix.CellType.interval)
+    S = tabulated_topology(
+        "two-facets",
+        (F, F),
+        ((("inside", D.topology, 0),),) * 2,
+        ((vertex_rows(K, (1, 2)),), (vertex_rows(K, (0, 2)),)),
+    )
+    with pytest.raises(NotImplementedError, match="one integration cell slot"):
+        compile_ufcx(integral(num(0), side_domain(D, S, "inside")), D, 2)
+
+
+@pytest.mark.parametrize("kind", ["cell", "exterior", "interior"])
+@pytest.mark.parametrize("coordinate_degree", [1, 2])
+def test_vector_geometry_matches_scalar_components(tmp_path, ufcx_include, kind, coordinate_degree):
+    from uflx_spec_interpreter._src.algorithms.substitution import substitute
+
+    make = {"cell": model, "exterior": boundary_model, "interior": interior_model}[kind]
+    integrand = {"cell": "stiffness", "exterior": "normal_derivative", "interior": "flux"}[kind]
+    f, D, coefficients, constants = make(basix.CellType.triangle, 1, coordinate_degree, integrand)
+    X = basix_space("vector-X", D.topology, basix.ElementFamily.P, coordinate_degree, shape=(2,))
+    x = function(X, "coordinates")
+    mapping = {D: image(x, RD(2)), D.coordinate_function: x}
+    mapping.update({c: x[i] for i, c in enumerate(D.coordinate_function.entries)})
+    vector_form = substitute(f, mapping)
+    options = {"coefficients": coefficients, "constants": constants}
+    scalar_code = compile_ufcx(f, D, 5, name="scalar_coordinates", **options)
+    vector_code = compile_ufcx(vector_form, mapping[D], 5, name="vector_coordinates", **options)
+    assert vector_code.coefficients == coefficients
+    scalar_run, _ = build(scalar_code, tmp_path / "scalar", ufcx_include)
+    vector_run, _ = build(vector_code, tmp_path / "vector", ufcx_include)
+    width = 2 if kind == "interior" else 1
+    E = X.element(0)
+    xyz = np.zeros((width, E.dim, 3))
+    xyz[:, :, :2] = E.points @ np.array([[1.2, 0.1], [0.2, 0.9]])
+    xyz[:, :, 0] += 0.06 * E.points[:, 0] * E.points[:, 1]
+    if width == 2:
+        xyz[1, :, 0] *= -1
+    w = np.random.default_rng(32).normal(size=sum(c.space.num_dofs for c in coefficients))
+    c = np.array([0.7])
+    facets = None if kind == "cell" else ((0, 1) if width == 2 else 2)
+    permutations = (0, 1) if width == 2 else None
+    np.testing.assert_allclose(
+        vector_run(w, c, xyz, facets, permutations),
+        scalar_run(w, c, xyz, facets, permutations),
+        rtol=1e-11,
+        atol=1e-11,
+    )

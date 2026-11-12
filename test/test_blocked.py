@@ -140,7 +140,7 @@ def test_native_elasticity(tmp_path, cell, degree, geometry_degree):
 @pytest.mark.parametrize("cell", [basix.CellType.triangle, basix.CellType.hexahedron])
 def test_blocked_coefficient_packing_on_cells_and_facets(tmp_path, kind, cell):
     ufl = pytest.importorskip("ufl")
-    _, D, _, _ = model(cell, 1, 2, "mass")
+    _, D, _, _ = model(cell, 1, 2, "mass", cells=2 if kind == "interior" else 1)
     d = D.dimension
     V = basix_space("vectors", D.topology, basix.ElementFamily.P, 1, shape=(d,))
     u, v, a = (function(V, label) for label in ("u", "v", "a"))
@@ -193,7 +193,7 @@ def test_blocked_fields_in_array_compiler_and_oracle(cell, shape):
     V = basix_space("blocked", D.topology, basix.ElementFamily.P, 2, shape=shape)
     scalar = basix_space("scalar", D.topology, basix.ElementFamily.P, 2)
     assert V.num_dofs == scalar.num_dofs * np.prod(shape)
-    for row, base in zip(V.dofmap, scalar.dofmap, strict=True):
+    for row, base in zip(V.cell_dofs, scalar.cell_dofs, strict=True):
         assert row == tuple(V.block_size * i + c for i in base for c in range(V.block_size))
     u = function(V, "u")
     U = push_forward(u, D, V.law)

@@ -52,9 +52,8 @@ def _facet_tables(mesh, domain, width):
     orders = tuple(_permutations(facet_type))
     vertices = basix.cell.geometry(K.cell_type)
     tables = np.array([[vertices[np.array(f)[list(order)]] for order in orders] for f in facets])
-    names = ("+", "-") if width == 2 else (domain.coordinate_function.map.side,)
     replacements, bindings, sides, data = {}, {}, [], []
-    for side, name in enumerate(names):
+    for name, _, side in sorted(domain.topology.sides[0], key=lambda entry: entry[2]):
         facet = derived_index("compiler.ufcx.facet", side)
         permutation = derived_index("compiler.ufcx.permutation", side)
         positions = runtime_array(("ufcx.reference_facet", side), tables.shape[-2:])
