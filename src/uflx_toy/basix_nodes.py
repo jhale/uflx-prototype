@@ -97,7 +97,12 @@ class BasixSpace(AbstractFunctionSpace):
         # The dofs of an element that factors are in the order of its factors, the last fastest.
         out = []
         for K in self.domain.cell_types:
-            args = (self.family, K.cell_type, self.degree, EQUISPACED)
+            variant = (
+                basix.LagrangeVariant.unset
+                if self.family == basix.ElementFamily.HHJ
+                else EQUISPACED
+            )
+            args = (self.family, K.cell_type, self.degree, variant)
             try:
                 order = tp_dof_ordering(*args, discontinuous=self.discontinuous)
             except RuntimeError:

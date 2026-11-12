@@ -823,3 +823,49 @@ def test_interior_piola_normal_jumps(tmp_path, ufcx_include):
         assert np.allclose(
             evaluate(np.empty(0), np.empty(0), xyz, facets, permutations), expected, atol=1e-12
         )
+
+
+@pytest.mark.parametrize("degree", [0, 2])
+@pytest.mark.parametrize("geometry_degree", [1, 2])
+@pytest.mark.parametrize("action", [False, True])
+def test_hhj_compliance(tmp_path, ufcx_include, degree, geometry_degree, action):
+    """Double contravariant tensors retain symmetry, ordering and determinant powers."""
+    cell = basix.CellType.triangle
+    _, D, _, _ = model(cell, 1, geometry_degree, "mass")
+    V = basix_space("HHJ", D.topology, basix.ElementFamily.HHJ, degree)
+    sigma, tau = function(V, "sigma"), function(V, "tau")
+    S, T = (push_forward(f, D, V.law) for f in (sigma, tau))
+    density = num(2) * sum((S[i, j] * T[i, j] for i in range(2) for j in range(2)), num(0))
+    density += (S[0, 0] + S[1, 1]) * (T[0, 0] + T[1, 1])
+    quadrature_degree = 2 * degree + 2 * geometry_degree + 2
+    code = compile_ufcx(
+        form(integral(density, D), (tau,) if action else (tau, sigma)),
+        D,
+        quadrature_degree,
+        coefficients=(sigma,) if action else (),
+    )
+    run, _ = build(code, tmp_path, ufcx_include)
+    E = basix.create_element(basix.ElementFamily.HHJ, cell, degree)
+    X = basix.create_element(
+        basix.ElementFamily.P, cell, geometry_degree, basix.LagrangeVariant.equispaced
+    )
+    points, weights = basix.make_quadrature(cell, quadrature_degree)
+    reference = E.tabulate(0, points)[0].reshape(len(points), E.dim, 2, 2)
+    xt = X.tabulate(1, points)
+    dx = np.stack([xt[d, :, :, 0] for d in (1, 2)], axis=-1)
+    coefficients = np.random.default_rng(182).normal(size=E.dim)
+    for sign in (-1, 1):
+        coordinates = X.points @ np.array([[sign * 1.2, 0.1], [0.05, 0.9]]).T
+        if geometry_degree == 2:
+            coordinates[:, 0] += 0.08 * X.points[:, 0] * X.points[:, 1]
+            coordinates[:, 1] += 0.06 * X.points[:, 0] * (1 - X.points[:, 0])
+        J = np.einsum("ai,qaj->qij", coordinates, dx)
+        det = np.linalg.det(J)
+        physical = np.einsum("qik,qakl,qjl->qaij", J, reference, J) / det[:, None, None, None] ** 2
+        mapped = 2 * physical + np.trace(physical, axis1=-2, axis2=-1)[:, :, None, None] * np.eye(2)
+        matrix = np.einsum("q,qaij,qbij->ab", weights * abs(det), physical, mapped)
+        xyz = np.zeros((X.dim, 3))
+        xyz[:, :2] = coordinates
+        actual = run(coefficients if action else np.empty(0), np.empty(0), xyz)
+        expected = matrix @ coefficients if action else matrix
+        np.testing.assert_allclose(actual, expected, rtol=1e-11, atol=1e-11)

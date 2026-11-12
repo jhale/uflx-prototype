@@ -94,7 +94,7 @@ def _element(space):
         space.family,
         space.topology.cell_types[0].cell_type,
         space.degree,
-        basix.LagrangeVariant.equispaced,
+        space.element(0).lagrange_variant,
         discontinuous=space.discontinuous,
     )
 

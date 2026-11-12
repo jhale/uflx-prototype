@@ -326,13 +326,17 @@ def _preintegrate(
                     raise Unsupported
                 table = tabulate(reference)
                 tables[table] = add(tables[table], coefficient) if table in tables else coefficient
+            # Identical geometry factors need only one reference table. Keep
+            # different index signatures separate to avoid enlarging a table by
+            # broadcasting, and compare coefficients symbolically, not numerically.
+            collected = {}
+            for table, coefficient in tables.items():
+                coefficient = normalize(coefficient) if share_tables else coefficient
+                key = coefficient, frozenset(table.free_indices)
+                collected[key] = tabulate(add(collected[key], table)) if key in collected else table
             return complete_indices(
                 node,
-                simplify(
-                    _sum(
-                        multiply(normalize(c) if share_tables else c, t) for t, c in tables.items()
-                    )
-                ),
+                simplify(_sum(multiply(c, t) for (c, _), t in collected.items())),
             )
         except Unsupported:
             return node
