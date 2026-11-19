@@ -10,6 +10,7 @@ from basix.finite_element import tp_dof_ordering
 
 from uflx_spec_interpreter import tensor
 from uflx_spec_interpreter._src.nodes import (
+    AbstractExpression,
     AbstractFunctionSpace,
     AbstractReferenceCell,
     AbstractTopology,
@@ -62,10 +63,10 @@ class BasixCell(AbstractReferenceCell):
 @final
 class BasixSpace(AbstractFunctionSpace):
     identifier = "toy.BasixSpace"
-    # A Basix element on each cell slot, with independent cell-local coefficients. Every
+    # A Basix element on a reference cell or each topology cell slot. Every
     # element of Basix that the toy builds is Piola equivalent, so the space is on a topology.
     label: str
-    _domain: AbstractTopology
+    _domain: AbstractTopology | BasixCell
     family_value: int
     degree: int
     discontinuous_value: int
@@ -96,7 +97,8 @@ class BasixSpace(AbstractFunctionSpace):
     def elements(self):
         # The dofs of an element that factors are in the order of its factors, the last fastest.
         out = []
-        for K in self.domain.cell_types:
+        cells = (self.domain,) if isinstance(self.domain, BasixCell) else self.domain.cell_types
+        for K in cells:
             variant = (
                 basix.LagrangeVariant.unset
                 if self.family == basix.ElementFamily.HHJ
@@ -161,6 +163,28 @@ class BasixSpace(AbstractFunctionSpace):
 
 
 EQUISPACED = basix.LagrangeVariant.equispaced
+
+
+@final
+class BasixBasis(AbstractExpression):
+    """The unblocked basis of one cell, extended by zero on other cell slots."""
+
+    identifier = "toy.BasixBasis"
+    is_terminal = True
+    space: BasixSpace
+    cell_slot: int
+    free_indices = ()
+    argument_spaces = ()
+    scalar_type = ScalarType.real
+
+    @property
+    def domain(self):
+        return self.space.domain
+
+    @property
+    def value_shape(self):
+        E = self.space.element(self.cell_slot)
+        return (E.dim, *E.value_shape)
 
 
 def table(values):

@@ -50,7 +50,7 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 from uflx_spec_interpreter._src.nodes.arguments import argument_members
-from uflx_toy.basix_nodes import BasixCell, BasixSpace
+from uflx_toy.basix_nodes import BasixBasis, BasixCell, BasixSpace
 from uflx_toy.meshes import shape_functions
 from uflx_toy.nodes import RuntimeArray, VertexCoordinates
 
@@ -333,6 +333,16 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return phi @ np.asarray(V)[list(T.cells[j])]
 
             return vertex_value
+        case BasixBasis(space, slot):
+
+            def basis_value(vals):
+                j = POINTS.get(("piece", space.domain), 0)
+                if j != slot:
+                    return np.zeros(e.value_shape)
+                phi = space.element(slot).tabulate(0, np.asarray([POINTS[space.domain]]))[0, 0]
+                return phi.reshape(e.value_shape)
+
+            return basis_value
         case Function(BasixSpace() as space, _):
 
             def basix_value(vals):

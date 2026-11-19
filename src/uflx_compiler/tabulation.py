@@ -19,7 +19,7 @@ from uflx_spec_interpreter._src.nodes import (
     Zero,
 )
 from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_toy.basix_nodes import BasixCell, BasixSpace
+from uflx_toy.basix_nodes import BasixBasis, BasixCell, BasixSpace
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.nodes import IndexTable, RuntimeArray, VertexCoordinates
 from uflx_toy.runtime import runtime_array
@@ -63,7 +63,13 @@ def read(x, points):
     while isinstance(x, Gradient) and isinstance(x.domain, BasixCell):
         x, order = x.expression, order + 1
     match x:
-        case PullBack(VertexCoordinates() | Function(BasixSpace()) as u, C) if cell(C) is not None:
+        case BasixBasis() as u if isinstance(u.domain, BasixCell):
+            return u, 0, order, points
+        case Function(BasixSpace() as V) as u if isinstance(V.domain, BasixCell):
+            return u, 0, order, points
+        case PullBack(VertexCoordinates() | BasixBasis() | Function(BasixSpace()) as u, C) if (
+            cell(C) is not None
+        ):
             return u, cell(C), order, points
     return None
 
@@ -74,6 +80,19 @@ def cell(C):
 
 
 def values(u, found_cell, order, points):
+    if isinstance(u, BasixBasis):
+        shape = (*u.value_shape, *(points.value_shape[0],) * order)
+        if found_cell != u.cell_slot:
+            return Zero(shape, points.free_indices, (), ScalarType.real)
+        V, j = u.space, u.cell_slot
+        E = V.element(j)
+        rank = len(E.value_shape)
+
+        def entry(idx):
+            c = int(np.ravel_multi_index(idx[1 : 1 + rank], E.value_shape))
+            return table_read(V, j, E, points, idx[1 + rank :], idx[0], c)
+
+        return arrayed(shape, entry)
     # The gathered coefficients of the cell times a table for each factor of the element, summed
     # over a dof index for each factor. An element that does not factor is its one factor.
     V, j = u.space, found_cell

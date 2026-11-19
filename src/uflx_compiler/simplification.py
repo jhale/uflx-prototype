@@ -4,6 +4,7 @@ from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
 from uflx_spec_interpreter._src.algorithms.substitution import substitute_values
 from uflx_spec_interpreter._src.algorithms.traversal import map_fields, memoized
 from uflx_spec_interpreter._src.nodes import (
+    RD,
     BroadcastTo,
     ComponentTensor,
     Conjugate,
@@ -15,6 +16,7 @@ from uflx_spec_interpreter._src.nodes import (
     Indexed,
     IndexSum,
     Integer,
+    Integral,
     Inverse,
     Power,
     Product,
@@ -62,6 +64,9 @@ def is_zero(e):
 
 def rewritten(e):
     match e:
+        case Integral(g, RD(0)) if g.domain is None:
+            # A point has weight one; tabulation has removed its spatial domain.
+            return g
         case Sum(a, b) if is_zero(a) and b.scalar_type == e.scalar_type:
             return b
         case Sum(a, b) if is_zero(b) and a.scalar_type == e.scalar_type:

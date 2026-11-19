@@ -1,7 +1,7 @@
 import basix
 import numpy as np
 
-from uflx_spec_interpreter import RD, domain_map, index_sum, pull_back, tensor
+from uflx_spec_interpreter import RD, domain_map, index_sum, integral, pull_back, tensor
 from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
 from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
 from uflx_spec_interpreter._src.nodes import Float, Integral, Zero
@@ -14,10 +14,10 @@ def apply_quadrature(f, degree):
     def rewrite(e):
         match e:
             case Integral(g, BasixCell() as K):
-                return rule(g, K, degree)
-            case Integral(g, RD(0)):
-                # A point has the one weight 1.
-                return g
+                # Keep the result domain-free while rebuilding enclosing fields.
+                # Point integrals are removed after tabulation, when their operands
+                # are domain-free arrays rather than fields on RD(0).
+                return integral(rule(g, K, degree), RD(0))
         return e
 
     return expand_pull_backs(bottom_up(f, rewrite))

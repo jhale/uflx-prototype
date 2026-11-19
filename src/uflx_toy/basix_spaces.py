@@ -13,7 +13,7 @@ def basix_space(
     *,
     shape: tuple[int, ...] = (),
 ):
-    """A Basix space, optionally with independent scalar copies in a value shape.
+    """A Basix space on a topology or reference cell, optionally with a block shape.
 
     Blocked DOFs are interleaved: scalar DOF first, then flattened component.
     Intrinsically vector-valued elements keep their Basix value shape.
