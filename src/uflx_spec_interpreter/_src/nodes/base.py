@@ -153,5 +153,5 @@ def _construction_arguments(args: tuple[object, ...]) -> None:
         elif type(value) is float:
             if not math.isfinite(value):
                 raise ValueError("construction floats must be finite")
-        elif type(value) not in (int, str):
+        elif type(value) not in (bool, int, str):
             raise TypeError(f"invalid construction argument type: {type(value).__name__}")

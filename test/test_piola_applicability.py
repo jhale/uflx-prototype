@@ -6,7 +6,7 @@ from testutil import grouped_topology, push_forward
 
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     ScalarType,
     apply_gradients,
     coordinate,
@@ -14,7 +14,7 @@ from uflx_spec_interpreter import (
     divergence,
     expand_pull_backs,
     function,
-    image,
+    mesh,
     pull_back,
     tensor,
     transformation_law,
@@ -34,7 +34,7 @@ def mapped(k, n, variance, weight):
     x = function(
         space("piola-coordinates", value_shape=(n,), domain=T, scalar_type=ScalarType.real), "x"
     )
-    D = image(x, RD(n))
+    D = mesh(x, EuclideanSpace(n))
     f = function(space("piola-field", value_shape=(k,), domain=T), "f")
     return D, push_forward(f, D, transformation_law((variance,), weight))
 
@@ -75,7 +75,7 @@ def test_wrong_mapping_laws_do_not_trigger_identities():
 
 
 def test_ordinary_divergence_and_curl_expand_without_any_pullback():
-    P = RD(2)
+    P = EuclideanSpace(2)
     x, y = coordinate(P)[0], coordinate(P)[1]
     cases = (
         (divergence(tensor((x * x, y * y)), P), 2 * 0.3 + 2 * 0.7),

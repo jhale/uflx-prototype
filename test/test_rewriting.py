@@ -2,7 +2,7 @@
 
 import pytest
 
-from uflx_spec_interpreter import RD, apply_gradients, function, gradient, num, tensor
+from uflx_spec_interpreter import EuclideanSpace, apply_gradients, function, gradient, num, tensor
 from uflx_spec_interpreter._src.algorithms.rewriting import rewrite
 from uflx_spec_interpreter._src.algorithms.traversal import rebuild
 from uflx_spec_interpreter._src.passes import lowering, spatial
@@ -28,7 +28,7 @@ def test_replacement_cycles_raise():
 
 
 def test_retained_gradient_is_not_reconstructed_on_each_visit():
-    P = RD(2)
+    P = EuclideanSpace(2)
     u = function(space("field", domain=P, value_shape=(2,)), "u")
     for e in (gradient(u, P), gradient(gradient(u, P), P)):
         assert apply_gradients(e) is e

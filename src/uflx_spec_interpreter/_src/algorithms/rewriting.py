@@ -10,6 +10,7 @@ from ..nodes.static import free_indices
 from .traversal import map_values
 
 if TYPE_CHECKING:
+    from ..nodes.indices import AbstractExtent, Index
     from ..nodes.spaces import AbstractFunctionSpace
 
 
@@ -18,6 +19,8 @@ def zero_like(
     argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...],
     *others: AbstractExpression,
 ) -> Zero:
+    if f.scalar_type == "boolean":
+        raise ValueError("Boolean zero is undefined")
     return Zero(
         f.value_shape,
         free_indices(f, *others),
@@ -41,23 +44,31 @@ def complete_indices(
         raise ValueError("index completion requires matching shapes and argument spaces")
     if replacement.domain not in (None, original.domain):
         raise ValueError("a replacement changes domain")
-    expected, actual = dict(original.free_indices), dict(replacement.free_indices)
+    return complete_family(original.free_indices, promote(original, replacement))
+
+
+def complete_family(
+    indices: tuple[tuple[Index, int | AbstractExtent], ...], replacement: AbstractExpression
+) -> AbstractExpression:
+    """Restore missing family axes after substitution, including unused arguments."""
+    expected, actual = dict(indices), dict(replacement.free_indices)
     if not actual.items() <= expected.items():
         raise ValueError("a replacement introduces an index or changes its extent")
-    replacement = promote(original, replacement)
     if actual.keys() == expected.keys():
         return replacement
     if isinstance(replacement, Zero):
-        return zero_like(original, original.argument_spaces)
+        return Zero(
+            replacement.value_shape, indices, replacement.argument_spaces, replacement.scalar_type
+        )
     from ..tensors import broadcast_to, component_tensor, indexed
     from .names import derived_indices
 
     # SH06. Selecting a repeated value preserves an index without introducing a sum.
-    for i, n in original.free_indices:
+    for i, n in indices:
         if i in actual:
             continue
         axes = derived_indices(
-            "uflx.complete_indices", (original, replacement, i), len(replacement.value_shape)
+            "uflx.complete_indices", (indices, replacement, i), len(replacement.value_shape)
         )
         repeated = broadcast_to(replacement, (n, *replacement.value_shape))
         selected = indexed(repeated, (i, *axes))
@@ -71,7 +82,7 @@ def promote(original: AbstractExpression, replacement: AbstractExpression) -> Ab
 
     if original.scalar_type == replacement.scalar_type:
         return replacement
-    if original.scalar_type == ScalarType.real:
+    if original.scalar_type != ScalarType.complex or replacement.scalar_type != ScalarType.real:
         raise ValueError("a rewrite changes scalar type")
     if isinstance(replacement, Zero):
         return Zero(

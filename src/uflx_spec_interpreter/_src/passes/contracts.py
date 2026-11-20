@@ -15,11 +15,14 @@ from ..algorithms.traversal import everywhere
 from ..nodes import (
     Absolute,
     AbstractExpression,
-    Action,
+    Apply,
+    Boolean,
     BroadcastTo,
     Complex,
     ComponentTensor,
+    Conditional,
     Conjugate,
+    Conormal,
     Coordinate,
     Curl,
     Determinant,
@@ -36,9 +39,9 @@ from ..nodes import (
     Integer,
     Integral,
     Inverse,
+    LessThan,
     Logarithm,
     Mesh,
-    Normal,
     Power,
     Product,
     PullBack,
@@ -53,7 +56,7 @@ from ..nodes.static import field_terminal
 from ..nodes.structure import expression_operands
 from ..rules.coordinates import piola_law
 from ..rules.pullback_algebra import pullback_remains
-from ..rules.structural import action_retained, gradient_remains
+from ..rules.structural import application_retained, gradient_remains
 
 _Violation = tuple[AbstractExpression, str]
 
@@ -130,7 +133,10 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
     # The core normal form of the Evaluation chapter.
     match e:
         case (
-            Integer()
+            Boolean()
+            | LessThan()
+            | Conditional()
+            | Integer()
             | Float()
             | Complex()
             | Zero()
@@ -149,7 +155,7 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
             | Inverse()
             | Determinant()
             | Coordinate()
-            | Normal()
+            | Conormal()
             | Function()
             | Form()
             | PushForward()
@@ -167,8 +173,8 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
             return not isinstance(p, Mesh)
         case PullBack(f, m):
             return pullback_remains(f, m)
-        case Action(A, _, _):
-            return action_retained(A)
+        case Apply(form, _):
+            return application_retained(form)
         case _:
             return False
 

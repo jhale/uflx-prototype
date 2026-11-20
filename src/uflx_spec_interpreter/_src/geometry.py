@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .nodes import Absolute, Gradient, Integer, Inverse, SquareRoot
+from .nodes import Gradient, SquareRoot
 from .tensors import determinant, matrix_product, transpose
 
 if TYPE_CHECKING:
@@ -12,9 +12,9 @@ if TYPE_CHECKING:
     from .nodes.meshes import CellMap
 
 
-def jacobian(D: DomainMap | CellMap) -> AbstractExpression:
-    source, _ = geometric_map(D)
-    return Gradient(D.parameterisation, source)
+def jacobian(map: DomainMap | CellMap) -> AbstractExpression:
+    source, _ = geometric_map(map)
+    return Gradient(map.parameterisation, source)
 
 
 def _metric(D: DomainMap | CellMap) -> AbstractExpression:
@@ -23,20 +23,8 @@ def _metric(D: DomainMap | CellMap) -> AbstractExpression:
     return matrix_product(transpose(J), J)
 
 
-def density(D: DomainMap | CellMap) -> AbstractExpression:
-    # sqrt(det G), with the closed form |det J| for a cell of the ambient dimension.
-    source, target = geometric_map(D)
-    k, n = source.dimension, target.dimension
-    if k == 0:
-        return Integer(1)
-    if k == n:
-        return Absolute(determinant(jacobian(D)))
-    return SquareRoot(determinant(_metric(D)))
-
-
-def inverse_jacobian(D: DomainMap | CellMap) -> AbstractExpression:
-    # The pseudo-inverse of J, which is the inverse for a cell of the ambient dimension.
-    return Inverse(jacobian(D))
+def density(map: DomainMap | CellMap) -> AbstractExpression:
+    return SquareRoot(determinant(_metric(map)))
 
 
 def geometric_map(

@@ -10,13 +10,13 @@ from testutil import grouped_topology
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    RD,
     Complex,
+    EuclideanSpace,
     Float,
     Integer,
     ScalarType,
     Zero,
-    action,
+    apply,
     cell_map,
     component,
     component_tensor,
@@ -30,12 +30,12 @@ from uflx_spec_interpreter import (
     function,
     gathered_index,
     gradient,
-    image,
     index,
     index_sum,
     indexed,
     integral,
     lower,
+    mesh,
     replace,
     tensor,
 )
@@ -52,7 +52,7 @@ class Payload(Base):
     payload: object
 
 
-@pytest.mark.parametrize("payload", [None, True, [], {}, 1j, namedtuple("Pair", "a")(1)])
+@pytest.mark.parametrize("payload", [None, [], {}, 1j, namedtuple("Pair", "a")(1)])
 def test_construction_arguments_are_curated(payload):
     with pytest.raises(TypeError):
         Payload((payload,))
@@ -120,22 +120,22 @@ def test_determinants_require_fixed_dimensions_and_accept_empty_shapes():
 
 
 def test_calculus_domain_is_the_result_domain():
-    P = RD(2)
+    P = EuclideanSpace(2)
     X = coordinate(P)
     e = integral(X, P)
     assert e.domain is None and e.integration_domain is P
     assert gradient(Integer(1), P).domain is P
     with pytest.raises(ValueError):
-        gradient(X, RD(3))
+        gradient(X, EuclideanSpace(3))
     with pytest.raises(ValueError):
-        X[0] + coordinate(RD(3))[0]
+        X[0] + coordinate(EuclideanSpace(3))[0]
 
 
 def test_mesh_cells_retain_selection_after_geometry_substitution():
     T = grouped_topology((reference_simplex(1),), (((0, 1), (2, 3)),), ())
     V = space("coordinates", (1,), T, ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
-    D, E = image(x, RD(1)), image(y, RD(1))
+    D, E = mesh(x, EuclideanSpace(1)), mesh(y, EuclideanSpace(1))
     C = cell_map(D, 1)
     assert C.cell_slot == 1 and C.free_indices == ()
     assert C.parameterisation.map is cell_map(T, 1)
@@ -160,9 +160,9 @@ def test_space_factories_and_substitution_keep_canonical_forms():
 def test_action_conjugation_and_real_to_complex_embedding():
     V = space("V")
     u = function(V, "u")
-    e = action(conjugate(form(u, (u,))), 0, Complex(Integer(2), Integer(3)))
+    e = apply(conjugate(form(u, (u,))), (Complex(Integer(2), Integer(3)),))
     assert evaluate(lower(e), {})(()) == 2 + 3j
-    f = action(form(u ** Float(0.5), (u,)), 0, Integer(-1))
+    f = apply(form(u ** Float(0.5), (u,)), (Integer(-1),))
     assert lower(f).scalar_type is ScalarType.complex
     assert np.isclose(evaluate(lower(f), {})(()), 1j)
 
@@ -209,7 +209,7 @@ def test_substituting_into_a_zero_selects_its_family_indices():
 
 
 def test_zero_dimensional_coordinate_gradient_has_empty_shape():
-    e = gradient(coordinate(RD(0)), RD(0))
+    e = gradient(coordinate(EuclideanSpace(0)), EuclideanSpace(0))
     out = lower(e)
     assert out.value_shape == (0, 0)
     assert evaluate(out, {})(()).shape == (0, 0)

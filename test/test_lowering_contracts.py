@@ -1,7 +1,7 @@
 """Diagnostic contracts are read-only checks, independent of lowering recipes."""
 
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     ScalarType,
     apply_derivatives,
     directional_derivative,
@@ -42,14 +42,14 @@ def test_reports_multiple_failures_in_stable_order():
 
 def test_later_compiler_capabilities_are_not_checked():
     # An abstract coordinate-domain integral need not have a Basix quadrature rule.
-    e = integral(num(1), RD(2))
+    e = integral(num(1), EuclideanSpace(2))
     assert not reference_integration(e)
     assert not core_normal_form(e)
     assert not core_normal_form(runtime_array("external-data", (2,)))
 
 
 def test_nonexpanded_gradient_is_allowed_at_earlier_boundaries():
-    P = RD(2)
+    P = EuclideanSpace(2)
     u = function(space("gradient-contract", domain=P), "u")
     e = gradient(u * u, P)
     assert not derivatives_expanded(e)
@@ -63,7 +63,7 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
     import basix
     from test_basix import square
 
-    from uflx_spec_interpreter._src.meshes import image
+    from uflx_spec_interpreter._src.meshes import mesh
     from uflx_toy.basix_cells import basix_cell
 
     D = square(basix_cell(basix.CellType.triangle))[0]
@@ -71,7 +71,7 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
         space("coordinates", value_shape=(2,), domain=D.topology, scalar_type=ScalarType.real), "q"
     )
     coordinates = directional_derivative(q, q, D.coordinate_function, q)
-    geometry = image(coordinates, D.ambient_domain)
+    geometry = mesh(coordinates, D.ambient_domain)
     u = function(space("geometry-contract", domain=geometry), "u")
     assert not derivatives_expanded(u)
     assert not core_normal_form(u)

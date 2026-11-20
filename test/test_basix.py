@@ -1,7 +1,7 @@
 import basix
 import numpy as np
 import pytest
-from testutil import grouped_topology, normal, side_data, side_domain, side_map, table, vertex_mesh
+from testutil import grouped_topology, side_data, side_domain, side_map, table, vertex_mesh
 
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
@@ -20,6 +20,7 @@ from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.cells import reference_simplex
 from uflx_toy.inclusions import affine_map, reference_normal
+from uflx_toy.sides import outward_conormal
 from uflx_toy.spaces import space
 
 
@@ -79,10 +80,10 @@ def facet_integrals(K):
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     env = {u: {0: lambda x: 1 + x[0] + 2 * x[1], 1: lambda x: 3 - x[0] * x[1]}}
     forms = [
-        integral(pull_back(u, plus) * normal(plus)[0], E),
+        integral(pull_back(u, plus) * outward_conormal(plus)[0], E),
         integral(pull_back(u, plus) - pull_back(u, minus), E),
-        integral(normal(inside)[1] * pull_back(coordinate(D)[0], inside), B),
-        integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B),
+        integral(outward_conormal(inside)[1] * pull_back(coordinate(D)[0], inside), B),
+        integral(pull_back(gradient(u, D)[0], inside) * outward_conormal(inside)[0], B),
     ]
     values = []
     for e in forms:
@@ -133,12 +134,12 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
     Z = coordinate(D)
     exact = [
         (integral(num(1), D), 1),
-        (integral(normal(plus)[0], E), 1),
-        (integral(normal(minus)[0], E), -1),
-        (integral(normal(inside)[0] * pull_back(Z[0], inside), B), 1),
-        (integral(normal(inside)[1] * pull_back(Z[1], inside), B), 1),
+        (integral(outward_conormal(plus)[0], E), 1),
+        (integral(outward_conormal(minus)[0], E), -1),
+        (integral(outward_conormal(inside)[0] * pull_back(Z[0], inside), B), 1),
+        (integral(outward_conormal(inside)[1] * pull_back(Z[1], inside), B), 1),
         (integral(pull_back(u, plus) - pull_back(u, minus), E), -0.25),
-        (integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B), None),
+        (integral(pull_back(gradient(u, D)[0], inside) * outward_conormal(inside)[0], B), None),
     ]
     for e, expected in exact:
         out = lower_spatial(integrals.expand_integrals(e))
@@ -178,7 +179,11 @@ def mixed():
 
 def test_a_mesh_of_triangles_and_a_quadrilateral():
     D, E, B = mixed()
-    assert D.topology is not None and len(D.pieces) == 3 and len(E.pieces) == 2
+    assert (
+        D.topology is not None
+        and len(D.topology.cell_types) == 3
+        and len(E.topology.cell_types) == 2
+    )
     u = function(space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     # A function that differs between the cells, keyed by the local cell slot.
@@ -192,13 +197,13 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
     Z = coordinate(D)
     exact = [
         (integral(num(1), D), 1),
-        (integral(normal(plus)[0], E), 0),
-        (integral(normal(plus)[1], E), 0.5),
-        (integral(normal(inside)[0] * pull_back(Z[0], inside), B), 1),
-        (integral(normal(inside)[1] * pull_back(Z[1], inside), B), 1),
+        (integral(outward_conormal(plus)[0], E), 0),
+        (integral(outward_conormal(plus)[1], E), 0.5),
+        (integral(outward_conormal(inside)[0] * pull_back(Z[0], inside), B), 1),
+        (integral(outward_conormal(inside)[1] * pull_back(Z[1], inside), B), 1),
         (integral(u * u, D), None),
         (integral(pull_back(u, plus) - pull_back(u, minus), E), None),
-        (integral(pull_back(gradient(u, D)[0], inside) * normal(inside)[0], B), None),
+        (integral(pull_back(gradient(u, D)[0], inside) * outward_conormal(inside)[0], B), None),
     ]
     for e, expected in exact:
         out = lower_spatial(integrals.expand_integrals(e))

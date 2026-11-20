@@ -18,6 +18,7 @@ from .nodes import (
     Tensor,
     Zero,
 )
+from .nodes.scalar_types import numerical_type
 
 if TYPE_CHECKING:
     from .nodes.indices import AbstractExtent, GatheredIndex, Index
@@ -51,8 +52,8 @@ def index_sum(expression: AbstractExpression, indices: tuple[Index, ...]) -> Abs
     return _empty_indices(expression) if indices == () else IndexSum(expression, indices)
 
 
-def inverse(A: AbstractExpression) -> AbstractExpression:
-    return Inverse(A)
+def inverse(matrix: AbstractExpression) -> AbstractExpression:
+    return Inverse(matrix)
 
 
 def identity(n: int) -> AbstractExpression:
@@ -75,9 +76,10 @@ def permutation_tensor(n: int) -> AbstractExpression:
     return entries(())
 
 
-def transpose(A: AbstractExpression) -> AbstractExpression:
-    k, l = derived_indices("uflx.transpose", (A,), 2)
-    return ComponentTensor(Indexed(A, (k, l)), (l, k))
+def transpose(matrix: AbstractExpression) -> AbstractExpression:
+    numerical_type(matrix.scalar_type)
+    k, l = derived_indices("uflx.transpose", (matrix,), 2)
+    return ComponentTensor(Indexed(matrix, (k, l)), (l, k))
 
 
 def matrix_product(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
@@ -89,18 +91,20 @@ def matrix_product(first: AbstractExpression, second: AbstractExpression) -> Abs
 
 
 def component(
-    f: AbstractExpression, entries: tuple[int | Index | GatheredIndex, ...]
+    expression: AbstractExpression, entries: tuple[int | Index | GatheredIndex, ...]
 ) -> AbstractExpression:
     if not entries:
-        return f
-    if len(entries) < len(f.value_shape):
-        K = derived_indices("uflx.component", (f, entries), len(f.value_shape) - len(entries))
-        return ComponentTensor(Indexed(f, (*entries, *K)), K)
-    return Indexed(f, entries)
+        return expression
+    if len(entries) < len(expression.value_shape):
+        K = derived_indices(
+            "uflx.component", (expression, entries), len(expression.value_shape) - len(entries)
+        )
+        return ComponentTensor(Indexed(expression, (*entries, *K)), K)
+    return Indexed(expression, entries)
 
 
-def determinant(A: AbstractExpression) -> AbstractExpression:
-    return Determinant(A)
+def determinant(matrix: AbstractExpression) -> AbstractExpression:
+    return Determinant(matrix)
 
 
 def _sign(p: tuple[int, ...]) -> int:

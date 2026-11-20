@@ -7,12 +7,12 @@ from testutil import grouped_topology, push_forward, side_domain, side_map, vert
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     cell_map,
     expand_integrals,
     function,
-    image,
     integral,
+    mesh,
     num,
     pull_back,
     tensor,
@@ -44,7 +44,10 @@ def p1_mesh():
     X, x0, x1, x = coordinates(1)
     assert X.cell_dofs == ((0, 1, 2), (3, 4, 5))
     mapping = conforming_dofmap(X)
-    return image(x, RD(2)), {x0: mapping.gather(VERTICES[:, 0]), x1: mapping.gather(VERTICES[:, 1])}
+    return mesh(x, EuclideanSpace(2)), {
+        x0: mapping.gather(VERTICES[:, 0]),
+        x1: mapping.gather(VERTICES[:, 1]),
+    }
 
 
 def labelled(env):
@@ -99,7 +102,7 @@ def test_the_jacobian_of_a_mesh_is_the_reference_gradient_of_the_coordinate_func
 
 def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
     X, x0, x1, x = coordinates(2)
-    D = image(x, RD(2))
+    D = mesh(x, EuclideanSpace(2))
     # Interpolate the square, then bend the shared diagonal.
     points = basix.create_element(
         P, basix.CellType.triangle, 2, basix.LagrangeVariant.equispaced
@@ -123,7 +126,7 @@ def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
 def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
     # The coordinates of the vertices of each cell are the dofs of a discontinuous P1 space.
     X, _, _, x = coordinates(1, discontinuous=True)
-    D = image(x, RD(2))
+    D = mesh(x, EuclideanSpace(2))
     geometry_of, _, E = runtime_mesh()
     rng = np.random.default_rng(12)
     corners = np.array([(0, 0), (1, 0), (1.2, 1.1), (-0.1, 0.9)]) + rng.normal(size=(4, 2)) * 0.05
@@ -173,7 +176,7 @@ def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
     D, _ = p1_mesh()
     u = push_forward(function(basix_space("V", T, P, 2), "u"), D)
     compiled = compile_form(functionals(D, u)[3], 4)
-    dets = {n.second for n in nodes(compiled) if isinstance(n, Division)}
+    dets = {n.denominator for n in nodes(compiled) if isinstance(n, Division)}
     assert dets and all(d.free_indices == () for d in dets)
 
 

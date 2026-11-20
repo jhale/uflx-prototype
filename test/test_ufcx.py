@@ -13,18 +13,19 @@ from testutil import grouped_topology
 
 from uflx_compiler import compile_ufcx
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     form,
     function,
     gradient,
-    image,
     integral,
+    mesh,
     num,
     push_forward,
     tensor,
 )
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
+from uflx_toy.sides import outward_conormal
 from uflx_toy.spaces import space
 
 
@@ -48,7 +49,7 @@ def model(cell, degree, coordinate_degree, kind, cells=1):
     )
     X = basix_space("X", T, basix.ElementFamily.P, coordinate_degree)
     coords = tuple(function(X, f"x{i}") for i in range(K.dimension))
-    D = image(tensor(coords), RD(K.dimension))
+    D = mesh(tensor(coords), EuclideanSpace(K.dimension))
     V = basix_space("V", T, basix.ElementFamily.P, degree)
     u, v, a, b = (function(V, s) for s in ("u", "v", "a", "b"))
     U, W, A, B = (push_forward(f, D, V.law) for f in (u, v, a, b))
@@ -413,7 +414,7 @@ def boundary_mesh(D):
 
 
 def boundary_model(cell, degree, coordinate_degree, kind):
-    from testutil import normal, side_map
+    from testutil import side_map
 
     from uflx_spec_interpreter import pull_back
 
@@ -433,7 +434,7 @@ def boundary_model(cell, degree, coordinate_degree, kind):
         case "energy":
             integrand, arguments = weight * weight, ()
         case "normal_derivative":
-            g, n = pull_back(gradient(U, D), restriction), normal(restriction)
+            g, n = pull_back(gradient(U, D), restriction), outward_conormal(restriction)
             flux = sum((g[i] * n[i] for i in range(dim)), num(0))
             integrand, arguments = weight * flux * pull_back(W, restriction), (v, u)
     f = integral(integrand, boundary)
@@ -557,7 +558,7 @@ def interior_mesh(D):
 
 
 def interior_model(cell, degree, coordinate_degree, kind):
-    from testutil import normal, side_map
+    from testutil import side_map
 
     from uflx_spec_interpreter import pull_back
 
@@ -583,7 +584,7 @@ def interior_model(cell, degree, coordinate_degree, kind):
         case "mass":
             value, arguments = weight * jump(U) * jump(W), (v, u)
         case "flux":
-            gu, gv, n = average(gradient(U, D)), average(gradient(W, D)), normal(plus)
+            gu, gv, n = average(gradient(U, D)), average(gradient(W, D)), outward_conormal(plus)
             fluxu = sum((gu[i] * n[i] for i in range(D.dimension)), num(0))
             fluxv = sum((gv[i] * n[i] for i in range(D.dimension)), num(0))
             value = weight * (num(3) * jump(U) * jump(W) - fluxu * jump(W) - fluxv * jump(U))
@@ -742,11 +743,11 @@ def test_interior_normals_are_opposite(tmp_path, ufcx_include, cell, degree):
     ufl = pytest.importorskip("ufl")
     jit = pytest.importorskip("ffcx.codegeneration.jit")
     import basix.ufl
-    from testutil import normal, side_map
+    from testutil import side_map
 
     _, D, _, _ = model(cell, 1, degree, "mass", cells=2)
     boundary = interior_mesh(D)
-    a, b = (normal(side_map(D, boundary, side)) for side in ("+", "-"))
+    a, b = (outward_conormal(side_map(D, boundary, side)) for side in ("+", "-"))
     expr = sum((a[i] * b[i] for i in range(D.dimension)), num(0))
     code = compile_ufcx(integral(expr, boundary), D, 4)
     evaluate, _ = build(code, tmp_path, ufcx_include)
@@ -794,7 +795,7 @@ def test_interior_piola_normal_jumps(tmp_path, ufcx_include):
     ufl = pytest.importorskip("ufl")
     jit = pytest.importorskip("ffcx.codegeneration.jit")
     import basix.ufl
-    from testutil import normal, side_map
+    from testutil import side_map
 
     from uflx_spec_interpreter import pull_back
 
@@ -807,7 +808,7 @@ def test_interior_piola_normal_jumps(tmp_path, ufcx_include):
         terms = []
         for side in ("+", "-"):
             mapping = side_map(D, interface, side)
-            value, n = pull_back(push_forward(f, D, V.law), mapping), normal(mapping)
+            value, n = pull_back(push_forward(f, D, V.law), mapping), outward_conormal(mapping)
             terms.append(value[0] * n[0] + value[1] * n[1])
         return terms[0] + terms[1]
 
@@ -1007,7 +1008,7 @@ def test_vector_geometry_matches_scalar_components(tmp_path, ufcx_include, kind,
     f, D, coefficients, constants = make(basix.CellType.triangle, 1, coordinate_degree, integrand)
     X = basix_space("vector-X", D.topology, basix.ElementFamily.P, coordinate_degree, shape=(2,))
     x = function(X, "coordinates")
-    mapping = {D: image(x, RD(2)), D.coordinate_function: x}
+    mapping = {D: mesh(x, EuclideanSpace(2)), D.coordinate_function: x}
     mapping.update({c: x[i] for i, c in enumerate(D.coordinate_function.entries)})
     vector_form = substitute(f, mapping)
     options = {"coefficients": coefficients, "constants": constants}
@@ -1039,14 +1040,14 @@ def test_vector_geometry_matches_scalar_components(tmp_path, ufcx_include, kind,
 def test_runtime_facets_preserve_explicit_normal_orientation(tmp_path, ufcx_include, interior):
     from testutil import side_map
 
-    from uflx_spec_interpreter import normal
+    from uflx_spec_interpreter import conormal
     from uflx_toy.sides import outward_conormals
 
     _, D, _, _ = model(basix.CellType.triangle, 1, 1, "mass", cells=2 if interior else 1)
     E = interior_mesh(D) if interior else boundary_mesh(D)
     relation = side_map(D, E, "+" if interior else "inside")
     (m,) = outward_conormals(relation)
-    n, reversed_n = normal(relation, m), normal(relation, -m)
+    n, reversed_n = conormal(relation, m), conormal(relation, -m)
     assert n.side_map is reversed_n.side_map
     runs = []
     for label, field in (("outward", n), ("inward", reversed_n)):

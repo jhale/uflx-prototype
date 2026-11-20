@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from test_facets import E_bnd, E_int, sides_int
 from test_integrals import D, K
-from testutil import grouped_topology, normal, vertex_mesh
+from testutil import grouped_topology, vertex_mesh
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
@@ -20,6 +20,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.nodes import IndexSum, Integral
+from uflx_toy.sides import outward_conormal
 
 
 @pytest.mark.parametrize("domain", [D, E_bnd, E_int])
@@ -63,7 +64,7 @@ def test_expansion_preserves_array_indices_without_a_cell_binder():
 
 
 def test_interior_facet_keeps_both_cell_traces():
-    jump = normal(sides_int["+"])[0] - normal(sides_int["-"])[0]
+    jump = outward_conormal(sides_int["+"])[0] - outward_conormal(sides_int["-"])[0]
     piece = reference_integral(jump * jump, E_int, 0)
     assert np.allclose(evaluate(lower(piece), {})(()), 2 * np.sqrt(2))
 

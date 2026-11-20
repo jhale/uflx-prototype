@@ -5,7 +5,7 @@ import numpy as np
 
 from uflx_compiler import compile_form, evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     cell_map,
     directional_derivative,
     domain_map,
@@ -29,7 +29,7 @@ def dot(a, b):
 def point_value(f, point, cell):
     """Construct a domain-free symbolic point evaluation."""
     position = tensor(tuple(num(float(x)) for x in point))
-    return integral(pull_back(f, domain_map(RD(0), position, cell)), RD(0))
+    return integral(pull_back(f, domain_map(EuclideanSpace(0), position, cell)), EuclideanSpace(0))
 
 
 def edge_sampling_rule(target):

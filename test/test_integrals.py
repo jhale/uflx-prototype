@@ -7,7 +7,7 @@ from testutil import assert_clean, check_types, grouped_topology, keeps_static_t
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     add,
     component_tensor,
     coordinate,
@@ -28,7 +28,7 @@ from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 
-R2 = RD(2)
+R2 = EuclideanSpace(2)
 K = reference_simplex(2)
 X = coordinate(K)
 k = index("k")

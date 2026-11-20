@@ -1,10 +1,19 @@
 import numpy as np
 
 import uflx_spec_interpreter
-from uflx_spec_interpreter import RD, ScalarType, image, num, tensor
+from uflx_spec_interpreter import (
+    EuclideanSpace,
+    ScalarType,
+    apply,
+    form,
+    function,
+    mesh,
+    num,
+    tensor,
+)
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
-    Action,
+    Apply,
     ComponentTensor,
     Conjugate,
     ConjugateSpace,
@@ -48,6 +57,26 @@ def assert_clean(counts):
         assert counts["rejected"] == counts["lazy"] > 0, counts
 
 
+def form_with_fixed_argument(operator, position, value):
+    """Generate a form over the remaining slots of a random operator."""
+    arguments = []
+    declarations = []
+    members = value if isinstance(value, tuple) else (value,)
+    label = ("test.fixed", operator.digest, position, tuple(v.digest for v in members))
+    for slot, space in enumerate(operator.argument_spaces):
+        if slot == position:
+            arguments.append(value)
+            continue
+        if isinstance(space, tuple):
+            entry = tuple(function(V, (*label, slot, i)) for i, V in enumerate(space))
+        else:
+            entry = function(space, (*label, slot))
+        declarations.append(entry)
+        arguments.append(entry)
+    body = apply(operator, tuple(arguments))
+    return form(body, tuple(declarations)) if declarations else body
+
+
 def pairing(action):
     return isinstance(action.form, Function) and isinstance(action.form.space, DualSpace)
 
@@ -70,7 +99,7 @@ def passed(n):
         case Sum() | Product():
             return ("first", "second")
         case Division():
-            return ("first",)
+            return ("numerator",)
         case Conjugate():
             return ("operand",)
         case Tensor():
@@ -86,8 +115,8 @@ def passed(n):
             | Form()
         ):
             return ("expression",)
-        case Action():
-            return ("form", "argument")
+        case Apply():
+            return ("form", "arguments")
     return ()
 
 
@@ -114,13 +143,12 @@ def node_error(n):
             return f"Sum of {a.argument_spaces} and {b.argument_spaces}"
         case Tensor(entries) if len({x.argument_spaces for x in entries}) > 1:
             return f"Tensor of {[x.argument_spaces for x in entries]}"
-        case Action(f, p, g):
-            if p >= len(f.argument_spaces):
-                return f"Action at {p} of {f.argument_spaces}"
-            if spaces_of_value(f.argument_spaces[p]) != spaces_of(g):
-                return f"Action at {p} of {f.argument_spaces} on {spaces_of(g)}"
-            if complex_for_real(f.argument_spaces[p], g):
-                return f"Action at {p} of {f.argument_spaces} on a complex argument"
+        case Apply(f, arguments):
+            if len(arguments) != len(f.argument_spaces):
+                return "application arity differs from its form"
+            for space, value in zip(f.argument_spaces, arguments, strict=True):
+                if spaces_of_value(space) != spaces_of(value) or complex_for_real(space, value):
+                    return f"invalid argument for {space}"
     return None
 
 
@@ -163,7 +191,9 @@ def table(rows):
 def vertex_mesh(T, vertices, Q=None):
     # The mesh of T with the vertices at the given coordinates, mapped by degree 1 on each cell.
     vertices = tuple(tuple(float(c) for c in v) for v in np.asarray(vertices, dtype=float))
-    return image(VertexCoordinates(T, vertices), RD(len(vertices[0])) if Q is None else Q)
+    return mesh(
+        VertexCoordinates(T, vertices), EuclideanSpace(len(vertices[0])) if Q is None else Q
+    )
 
 
 def push_forward(f, domain, law=None):
@@ -189,17 +219,11 @@ def side_map(domain, source, selection=None):
 
 def side_domain(domain, topology, selection=None):
     relation = side_map(domain.topology, topology, selection)
-    result = image(
+    result = mesh(
         uflx_spec_interpreter.pull_back(domain.coordinate_function, relation), domain.ambient_domain
     )
     _fixture_sides[result] = dict(_fixture_sides[topology])
     return result
-
-
-def normal(relation):
-    from uflx_toy.sides import outward_normal
-
-    return outward_normal(relation)
 
 
 def side_data(source, slot, name):

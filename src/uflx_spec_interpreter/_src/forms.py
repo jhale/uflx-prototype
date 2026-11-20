@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from .nodes import (
     AbstractExpression,
-    Action,
+    Apply,
     Conjugate,
     Form,
     Function,
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
     from .nodes.types import Construction
 
 
-def function(V: AbstractFunctionSpace, label: str | tuple[Construction, ...]) -> Function:
-    return Function(V, label)
+def function(space: AbstractFunctionSpace, label: str | tuple[Construction, ...]) -> Function:
+    return Function(space, label)
 
 
 def form(
@@ -26,7 +26,10 @@ def form(
     return Form(expression, arguments)
 
 
-def action(
-    f: AbstractExpression, position: int, g: AbstractExpression | tuple[AbstractExpression, ...]
-) -> Action:
-    return Action(f, position, g)
+def apply(
+    form: AbstractExpression,
+    arguments: tuple[AbstractExpression | tuple[AbstractExpression, ...], ...],
+) -> AbstractExpression:
+    if not arguments and not form.argument_spaces:
+        return form
+    return Apply(form, arguments)

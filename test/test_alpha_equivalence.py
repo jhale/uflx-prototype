@@ -5,10 +5,8 @@ import sys
 import pytest
 from testutil import grouped_topology
 
-from uflx_spec_interpreter import RD, form, function, image, index, integral, num
+from uflx_spec_interpreter import EuclideanSpace, form, function, index, integral, mesh, num, rebind
 from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
-from uflx_spec_interpreter._src.algorithms.substitution import rename_bound
-from uflx_spec_interpreter._src.extensions.binding import rebind
 from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 
@@ -18,7 +16,7 @@ def geometry():
     topology = grouped_topology((K,), (((0, 1),),), ())
     X = space("alpha-coordinates", value_shape=(1,), domain=topology, scalar_type="real")
     x, y = function(X, "x"), function(X, "y")
-    V = space("alpha-physical", domain=image(x, RD(1)), scalar_type="real")
+    V = space("alpha-physical", domain=mesh(x, EuclideanSpace(1)), scalar_type="real")
     return x, y, function(V, "c")
 
 
@@ -35,15 +33,10 @@ def test_geometry_dependent_coefficient_after_public_rebind():
 
 
 @pytest.mark.parametrize("used", [False, True])
-def test_inner_parameter_space_follows_outer_binding(used):
-    x, y, c = geometry()
-    left = form(form(c if used else num(1), (c,)), (x,))
-    right = rename_bound(left, {x: y})
-    assert alpha_equivalent(left, right)
-    assert alpha_equivalent(right, left)
-    # Comparison does not relax the public application's dependent-space rules.
-    with pytest.raises(ValueError, match="dependent parameter spaces"):
-        rebind(left, {x: y})
+def test_inner_parameter_space_must_be_independent_of_outer_binding(used):
+    x, _, c = geometry()
+    with pytest.raises(ValueError, match="argument space depends"):
+        form(form(c if used else num(1), (c,)), (x,))
 
 
 def test_free_identity_and_space_differences_are_preserved():
@@ -54,9 +47,7 @@ def test_free_identity_and_space_differences_are_preserved():
     assert not alpha_equivalent(left, form(other_label, (x,)))
     assert not alpha_equivalent(left, form(other_space, (x,)))
     # A bound name does not make arbitrary differences in parameter types equal.
-    assert not alpha_equivalent(
-        form(form(c, (c,)), (x,)), form(form(other_space, (other_space,)), (x,))
-    )
+    assert not alpha_equivalent(form(c, (c,)), form(other_space, (other_space,)))
 
 
 def test_generated_labels_keep_existing_identity_policy():

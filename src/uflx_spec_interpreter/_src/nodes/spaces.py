@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Literal, final
+from typing import TYPE_CHECKING, final
 
 from .arguments import argument_members
 from .base import Base
 from .caching import cached
-from .scalar_types import ScalarType
+from .scalar_types import NumericalScalarType, ScalarType
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
@@ -25,7 +25,7 @@ class AbstractFunctionSpace(Base):
 
     @property
     @abstractmethod
-    def scalar_type(self) -> Literal["real", "complex"]: ...
+    def scalar_type(self) -> NumericalScalarType: ...
 
     @property
     @abstractmethod
@@ -48,7 +48,7 @@ class ConjugateSpace(AbstractFunctionSpace):
         return self.space.value_shape
 
     @property
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> NumericalScalarType:
         return self.space.scalar_type
 
     @property
@@ -60,11 +60,11 @@ class ConjugateSpace(AbstractFunctionSpace):
         return tuple(conjugated(V) for V in self.space.argument_spaces)
 
     def _validate(self) -> None:
+        from ..spaces import trivial_conjugation
         from .validation import require
 
         require(
-            self.space.scalar_type == ScalarType.complex
-            and (not isinstance(self.space, ConjugateSpace)),
+            not trivial_conjugation(self.space) and (not isinstance(self.space, ConjugateSpace)),
             "conjugate space is not canonical",
         )
 
@@ -85,7 +85,7 @@ class DualSpace(AbstractFunctionSpace):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> NumericalScalarType:
         is_complex = any(s.scalar_type == ScalarType.complex for s in argument_members(self.space))
         return ScalarType.complex if is_complex else ScalarType.real
 

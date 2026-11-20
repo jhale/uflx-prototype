@@ -3,10 +3,12 @@ import inspect
 import os
 import re
 from pathlib import Path
+from typing import get_overloads
 
 import pytest
 
 import uflx_spec_interpreter
+from uflx_spec_interpreter._src import nodes
 
 SPEC = Path(
     os.environ.get("UFLX_SPEC_PATH", Path(__file__).parents[2] / "uflx" / "design" / "language.md")
@@ -36,7 +38,8 @@ def test_the_public_free_functions_take_the_parameters_of_the_specification():
     # Classes intentionally exposed alongside the free functions, plus
     # implementation conveniences without a generated free-function row.
     conveniences = {
-        "RD",
+        "Boolean",
+        "EuclideanSpace",
         "Complex",
         "Float",
         "Integer",
@@ -53,12 +56,45 @@ def test_the_public_free_functions_take_the_parameters_of_the_specification():
             continue
         if inspect.isclass(getattr(uflx_spec_interpreter, name)):
             continue
-        signature = inspect.signature(getattr(uflx_spec_interpreter, name))
-        params = tuple(signature.parameters)
-        assert params == max(spec[name], key=len), name
-        for overload in spec[name]:
-            assert params[: len(overload)] == overload, name
-            signature.bind(**dict.fromkeys(overload))
+        function = getattr(uflx_spec_interpreter, name)
+        signatures = [inspect.signature(f) for f in get_overloads(function) or [function]]
+        parameters = {
+            tuple(
+                "*" + p.name if p.kind == inspect.Parameter.VAR_POSITIONAL else p.name
+                for p in signature.parameters.values()
+            )
+            for signature in signatures
+        }
+        assert parameters == spec[name], name
+        for signature in signatures:
+            keywords = {
+                p.name: None
+                for p in signature.parameters.values()
+                if p.kind != inspect.Parameter.VAR_POSITIONAL
+            }
+            signature.bind(**keywords)
+            inspect.signature(function).bind(**keywords)
+
+
+@pytest.mark.skipif(not SPEC.exists(), reason="the uflx repository is not beside this one")
+def test_concrete_node_names_and_ordered_arguments_match_the_class_tables():
+    chapters = re.findall(r"\]\((language/[^)]+\.md)\)", SPEC.read_text())
+    specified = {}
+    for chapter in chapters:
+        if chapter == "language/extensions.md":
+            continue
+        source = (SPEC.parent / chapter).read_text()
+        # A class table starts with its constructors, a separator, and its base class.
+        headings = re.findall(r"^\| ([^|\n]+)\| *\|\n\|[^\n]+\n\| Extends\b", source, re.M)
+        for heading in headings:
+            for name, args in re.findall(r"`([A-Z]\w+)\(([^)`]*)\)`", heading):
+                specified[name] = tuple(a.strip() for a in args.split(",") if a.strip())
+    implemented = {
+        name: cls.argument_names
+        for name, cls in vars(nodes).items()
+        if isinstance(cls, type) and getattr(cls, "__final__", False)
+    }
+    assert implemented == specified
 
 
 def facade_declarations(source):

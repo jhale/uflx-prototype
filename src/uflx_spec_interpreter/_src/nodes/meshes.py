@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, Never, cast, final
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Literal, cast, final
 
 from .base import Base
 from .caching import cached
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
 from .expressions import AbstractExpression
 from .indices import Index
-from .scalar_types import ScalarType
+from .scalar_types import NumericalScalarType, ScalarType, numerical_type
 from .topology import AbstractTopology
 
 if TYPE_CHECKING:
@@ -30,8 +31,9 @@ class Mesh(AbstractDomain):
 
         return cell_map(self, cell_slot)
 
-    def __iter__(self) -> Never:
-        raise TypeError(f"{type(self).__name__} is not iterable")
+    def __iter__(self) -> Iterator[CellMap]:
+        for slot in range(len(self.topology.cell_types)):
+            yield self[slot]
 
     @property
     def ambient_domain(self) -> AbstractCoordinateDomain:
@@ -47,23 +49,6 @@ class Mesh(AbstractDomain):
     @property
     def dimension(self) -> int:
         return self.topology.dimension
-
-    @property
-    @cached
-    def pieces(self) -> tuple[DomainMap, ...]:
-        # Derived views for integration and the oracle, not construction arguments.
-        from ..meshes import cell_map
-        from .maps import DomainMap, PullBack
-
-        cells = self.topology.cell_types
-        if not all(isinstance(cell, AbstractReferenceCell) for cell in cells):
-            raise TypeError("mesh cells must be reference cells")
-        pieces: list[DomainMap] = []
-        for group, cell in enumerate(cells):
-            reference_cell = cast("AbstractReferenceCell", cell)
-            coordinates = PullBack(self.coordinate_function, cell_map(self.topology, group))
-            pieces.append(DomainMap(reference_cell, coordinates, self.ambient_domain))
-        return tuple(pieces)
 
     def _validate(self) -> None:
         from .validation import require
@@ -221,8 +206,8 @@ class PushForward(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
 
     @property
     @cached
@@ -252,10 +237,10 @@ class PushForward(AbstractExpression):
 
 
 @final
-class Normal(AbstractExpression):
+class Conormal(AbstractExpression):
     value_fields = ()
     is_terminal = True
-    identifier = "uflx.Normal"
+    identifier = "uflx.Conormal"
     side_map: SideMap
     reference_conormals: tuple[AbstractExpression, ...]
 
@@ -265,12 +250,12 @@ class Normal(AbstractExpression):
 
         domain = self.side_map.parent
         if not isinstance(domain, Mesh):
-            raise TypeError("normal requires a mesh side")
+            raise TypeError("conormal requires a mesh side")
         return (domain.ambient_coordinate_domain.dimension,)
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> Literal["real"]:
         return ScalarType.real
 
     @property
@@ -296,7 +281,7 @@ class Normal(AbstractExpression):
         require(
             isinstance(self.side_map.parent, Mesh)
             and self.side_map.source.dimension == self.side_map.parent.dimension - 1,
-            "normal requires a codimension-one mesh side",
+            "conormal requires a codimension-one mesh side",
         )
 
         require(

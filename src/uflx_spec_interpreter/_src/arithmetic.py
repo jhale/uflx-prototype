@@ -8,11 +8,13 @@ from .nodes import (
     Absolute,
     AbstractExpression,
     ComponentTensor,
+    Conditional,
     Conjugate,
     Division,
     ImaginaryPart,
     Indexed,
     Integer,
+    LessThan,
     Logarithm,
     Power,
     Product,
@@ -30,28 +32,28 @@ def multiply(first: AbstractExpression, second: AbstractExpression) -> AbstractE
     return Product(first, second)
 
 
-def divide(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
-    return Division(first, second)
+def divide(numerator: AbstractExpression, denominator: AbstractExpression) -> AbstractExpression:
+    return Division(numerator, denominator)
 
 
-def negate(f: AbstractExpression) -> AbstractExpression:
-    return multiply(Integer(-1), f)
+def negate(operand: AbstractExpression) -> AbstractExpression:
+    return multiply(Integer(-1), operand)
 
 
-def subtract(f: AbstractExpression, g: AbstractExpression) -> AbstractExpression:
-    return add(f, negate(g))
+def subtract(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
+    return add(first, negate(second))
 
 
-def power(first: AbstractExpression, second: AbstractExpression) -> AbstractExpression:
-    return Power(first, second)
+def power(base: AbstractExpression, exponent: AbstractExpression) -> AbstractExpression:
+    return Power(base, exponent)
 
 
-def absolute(f: AbstractExpression) -> AbstractExpression:
-    return Absolute(f)
+def absolute(operand: AbstractExpression) -> AbstractExpression:
+    return Absolute(operand)
 
 
-def conjugate(f: AbstractExpression) -> AbstractExpression:
-    return Conjugate(f)
+def conjugate(operand: AbstractExpression) -> AbstractExpression:
+    return Conjugate(operand)
 
 
 def _entrywise(
@@ -63,21 +65,31 @@ def _entrywise(
     return ComponentTensor(op(Indexed(f, k)), k)
 
 
-def real_part(f: AbstractExpression) -> AbstractExpression:
-    return _entrywise("uflx.real_part", RealPart, f)
+def real_part(operand: AbstractExpression) -> AbstractExpression:
+    return _entrywise("uflx.real_part", RealPart, operand)
 
 
-def imaginary_part(f: AbstractExpression) -> AbstractExpression:
-    return _entrywise("uflx.imaginary_part", ImaginaryPart, f)
+def imaginary_part(operand: AbstractExpression) -> AbstractExpression:
+    return _entrywise("uflx.imaginary_part", ImaginaryPart, operand)
 
 
-def square_root(f: AbstractExpression) -> AbstractExpression:
-    return SquareRoot(f)
+def square_root(operand: AbstractExpression) -> AbstractExpression:
+    return SquareRoot(operand)
 
 
-def logarithm(f: AbstractExpression) -> AbstractExpression:
-    return Logarithm(f)
+def logarithm(operand: AbstractExpression) -> AbstractExpression:
+    return Logarithm(operand)
 
 
 def total(es: Iterable[AbstractExpression]) -> AbstractExpression:
     return reduce(Sum, es)
+
+
+def less_than(first: AbstractExpression, second: AbstractExpression) -> LessThan:
+    return LessThan(first, second)
+
+
+def conditional(
+    predicate: AbstractExpression, true_value: AbstractExpression, false_value: AbstractExpression
+) -> Conditional:
+    return Conditional(predicate, true_value, false_value)

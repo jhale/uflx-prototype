@@ -3,7 +3,7 @@ from testutil import contains
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     coordinate,
     domain_map,
     index,
@@ -14,7 +14,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import PullBack
 from uflx_spec_interpreter._src.passes import (
-    actions,
+    applications,
     derivatives,
     gradients,
     integrals,
@@ -26,7 +26,7 @@ from uflx_toy.runtime import runtime_array, runtime_extent
 
 i = index("i")
 q, r = runtime_extent("q"), runtime_extent("r")
-T, POINT = reference_simplex(2), RD(0)
+T, POINT = reference_simplex(2), EuclideanSpace(0)
 points, weights = runtime_array("points", (q, 2)), runtime_array("weights", (q,))
 X = coordinate(T)
 f = X[0] * X[0] * X[1] + num(3) * X[0]
@@ -49,7 +49,7 @@ def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():
     e = runtime_quadrature()
     out = e
     for apply in (
-        actions.apply_actions,
+        applications.expand_applications,
         derivatives.apply_derivatives,
         integrals.expand_integrals,
         gradients.apply_gradients,

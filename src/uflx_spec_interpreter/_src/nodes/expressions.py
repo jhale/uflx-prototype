@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, ClassVar, Literal, Never
+from typing import TYPE_CHECKING, ClassVar, Never
 
 from .arguments import argument_members
 from .base import Base
+from .scalar_types import ExpressionScalarType, ScalarType
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
@@ -27,7 +28,8 @@ class AbstractExpression(Base):
         require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")
         operands = expression_operands(self)
         merge_indices(*(x.free_indices for x in operands))
-        require(self.scalar_type in ("real", "complex"), "unknown scalar type")
+        if self.scalar_type == ScalarType.boolean:
+            require(not self.argument_spaces, "Boolean expressions cannot take arguments")
         if self.matching_domains:
             domains = [x.domain for x in operands if x.domain is not None]
             require(not domains or all(D == domains[0] for D in domains), "operand domains differ")
@@ -55,21 +57,19 @@ class AbstractExpression(Base):
 
     @property
     @abstractmethod
-    def scalar_type(self) -> Literal["real", "complex"]: ...
+    def scalar_type(self) -> ExpressionScalarType: ...
 
     @staticmethod
     def joined_scalar_type(
         *operands: AbstractExpression | tuple[AbstractExpression, ...],
-    ) -> Literal["real", "complex"]:
-        # The default rule, complex if and only if an edge is a complex expression.
-        from .scalar_types import ScalarType
-
-        flat = [m for x in operands for m in argument_members(x)]
-        return (
-            ScalarType.complex
-            if any(m.scalar_type == ScalarType.complex for m in flat)
-            else ScalarType.real
-        )
+    ) -> ExpressionScalarType:
+        """Join Boolean values or promote numerical operands to a common scalar type."""
+        types = {member.scalar_type for slot in operands for member in argument_members(slot)}
+        if ScalarType.boolean in types:
+            if len(types) != 1:
+                raise ValueError("Boolean and numerical values cannot be mixed")
+            return ScalarType.boolean
+        return ScalarType.complex if ScalarType.complex in types else ScalarType.real
 
     # The free functions import the nodes, so each overload imports its free function locally.
     def __add__(self, other: object) -> AbstractExpression:
@@ -133,3 +133,6 @@ class AbstractExpression(Base):
 
     def __iter__(self) -> Never:
         raise TypeError(f"{type(self).__name__} is not iterable")
+
+    def __bool__(self) -> Never:
+        raise TypeError("symbolic expressions have no Python truth value")

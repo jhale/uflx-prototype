@@ -1,17 +1,56 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Literal, final
+from typing import TYPE_CHECKING, Literal, cast, final
 
 from .caching import cached
 from .expressions import AbstractExpression
-from .scalar_types import ScalarType
+from .scalar_types import NumericalScalarType, ScalarType
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
     from .indices import AbstractExtent, Index
     from .spaces import AbstractFunctionSpace
     from .topology import AbstractTopology
+
+
+@final
+class Boolean(AbstractExpression):
+    value_fields = ()
+    is_terminal = True
+    identifier = "uflx.Boolean"
+    value: bool
+
+    def _validate(self) -> None:
+        if type(self.value) is not bool:
+            raise TypeError(f"Boolean takes a bool, not {self.value!r}")
+
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
+        return ()
+
+    @property
+    @cached
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
+        return ()
+
+    @property
+    @cached
+    def argument_spaces(
+        self,
+    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+        return ()
+
+    @property
+    @cached
+    def scalar_type(self) -> Literal["boolean"]:
+        return ScalarType.boolean
+
+    @property
+    @cached
+    def domain(self) -> AbstractDomain | AbstractTopology | None:
+        return None
 
 
 @final
@@ -44,7 +83,7 @@ class Integer(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> Literal["real"]:
         return ScalarType.real
 
     @property
@@ -85,7 +124,7 @@ class Float(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> Literal["real"]:
         return ScalarType.real
 
     @property
@@ -121,7 +160,7 @@ class Complex(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> Literal["complex"]:
         return ScalarType.complex
 
     @property
@@ -140,7 +179,7 @@ class Zero(AbstractExpression):
     _value_shape: tuple[int | AbstractExtent, ...]
     _free_indices: tuple[tuple[Index, int | AbstractExtent], ...]
     _argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]
-    _scalar_type: Literal["real", "complex"]
+    _scalar_type: NumericalScalarType
 
     @property
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
@@ -157,7 +196,7 @@ class Zero(AbstractExpression):
         return self._argument_spaces
 
     @property
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> NumericalScalarType:
         return self._scalar_type
 
     @property
@@ -166,6 +205,8 @@ class Zero(AbstractExpression):
         return None
 
     def _validate(self) -> None:
+        if cast("object", self.scalar_type) == ScalarType.boolean:
+            raise ValueError("Boolean zero is undefined")
         if type(self.scalar_type) is not str or self.scalar_type not in (
             ScalarType.real,
             ScalarType.complex,
@@ -184,4 +225,7 @@ class Zero(AbstractExpression):
             seen.add(i)
         for V in self.argument_spaces:
             if isinstance(V, tuple):
-                require(len(V) >= 2, "product argument needs at least two spaces")
+                require(
+                    len(V) >= 2 and len({s.scalar_type for s in V}) == 1,
+                    "product argument needs at least two spaces with one scalar type",
+                )

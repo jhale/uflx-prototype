@@ -6,10 +6,9 @@ import pytest
 from uflx_compiler import evaluate
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     Zero,
-    action,
-    apply_actions,
+    apply,
     apply_derivatives,
     apply_gradients,
     broadcast_to,
@@ -17,6 +16,7 @@ from uflx_spec_interpreter import (
     coordinate,
     directional_derivative,
     domain_map,
+    expand_applications,
     expand_pull_backs,
     form,
     function,
@@ -121,12 +121,12 @@ def test_broadcast_commutes_with_actions_derivatives_and_pullbacks():
     e = broadcast_to(u * u, (2, 3))
     d = apply_derivatives(directional_derivative(e, u, num(3), num(1)))
     np.testing.assert_array_equal(evaluate(d, {}), np.full((2, 3), 6))
-    a = apply_actions(action(broadcast_to(form(u, (u,)), (2,)), 0, num(7)))
+    a = expand_applications(apply(broadcast_to(form(u, (u,)), (2,)), (num(7),)))
     np.testing.assert_array_equal(evaluate(a, {}), [7, 7])
-    P = RD(2)
+    P = EuclideanSpace(2)
     x = coordinate(P)
     g = apply_gradients(gradient(broadcast_to(x[0], (3,)), P))
     np.testing.assert_array_equal(evaluate(g, {}), [[1, 0]] * 3)
-    mapping = domain_map(RD(0), tensor((num(4), num(5))), P)
+    mapping = domain_map(EuclideanSpace(0), tensor((num(4), num(5))), P)
     b = expand_pull_backs(pull_back(broadcast_to(x[0], (3,)), mapping))
     np.testing.assert_array_equal(evaluate(b, {}), [4, 4, 4])

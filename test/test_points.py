@@ -17,7 +17,7 @@ from testutil import (
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     add,
     cell_map,
     component_tensor,
@@ -48,7 +48,7 @@ from uflx_toy.cells import reference_simplex
 from uflx_toy.spaces import space
 
 i, k = index("i"), index("k")
-POINT = RD(0)
+POINT = EuclideanSpace(0)
 
 
 def points(coordinates, Q, P=POINT):

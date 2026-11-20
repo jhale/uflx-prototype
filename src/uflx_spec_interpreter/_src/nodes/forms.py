@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, final
+from typing import TYPE_CHECKING, final
 
 from .arguments import argument_members, map_argument
 from .arithmetic import Conjugate
 from .caching import cached
 from .expressions import AbstractExpression
-from .spaces import AbstractFunctionSpace, DualSpace
+from .scalar_types import NumericalScalarType, numerical_type
+from .spaces import AbstractFunctionSpace
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
@@ -58,7 +59,7 @@ class Function(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> NumericalScalarType:
         return self.space.scalar_type
 
     @property
@@ -105,8 +106,8 @@ class Form(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.expression.scalar_type
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
 
     @property
     @cached
@@ -123,23 +124,22 @@ class Form(AbstractExpression):
                     len({entry_function(member).space.scalar_type for member in a}) == 1,
                     "product binder requires one scalar type",
                 )
-            for f in argument_members(a):
-                f = entry_function(f)
-                require(
-                    not f.argument_spaces or isinstance(f.space, DualSpace),
-                    "function is not bindable",
-                )
+        from ..algorithms.substitution import occurs
+
         binders = self.bound()
         require(len(set(binders)) == len(binders), "form binders must be distinct")
+        require(
+            not any(occurs(name, self.argument_spaces) for name in binders),
+            "a form argument space depends on a bound function",
+        )
 
 
 @final
-class Action(AbstractExpression):
-    value_fields = ("form", "argument")
-    identifier = "uflx.Action"
+class Apply(AbstractExpression):
+    value_fields = ("form", "arguments")
+    identifier = "uflx.Apply"
     form: AbstractExpression
-    position: int
-    argument: AbstractExpression | tuple[AbstractExpression, ...]
+    arguments: tuple[AbstractExpression | tuple[AbstractExpression, ...], ...]
 
     @property
     @cached
@@ -151,21 +151,20 @@ class Action(AbstractExpression):
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
-        spaces = self.form.argument_spaces
-        return spaces[: self.position] + spaces[self.position + 1 :]
+        return ()
 
     @property
     @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        arguments = argument_members(self.argument)
+        arguments = (m for slot in self.arguments for m in argument_members(slot))
         from .static import free_indices
 
         return free_indices(self.form, *arguments)
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.form.scalar_type
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.form.scalar_type)
 
     @property
     @cached
@@ -175,10 +174,9 @@ class Action(AbstractExpression):
     def _validate(self) -> None:
         from .validation import admissible, require
 
-        if type(self.position) is not int:
-            raise TypeError("action position must be an integer")
         require(
-            0 <= self.position < len(self.form.argument_spaces),
-            "action position is outside the form",
+            bool(self.arguments) and len(self.arguments) == len(self.form.argument_spaces),
+            "application must supply every argument slot",
         )
-        admissible(self.form.argument_spaces[self.position], self.argument)
+        for space, value in zip(self.form.argument_spaces, self.arguments, strict=True):
+            admissible(space, value)

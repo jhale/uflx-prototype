@@ -3,14 +3,21 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, check_types, contains, keeps_static_type, pairing
+from testutil import (
+    assert_clean,
+    check_types,
+    contains,
+    form_with_fixed_argument,
+    keeps_static_type,
+    pairing,
+)
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     ScalarType,
     absolute,
-    action,
     add,
+    apply,
     component_tensor,
     conjugate,
     conjugate_space,
@@ -33,9 +40,9 @@ from uflx_spec_interpreter import (
     tensor,
 )
 from uflx_spec_interpreter._src.literals import zero
-from uflx_spec_interpreter._src.nodes import Action, DirectionalDerivative
-from uflx_spec_interpreter._src.passes import actions, derivatives
-from uflx_spec_interpreter._src.passes.actions import actions_complete
+from uflx_spec_interpreter._src.nodes import Apply, DirectionalDerivative
+from uflx_spec_interpreter._src.passes import applications, derivatives
+from uflx_spec_interpreter._src.passes.applications import applications_expanded
 from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
 from uflx_toy.spaces import space
 
@@ -69,9 +76,9 @@ def scalar(rnd, depth, nd=0):
         if pick < 0.2:
             return indexed(rnd.choice([U, U2, U3]), (rnd.randrange(2),))
         if pick < 0.27:
-            return action(lV, 0, rnd.choice([u, w, z]))
+            return apply(lV, (rnd.choice([u, w, z]),))
         if pick < 0.32:
-            return action(lW, 0, rnd.choice([U, U2]))
+            return apply(lW, (rnd.choice([U, U2]),))
         return rnd.choice([u, v, w, z, h, q])
     a, b = scalar(rnd, depth - 1, nd), scalar(rnd, depth - 1, nd)
     near = lambda x: add(num(3), multiply(num(0.2), x))
@@ -241,7 +248,7 @@ def random_form(rnd, specs, depth):
     spec = rnd.choice(["V", "W", "V*", ("V", "W"), ("V", "V"), ("V*", "W")])
     p = rnd.randrange(len(specs) + 1)
     inner = [*specs[:p], spec, *specs[p:]]
-    return action(random_form(rnd, inner, depth - 1), p, argument(rnd, spec))
+    return form_with_fixed_argument(random_form(rnd, inner, depth - 1), p, argument(rnd, spec))
 
 
 def main(trials):
@@ -259,7 +266,7 @@ def main(trials):
         rnd = random.Random(seed)
         specs = rnd.choice([[], ["V"], ["W"], ["V*"], [("V", "W")], ["V", "W"], ["V*", "W*"]])
         e = random_form(rnd, specs, 3)
-        out = derivatives.apply_derivatives(actions.apply_actions(e))
+        out = derivatives.apply_derivatives(applications.expand_applications(e))
         check_types(bad, e, out)
         if not keeps_static_type(e, out):
             bad["static"] += 1
@@ -274,12 +281,12 @@ def main(trials):
             e,
             lambda n: (
                 isinstance(n, DirectionalDerivative)
-                or (lambda n: isinstance(n, Action) and not pairing(n))(n)
+                or (lambda n: isinstance(n, Apply) and not pairing(n))(n)
             ),
         ):
             lazy += 1
-            rejected += not (actions_complete(e) and _derivatives_complete(e))
-        if not (actions_complete(out) and _derivatives_complete(out)):
+            rejected += not (applications_expanded(e) and _derivatives_complete(e))
+        if not (applications_expanded(out) and _derivatives_complete(out)):
             bad["grammar"] += 1
         vals = tuple(entry_value(rng, s) for s in specs)
         fr = dict(e.free_indices)

@@ -14,7 +14,7 @@ from legacy import (
     grad,
     inner,
 )
-from testutil import grouped_topology, normal, push_forward, side_domain, side_map, vertex_mesh
+from testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
 from uflx_compiler import assemble_bound
 from uflx_spec_interpreter import (
@@ -31,6 +31,7 @@ from uflx_spec_interpreter._src.nodes import Conjugate, Integer, Product, Sum
 from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
+from uflx_toy.sides import outward_conormal
 
 K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
 T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
@@ -80,7 +81,7 @@ def core():
         side_domain(D, LEFT),
     )
     on_lower, on_left = side_map(D, lower, "inside"), side_map(D, left, "inside")
-    n = normal(on_left)
+    n = outward_conormal(on_left)
     flux = pull_back(qD[0], on_left) * n[0] + pull_back(qD[1], on_left) * n[1]
     L = (
         form(integral(pull_back(fD * conjugate(vD), on_lower), lower), (conjugate(v),))

@@ -279,9 +279,8 @@ def test_derivative_redundancies_surviving_current_cleanup(kind):
 
 def test_complex_grouped_form_and_rebind():
     from uflx_oracle import evaluate as oracle
-    from uflx_spec_interpreter import conjugate, form, function
+    from uflx_spec_interpreter import conjugate, form, function, rebind
     from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
-    from uflx_spec_interpreter._src.extensions.binding import rebind
     from uflx_toy.spaces import space
 
     V = space("optimisation-complex", scalar_type="complex")
@@ -684,8 +683,8 @@ def test_rational_arithmetic_preserves_arbitrary_precision():
     original = num(large) / num(3) + num(1) / num(3)
     result = optimise(original).expression
     assert isinstance(result, Division)
-    assert result.first is num(large + 1)
-    assert result.second is num(3)
+    assert result.numerator is num(large + 1)
+    assert result.denominator is num(3)
     assert all(isinstance(n, Integer | Division) for n in nodes(result))
 
 
@@ -717,7 +716,7 @@ def test_nested_rational_denominators_and_derived_zero():
     undefined = num(1) / (num(1) - num(1))
     result = optimise(undefined).expression
     assert isinstance(result, Division)
-    assert isinstance(result.second, Zero) or result.second is num(0)
+    assert isinstance(result.denominator, Zero) or result.denominator is num(0)
 
 
 def test_floating_point_divisors_remain_opaque():

@@ -56,7 +56,7 @@ def _factors(expression):
     if isinstance(expression, Product) and not expression.value_shape:
         return (*_factors(expression.first), *_factors(expression.second))
     if isinstance(expression, Division):
-        return (*_factors(expression.first), divide(num(1), expression.second))
+        return (*_factors(expression.numerator), divide(num(1), expression.denominator))
     return (expression,)
 
 
@@ -73,9 +73,11 @@ def _terms(expression, outputs):
             for b in _terms(expression.second, outputs)
         )
     if isinstance(expression, Division) and not outputs.intersection(
-        i for i, _ in expression.second.free_indices
+        i for i, _ in expression.denominator.free_indices
     ):
-        return tuple(divide(a, expression.second) for a in _terms(expression.first, outputs))
+        return tuple(
+            divide(a, expression.denominator) for a in _terms(expression.numerator, outputs)
+        )
     return (expression,)
 
 

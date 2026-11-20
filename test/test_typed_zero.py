@@ -10,10 +10,10 @@ from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     Integer,
     ScalarType,
-    action,
-    apply_actions,
+    apply,
     apply_derivatives,
     directional_derivative,
+    expand_applications,
     function,
     index,
     num,
@@ -36,7 +36,7 @@ def test_zero_construction_and_reconstruction(scalar_type):
         (V,),
         ScalarType.real if scalar_type == ScalarType.complex else ScalarType.complex,
     )
-    applied = apply_actions(action(z, 0, function(V, "v")))
+    applied = expand_applications(apply(z, (function(V, "v"),)))
     assert isinstance(applied, Zero)
     assert (
         applied.value_shape,

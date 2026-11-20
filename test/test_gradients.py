@@ -30,7 +30,7 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import Function, Gradient, Normal, PullBack
+from uflx_spec_interpreter._src.nodes import Conormal, Function, Gradient, PullBack
 from uflx_spec_interpreter._src.passes import gradients
 from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_toy.spaces import space
@@ -93,7 +93,7 @@ def target(rnd):
 
 def needs_pass(n):
     return isinstance(n, Gradient) and not isinstance(
-        n.expression, (Function, Normal, PullBack, Gradient)
+        n.expression, (Function, Conormal, PullBack, Gradient)
     )
 
 

@@ -33,8 +33,8 @@ class AbstractCoordinateDomain(AbstractDomain):
 
 
 @final
-class RD(AbstractCoordinateDomain):
-    identifier = "uflx.RD"
+class EuclideanSpace(AbstractCoordinateDomain):
+    identifier = "uflx.EuclideanSpace"
 
     _dimension: int
 

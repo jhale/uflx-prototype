@@ -4,25 +4,28 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter._src.calculus import rotation_of_gradient, trace_of_gradient
+from uflx_spec_interpreter._src.extensions.external_operators import ExternalOperator
 from uflx_spec_interpreter._src.meshes import is_cell
 from uflx_spec_interpreter._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
     AbstractExtent,
     AbstractTopology,
-    Action,
+    Apply,
+    Boolean,
     BroadcastTo,
     CellMap,
     Complex,
     ComponentTensor,
+    Conditional,
     Conjugate,
+    Conormal,
     Coordinate,
     Curl,
     Determinant,
     DirectionalDerivative,
     Divergence,
     Division,
-    DualSpace,
     Float,
     Form,
     Function,
@@ -35,9 +38,9 @@ from uflx_spec_interpreter._src.nodes import (
     Integer,
     Integral,
     Inverse,
+    LessThan,
     Logarithm,
     Mesh,
-    Normal,
     Power,
     Product,
     PullBack,
@@ -130,7 +133,7 @@ def side_reference(sm, env, ienv):
     j, A = sm.entries[i]
     point = POINTS[source]
     if isinstance(source, Mesh):
-        chart = piece_map(source.pieces[i], {}, env)
+        chart = piece_map(source[i], {}, env)
         point = reference_point(chart, point, source.dimension)
     inside = evaluate(A.parameterisation, env, ienv)
     target = at(A.parameter_domain, point, lambda: np.real(np.asarray(inside(()))))
@@ -156,7 +159,7 @@ def piece_map(piece, members, env):
     return lambda X: np.real(
         np.asarray(
             at(
-                piece.parameter_domain,
+                piece.reference_cell,
                 np.asarray(X, dtype=float),
                 lambda: evaluate(piece.parameterisation, env, members)(()),
             )
@@ -185,7 +188,7 @@ def tangent_projector(P, env):
         slot = POINTS.get(("piece", P))
         if slot is None:
             slot = locate(P, POINTS[P], env)
-        piece = P.pieces[slot]
+        piece = P[slot]
         chart = piece_map(piece, {}, env)
         T = jacobian_of(chart, reference_point(chart, POINTS[P], P.dimension))
     return T @ np.linalg.pinv(T)
@@ -193,10 +196,10 @@ def tangent_projector(P, env):
 
 def locate(P, x, env):
     # The cell of P that contains x, as a mesh library finds it for a point.
-    for slot, piece in enumerate(P.pieces):
+    for slot, piece in enumerate(P):
         chart = piece_map(piece, {}, env)
         X = reference_point(chart, x, P.dimension)
-        if inside(piece.parameter_domain, X) and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
+        if inside(piece.reference_cell, X) and np.linalg.norm(chart(X) - np.real(x)) < 1e-9:
             return slot
     raise ValueError(f"no cell of P contains {x}")
 
@@ -236,12 +239,12 @@ def integrate(P, fn, env):
     if isinstance(P, AbstractCoordinateDomain):
         return sum(w * at(P, p, lambda: fn({})) for p, w in rule_on(P))
     total = 0
-    for slot, piece in enumerate(P.pieces):
+    for slot, piece in enumerate(P):
         psi = evaluate(piece.parameterisation, env)
 
         def mapped(inner, piece=piece, psi=psi, slot=slot):
-            ref = POINTS[piece.parameter_domain]
-            chart = lambda X: np.real(np.asarray(at(piece.parameter_domain, X, lambda: psi(()))))
+            ref = POINTS[piece.reference_cell]
+            chart = lambda X: np.real(np.asarray(at(piece.reference_cell, X, lambda: psi(()))))
             y = chart(ref)
             J = jacobian_of(chart, ref)
             scale = np.sqrt(abs(np.linalg.det(J.T @ J))) if len(ref) else 1.0
@@ -250,7 +253,7 @@ def integrate(P, fn, env):
             )
             return at(("ref", P), ref, lambda: at(("chart", P), chart, value)) * scale
 
-        total += integrate(piece.parameter_domain, mapped, env)
+        total += integrate(piece.reference_cell, mapped, env)
     return total
 
 
@@ -289,9 +292,7 @@ def entry_value(member, value):
     # A value given to an entry conjugate(v) is the value of conjugate(v).
     if not isinstance(member, Conjugate):
         return member, value
-    if callable(value):
-        return member.operand, lambda *point: np.conj(value(*point))
-    return member.operand, np.conj(value)
+    return member.operand, conjugated_value(value)
 
 
 def complex_operation(op, fa):
@@ -302,12 +303,55 @@ def complex_operation(op, fa):
 def evaluate_uncached(e, env, ienv=None, over=None):
     ienv, over = ienv or {}, over or {}
     ev = lambda x, ie=ienv, ov=over: evaluate(x, env, ie, ov)
+
+    def supplied(x, signature):
+        if isinstance(x, tuple):
+            return tuple(supplied(member, slot) for member, slot in zip(x, signature, strict=True))
+        fx = ev(x)
+
+        def bound_value(*slots):
+            def read():
+                value = fx(slots)
+                return (
+                    np.asarray(value, dtype=complex)
+                    if signature.scalar_type == "complex"
+                    else value
+                )
+
+            if signature.domain is not None:
+                return lambda point: at(signature.domain, point, read)
+            return read()
+
+        return bound_value if x.argument_spaces else bound_value()
+
     if over and e in over:
         value = over[e]
-        return lambda vals: value() if callable(value) else value
+        return lambda vals: value(*vals) if callable(value) else value
     match e:
-        case Integer(v) | Float(v):
+        case Boolean(v) | Integer(v) | Float(v):
             return lambda vals: v
+        case LessThan(a, b):
+            return lambda vals: np.real(ev(a)(())) < np.real(ev(b)(()))
+        case Conditional(predicate, left, right):
+
+            def selected(vals):
+                branch = left if ev(predicate)(()) else right
+                value = ev(branch)(vals)
+                return np.asarray(value, dtype=complex) if e.scalar_type == "complex" else value
+
+            return selected
+        case ExternalOperator(operation, operands):
+
+            def external_value(vals):
+                inputs = tuple(supplied(member, member) for member in operands)
+                result = env[operation](*inputs)
+                return (
+                    result(POINTS[e.domain])
+                    if e.domain is not None and callable(result)
+                    else result
+                )
+
+            return external_value
         case Complex(a, b):
             return lambda vals: complex(a.value, b.value)
         case PushForward(g, D, law):
@@ -316,7 +360,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             def pushed(vals):
                 # The value of g on the topology at the reference point of the point, by the law.
                 j = POINTS.get(("piece", D), 0)
-                piece = D.pieces[j]
+                piece = D[j]
                 chart = piece_map(piece, {}, env)
                 X = reference_point(chart, POINTS[D], D.dimension)
                 T = D.topology
@@ -350,6 +394,17 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return basix_function(space, lookup(env, e, f"coefficients:{e.label}"))
 
             return basix_value
+        case Function(space, _) if space.argument_spaces:
+
+            def applied(vals):
+                result = env[e](*vals)
+                return (
+                    result(POINTS[space.domain])
+                    if space.domain is not None and callable(result)
+                    else result
+                )
+
+            return applied
         case Function(space, _) if space.domain is not None:
 
             def function_value(vals):
@@ -362,12 +417,8 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return v(POINTS[space.domain]) if callable(v) else v
 
             return function_value
-        case Function(space, _) if not isinstance(space, DualSpace):
+        case Function():
             return lambda vals: env[e]() if callable(env[e]) else env[e]
-        case Function(space, _):
-            if isinstance(space, DualSpace):
-                return lambda vals: env[e](vals[0])
-            return lambda vals: env[e]
         case Zero(s, _, _, scalar_type):
             dtype = complex if scalar_type == "complex" else float
             return lambda vals: (
@@ -392,9 +443,15 @@ def evaluate_uncached(e, env, ienv=None, over=None):
         case Absolute(a):
             return complex_operation(np.abs, ev(a))
         case SquareRoot(a):
-            return complex_operation(np.sqrt, ev(a))
+            fa = ev(a)
+            return lambda vals: np.sqrt(
+                complex(fa(vals)) if e.scalar_type == "complex" else np.real(fa(vals))
+            )
         case Logarithm(a):
-            return complex_operation(np.log, ev(a))
+            fa = ev(a)
+            return lambda vals: np.log(
+                complex(fa(vals)) if e.scalar_type == "complex" else np.real(fa(vals))
+            )
         case Determinant(a):
             fa = ev(a)
             return lambda vals: np.linalg.det(fa(vals))
@@ -403,11 +460,12 @@ def evaluate_uncached(e, env, ienv=None, over=None):
             return lambda vals: np.linalg.pinv(np.asarray(fa(vals), dtype=complex))
         case Power(a, c):
             fa, fc = ev(a), ev(c)
-            return lambda vals: np.power(complex(fa(vals)), complex(fc(())))
+            cast = complex if e.scalar_type == "complex" else lambda v: float(np.real(v))
+            return lambda vals: np.power(cast(fa(vals)), cast(fc(())))
         case BroadcastTo(x, shape):
             target = tuple(size(n, env) for n in shape)
             if 0 in target:
-                dtype = complex if e.scalar_type == "complex" else float
+                dtype = {"boolean": bool, "complex": complex, "real": float}[e.scalar_type]
                 return lambda vals: np.empty(target, dtype=dtype)
             fx = ev(x)
             return lambda vals: np.broadcast_to(fx(vals), target)
@@ -440,7 +498,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 out = {combo: f(vals) for combo, f in fs.items()}
                 if isinstance(e, IndexSum):
                     return sum(out.values())
-                arr = np.empty(shape, dtype=complex)
+                arr = np.empty(shape, dtype=bool if e.scalar_type == "boolean" else complex)
                 for k, v in out.items():
                     arr[flat(k)] = v
                 return arr
@@ -460,16 +518,14 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return evaluate(x, env | bound, ienv, ov)(tuple(vals[:n]))
 
             return value
-        case Action(f, p, g):
+        case Apply(f, arguments):
             ff = ev(f)
-
-            def value_of(x):
-                # A field is bound lazily, as a function of the point, and anything else eagerly.
-                fx = ev(x)
-                return (lambda *point: fx(())) if x.domain is not None else fx(())
-
-            gv = tuple(value_of(x) for x in g) if isinstance(g, tuple) else value_of(g)
-            return lambda vals: ff((*tuple(vals[:p]), gv, *tuple(vals[p:])))
+            return lambda vals: ff(
+                tuple(
+                    supplied(arg, slot)
+                    for arg, slot in zip(arguments, f.argument_spaces, strict=True)
+                )
+            )
         case DirectionalDerivative(f, x, a, h):
             # Every member of a tuple variable moves at once, along its member of the direction.
             xs = argument_members(x)
@@ -477,7 +533,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
 
             def moved(step):
                 return {
-                    m: (lambda p=p, d=d: p(()) + step * d(()))
+                    m: (lambda *slots, p=p, d=d: p(slots) + step * d(slots))
                     for m, p, d in zip(xs, fa, fh, strict=True)
                 }
 
@@ -493,7 +549,7 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 _, j, _, _, target = side_reference(sm, env, ienv)
                 parent = sm.parent
                 if isinstance(parent, Mesh):
-                    target = piece_map(parent.pieces[j], {}, env)(target)
+                    target = piece_map(parent[j], {}, env)(target)
                 return on_cell(parent, j, lambda: at(parent, target, lambda: fb(vals)))
 
             return restricted
@@ -517,11 +573,11 @@ def evaluate_uncached(e, env, ienv=None, over=None):
                 return at(m.ambient_domain, y, lambda: fb(vals))
 
             return pulled
-        case Normal(sm, conormals):
+        case Conormal(sm, conormals):
 
             def normal(vals):
                 i, j, A, source_point, target = side_reference(sm, env, ienv)
-                chart = piece_map(sm.parent.pieces[j], {}, env)
+                chart = piece_map(sm.parent[j], {}, env)
                 J = jacobian_of(chart, target)
                 field = evaluate(conormals[i], env, ienv)
                 m = at(A.parameter_domain, source_point, lambda: np.real(np.asarray(field(()))))
@@ -582,5 +638,5 @@ def conjugated_value(value):
     if isinstance(value, tuple):
         return tuple(conjugated_value(v) for v in value)
     if callable(value):
-        return lambda *args: np.conj(value(*args))
+        return lambda *args: conjugated_value(value(*(conjugated_value(arg) for arg in args)))
     return np.conj(value)

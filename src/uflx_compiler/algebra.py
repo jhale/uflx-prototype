@@ -15,7 +15,7 @@ from uflx_spec_interpreter._src.algorithms.traversal import map_values, memoized
 from uflx_spec_interpreter._src.arithmetic import add, divide, multiply
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
-    Action,
+    Apply,
     Complex,
     Conjugate,
     Division,
@@ -149,13 +149,16 @@ def _preserve(e: AbstractExpression, out: AbstractExpression) -> AbstractExpress
 def _operator_rule(e: AbstractExpression) -> AbstractExpression:
     # Use only contracts already supplied by core operations. No holomorphic test.
     match e:
-        case Action(argument=argument) if not isinstance(argument, tuple):
-            coefficient, factors = _split_product(argument)
-            if coefficient == _ZERO:
-                return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
-            if coefficient != _ONE:
-                arg = _scaled(_ONE, factors)
-                return multiply(_literal(coefficient), Action(e.form, e.position, arg))
+        case Apply(form, arguments):
+            for slot, argument in enumerate(arguments):
+                if isinstance(argument, tuple):
+                    continue
+                coefficient, factors = _split_product(argument)
+                if coefficient == _ZERO:
+                    return Zero(e.value_shape, e.free_indices, e.argument_spaces, e.scalar_type)
+                if coefficient != _ONE:
+                    values = (*arguments[:slot], _scaled(_ONE, factors), *arguments[slot + 1 :])
+                    return multiply(_literal(coefficient), Apply(form, values))
         case Product():
             coefficient, factors = _split_product(e)
             if coefficient != _ONE and len(factors) == 1 and isinstance(factors[0], Form):

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Literal, final
 
 from .caching import cached
 from .expressions import AbstractExpression
-from .scalar_types import ScalarType
+from .scalar_types import NumericalScalarType, ScalarType, numerical_type
 from .validation import require
 
 if TYPE_CHECKING:
@@ -41,8 +41,8 @@ class Sum(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.first, self.second)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.joined_scalar_type(self.first, self.second))
 
     @property
     @cached
@@ -83,8 +83,8 @@ class Product(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.first, self.second)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.joined_scalar_type(self.first, self.second))
 
     @property
     @cached
@@ -101,50 +101,50 @@ class Product(AbstractExpression):
 @final
 class Division(AbstractExpression):
     matching_domains = True
-    value_fields = ("first", "second")
+    value_fields = ("numerator", "denominator")
     identifier = "uflx.Division"
-    first: AbstractExpression
-    second: AbstractExpression
+    numerator: AbstractExpression
+    denominator: AbstractExpression
 
     @property
     @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
-        return self.first.value_shape
+        return self.numerator.value_shape
 
     @property
     @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        return tuple(dict(self.first.free_indices + self.second.free_indices).items())
+        return tuple(dict(self.numerator.free_indices + self.denominator.free_indices).items())
 
     @property
     @cached
     def argument_spaces(
         self,
     ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
-        return self.first.argument_spaces
+        return self.numerator.argument_spaces
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.first, self.second)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.joined_scalar_type(self.numerator, self.denominator))
 
     @property
     @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.second.domain or self.first.domain
+        return self.denominator.domain or self.numerator.domain
 
     def _validate(self) -> None:
-        require(not self.second.value_shape, "division requires a scalar denominator")
-        require(not self.second.argument_spaces, "nonlinear operand has argument spaces")
+        require(not self.denominator.value_shape, "division requires a scalar denominator")
+        require(not self.denominator.argument_spaces, "nonlinear operand has argument spaces")
 
 
 @final
 class Power(AbstractExpression):
     matching_domains = True
-    value_fields = ("first", "second")
+    value_fields = ("base", "exponent")
     identifier = "uflx.Power"
-    first: AbstractExpression
-    second: AbstractExpression
+    base: AbstractExpression
+    exponent: AbstractExpression
 
     @property
     @cached
@@ -154,7 +154,7 @@ class Power(AbstractExpression):
     @property
     @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        return tuple(dict(self.first.free_indices + self.second.free_indices).items())
+        return tuple(dict(self.base.free_indices + self.exponent.free_indices).items())
 
     @property
     @cached
@@ -165,21 +165,21 @@ class Power(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.first, self.second)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.joined_scalar_type(self.base, self.exponent))
 
     @property
     @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.second.domain or self.first.domain
+        return self.exponent.domain or self.base.domain
 
     def _validate(self) -> None:
         require(
-            not self.first.value_shape and not self.second.value_shape,
+            not self.base.value_shape and not self.exponent.value_shape,
             "power requires scalar operands",
         )
-        require(not self.second.argument_spaces, "nonlinear operand has argument spaces")
-        require(not self.first.argument_spaces, "power base has argument spaces")
+        require(not self.exponent.argument_spaces, "nonlinear operand has argument spaces")
+        require(not self.base.argument_spaces, "power base has argument spaces")
 
 
 @final
@@ -210,8 +210,8 @@ class Conjugate(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.operand)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.operand.scalar_type)
 
     @property
     @cached
@@ -244,7 +244,7 @@ class RealPart(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> Literal["real"]:
         return ScalarType.real
 
     @property
@@ -281,7 +281,7 @@ class ImaginaryPart(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> Literal["real"]:
         return ScalarType.real
 
     @property
@@ -318,7 +318,7 @@ class Absolute(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> Literal["real"]:
         return ScalarType.real
 
     @property
@@ -355,8 +355,8 @@ class SquareRoot(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.operand)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.operand.scalar_type)
 
     @property
     @cached
@@ -392,8 +392,8 @@ class Logarithm(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.operand)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.operand.scalar_type)
 
     @property
     @cached
@@ -405,6 +405,7 @@ class Logarithm(AbstractExpression):
 
 
 def _scalar_operand(f: AbstractExpression, nonlinear: bool = True) -> None:
+    numerical_type(f.scalar_type)
     require(f.value_shape == (), "operation requires a scalar")
     if nonlinear:
         require(not f.argument_spaces, "nonlinear operand has argument spaces")

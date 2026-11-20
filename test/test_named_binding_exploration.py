@@ -3,26 +3,29 @@
 import pytest
 
 from uflx_spec_interpreter import (
-    RD,
-    apply_actions,
+    EuclideanSpace,
+    apply,
     conjugate,
     directional_derivative,
     domain_map,
     dual_space,
+    expand_applications,
     form,
     function,
     integral,
     num,
+    partial,
     pull_back,
+    rebind,
 )
+from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
 from uflx_spec_interpreter._src.algorithms.substitution import (
     occurs,
     occurs_in_metadata,
     occurs_in_values,
     substitute,
 )
-from uflx_spec_interpreter._src.extensions.binding import alpha_equivalent, apply, partial, rebind
-from uflx_spec_interpreter._src.nodes import Action
+from uflx_spec_interpreter._src.nodes import Apply
 from uflx_toy.spaces import space
 
 V = space("binding-probe", scalar_type="real")
@@ -74,12 +77,12 @@ def test_partial_rejects_ambiguous_maps_and_inner_selectors():
 def test_full_application_works_on_sums_and_nested_forms():
     f = form(u * v, (u, v))
     result = apply(f + f, (w, p))
-    assert isinstance(result, Action)
-    assert apply_actions(result) is w * p + w * p
+    assert isinstance(result, Apply)
+    assert expand_applications(result) is w * p + w * p
     nested = form(form(u * v, (u,)), (v,))
-    assert apply_actions(apply(nested, (w, p))) is w * p
+    assert expand_applications(apply(nested, (w, p))) is w * p
     # The supplied v remains free while the second slot receives w.
-    assert apply_actions(apply(f, (v, w))) is v * w
+    assert expand_applications(apply(f, (v, w))) is v * w
     with pytest.raises(ValueError, match="every argument"):
         apply(f, (w,))
     assert apply(num(1), ()) is num(1)
@@ -109,10 +112,10 @@ def test_conjugated_entry_and_space_validation():
 
 def test_dual_argument_is_one_slot():
     load = function(dual_space(V), "load")
-    pairing = form(Action(load, 0, v), (load, v))
+    pairing = form(apply(load, (v,)), (load, v))
     symbolic_load = form(u * w, (w,))
     result = partial(pairing, {load: symbolic_load})
-    assert apply_actions(result) is form(u * v, (v,))
+    assert expand_applications(result) is form(u * v, (v,))
 
 
 def test_alpha_comparison_is_lexical_and_does_not_change_identity():
@@ -134,7 +137,7 @@ def test_derivative_declaration_is_bound_but_point_and_direction_are_free():
 
 
 def geometry_data():
-    P = RD(1)
+    P = EuclideanSpace(1)
     W = space("geometry-binding", value_shape=(1,), domain=P, scalar_type="real")
     x, y = function(W, "x"), function(W, "y")
     return x, y, pull_back(num(1), domain_map(P, x, P))
@@ -147,11 +150,11 @@ def test_geometry_occurrence_and_capture():
     assert not occurs_in_values(x, e)
     with pytest.raises(ValueError, match="capture"):
         rebind(form(e, (y,)), {y: x})
-    replacement = form(integral(e, RD(1)), (y,))
+    replacement = form(integral(e, EuclideanSpace(1)), (y,))
     dual = function(dual_space(y.space), "dual")
     # A higher-order argument can carry the retained name only in its map data.
     with pytest.raises(ValueError, match="retained argument"):
-        partial(form(Action(dual, 0, y), (dual, x)), {dual: replacement})
+        partial(form(apply(dual, (y,)), (dual, x)), {dual: replacement})
 
 
 def test_substitution_freshens_against_metadata_capture():

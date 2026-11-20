@@ -4,11 +4,10 @@ import sys
 import numpy as np
 from test_integrals import D as MESH
 from test_integrals import K
-from testutil import assert_clean, check_types
+from testutil import assert_clean, check_types, form_with_fixed_argument
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    action,
     add,
     conjugate,
     coordinate,
@@ -28,8 +27,8 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.meshes import cell_map
 from uflx_spec_interpreter._src.nodes import Function
-from uflx_spec_interpreter._src.passes import actions, derivatives, integrals
-from uflx_spec_interpreter._src.passes.actions import actions_complete
+from uflx_spec_interpreter._src.passes import applications, derivatives, integrals
+from uflx_spec_interpreter._src.passes.applications import applications_expanded
 from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
 from uflx_spec_interpreter._src.passes.integrals import integrals_expanded
 from uflx_toy.spaces import space
@@ -87,7 +86,7 @@ def random_form(rnd, n, depth):
         e = directional_derivative(e, u, u, rnd.choice([h, w]))
     if depth > 0 and rnd.random() < 0.6:
         bigger = random_form(rnd, n + 1, depth - 1)
-        e = add(e, action(bigger, rnd.randrange(n + 1), field(rnd, [], 1)))
+        e = add(e, form_with_fixed_argument(bigger, rnd.randrange(n + 1), field(rnd, [], 1)))
     return e
 
 
@@ -99,7 +98,9 @@ def main(trials):
         rnd = random.Random(seed)
         n = rnd.randrange(2)
         e = random_form(rnd, n, 2)
-        out = integrals.expand_integrals(derivatives.apply_derivatives(actions.apply_actions(e)))
+        out = integrals.expand_integrals(
+            derivatives.apply_derivatives(applications.expand_applications(e))
+        )
         check_types(bad, e, out)
         vals = tuple(args[: len(e.argument_spaces)])
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
@@ -108,7 +109,7 @@ def main(trials):
             if bad["value"] <= 3:
                 print("value changed, seed", seed, before, after)
         bad["grammar"] += not (
-            actions_complete(out) and _derivatives_complete(out) and integrals_expanded(out)
+            applications_expanded(out) and _derivatives_complete(out) and integrals_expanded(out)
         )
     print(f"{trials} forms on a mesh: {bad['value']} values changed, {bad['grammar']} outside N4")
     return bad

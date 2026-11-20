@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from functools import cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias
 
 from ..algorithms.rewriting import complete_indices, promote, zero_like
 from ..algorithms.substitution import occurs_in_values, substitute_values
@@ -12,8 +12,10 @@ from ..algorithms.traversal import memoized
 from ..arithmetic import real_part, total
 from ..nodes import (
     Absolute,
-    Action,
+    AbstractExpression,
+    Apply,
     Complex,
+    Conditional,
     Conjugate,
     Determinant,
     DirectionalDerivative,
@@ -34,10 +36,15 @@ from .structural import commute, structural_fields
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
-    from ..nodes.expressions import AbstractExpression
     from ..nodes.forms import Function
     from ..nodes.indices import Index
     from ..nodes.types import Construction
+
+
+Transform: TypeAlias = Callable[[AbstractExpression], AbstractExpression]
+DerivativeRule: TypeAlias = Callable[
+    [AbstractExpression, Transform, Transform], AbstractExpression | None
+]
 
 
 def derivative_of_node(
@@ -53,6 +60,16 @@ def derivative_of_node(
     Spatial differentiation leaves at as the identity.
     """
     match f:
+        case Conditional(predicate, left, right):
+            return Conditional(at(predicate), d(left), d(right))
+        case Apply(form, arguments):
+            points = tuple(map_argument(at, slot) for slot in arguments)
+            terms = [] if constant(form) else [Apply(d(form), points)]
+            for i, slot in enumerate(arguments):
+                if not all(constant(member) for member in argument_members(slot)):
+                    varied = (*points[:i], map_argument(d, slot), *points[i + 1 :])
+                    terms.append(Apply(at(form), varied))
+            return total(terms) if terms else zero_like(f, ())
         case Product(b, c):
             return d(b) * at(c) + at(b) * d(c)
         case Division(b, c):
@@ -110,12 +127,6 @@ def derivative_of_node(
             transposed_derivative = transpose(derivative)
             correction = transposed_derivative - transposed_derivative @ matrix @ inverse_matrix
             return inverse_derivative + inverse_matrix @ transpose(inverse_matrix) @ correction
-        case Action(l, p, w):
-            if constant(l):
-                return Action(at(l), p, map_argument(d, w))
-            if all(constant(v) for v in argument_members(w)):
-                return Action(d(l), p, map_argument(at, w))
-            return Action(d(l), p, map_argument(at, w)) + Action(at(l), p, map_argument(d, w))
         case _:
             fields = linear_fields(f) or structural_fields(f)
             if fields is None:
@@ -141,6 +152,7 @@ def deriv(
     x: Function | tuple[Function, ...],
     a: AbstractExpression | tuple[AbstractExpression, ...],
     h: AbstractExpression | tuple[AbstractExpression, ...],
+    extension_rule: DerivativeRule | None = None,
 ) -> AbstractExpression:
     # Evaluate undifferentiated operands at the point; inserted directions stay unchanged.
     xs, points, directions = argument_members(x), argument_members(a), argument_members(h)
@@ -164,7 +176,9 @@ def deriv(
         for variable, direction in zip(xs, directions, strict=True):
             if e == variable:  # D11.
                 return complete_indices(expected, direction)
-        out = derivative_of_node(e, d, constant, [*xs, *points, *directions], at)
+        out = extension_rule(e, at, d) if extension_rule is not None else None
+        if out is None:
+            out = derivative_of_node(e, d, constant, [*xs, *points, *directions], at)
         return complete_indices(expected, out)
 
     return complete_indices(DirectionalDerivative(f, x, a, h), memoized(differentiate)(f))

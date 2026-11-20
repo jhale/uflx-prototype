@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from ..algorithms.names import derived_index, derived_indices
 from ..arithmetic import divide, multiply
-from ..geometry import density, geometric_map, inverse_jacobian, jacobian
+from ..geometry import density, geometric_map, jacobian
 from ..nodes import (
     CellMap,
     Curl,
@@ -19,7 +19,7 @@ from ..nodes import (
     SideMap,
     TransformationLaw,
 )
-from ..tensors import component_tensor, determinant, index_sum, indexed
+from ..tensors import component_tensor, determinant, index_sum, indexed, inverse
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
@@ -75,7 +75,7 @@ def _derived_axis(
 def transformed(ghat: AbstractExpression, law: TransformationLaw, C: CellMap) -> AbstractExpression:
     # K^T on each covariant axis and J on each contravariant axis of ghat, divided by det J, or
     # by the density on a cell of lower dimension, to the weight.
-    J, K = jacobian(C), inverse_jacobian(C)
+    J, K = jacobian(C), inverse(jacobian(C))
     rank = len(ghat.value_shape)
     mapped_axes = len(law.variances)
     lead = tuple(_derived_axis(ghat, C, ("lead", n)) for n in range(rank - mapped_axes))

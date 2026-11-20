@@ -36,7 +36,7 @@ def is_defined(known: Callable[[AbstractExpression], bool], expression: Abstract
     match expression:
         case Sum(first=a, second=b) | Product(first=a, second=b):
             return known(a) and known(b)
-        case Division(first=a, second=Integer(value=value) | Float(value=value)):
+        case Division(numerator=a, denominator=Integer(value=value) | Float(value=value)):
             return value != 0 and known(a)
         case (
             Absolute(operand=a)

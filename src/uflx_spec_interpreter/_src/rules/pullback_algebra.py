@@ -8,9 +8,8 @@ from typing import TYPE_CHECKING
 from ..algorithms.rewriting import rewrite
 from ..algorithms.substitution import freshen
 from ..algorithms.traversal import map_values
-from ..meshes import is_cell
 from ..nodes import (
-    Action,
+    Apply,
     CellMap,
     DomainMap,
     Form,
@@ -59,11 +58,11 @@ def pointwise(
 
 def pullback_remains(f: AbstractExpression, m: DomainMap | CellMap | SideMap) -> bool:
     # The pull-backs that no row of expand_pull_backs rewrites, which a library reads.
-    return not isinstance(f, Action | Form) and (
+    return not isinstance(f, Apply | Form) and (
         isinstance(m, SideMap)
         or field_terminal(f)
-        or isinstance(f, PushForward)
+        or (isinstance(f, PushForward) and not isinstance(m, CellMap))
         or (isinstance(f, PullBack) and isinstance(f.map, SideMap | CellMap))
-        or (isinstance(f, Gradient) and not is_cell(m))
-        or (piola_law(f) is not None and (not is_cell(m) or m.parent != f.domain))
+        or (isinstance(f, Gradient) and not isinstance(m, CellMap))
+        or (piola_law(f) is not None and not isinstance(m, CellMap))
     )

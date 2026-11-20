@@ -5,18 +5,28 @@ from typing import overload
 from .nodes import AbstractFunctionSpace, ConjugateSpace, DualSpace, ScalarType
 
 
-def conjugate_space(V: AbstractFunctionSpace) -> AbstractFunctionSpace:
-    if V.scalar_type == ScalarType.real:
-        return V
-    if isinstance(V, ConjugateSpace):
-        return V.space
-    return ConjugateSpace(V)
+def trivial_conjugation(space: AbstractFunctionSpace) -> bool:
+    from .nodes.arguments import argument_members
+
+    return space.scalar_type == ScalarType.real and all(
+        trivial_conjugation(member)
+        for slot in space.argument_spaces
+        for member in argument_members(slot)
+    )
+
+
+def conjugate_space(space: AbstractFunctionSpace) -> AbstractFunctionSpace:
+    if trivial_conjugation(space):
+        return space
+    if isinstance(space, ConjugateSpace):
+        return space.space
+    return ConjugateSpace(space)
 
 
 def dual_space(
-    S: AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...],
+    space: AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...],
 ) -> AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...]:
-    return S.space if isinstance(S, DualSpace) else DualSpace(S)
+    return space.space if isinstance(space, DualSpace) else DualSpace(space)
 
 
 @overload

@@ -1,10 +1,13 @@
+from ._src.algorithms.form_binding import partial, rebind
 from ._src.algorithms.substitution import replace
 from ._src.arithmetic import (
     absolute,
     add,
+    conditional,
     conjugate,
     divide,
     imaginary_part,
+    less_than,
     logarithm,
     multiply,
     negate,
@@ -21,22 +24,22 @@ from ._src.calculus import (
     gradient,
     integral,
 )
-from ._src.forms import action, form, function
-from ._src.geometry import density, inverse_jacobian, jacobian
+from ._src.forms import apply, form, function
+from ._src.geometry import density, jacobian
 from ._src.indices import gathered_index, index
 from ._src.literals import num
 from ._src.maps import domain_map, pull_back
 from ._src.meshes import (
     cell_map,
-    image,
-    normal,
+    conormal,
+    mesh,
     push_forward,
     side_domain,
     side_map,
     transformation_law,
 )
-from ._src.nodes import RD, Complex, Float, Integer, ScalarType, Zero
-from ._src.passes.actions import apply_actions
+from ._src.nodes import Boolean, Complex, EuclideanSpace, Float, Integer, ScalarType, Zero
+from ._src.passes.applications import expand_applications
 from ._src.passes.arithmetic import expand_arithmetic
 from ._src.passes.derivatives import apply_derivatives
 from ._src.passes.gradients import apply_gradients
@@ -58,27 +61,27 @@ from ._src.tensors import (
     transpose,
 )
 
-# The free functions of the specification, the class RD, the scalar types, and the
-# short name num.
 __all__ = [
-    "RD",
+    "Boolean",
     "Complex",
+    "EuclideanSpace",
     "Float",
     "Integer",
     "ScalarType",
     "Zero",
     "absolute",
-    "action",
     "add",
-    "apply_actions",
+    "apply",
     "apply_derivatives",
     "apply_gradients",
     "broadcast_to",
     "cell_map",
     "component",
     "component_tensor",
+    "conditional",
     "conjugate",
     "conjugate_space",
+    "conormal",
     "coordinate",
     "curl",
     "density",
@@ -88,6 +91,7 @@ __all__ = [
     "divide",
     "domain_map",
     "dual_space",
+    "expand_applications",
     "expand_arithmetic",
     "expand_integrals",
     "expand_pull_backs",
@@ -95,26 +99,27 @@ __all__ = [
     "function",
     "gathered_index",
     "gradient",
-    "image",
     "imaginary_part",
     "index",
     "index_sum",
     "indexed",
     "integral",
     "inverse",
-    "inverse_jacobian",
     "jacobian",
+    "less_than",
     "logarithm",
     "lower",
     "matrix_product",
+    "mesh",
     "multiply",
     "negate",
-    "normal",
     "num",
+    "partial",
     "power",
     "pull_back",
     "push_forward",
     "real_part",
+    "rebind",
     "reference_integral",
     "replace",
     "side_domain",

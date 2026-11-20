@@ -3,13 +3,13 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, check_types
+from testutil import assert_clean, check_types, form_with_fixed_argument
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     absolute,
-    action,
     add,
+    apply,
     conjugate,
     directional_derivative,
     divide,
@@ -28,8 +28,8 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.passes import actions, derivatives
-from uflx_spec_interpreter._src.passes.actions import actions_complete
+from uflx_spec_interpreter._src.passes import applications, derivatives
+from uflx_spec_interpreter._src.passes.applications import applications_expanded
 from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
 from uflx_toy.spaces import space
 
@@ -53,7 +53,7 @@ def scalar(rnd, depth, nd):
         if pick < 0.25:
             return index_sum(multiply(indexed(c, (i,)), rnd.choice(POOL)), (i,))
         if pick < 0.32:
-            return action(l, 0, rnd.choice(POOL))
+            return apply(l, (rnd.choice(POOL),))
         return rnd.choice(POOL)
     a, b = scalar(rnd, depth - 1, nd), scalar(rnd, depth - 1, nd)
     near_one = add(num(3), multiply(num(0.2), a))
@@ -116,7 +116,7 @@ def random_form(rnd, kinds, depth):
         )
     p = rnd.randrange(n + 1)
     inner = (*kinds[:p], rnd.random() < 0.3, *kinds[p:])
-    return action(random_form(rnd, inner, depth - 1), p, scalar(rnd, 2, 0))
+    return form_with_fixed_argument(random_form(rnd, inner, depth - 1), p, scalar(rnd, 2, 0))
 
 
 def main(trials):
@@ -130,8 +130,8 @@ def main(trials):
         kinds = tuple(rnd.random() < 0.3 for _ in range(rnd.randrange(3)))
         e = random_form(rnd, kinds, 3)
         counts["derivatives"] += repr(e).count("DirectionalDerivative(")
-        counts["actions"] += repr(e).count("Action(")
-        out1 = actions.apply_actions(e)
+        counts["actions"] += repr(e).count("Apply(")
+        out1 = applications.expand_applications(e)
         out2 = derivatives.apply_derivatives(out1)
         check_types(counts, e, out1, out2)
         vals = tuple(0.3 * complex(*rng.normal(size=2)) for _ in range(len(e.argument_spaces)))
@@ -140,8 +140,8 @@ def main(trials):
             counts["changed"] += 1
             if counts["changed"] <= 3:
                 print("value changed, seed", seed, before, after)
-        counts["not_n1"] += not actions_complete(out1)
-        counts["not_n2"] += not (actions_complete(out2) and _derivatives_complete(out2))
+        counts["not_n1"] += not applications_expanded(out1)
+        counts["not_n2"] += not (applications_expanded(out2) and _derivatives_complete(out2))
     print(
         f"{trials} expressions, {counts['actions']} actions, {counts['derivatives']} derivatives:",
         f"{counts['changed']} values changed, {counts['not_n1']} not in N2 after pass 1,",

@@ -4,17 +4,19 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
+    conormal,
     domain_map,
-    image,
     jacobian,
     lower,
-    normal,
     pull_back,
     side_map,
 )
+from uflx_spec_interpreter import (
+    mesh as make_mesh,
+)
 from uflx_spec_interpreter._src.algorithms.names import derived_index
-from uflx_spec_interpreter._src.nodes import Normal, SideMap
+from uflx_spec_interpreter._src.nodes import Conormal, SideMap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.inclusions import affine_map, reference_normal
 from uflx_toy.runtime import runtime_array
@@ -104,7 +106,10 @@ def _facet_tables(nodes, mesh, domain, width):
                     evaluate(
                         normalize(
                             lower(
-                                pull_back(A.parameterisation, domain_map(RD(0), F.vertices[v], F))
+                                pull_back(
+                                    A.parameterisation,
+                                    domain_map(EuclideanSpace(0), F.vertices[v], F),
+                                )
                             )
                         ),
                         {},
@@ -122,7 +127,9 @@ def _facet_tables(nodes, mesh, domain, width):
     geometry_map = domain.coordinate_function.map
     slot = geometry_map.entries[0][0]
     local_geometry = side_map(source, (mesh.topology[slot], inclusions[slot]))
-    local_domain = image(pull_back(mesh.coordinate_function, local_geometry), domain.ambient_domain)
+    local_domain = make_mesh(
+        pull_back(mesh.coordinate_function, local_geometry), domain.ambient_domain
+    )
     mapping = {domain: local_domain}
     for relation in maps:
         slot = relation.entries[0][0]
@@ -132,7 +139,7 @@ def _facet_tables(nodes, mesh, domain, width):
     # A normal's orientation is data, not part of the evaluation relation. The
     # UFCx ABI changes the selected facet at runtime; retain the declared sign.
     for node in nodes:
-        if not isinstance(node, Normal) or node.side_map not in maps:
+        if not isinstance(node, Conormal) or node.side_map not in maps:
             continue
         slot = node.side_map.entries[0][0]
         try:
@@ -149,7 +156,7 @@ def _facet_tables(nodes, mesh, domain, width):
         scale = np.dot(declared, outward) / np.dot(outward, outward)
         if not np.isfinite(scale) or scale == 0 or not np.allclose(declared, scale * outward):
             raise ValueError("reference conormal must be nonzero and normal to the declared facet")
-        mapping[node] = normal(
+        mapping[node] = conormal(
             mapping[node.side_map], conormals[slot] if scale > 0 else -conormals[slot]
         )
     return local_domain, mapping, replacements, bindings

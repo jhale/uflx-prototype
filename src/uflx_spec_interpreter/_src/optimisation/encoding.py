@@ -11,6 +11,7 @@ from egglog.deconstruct import get_callable_args
 
 from ..algorithms.alpha import AlphaHasher
 from ..algorithms.binding import alpha_equivalent
+from ..arithmetic import imaginary_part, real_part
 from ..literals import num
 from ..nodes import (
     Absolute,
@@ -102,13 +103,13 @@ def encode(
                 # Type completion repeats scalar constants over family indices.
                 # Expose their value to algebra; decoding restores the index signature.
                 return Scalar.number(BigRat(BigInt.from_string(str(value)), 1))
-            case Power(first=a, second=b):
+            case Power(base=a, exponent=b):
                 return visit(a).power(visit(b))
             case Logarithm(operand=a):
                 return visit(a).logarithm()
             case Sum(first=a, second=b):
                 return visit(a) + visit(b)
-            case Division(first=a, second=b):
+            case Division(numerator=a, denominator=b):
                 return visit(a) / visit(b)
             case Product(first=a, second=b):
                 return visit(a) * visit(b)
@@ -156,9 +157,9 @@ def decode(expression: Scalar, region: EncodedRegion) -> AbstractExpression:
         if (args := get_callable_args(expression, Scalar.conjugate)) is not None:
             return Conjugate(visit(args[0]))
         if (args := get_callable_args(expression, Scalar.real_part)) is not None:
-            return RealPart(visit(args[0]))
+            return real_part(visit(args[0]))
         if (args := get_callable_args(expression, Scalar.imaginary_part)) is not None:
-            return ImaginaryPart(visit(args[0]))
+            return imaginary_part(visit(args[0]))
         if (args := get_callable_args(expression, Scalar.at)) is not None:
             k, i, _ = (a.value for a in args)
             return indexed(region.originals[k], (region.indices[i],))

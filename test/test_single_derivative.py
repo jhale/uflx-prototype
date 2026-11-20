@@ -6,14 +6,15 @@ import pytest
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     ScalarType,
-    action,
-    apply_actions,
+    apply,
     apply_derivatives,
     conjugate,
     directional_derivative,
+    expand_applications,
     form,
     function,
     num,
+    partial,
 )
 from uflx_spec_interpreter._src.algorithms.substitution import substitute
 from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
@@ -22,7 +23,27 @@ from uflx_toy.spaces import space
 
 
 def lower(e):
-    return apply_derivatives(apply_actions(e))
+    return apply_derivatives(expand_applications(e))
+
+
+def test_derivative_at_the_variable_is_the_same_node():
+    V = space("shorthand", scalar_type=ScalarType.real)
+    u, v, a, h, k = (function(V, name) for name in "uvahk")
+    body = u * v
+    for variable, point, direction in ((u, a, h), ((u, v), (a, v), (h, k))):
+        expected = DirectionalDerivative(body, variable, variable, direction)
+        assert directional_derivative(body, variable, direction) is expected
+        assert (
+            directional_derivative(expression=body, variable=variable, direction=direction)
+            is expected
+        )
+        assert directional_derivative(body, variable, variable, direction) is expected
+        at_point = DirectionalDerivative(body, variable, point, direction)
+        assert directional_derivative(body, variable, point, direction=direction) is at_point
+        assert directional_derivative(body, variable, point=point, direction=direction) is at_point
+        assert substitute(expected, {u: a}) is at_point
+    with pytest.raises(TypeError):
+        directional_derivative(body, u, point=a)
 
 
 @pytest.mark.parametrize("complex_", [False, True])
@@ -53,23 +74,23 @@ def test_both_complex_parts_reconstruct_the_real_differential(body):
     F = body(u)
     plus = form(complex_derivative_parts(F, u, u, w)[0], (w,))
     minus = form(complex_derivative_parts(F, u, u, w)[1], (conjugate(w),))
-    full = action(plus, 0, h) + action(minus, 0, conjugate(h))
+    full = apply(plus, (h,)) + apply(minus, (conjugate(h),))
     env = {u: 0.7 + 0.4j, h: 0.2 - 0.6j}
     expected = np.conj(env[h]) if body is conjugate else 2 * np.real(np.conj(env[u]) * env[h])
     assert np.isclose(evaluate(lower(full), env)(()), expected)
     direct = directional_derivative(F, u, u, h)
     assert np.isclose(evaluate(lower(full), env)(()), evaluate(lower(direct), env)(()))
     if body is conjugate:
-        assert np.isclose(evaluate(lower(action(plus, 0, h)), env)(()), 0)
+        assert np.isclose(evaluate(lower(apply(plus, (h,))), env)(()), 0)
 
 
 def test_new_argument_follows_existing_form_arguments():
     V = space("real", scalar_type=ScalarType.real)
     u, v, w, h = (function(V, label) for label in ("u", "v", "w", "h"))
     F = form(u * u * v, (v,))
-    e = form(directional_derivative(F, u, u, w), (w,))
+    e = form(directional_derivative(F, u, w), (w,))
     assert e.argument_spaces == (V, V)
-    applied = lower(action(e, 1, h))
+    applied = lower(partial(e, {w: h}))
     assert applied.argument_spaces == (V,)
     assert np.isclose(evaluate(applied, {u: 2, h: 3})((5,)), 60)
 
@@ -177,11 +198,9 @@ def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphi
     )
     plus = form(complex_derivative_parts(residual, uT, uT, wT)[0], (wT,))
     minus = form(complex_derivative_parts(residual, uT, uT, wT)[1], (conjugate(wT),))
-    applied = action(action(plus, 1, hT), 0, conjugate(zT)) + action(
-        action(minus, 1, conjugate(hT)), 0, conjugate(zT)
-    )
+    applied = apply(plus, (conjugate(zT), hT)) + apply(minus, (conjugate(zT), conjugate(hT)))
     derivative = compile_form(applied, 5)
-    primal = compile_form(action(residual, 0, conjugate(zT)), 5)
+    primal = compile_form(apply(residual, (conjugate(zT),)), 5)
     U = np.array([0.4 + 0.1j, -0.2 + 0.3j, 0.6 - 0.2j, 0.1 - 0.4j])
     H = np.array([0.2 - 0.1j, 0.4 + 0.2j, -0.1j, 0.3 + 0.1j])
     Z = np.array([0.1j, 0.2 - 0.3j, 0.7 + 0.1j, 0.4])

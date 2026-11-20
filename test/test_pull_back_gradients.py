@@ -4,7 +4,7 @@ from test_basix import square
 
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     component_tensor,
     coordinate,
     domain_map,
@@ -38,7 +38,7 @@ def nodes(e):
 
 def test_a_gradient_pulled_back_by_a_map_that_is_not_a_cell_needs_no_inverse():
     # A coordinate-domain map uses the chain rule without inverting its Jacobian.
-    P = RD(2)
+    P = EuclideanSpace(2)
     x = coordinate(P)
     phi = domain_map(P, component_tensor(x[k] + num(0.1) * x[0] * x[1], (k,)), P)
     f = pull_back(gradient(x[0] * x[0] * x[1], P), phi)[0]
@@ -89,10 +89,12 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
 
 
 def test_constant_gradient_preserves_embedding_shape():
-    from uflx_spec_interpreter import cell_map, expand_pull_backs, image, tensor
+    from uflx_spec_interpreter import cell_map, expand_pull_backs, mesh, tensor
     from uflx_spec_interpreter._src.nodes import Zero
 
-    embedded = image(tensor((D.coordinate_function[0], D.coordinate_function[1], num(0))), RD(3))
+    embedded = mesh(
+        tensor((D.coordinate_function[0], D.coordinate_function[1], num(0))), EuclideanSpace(3)
+    )
     original = pull_back(gradient(num(2j), embedded), cell_map(embedded, 0))
     result = expand_pull_backs(original)
     assert isinstance(result, Zero)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from .algorithms.names import derived_indices
 from .arithmetic import multiply
@@ -23,38 +23,64 @@ if TYPE_CHECKING:
     from .nodes.forms import Function
 
 
-def coordinate(P: AbstractDomain) -> Coordinate:
-    return Coordinate(P)
+def coordinate(domain: AbstractDomain) -> Coordinate:
+    return Coordinate(domain)
 
 
-def gradient(f: AbstractExpression, P: AbstractDomain) -> AbstractExpression:
-    return Gradient(f, P)
+def gradient(expression: AbstractExpression, domain: AbstractDomain) -> AbstractExpression:
+    return Gradient(expression, domain)
 
 
-def divergence(u: AbstractExpression, P: AbstractDomain) -> AbstractExpression:
-    return Divergence(u, P)
+def divergence(expression: AbstractExpression, domain: AbstractDomain) -> AbstractExpression:
+    return Divergence(expression, domain)
 
 
-def curl(u: AbstractExpression, P: AbstractDomain) -> AbstractExpression:
-    return Curl(u, P)
+def curl(expression: AbstractExpression, domain: AbstractDomain) -> AbstractExpression:
+    return Curl(expression, domain)
+
+
+@overload
+def directional_derivative(
+    expression: AbstractExpression,
+    variable: Function | tuple[Function, ...],
+    direction: AbstractExpression | tuple[AbstractExpression, ...],
+) -> DirectionalDerivative: ...
+
+
+@overload
+def directional_derivative(
+    expression: AbstractExpression,
+    variable: Function | tuple[Function, ...],
+    point: AbstractExpression | tuple[AbstractExpression, ...],
+    direction: AbstractExpression | tuple[AbstractExpression, ...],
+) -> DirectionalDerivative: ...
 
 
 def directional_derivative(
-    f: AbstractExpression,
-    x: Function | tuple[Function, ...],
-    a: AbstractExpression | tuple[AbstractExpression, ...],
-    h: AbstractExpression | tuple[AbstractExpression, ...],
+    expression: AbstractExpression,
+    variable: Function | tuple[Function, ...],
+    *values: AbstractExpression | tuple[AbstractExpression, ...],
+    **keywords: AbstractExpression | tuple[AbstractExpression, ...],
 ) -> DirectionalDerivative:
-    """Construct the full real differential, including complex and mixed variables.
+    """Take the directional derivative at the variable itself or at an explicit point."""
+    if len(values) == 1 and not keywords:
+        return DirectionalDerivative(expression, variable, variable, values[0])
+    if not values and keywords.keys() == {"direction"}:
+        return DirectionalDerivative(expression, variable, variable, keywords["direction"])
 
-    Bind directions explicitly with form. Complex projections are separate
-    compositions; geometry dependencies are exposed during derivative evaluation.
-    """
-    return DirectionalDerivative(f, x, a, h)
+    def at(
+        point: AbstractExpression | tuple[AbstractExpression, ...],
+        direction: AbstractExpression | tuple[AbstractExpression, ...],
+    ) -> DirectionalDerivative:
+        return DirectionalDerivative(expression, variable, point, direction)
+
+    return at(*values, **keywords)
 
 
-def integral(f: AbstractExpression, P: AbstractDomain) -> AbstractExpression:
-    return Integral(f, P)
+def integral(
+    expression: AbstractExpression, integration_domain: AbstractDomain
+) -> AbstractExpression:
+    return Integral(expression, integration_domain)
 
 
 def trace_of_gradient(f: AbstractExpression, P: AbstractDomain) -> AbstractExpression:

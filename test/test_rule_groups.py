@@ -6,7 +6,7 @@ import pytest
 from uflx_compiler import evaluate
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     Zero,
     apply_derivatives,
     apply_gradients,
@@ -41,7 +41,7 @@ def test_literal_power_rules_at_zero_base(exponent):
 
 @pytest.mark.parametrize("exponent", [num(0), num(0j), num(1), num(1 + 0j)])
 def test_spatial_power_rules_preserve_the_component_axis(exponent):
-    P = RD(2)
+    P = EuclideanSpace(2)
     e = gradient(power(coordinate(P)[0], exponent), P)
     out = apply_gradients(e)
     expected = [0, 0] if oracle(exponent, {})(()) == 0 else [1, 0]

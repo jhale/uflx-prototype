@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING, Literal, final
 from .arguments import argument_members
 from .caching import cached
 from .expressions import AbstractExpression
-from .scalar_types import ScalarType
-from .spaces import DualSpace
+from .scalar_types import NumericalScalarType, ScalarType, numerical_type
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
@@ -57,8 +56,8 @@ class DirectionalDerivative(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.expression.scalar_type
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
 
     @property
     @cached
@@ -70,11 +69,6 @@ class DirectionalDerivative(AbstractExpression):
         from .validation import admissible, require
 
         xs = argument_members(self.variable)
-        for x in xs:
-            require(
-                not x.argument_spaces or isinstance(x.space, DualSpace),
-                "derivative variable is not bindable",
-            )
         require(len(set(xs)) == len(xs), "derivative variables must be distinct")
         require(
             not any(occurs(x, variable.space) for x in xs for variable in xs),
@@ -113,7 +107,7 @@ class Coordinate(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> Literal["real"]:
         return ScalarType.real
 
     @property
@@ -151,8 +145,8 @@ class Gradient(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
 
     @property
     @cached
@@ -190,8 +184,8 @@ class Divergence(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
 
     @property
     @cached
@@ -231,8 +225,8 @@ class Curl(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
 
     @property
     @cached
@@ -270,8 +264,8 @@ class Integral(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
 
     @property
     @cached

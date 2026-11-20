@@ -10,11 +10,11 @@ from uflx_spec_interpreter import (
     index,
     index_sum,
     num,
+    rebind,
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent, binding_signature
 from uflx_spec_interpreter._src.algorithms.substitution import occurs, rename_bound, substitute
-from uflx_spec_interpreter._src.extensions.binding import rebind
 from uflx_toy.spaces import space
 
 V = space("shared-binding", scalar_type="real")

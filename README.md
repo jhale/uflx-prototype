@@ -138,16 +138,16 @@ Optimisation tests skip when egglog is absent. Install both `lint` and
 `optimisation` on Python 3.12+ to type-check the optional subsystem. Importing
 the core or the optimisation entry point does not import egglog.
 
-`directional_derivative(f, x, a, h)` is the sole function-derivative primitive.
-It gives the full real differential, including complex and mixed variables.
+`directional_derivative(f, x, h)` takes the derivative with respect to `x` at `x`
+in direction `h`. Use `directional_derivative(f, x, a, h)` to evaluate it at `a`.
+Both construct the full real differential, including complex and mixed variables.
 Bind directions with `form`; complex-linear and antilinear projections are
 explicit compositions. The former `gateaux_derivative` helper is removed.
 Form linearity is a declared mathematical precondition; the interpreter does not
 include a linearity analyser.
 
-`image(x, Q)` constructs a `Mesh` from topology-supported coordinates with no
-free indices. Mesh integrals retain free integrand indices and sum over internal
-cell indices. Cell-dependent data are fields on the topology or mesh; use mapped
+`mesh(x, Q)` constructs a `Mesh` from topology-supported coordinates with no
+free indices. Mesh integrals retain free integrand indices and add one contribution per fixed local cell slot. Cell-dependent data are fields on the topology or mesh; use mapped
 reference-domain integrals and explicit index sums for other integration families.
 
 
@@ -204,7 +204,7 @@ from uflx_toy.assembly import DofMap
 # For two triangles with vertex rows (0,1,2) and (0,2,3).
 mapping = DofMap((0, 1, 2, 0, 2, 3), 4)
 local_values = mapping.gather(assembled_values)  # 4 -> 6 coefficients
-local_matrix = assemble(a, degree=2)({})        # 6 x 6
+local_matrix = assemble(a, degree=2)({})  # 6 x 6
 matrix = assemble_bound(a, 2, {u: mapping, v: mapping})({})  # 4 x 4
 ```
 
@@ -444,24 +444,23 @@ The standard recipe in `_src/passes/lowering.py` coordinates:
 
 | Transformation | Module |
 | --- | --- |
-| Apply actions | `passes/actions.py` |
-| Expand derivatives and finish resulting actions | `passes/derivatives.py` |
+| Expand applications | `passes/applications.py` |
+| Expand derivatives and resulting applications | `passes/derivatives.py` |
 | Expand mesh integrals | `passes/integrals.py` |
 | Alternate gradients and pull-backs until stable | `passes/lowering.py`, using `gradients.py` and `pullbacks.py` |
 | Check core normal form | `passes/contracts.py` |
 
 Standard derivative evaluation exposes dependent geometry before differentiation
 and rejects unresolved dependencies. Inner derivatives are resolved first.
-Quadrature and tabulation follow the checked core boundary. The private shape
-convenience now constructs an ordinary `DirectionalDerivative`, without an
-extension node or separate lowering recipe.
+Quadrature and tabulation follow the checked core boundary. Geometry derivatives use the core
+`directional_derivative` and `lower` operations.
 
-### Named binding and geometry experiment
+### Full application and named binding
 
-The private `_src/extensions/binding.py` module explores these operations:
+Full application constructs a lazy node. Partial application and rebinding transform explicit binders.
 
 ```python
-from uflx_spec_interpreter._src.extensions.binding import apply, partial, rebind
+from uflx_spec_interpreter import apply, partial, rebind
 
 F = form(u * v, (u, v))
 partial(F, {u: w})  # form(w * v, (v,))
@@ -475,7 +474,13 @@ also supports `ComponentTensor` and `IndexSum`. Form operations preserve groupin
 and conjugation and reject dependent argument spaces, including inherited slots.
 Nested internal binders may freshen during substitution.
 `apply` also accepts sums and nested forms with an ordered argument signature;
-it uses existing `Action` nodes pending migration to the specified `Apply` node.
+`expand_applications` expands each `Apply` using simultaneous substitution.
+
+`Boolean`, `less_than` and `conditional` support symbolic selection.
+The oracle evaluates only the selected branch for each free-index assignment.
+Library operations can use `_src/extensions/external_operators.py` to declare an
+operand signature and a derivative action. Its `apply_external_derivatives` recipe
+passes the library all point values followed by all direction values in operand order.
 
 Core binding algorithms use the same declarations, scopes and ordered signatures
 for forms, index binders and derivative variables. Capture avoidance and explicit
@@ -556,7 +561,7 @@ The core splits a public API from a private one, as JAX does with `jax._src`.
 
 The public API is `uflx_spec_interpreter/__init__.py`, which re-exports the
 free functions of the specification and declares them in `__all__`, with the
-literal classes, `RD`, scalar types and the convenience helper `num`.
+literal classes, `EuclideanSpace`, scalar types and the convenience helper `num`.
 `reference_integral(f, D, cell_slot)` gives one local cell’s reference integral.
 Mesh expansion adds these integrals over the fixed slots without introducing
 an array index or cell sum. UFCx compilation selects its local slot directly.
@@ -564,7 +569,7 @@ It works for cells and facet meshes. `CellMap(parent, cell_slot)` selects a slot
 `SideMap(parent, source, entries)` stores one `(parent_slot, inclusion)` per
 source slot. The factory accepts `side_map(E, (cell, A))`, inferring the parent from
 the `CellMap` handle `cell`. All entries must share that parent. Topologies carry no
-side or normal data. `normal(relation, m0, ...)` supplies one oriented reference
+side or normal data. `conormal(relation, m0, ...)` supplies one oriented reference
 conormal per source slot, independently of map identity. Successive restrictions
 use nested pull-backs: `pull_back(pull_back(u, outer), inner)`.
 The optional `side_domain(D, S, *entries)` helper derives source geometry; a
@@ -593,11 +598,12 @@ modules of `_src`:
 - `calculus.py`: `coordinate`, `gradient`, `directional_derivative` and
   `integral`
 - `maps.py`: `domain_map` and `pull_back`
-- `geometry.py`: `jacobian`, `inverse_jacobian`, `density` and the metric
-- `meshes.py`: `image`, `cell_map`, `side_domain`,
-  `side_map` and `normal`
+- `geometry.py`: `jacobian`, `density` and the metric
+- `meshes.py`: `mesh`, `cell_map`, `side_domain`,
+  `side_map` and `conormal`
 - `spaces.py`: `conjugate_space` and `dual_space`
-- `forms.py`: `function`, `form` and `action`
+- `forms.py`: `function`, `form` and `apply`
+- `algorithms/form_binding.py`: `partial` and `rebind`
 - `nodes/static.py`: the free functions that read the static type
 
 The private modules of `_src`:
@@ -653,7 +659,8 @@ python test/test_full.py 100
 
 The implementation follows `uflx/design/language.md` and its linked chapters,
 in their listed order. The signature test reads those chapters, checks that all
-specified free functions are exported, and verifies their parameter names. Set
+specified free functions are exported, and verifies their parameter names. It also
+checks concrete node names and ordered construction arguments against the class tables. Set
 `UFLX_SPEC_PATH` to the specification's entry page for an isolated checkout.
 
 The static type uses `domain`. A pull-back stores its `map`, an integral stores
@@ -708,14 +715,13 @@ Python argument types are now checked statically instead of repeatedly checked
 inside constructors and passes. Construction still enforces the primitive argument
 whitelist, finite floats, shapes, extents, domain compatibility and binder rules.
 The excluded packages must continue to supply values satisfying the annotated
-contracts. Wrong classes from untyped callers no longer consistently produce the
-specification's mandated `TypeError`; this tradeoff is recorded in the design
-repository's `possible-issues-with-spec.md`. The negative typing fixture in `test/typecheck/arguments.py` verifies
+contracts. The negative typing fixture in `test/typecheck/arguments.py` verifies
 wrong argument types, rewrite callback results and non-exhaustive matches; pytest
 runs it separately when Pyright is installed.
 
-Annotations use concrete classes and tuples. The only new alias is the recursive
-`_Construction` type. Casts are concentrated at the reflection, cache and graph
+Annotations use concrete classes and tuples. `ExpressionScalarType` includes
+Boolean, real and complex values. Function spaces and numerical operations use
+`NumericalScalarType`, which admits real and complex values. Casts are concentrated at the reflection, cache and graph
 reconstruction boundaries. Stored properties return typed dataclass fields without
 casts or Pyright suppressions. Computed attributes use ordinary properties with a
 small per-node cache decorator. `test/test_node_declarations.py` checks metadata

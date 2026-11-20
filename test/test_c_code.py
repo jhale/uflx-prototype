@@ -11,19 +11,19 @@ from testutil import grouped_topology, push_forward
 from uflx_compiler import compile_form, evaluate
 from uflx_compiler.c_code import c_kernel
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     broadcast_to,
     component_tensor,
     divergence,
     function,
     gathered_index,
     gradient,
-    image,
     index,
     index_sum,
     integral,
     inverse,
     logarithm,
+    mesh,
     num,
     square_root,
     tensor,
@@ -50,7 +50,7 @@ def read(label, k):
 
 def forms():
     X = basix_space("X", T, P, 2)
-    D = image(tensor((function(X, "x0"), function(X, "x1"))), RD(2))
+    D = mesh(tensor((function(X, "x0"), function(X, "x1"))), EuclideanSpace(2))
     v = push_forward(function(basix_space("R", T, RT, 1), "v"), D)
     g = gradient(push_forward(function(basix_space("V", T, P, 2), "u"), D), D)
     return {

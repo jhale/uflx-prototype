@@ -3,8 +3,9 @@
 import pytest
 
 from uflx_spec_interpreter import (
-    RD,
-    action,
+    EuclideanSpace,
+    apply,
+    apply_derivatives,
     conjugate,
     directional_derivative,
     dual_space,
@@ -70,21 +71,21 @@ def test_directions_are_expressions_not_declarations(variables):
 
 
 def test_point_support_and_no_support():
-    V = space("supported", domain=RD(2))
+    V = space("supported", domain=EuclideanSpace(2))
     u, w = function(V, "u"), function(V, "w")
-    other = function(space("other-domain", domain=RD(3)), "a")
+    other = function(space("other-domain", domain=EuclideanSpace(3)), "a")
     with pytest.raises(ValueError, match="domain"):
         directional_derivative(u, u, other, w)
     for point in (num(2), function(V, "a")):
         assert form(directional_derivative(u, u, point, w), (w,)).argument_spaces == (V,)
 
 
-def test_nonbindable_variable_is_rejected(variables):
+def test_map_valued_variable_is_bindable(variables):
     u, _, _, _ = variables
     operator_space = ConjugateSpace(dual_space(u.space))
     x, h = function(operator_space, "x"), function(operator_space, "h")
-    with pytest.raises(ValueError, match="bindable"):
-        directional_derivative(x, x, x, h)
+    assert apply_derivatives(directional_derivative(x, x, x, h)) is h
+    assert form(x, (x,)).argument_spaces == (*x.argument_spaces, operator_space)
 
 
 def test_dual_variable_accepts_symbolic_form_point(variables):
@@ -92,7 +93,7 @@ def test_dual_variable_accepts_symbolic_form_point(variables):
     D = dual_space(u.space)
     x, h = function(D, "load"), function(D, "direction")
     point = form(conjugate(v), (conjugate(v),))
-    F = action(x, 0, conjugate(u))
+    F = apply(x, (conjugate(u),))
     assert form(directional_derivative(F, x, point, h), (h,)).argument_spaces == (D,)
     with pytest.raises(ValueError, match="argument spaces"):
         directional_derivative(F, x, form(v, (v,)), h)

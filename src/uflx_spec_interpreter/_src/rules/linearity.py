@@ -31,7 +31,7 @@ def linear_fields(expression: AbstractExpression) -> tuple[str, ...] | None:
         case Tensor():
             return ("entries",)
         case Division():
-            return ("first",)
+            return ("numerator",)
         case Gradient() | Divergence() | Curl() | PushForward() | PullBack() | Integral():
             return ("expression",)
         case Conjugate() | RealPart() | ImaginaryPart():

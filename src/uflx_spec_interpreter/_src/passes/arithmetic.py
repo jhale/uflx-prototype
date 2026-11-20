@@ -14,7 +14,9 @@ def expand_arithmetic(f: AbstractExpression) -> AbstractExpression:
         if not isinstance(e, Sum | Product | Division) or not e.value_shape:
             return e
         indices = derived_indices("uflx.expand_arithmetic", (e,), len(e.value_shape))
-        first, second = e.first, e.second
+        first, second = (
+            (e.numerator, e.denominator) if isinstance(e, Division) else (e.first, e.second)
+        )
         if first.value_shape:
             first = Indexed(first, indices)
         if second.value_shape:

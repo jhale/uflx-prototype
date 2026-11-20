@@ -1,7 +1,7 @@
 # The classic FEniCS layer of EXAMPLES.md, for functions on a topology. A function of the layer
 # is the push-forward of a function on the topology, so a user script has one name for each.
 import basix
-from testutil import normal, push_forward, side_domain, side_map
+from testutil import push_forward, side_domain, side_map
 
 from uflx_spec_interpreter import (
     ScalarType,
@@ -18,6 +18,7 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, Function
 from uflx_toy.basix_spaces import basix_space
+from uflx_toy.sides import outward_conormal
 from uflx_toy.spaces import space
 
 
@@ -119,7 +120,7 @@ def arguments(expression):
 
 def restrict(obj, E):
     if is_facet_normal(obj):
-        return normal(side_map(obj.domain, E, "inside"))
+        return outward_conormal(side_map(obj.domain, E, "inside"))
     if isinstance(obj, tuple):
         return tuple(restrict(item, E) for item in obj)
     if not isinstance(obj, AbstractExpression) or obj.domain is None:

@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from test_basix import mixed, quadrilaterals, square
-from testutil import contains, grouped_topology, normal, push_forward, side_map
+from testutil import contains, grouped_topology, push_forward, side_map
 
 from uflx_compiler import (
     assemble,
@@ -20,16 +20,16 @@ from uflx_compiler import (
 from uflx_compiler.inputs import arrays
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     coordinate,
     domain_map,
     form,
     function,
     gradient,
-    image,
     index,
     index_sum,
     integral,
+    mesh,
     num,
     pull_back,
     tensor,
@@ -49,6 +49,7 @@ from uflx_spec_interpreter._src.nodes.structure import expression_operands
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
 from uflx_toy.runtime import runtime_array, runtime_extent
+from uflx_toy.sides import outward_conormal
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P
@@ -131,9 +132,9 @@ def facet_functionals(D, E, B, u):
     jump = pull_back(u, plus) - pull_back(u, minus)
     g = gradient(u, D)
     return [
-        integral(pull_back(u, plus) * normal(plus)[0], E),
+        integral(pull_back(u, plus) * outward_conormal(plus)[0], E),
         integral(jump * jump, E),
-        integral(pull_back(g[0], inside) * normal(inside)[0], B),
+        integral(pull_back(g[0], inside) * outward_conormal(inside)[0], B),
         integral(pull_back(u, minus) * pull_back(g[1], plus), E),
     ]
 
@@ -165,7 +166,7 @@ def test_a_function_at_points_known_only_at_assembly():
     D = square(basix_cell(basix.CellType.triangle))[0]
     V = basix_space("V", D.topology, P, 2)
     u = push_forward(function(V, "u"), D)
-    K = D.pieces[0].parameter_domain
+    K = D[0].reference_cell
     cells = len(D.topology.cell_types)
     q, i = runtime_extent("q"), index("i")
     points = runtime_array("points", (cells, q, 2))
@@ -179,9 +180,10 @@ def test_a_function_at_points_known_only_at_assembly():
                     weights[slot, i]
                     * integral(
                         pull_back(
-                            pull_back(f, cell_map(D, slot)), domain_map(RD(0), points[slot, i], K)
+                            pull_back(f, cell_map(D, slot)),
+                            domain_map(EuclideanSpace(0), points[slot, i], K),
                         ),
-                        RD(0),
+                        EuclideanSpace(0),
                     ),
                     (i,),
                 )
@@ -226,7 +228,7 @@ def runtime_mesh():
         cells = np.asarray(cells, dtype=float)
         return {"coefficients:x0": cells[..., 0].ravel(), "coefficients:x1": cells[..., 1].ravel()}
 
-    return geometry, None, image(tensor((x0, x1)), RD(2))
+    return geometry, None, mesh(tensor((x0, x1)), EuclideanSpace(2))
 
 
 def test_geometry_from_coordinates_given_at_assembly():
@@ -260,7 +262,7 @@ def test_the_geometry_of_an_affine_mesh_is_one_node_for_each_cell_in_every_form(
     for dets, f in zip(found, forms, strict=True):
         everywhere(
             compile_form(f, 4),
-            lambda n: not isinstance(n, Division) or not dets.add(n.second),
+            lambda n: not isinstance(n, Division) or not dets.add(n.denominator),
         )
     # K is the adjugate over det J, and no zero term adds the index of the points to det J.
     assert found[0] == found[1] and len(found[0]) == 2

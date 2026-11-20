@@ -2,8 +2,20 @@
 
 from __future__ import annotations
 
-from ..nodes import AbstractExpression
-from .actions import apply_actions
+from ..nodes import (
+    AbstractExpression,
+    Apply,
+    Curl,
+    DirectionalDerivative,
+    Divergence,
+    Division,
+    Gradient,
+    Integral,
+    Product,
+    PullBack,
+    Sum,
+)
+from .applications import expand_applications
 from .arithmetic import expand_arithmetic
 from .contracts import core_normal_form
 from .derivatives import apply_derivatives
@@ -20,10 +32,10 @@ def lower(f: AbstractExpression) -> AbstractExpression:
 
     Raises:
         TypeError: A rewrite is unsupported.
-            An unsupported output carries offending nodes and diagnostic reasons
+        ValueError: A stable core output violates the contract. Both report offending nodes
             in the exception's second argument.
     """
-    out = apply_actions(f)
+    out = expand_applications(f)
     out = apply_derivatives(out)
     out = expand_integrals(out)
     out = lower_spatial(out)
@@ -31,7 +43,21 @@ def lower(f: AbstractExpression) -> AbstractExpression:
     violations = core_normal_form(out)
     if violations:
         reasons = "; ".join(dict.fromkeys(reason for _, reason in violations))
-        raise TypeError(f"unsupported core lowering: {reasons}", violations)
+        reducible = (
+            Apply,
+            Curl,
+            DirectionalDerivative,
+            Divergence,
+            Division,
+            Gradient,
+            Integral,
+            Product,
+            PullBack,
+            Sum,
+        )
+        if any(not isinstance(node, reducible) for node, _ in violations):
+            raise TypeError(f"unsupported core lowering: {reasons}", violations)
+        raise ValueError(f"stable output violates core normal form: {reasons}", violations)
     return out
 
 

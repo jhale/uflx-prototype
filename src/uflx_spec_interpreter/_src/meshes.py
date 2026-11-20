@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Literal, TypeGuard, cast
 from uflx_spec_interpreter._src.nodes import (
     AbstractTopology,
     CellMap,
+    Conormal,
     Mesh,
-    Normal,
     PullBack,
     PushForward,
     SideMap,
@@ -24,8 +24,8 @@ def cell_map(parent: AbstractTopology | Mesh, cell_slot: int) -> CellMap:
     return CellMap(parent, cell_slot)
 
 
-def image(x: AbstractExpression, Q: AbstractCoordinateDomain) -> Mesh:
-    return Mesh(x, Q)
+def mesh(coordinate_function: AbstractExpression, ambient_domain: AbstractCoordinateDomain) -> Mesh:
+    return Mesh(coordinate_function, ambient_domain)
 
 
 def transformation_law(
@@ -34,8 +34,8 @@ def transformation_law(
     return TransformationLaw(variances, weight)
 
 
-def push_forward(f: AbstractExpression, D: Mesh, m: TransformationLaw) -> PushForward:
-    return PushForward(f, D, m)
+def push_forward(expression: AbstractExpression, mesh: Mesh, law: TransformationLaw) -> PushForward:
+    return PushForward(expression, mesh, law)
 
 
 def is_cell(m: DomainMap | CellMap | SideMap) -> TypeGuard[CellMap]:
@@ -57,9 +57,12 @@ def side_map(
     return SideMap(parent, source, tuple((cell.cell_slot, A) for cell, A in entries))
 
 
-def side_domain(D: Mesh, S: AbstractTopology, *entries: tuple[int, DomainMap]) -> Mesh:
-    return image(PullBack(D.coordinate_function, SideMap(D.topology, S, entries)), D.ambient_domain)
+def side_domain(parent: Mesh, source: AbstractTopology, *entries: tuple[int, DomainMap]) -> Mesh:
+    return mesh(
+        PullBack(parent.coordinate_function, SideMap(parent.topology, source, entries)),
+        parent.ambient_domain,
+    )
 
 
-def normal(sm: SideMap, *reference_conormals: AbstractExpression) -> Normal:
-    return Normal(sm, reference_conormals)
+def conormal(side_map: SideMap, *reference_conormals: AbstractExpression) -> Conormal:
+    return Conormal(side_map, reference_conormals)

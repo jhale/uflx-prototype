@@ -8,7 +8,6 @@ from testutil import (
     check_types,
     contains,
     keeps_static_type,
-    normal,
     side_domain,
     side_map,
 )
@@ -29,10 +28,10 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
+    Conormal,
     Coordinate,
     Function,
     Gradient,
-    Normal,
     PullBack,
 )
 from uflx_spec_interpreter._src.passes import integrals
@@ -40,6 +39,7 @@ from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
+from uflx_toy.sides import outward_conormal
 from uflx_toy.spaces import space
 
 I = reference_simplex(1)
@@ -81,7 +81,7 @@ def integrand(rnd, E, sides):
             terms.append(
                 multiply(
                     restricted(rnd, sm),
-                    indexed(normal(sm), (rnd.randrange(2),)),
+                    indexed(outward_conormal(sm), (rnd.randrange(2),)),
                 )
             )
         elif pick == 2:
@@ -93,7 +93,7 @@ def integrand(rnd, E, sides):
     for t in terms[1:]:
         f = add(f, t)
     if rnd.random() < 0.2:
-        f = normal(sides[next(iter(sides))])
+        f = outward_conormal(sides[next(iter(sides))])
     return f
 
 
@@ -116,7 +116,9 @@ def main(trials):
             lambda n: (
                 isinstance(n, PullBack)
                 and isinstance(n.map, CellMap)
-                and not isinstance(n.expression, (Function, Normal, Coordinate, PullBack, Gradient))
+                and not isinstance(
+                    n.expression, (Function, Conormal, Coordinate, PullBack, Gradient)
+                )
             ),
         ):
             lazy += 1

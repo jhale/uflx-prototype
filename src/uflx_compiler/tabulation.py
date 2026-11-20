@@ -2,7 +2,7 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     index_sum,
     tensor,
 )
@@ -52,7 +52,7 @@ def coefficients(u):
 def leaf(e):
     # The function, its cell, the order of the derivative and the points in the reference cell.
     match e:
-        case PullBack(x, DomainMap(RD(0), X, BasixCell())):
+        case PullBack(x, DomainMap(EuclideanSpace(0), X, BasixCell())):
             return read(x, X)
     return None
 

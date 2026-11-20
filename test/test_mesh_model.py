@@ -8,18 +8,18 @@ from uflx_compiler import compile_form
 from uflx_compiler import evaluate as compiled_value
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     ScalarType,
     coordinate,
     density,
     domain_map,
     function,
     gradient,
-    image,
     index,
     index_sum,
     integral,
     jacobian,
+    mesh,
     num,
     pull_back,
     tensor,
@@ -38,7 +38,7 @@ def test_integrate_members_then_sum_only_the_selected_index():
     P = reference_simplex(1)
     i, configuration = index("segment"), index("configuration")
     lengths = table([[2, 4], [3, 6], [5, 10]])
-    M = domain_map(P, tensor((lengths[i, configuration] * coordinate(P)[0],)), RD(1))
+    M = domain_map(P, tensor((lengths[i, configuration] * coordinate(P)[0],)), EuclideanSpace(1))
     members = integral(pull_back(num(1), M) * density(M), P)
     total = index_sum(members, (i,))
     assert dict(members.free_indices) == {i: 3, configuration: 2}
@@ -51,10 +51,10 @@ def test_integration_patches_need_no_field_domain():
     P = reference_simplex(1)
     t = coordinate(P)[0]
     patches = (
-        domain_map(P, tensor((num(2) * t,)), RD(1)),
-        domain_map(P, tensor((num(2) + num(3) * t,)), RD(1)),
+        domain_map(P, tensor((num(2) * t,)), EuclideanSpace(1)),
+        domain_map(P, tensor((num(2) + num(3) * t,)), EuclideanSpace(1)),
     )
-    f = coordinate(RD(1))[0]
+    f = coordinate(EuclideanSpace(1))[0]
     expression = sum((integral(pull_back(f, M) * density(M), P) for M in patches), num(0))
     assert np.isclose(evaluate(lower_spatial(expression), {})(()), 12.5)
 
@@ -78,10 +78,10 @@ def test_mesh_identity_and_geometry_follow_coordinate_replacement():
     T = grouped_topology((K,), (((0, 1),),), ())
     V = space("coordinate", value_shape=(1,), domain=T, scalar_type=ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
-    D, E = image(x, RD(1)), image(y, RD(1))
+    D, E = mesh(x, EuclideanSpace(1)), mesh(y, EuclideanSpace(1))
     assert isinstance(D, Mesh)
-    assert D.construction_arguments == (x, RD(1))
-    assert image(x, RD(1)) is D
+    assert D.construction_arguments == (x, EuclideanSpace(1))
+    assert mesh(x, EuclideanSpace(1)) is D
     assert substitute(D, {x: y}) is E
     assert substitute(jacobian(cell_map(D, 0)), {x: y}) is jacobian(cell_map(E, 0))
 
@@ -94,7 +94,7 @@ def test_diffusion_on_independent_analytic_curve_patches():
     R = basix_space("patch-coordinate", T, basix.ElementFamily.P, 1)
     A = basix_space("patch-curvature", T, basix.ElementFamily.P, 0, discontinuous=True)
     r, a = function(R, "r"), function(A, "a")
-    D = image(tensor((r, a * r * r)), RD(2))
+    D = mesh(tensor((r, a * r * r)), EuclideanSpace(2))
     u = push_forward(r, D)
     g = gradient(u, D)
     energy = integral(g[0] * g[0] + g[1] * g[1], D)
@@ -120,13 +120,15 @@ def test_mesh_rejects_free_coordinate_indices_but_keeps_symbolic_coordinates():
     q = index("configuration")
     coordinates = table([2, 3])[q] * D.coordinate_function
     with pytest.raises(ValueError, match="no free indices"):
-        image(coordinates, RD(1))
+        mesh(coordinates, EuclideanSpace(1))
     with pytest.raises(ValueError, match="no free indices"):
-        Mesh(coordinates, RD(1))
+        Mesh(coordinates, EuclideanSpace(1))
     # A symbolic scalar parameter is fine; only an unbound family index is excluded.
     scale = function(space("scale", scalar_type=ScalarType.real), "scale")
-    symbolic = image(scale * D.coordinate_function, RD(1))
-    assert substitute(symbolic, {scale: num(2)}) is image(num(2) * D.coordinate_function, RD(1))
+    symbolic = mesh(scale * D.coordinate_function, EuclideanSpace(1))
+    assert substitute(symbolic, {scale: num(2)}) is mesh(
+        num(2) * D.coordinate_function, EuclideanSpace(1)
+    )
     with pytest.raises(ValueError, match="no free indices"):
         substitute(symbolic, {scale: table([2, 3])[q]})
 

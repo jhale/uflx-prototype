@@ -11,9 +11,8 @@ import pytest
 from test_surface import M
 from testutil import contains
 
-from uflx_spec_interpreter import density, inverse_jacobian
+from uflx_spec_interpreter import density, inverse, jacobian
 from uflx_spec_interpreter._src.algorithms.traversal import map_fields, rebuild
-from uflx_spec_interpreter._src.geometry import jacobian
 from uflx_spec_interpreter._src.meshes import cell_map
 from uflx_spec_interpreter._src.nodes import (
     Base,
@@ -105,7 +104,7 @@ def test_density_and_inverse_jacobian_share_the_jacobian():
     m = cell_map(M, 0)
     J = jacobian(m)
     assert contains(density(m), lambda n: n is J)
-    assert contains(inverse_jacobian(m), lambda n: n is J)
+    assert contains(inverse(jacobian(m)), lambda n: n is J)
 
 
 def test_indexed_expressions_are_interned():
@@ -143,9 +142,9 @@ def test_cache_hits_do_not_initialize_or_validate_again():
 def test_private_dataclass_storage_is_frozen():
     from dataclasses import FrozenInstanceError
 
-    from uflx_spec_interpreter import RD
+    from uflx_spec_interpreter import EuclideanSpace
 
-    domain = RD(3)
+    domain = EuclideanSpace(3)
     with pytest.raises(FrozenInstanceError):
         domain._dimension = 4
     with pytest.raises(FrozenInstanceError):
@@ -153,7 +152,7 @@ def test_private_dataclass_storage_is_frozen():
     assert domain.dimension == 3
     assert domain.construction_arguments == (3,)
     match domain:
-        case RD(dimension):
+        case EuclideanSpace(dimension):
             assert dimension == 3
         case _:
             pytest.fail("dataclass positional pattern did not match")

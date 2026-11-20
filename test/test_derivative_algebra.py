@@ -11,11 +11,11 @@ from uflx_compiler.algebra import _normalizer
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     Integer,
-    action,
-    apply_actions,
+    apply,
     apply_derivatives,
     conjugate,
     dual_space,
+    expand_applications,
     form,
     function,
     index,
@@ -26,7 +26,7 @@ from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
 from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx_spec_interpreter._src.nodes import (
     AbstractExpression,
-    Action,
+    Apply,
     Complex,
     DirectionalDerivative,
     Product,
@@ -52,7 +52,7 @@ def nodes(e):
 
 
 def lower(e):
-    return _normalizer()(apply_derivatives(apply_actions(e)))
+    return _normalizer()(apply_derivatives(expand_applications(e)))
 
 
 def test_collection_keeps_cancelled_free_indices():
@@ -76,10 +76,10 @@ def test_opaque_library_dual_function_needs_no_custom_simplification():
     V = space("opaque-linear")
     u, w = function(V, "u"), function(V, "w")
     L = function(dual_space(V), "library-operator")
-    F = action(L, 0, u * u)
+    F = apply(L, (u * u,))
     plus = lower(form(complex_derivative_parts(F, u, u, w)[0], (w,)))
     minus = lower(form(complex_derivative_parts(F, u, u, w)[1], (conjugate(w),)))
-    assert not any(isinstance(n, Action) for n in nodes(minus))
+    assert not any(isinstance(n, Apply) for n in nodes(minus))
     env = {u: 0.7 + 0.2j, L: lambda z: (2 + 3j) * z}
     h = 0.3 - 0.1j
     assert np.isclose(evaluate(plus, env)((h,)), (2 + 3j) * 2 * env[u] * h)
@@ -184,7 +184,7 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
         (plus, h, 3 * (0.7 + 0.2j) ** 2 * (0.3 - 0.1j)),
         (minus, conjugate(h), 0),
     ):
-        out = lower(action(derivative, 0, argument))
+        out = lower(apply(derivative, (argument,)))
         resolved = bottom_up(out, supply_library_values)
         assert np.isclose(evaluate(resolved, {})(()), expected)
 
@@ -194,7 +194,7 @@ def test_zero_action_keeps_family_indices_and_argument_shape(shape):
     V = space("zero-action", value_shape=shape)
     L = function(dual_space(V), "L")
     k = index("family")
-    out = _normalizer()(action(L, 0, Zero(shape, ((k, 3),), (), ScalarType.real)))
+    out = _normalizer()(apply(L, (Zero(shape, ((k, 3),), (), ScalarType.real),)))
     assert isinstance(out, Zero)
     assert out.value_shape == ()
     assert out.free_indices == ((k, 3),)

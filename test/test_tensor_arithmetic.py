@@ -5,7 +5,7 @@ import pytest
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    action,
+    apply,
     apply_derivatives,
     directional_derivative,
     expand_arithmetic,
@@ -77,7 +77,7 @@ def test_tensor_product_derivative_and_action():
     derivative = apply_derivatives(directional_derivative(expression, x, num(2), num(1)))
     values = {v: np.array([3.0, 5.0])}
     np.testing.assert_allclose(evaluate(lower(derivative), values)(()), values[v])
-    applied = action(form(expression, (x,)), 0, num(4))
+    applied = apply(form(expression, (x,)), (num(4),))
     np.testing.assert_allclose(evaluate(lower(applied), values)(()), 4 * values[v])
 
 

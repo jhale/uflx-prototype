@@ -16,7 +16,7 @@ from uflx_spec_interpreter import (
 from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx_spec_interpreter._src.nodes import Conjugate
 from uflx_spec_interpreter._src.nodes.forms import entry_function
-from uflx_spec_interpreter._src.passes import actions, derivatives
+from uflx_spec_interpreter._src.passes import applications, derivatives
 from uflx_toy.spaces import space
 
 # Derivatives in two unknowns at once, as for a mixed problem.
@@ -26,7 +26,7 @@ ENV = {u: 0.3 + 0.2j, p: -0.5 + 0.4j, a0: 0.7 - 0.1j, a1: 0.2 + 0.6j, h0: 0.4j, 
 
 
 def passes(e):
-    out = derivatives.apply_derivatives(actions.apply_actions(e))
+    out = derivatives.apply_derivatives(applications.expand_applications(e))
     assert not (ill_typed(e) or ill_typed(out)), ill_typed(e) or ill_typed(out)
     return out
 

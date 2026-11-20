@@ -6,14 +6,14 @@ from testutil import grouped_topology
 
 from uflx_oracle import at, evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     ScalarType,
     cell_map,
     expand_pull_backs,
     function,
     gradient,
-    image,
     jacobian,
+    mesh,
     pull_back,
 )
 from uflx_spec_interpreter._src.algorithms.substitution import substitute
@@ -29,7 +29,7 @@ def geometry():
     T = grouped_topology((K,), (((0, 1),),), ())
     V = space("canonical-coordinates", value_shape=(2,), domain=T, scalar_type=ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
-    return T, x, y, image(x, RD(2))
+    return T, x, y, mesh(x, EuclideanSpace(2))
 
 
 def test_cell_construction_and_coordinate_replacement_keep_one_representation():
@@ -40,7 +40,7 @@ def test_cell_construction_and_coordinate_replacement_keep_one_representation():
     assert manual is C
     assert manual.parent is D and manual.cell_slot == 0
     assert jacobian(manual) is jacobian(C)
-    E = image(y, RD(2))
+    E = mesh(y, EuclideanSpace(2))
     assert substitute(C, {x: y}) is cell_map(E, 0)
     assert substitute(jacobian(C), {x: y}) is jacobian(cell_map(E, 0))
 

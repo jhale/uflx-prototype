@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, final
+from typing import TYPE_CHECKING, final
 
 from .caching import cached
 from .expressions import AbstractExpression
 from .indices import Index
+from .scalar_types import ExpressionScalarType, NumericalScalarType, numerical_type
 from .validation import require
 
 if TYPE_CHECKING:
@@ -42,7 +43,7 @@ class BroadcastTo(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> ExpressionScalarType:
         return self.value.scalar_type
 
     @property
@@ -93,7 +94,7 @@ class Tensor(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
+    def scalar_type(self) -> ExpressionScalarType:
         return self.joined_scalar_type(*self.entries)
 
     @property
@@ -146,8 +147,8 @@ class Indexed(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> ExpressionScalarType:
+        return self.expression.scalar_type
 
     @property
     @cached
@@ -195,8 +196,8 @@ class ComponentTensor(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> ExpressionScalarType:
+        return self.expression.scalar_type
 
     @property
     @cached
@@ -238,8 +239,8 @@ class IndexSum(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
 
     @property
     @cached
@@ -252,19 +253,19 @@ class IndexSum(AbstractExpression):
 
 @final
 class Inverse(AbstractExpression):
-    value_fields = ("operand",)
+    value_fields = ("matrix",)
     identifier = "uflx.Inverse"
-    operand: AbstractExpression
+    matrix: AbstractExpression
 
     @property
     @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
-        return tuple(reversed(self.operand.value_shape))
+        return tuple(reversed(self.matrix.value_shape))
 
     @property
     @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        return self.operand.free_indices
+        return self.matrix.free_indices
 
     @property
     @cached
@@ -275,23 +276,23 @@ class Inverse(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.operand)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.matrix.scalar_type)
 
     @property
     @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.operand.domain
+        return self.matrix.domain
 
     def _validate(self) -> None:
-        _matrix_operand(self.operand, rectangular=True)
+        _matrix_operand(self.matrix, rectangular=True)
 
 
 @final
 class Determinant(AbstractExpression):
-    value_fields = ("operand",)
+    value_fields = ("matrix",)
     identifier = "uflx.Determinant"
-    operand: AbstractExpression
+    matrix: AbstractExpression
 
     @property
     @cached
@@ -301,7 +302,7 @@ class Determinant(AbstractExpression):
     @property
     @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        return self.operand.free_indices
+        return self.matrix.free_indices
 
     @property
     @cached
@@ -312,16 +313,16 @@ class Determinant(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.operand)
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.matrix.scalar_type)
 
     @property
     @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.operand.domain
+        return self.matrix.domain
 
     def _validate(self) -> None:
-        _matrix_operand(self.operand)
+        _matrix_operand(self.matrix)
 
 
 def _validate_index_binding(e: ComponentTensor | IndexSum) -> None:

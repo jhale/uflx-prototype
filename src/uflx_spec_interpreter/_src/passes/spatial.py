@@ -3,7 +3,7 @@
 from collections.abc import Callable
 
 from ..nodes import AbstractExpression
-from .actions import apply_actions
+from .applications import expand_applications
 from .gradients import apply_gradients
 from .pullbacks import expand_pull_backs
 
@@ -19,7 +19,7 @@ def lower_spatial(
     while True:
         gradients = apply_gradients(f)
         pulled_back = expand_pull_backs(gradients)
-        out = evaluate_derivatives(apply_actions(pulled_back))
+        out = evaluate_derivatives(expand_applications(pulled_back))
         if gradients == f and pulled_back == gradients and out == pulled_back:
             return out
         if out in seen:

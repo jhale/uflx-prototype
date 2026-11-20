@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, final
+from typing import TYPE_CHECKING, final
 
 from .base import Base
 from .caching import cached
 from .expressions import AbstractExpression
-from .scalar_types import ScalarType
+from .scalar_types import ExpressionScalarType, ScalarType
 
 if TYPE_CHECKING:
     from .domains import AbstractCoordinateDomain, AbstractDomain
@@ -65,8 +65,8 @@ class PullBack(AbstractExpression):
 
     @property
     @cached
-    def scalar_type(self) -> Literal["real", "complex"]:
-        return self.joined_scalar_type(self.expression)
+    def scalar_type(self) -> ExpressionScalarType:
+        return self.expression.scalar_type
 
     @property
     @cached

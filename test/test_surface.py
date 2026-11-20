@@ -8,25 +8,24 @@ from testutil import (
     check_types,
     contains,
     keeps_static_type,
-    normal,
     side_domain,
     side_map,
 )
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     add,
     component_tensor,
     coordinate,
     expand_arithmetic,
     function,
     gradient,
-    image,
     index,
     index_sum,
     indexed,
     integral,
+    mesh,
     multiply,
     num,
     pull_back,
@@ -34,10 +33,10 @@ from uflx_spec_interpreter import (
 )
 from uflx_spec_interpreter._src.nodes import (
     CellMap,
+    Conormal,
     Coordinate,
     Function,
     Gradient,
-    Normal,
     PullBack,
 )
 from uflx_spec_interpreter._src.passes import integrals
@@ -46,9 +45,10 @@ from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
 from uflx_toy.cells import reference_simplex
 from uflx_toy.nodes import VertexCoordinates
+from uflx_toy.sides import outward_conormal
 from uflx_toy.spaces import space
 
-R3 = RD(3)
+R3 = EuclideanSpace(3)
 I = reference_simplex(1)
 k, i = index("k"), index("i")
 
@@ -56,7 +56,7 @@ k, i = index("k"), index("i")
 FOLD = VertexCoordinates(
     SQUARE, ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.5), (0.0, 1.0, 1.0))
 )
-M = image(FOLD, R3)
+M = mesh(FOLD, R3)
 
 bump = tensor((num(1), num(-1), num(2)))
 kk = index("kk")
@@ -77,7 +77,7 @@ def deform(z):
 
 
 # The same curved surface written as a mesh, with the cells of M deformed, so it has sides.
-C = image(deform(FOLD), R3)
+C = mesh(deform(FOLD), R3)
 
 
 def sides(D):
@@ -123,7 +123,7 @@ def edge_integrand(rnd, D, E, sides):
             indexed(gradient(g, D), (rnd.randrange(3),)),
         ]
     )
-    n = normal(sm)
+    n = outward_conormal(sm)
     return rnd.choice(
         [
             pull_back(f, sm),
@@ -146,7 +146,7 @@ def check(name, e, env, bad, rows):
         lambda n: (
             isinstance(n, PullBack)
             and isinstance(n.map, CellMap)
-            and not isinstance(n.expression, (Function, Normal, Coordinate, PullBack, Gradient))
+            and not isinstance(n.expression, (Function, Conormal, Coordinate, PullBack, Gradient))
         ),
     ):
         bad["lazy"] += 1

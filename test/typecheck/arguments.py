@@ -3,8 +3,9 @@
 from typing import Literal, assert_type
 
 from uflx_spec_interpreter import (
-    RD,
+    Boolean,
     Complex,
+    EuclideanSpace,
     Float,
     Integer,
     Zero,
@@ -24,6 +25,7 @@ from uflx_spec_interpreter._src.nodes import (
     AbstractTopology,
     BroadcastTo,
     CellMap,
+    DirectionalDerivative,
     DomainMap,
     Function,
     Gradient,
@@ -38,13 +40,16 @@ from uflx_spec_interpreter._src.passes.contracts import (
 
 
 def valid(f: Function, g: Function) -> None:
-    assert_type(RD(2).dimension, int)
-    assert_type(Gradient(f, RD(2)).domain, AbstractDomain)
+    assert_type(Boolean(True).scalar_type, Literal["boolean"])
+    assert_type(EuclideanSpace(2).dimension, int)
+    assert_type(Gradient(f, EuclideanSpace(2)).domain, AbstractDomain)
     assert_type(Zero((), (), (), "real").scalar_type, Literal["real", "complex"])
-    match Gradient(f, RD(2)):
+    match Gradient(f, EuclideanSpace(2)):
         case Gradient(expression, domain):
             assert_type(expression, AbstractExpression)
             assert_type(domain, AbstractDomain)
+    assert_type(directional_derivative(f, f, g), DirectionalDerivative)
+    assert_type(directional_derivative(f, f, direction=g), DirectionalDerivative)
     assert_type(add(f, g), AbstractExpression)
     assert_type(lower(f), AbstractExpression)
     assert_type(Complex(Integer(1), Float(2.0)), Complex)
@@ -52,6 +57,8 @@ def valid(f: Function, g: Function) -> None:
 
 
 def invalid(u: Function, v: Function, w: Function, z: Function, mesh: Mesh) -> None:
+    directional_derivative(u, u, 1)  # expect: reportArgumentType
+    directional_derivative(u, u, point=w)  # expect: reportCallIssue
     directional_derivative(3, u, u, w)  # expect: reportArgumentType
     directional_derivative(u, num(1), u, w)  # expect: reportArgumentType
     directional_derivative(u, (u, num(1)), (u, v), (w, z))  # expect: reportArgumentType
@@ -61,11 +68,12 @@ def invalid(u: Function, v: Function, w: Function, z: Function, mesh: Mesh) -> N
     reference_integration(3)  # expect: reportArgumentType
     core_normal_form(3)  # expect: reportArgumentType
     lower(1)  # expect: reportArgumentType
-    RD("2")  # expect: reportArgumentType
+    EuclideanSpace("2")  # expect: reportArgumentType
     Gradient(u, 2)  # expect: reportArgumentType
     BroadcastTo(u, ("2",))  # expect: reportArgumentType
+    Zero((), (), (), Boolean(True).scalar_type)  # expect: reportArgumentType
     Zero((), (), (), "integer")  # expect: reportArgumentType
-    domain_map(RD(0), tensor((num(0),)), mesh)  # expect: reportArgumentType
+    domain_map(EuclideanSpace(0), tensor((num(0),)), mesh)  # expect: reportArgumentType
     tensor((1,))  # expect: reportArgumentType
     Complex(Integer(1) + Integer(2), Integer(0))  # expect: reportArgumentType
     bottom_up(u, lambda e: e.domain)  # expect: reportArgumentType

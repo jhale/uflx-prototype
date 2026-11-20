@@ -16,6 +16,8 @@ def require(condition: bool, message: str) -> None:
 
 
 def extent(n: int | AbstractExtent) -> None:
+    if type(n) is bool:
+        raise TypeError("extent requires an exact integer")
     if isinstance(n, int):
         require(n >= 0, "extent must be nonnegative")
 
@@ -41,6 +43,8 @@ def entries(
     direct: list[tuple[Index, int | AbstractExtent]] = []
     gathered: list[tuple[Index, int | AbstractExtent]] = []
     for i, n in zip(indices, shape, strict=True):
+        if type(i) is bool:
+            raise TypeError("index requires an exact integer")
         if isinstance(i, int):
             if type(n) is not int or not 0 <= i < n:
                 raise IndexError("integer entry is outside the axis")
@@ -67,7 +71,7 @@ def admissible(
             admissible(W, g)
         return
     if isinstance(value, tuple):
-        raise TypeError("expression argument required")
+        raise ValueError("a single argument space requires a single expression")
     require(value.value_shape == V.value_shape, "argument value shape does not match")
     require(value.argument_spaces == V.argument_spaces, "argument spaces do not match")
     require(

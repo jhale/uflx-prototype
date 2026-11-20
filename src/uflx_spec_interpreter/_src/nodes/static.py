@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from . import Complex, Float, Integer, Zero
+from . import Boolean, Complex, Float, Integer, Zero
 
 if TYPE_CHECKING:
     from .base import Base
@@ -22,4 +22,4 @@ def free_indices(*es: AbstractExpression) -> tuple[tuple[Index, int | AbstractEx
 
 def field_terminal(e: Base) -> bool:
     # Literal terminals have their own evaluation rows; fields may remain unevaluated.
-    return e.is_terminal and not isinstance(e, (Integer, Float, Complex, Zero))
+    return e.is_terminal and not isinstance(e, (Boolean, Integer, Float, Complex, Zero))

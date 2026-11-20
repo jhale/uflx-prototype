@@ -7,7 +7,7 @@ from test_interpolation import sample
 
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import RD, cell_map, function, image, pull_back, push_forward
+from uflx_spec_interpreter import EuclideanSpace, cell_map, function, mesh, pull_back, push_forward
 from uflx_spec_interpreter._src.nodes import PushForward
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
@@ -23,7 +23,7 @@ def test_interpolation_on_two_cells_with_variable_jacobians(curvature):
     U = basix_space("source", T, basix.ElementFamily.P, 2, shape=(2,))
     V = basix_space("target", T, basix.ElementFamily.N1E, 1)
     x, u = function(G, "x"), function(U, "u")
-    D = image(x, RD(2))
+    D = mesh(x, EuclideanSpace(2))
     f = push_forward(u, D, U.law)
     result = interpolate(f, V)
     local = interpolate(f, V, cell=cell_map(D, 0))

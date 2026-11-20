@@ -108,13 +108,13 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry, co
                 return result
             if (
                 isinstance(node, Division)
-                and index not in dict(node.second.free_indices)
-                and reads(node.first)
+                and index not in dict(node.denominator.free_indices)
+                and reads(node.numerator)
             ):
-                numerator = terms(node.first)
-                if node.first not in numerator:
+                numerator = terms(node.numerator)
+                if node.numerator not in numerator:
                     return {
-                        factor: divide(coefficient, node.second)
+                        factor: divide(coefficient, node.denominator)
                         for factor, coefficient in numerator.items()
                     }
             if isinstance(node, Product):
@@ -257,14 +257,14 @@ def _preintegrate(
                     raise Unsupported
                 result = tuple((multiply(a, b), multiply(x, y)) for a, x in left for b, y in right)
             elif isinstance(n, Division):
-                denominator = n.second
+                denominator = n.denominator
                 if (share_tables and not denominator.free_indices) or (
                     reads(denominator)
                     and not axes.intersection(i for i, _ in denominator.free_indices)
                 ):
-                    result = tuple((divide(a, denominator), x) for a, x in terms(n.first))
+                    result = tuple((divide(a, denominator), x) for a, x in terms(n.numerator))
                 elif not reads(denominator):
-                    result = tuple((a, divide(x, denominator)) for a, x in terms(n.first))
+                    result = tuple((a, divide(x, denominator)) for a, x in terms(n.numerator))
                 else:
                     raise Unsupported
             elif isinstance(n, IndexSum) and (

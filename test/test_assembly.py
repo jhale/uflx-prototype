@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from test_basix import mixed, square
-from testutil import normal, push_forward, side_map
+from testutil import push_forward, side_map
 
 from uflx_compiler import assemble, assemble_bound, compile_form, evaluate, fold
 from uflx_oracle import evaluate as oracle
@@ -19,6 +19,7 @@ from uflx_spec_interpreter import (
 from uflx_toy.assembly import conforming_dofmap
 from uflx_toy.basix_cells import basix_cell
 from uflx_toy.basix_spaces import basix_space
+from uflx_toy.sides import outward_conormal
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P
@@ -47,7 +48,7 @@ def test_the_mass_and_stiffness_matrices_of_two_triangles():
 def interior_penalty(u, v, D, E):
     # The terms of the symmetric interior penalty method on the interior facets.
     plus, minus = side_map(D, E, "+"), side_map(D, E, "-")
-    n = normal(plus)
+    n = outward_conormal(plus)
 
     def jump(f):
         return pull_back(f, plus) - pull_back(f, minus)

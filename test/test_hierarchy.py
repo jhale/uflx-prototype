@@ -29,7 +29,7 @@ from uflx_toy.spaces import space
 EXPRESSIONS = (
     "Integer Float Complex Zero Sum Product Division Power Absolute Conjugate RealPart "
     "ImaginaryPart SquareRoot Logarithm Tensor Indexed ComponentTensor IndexSum Inverse "
-    "Coordinate Gradient DirectionalDerivative Integral PullBack Normal Function Form Action "
+    "Coordinate Gradient DirectionalDerivative Integral PullBack Conormal Function Form Apply "
 ).split()
 STATIC_TYPE = {"value_shape", "free_indices", "argument_spaces", "domain", "scalar_type"}
 OTHERS = [
@@ -37,7 +37,7 @@ OTHERS = [
     "ConjugateSpace",
     "DualSpace",
     "GatheredIndex",
-    "RD",
+    "EuclideanSpace",
     "Mesh",
     "DomainMap",
     "SideMap",
@@ -119,9 +119,9 @@ def test_a_domain_is_a_contract():
         nodes.AbstractDomain()
     with pytest.raises(TypeError):
         nodes.AbstractCoordinateDomain()
-    R = nodes.RD(2)
+    R = nodes.EuclideanSpace(2)
     assert R.dimension == 2 and R.ambient_domain is R and R.ambient_coordinate_domain is R
-    assert isinstance(R, nodes.AbstractCoordinateDomain) and R != nodes.RD(3)
+    assert isinstance(R, nodes.AbstractCoordinateDomain) and R != nodes.EuclideanSpace(3)
 
 
 def test_nodes_are_immutable_and_take_their_arguments():
@@ -161,7 +161,7 @@ def test_a_reference_cell_is_a_coordinate_domain_and_a_cell_type():
     assert isinstance(K, nodes.AbstractCoordinateDomain) and isinstance(K, nodes.AbstractCellType)
     assert K.dimension == 2 and K.num_vertices == 3 and K.vertices.value_shape == (3, 2)
     assert reference_simplex(0).vertices.value_shape == (1, 0)
-    assert K != nodes.RD(2) and reference_simplex(0) != nodes.RD(0)
+    assert K != nodes.EuclideanSpace(2) and reference_simplex(0) != nodes.EuclideanSpace(0)
 
 
 def test_cell_maps_select_local_slots_of_the_mesh():

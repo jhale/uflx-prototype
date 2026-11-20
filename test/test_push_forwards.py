@@ -5,17 +5,17 @@ from testutil import grouped_topology, push_forward, vertex_mesh
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     coordinate,
     curl,
     divergence,
     expand_integrals,
     function,
     gradient,
-    image,
     index,
     index_sum,
     integral,
+    mesh,
     num,
     tensor,
 )
@@ -46,7 +46,7 @@ def curved():
     middle = np.all(np.isclose(values, (0.55, 0.45)), axis=1)
     values[middle] += (0.06, -0.04)
     geometry = {x0: values[:, 0], x1: values[:, 1]}
-    return image(tensor((x0, x1)), RD(2)), geometry
+    return mesh(tensor((x0, x1)), EuclideanSpace(2)), geometry
 
 
 def by_label(env):

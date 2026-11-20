@@ -19,12 +19,12 @@ from uflx_spec_interpreter import (
     index,
     index_sum,
     num,
+    rebind,
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms.alpha import AlphaHasher, alpha_hash
 from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
 from uflx_spec_interpreter._src.algorithms.substitution import rename_bound
-from uflx_spec_interpreter._src.extensions.binding import rebind
 from uflx_toy.spaces import space
 
 
@@ -76,11 +76,8 @@ def test_shadowing_grouping_conjugation_and_free_identity():
         assert alpha_hash(a) != alpha_hash(b)
 
 
-@pytest.mark.parametrize("used", [False, True])
-def test_outer_dependent_metadata_and_signatures(used):
+def test_outer_dependent_metadata():
     x, y, c = geometry()
-    original = form(form(c if used else num(1), (c,)), (x,))
-    assert_same(original, rename_bound(original, {x: y}))
     original = form(c, (x,))
     renamed = rename_bound(original, {x: y})
     assert_same(original, renamed)

@@ -3,7 +3,7 @@
 import pytest
 
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     ScalarType,
     add,
     domain_map,
@@ -23,7 +23,7 @@ from uflx_spec_interpreter._src.nodes import Function, Index
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial
 from uflx_toy.spaces import space
 
-P = RD(2)
+P = EuclideanSpace(2)
 V = space("identity-matrix", value_shape=(2, 2), domain=P)
 A, B, C = (function(V, label) for label in ("A", "B", "C"))
 W = space("identity-coordinate", value_shape=(2,), domain=P, scalar_type=ScalarType.real)

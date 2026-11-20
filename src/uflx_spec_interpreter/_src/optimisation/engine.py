@@ -13,6 +13,7 @@ from egglog.egraph import UnstableCombinedRuleset
 
 from ..algorithms.rewriting import complete_indices, zero_like
 from ..algorithms.traversal import map_values, memoized
+from ..arithmetic import real_part
 from ..nodes import (
     Absolute,
     AbstractExpression,
@@ -134,7 +135,7 @@ def run_region(
     # Scalar algebra can identify a complex expression with a real value. Retain
     # the original real result type without assuming every representative is real.
     if original.scalar_type == "real" and candidate.scalar_type == "complex":
-        candidate = RealPart(candidate)
+        candidate = real_part(candidate)
     candidate = complete_indices(original, candidate)
     return candidate, RegionReport(
         size,

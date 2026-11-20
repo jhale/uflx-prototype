@@ -9,7 +9,6 @@ from ..algorithms.names import derived_index, derived_indices
 from ..algorithms.substitution import freshen
 from ..algorithms.traversal import map_values
 from ..nodes import (
-    Action,
     BroadcastTo,
     ComponentTensor,
     Coordinate,
@@ -65,12 +64,12 @@ def structural_fields(expression: AbstractExpression) -> tuple[str, ...] | None:
             return None
 
 
-def action_retained(f: AbstractExpression) -> bool:
-    """ST03-ST05. Applications of transformed forms and terminals remain."""
+def application_retained(f: AbstractExpression) -> bool:
+    """ST03 and ST04. Retain applications of transformed forms and library terminals."""
     from ..nodes import Function, Gradient, PullBack
     from ..nodes.static import field_terminal
 
-    return isinstance(f, Function | Gradient | PullBack | Action) or field_terminal(f)
+    return isinstance(f, Function | Gradient | PullBack) or field_terminal(f)
 
 
 def retain_gradient(

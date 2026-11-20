@@ -4,8 +4,8 @@ from testutil import ill_typed
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
     ScalarType,
-    action,
     add,
+    apply,
     component_tensor,
     conjugate,
     divide,
@@ -17,11 +17,12 @@ from uflx_spec_interpreter import (
     indexed,
     multiply,
     num,
+    partial,
     tensor,
 )
 from uflx_spec_interpreter._src.literals import zero
-from uflx_spec_interpreter._src.passes import actions
-from uflx_spec_interpreter._src.passes.actions import actions_complete
+from uflx_spec_interpreter._src.passes import applications
+from uflx_spec_interpreter._src.passes.applications import applications_expanded
 from uflx_toy.spaces import space
 
 rng = np.random.default_rng(2)
@@ -44,13 +45,13 @@ c, c2 = tensor((num(1), num(2))), tensor((num(3), num(-1)))
 
 
 def check(name, e, ienv=None, vals=None):
-    out = actions.apply_actions(e)
+    out = applications.expand_applications(e)
     n = len(e.argument_spaces)
     vals = vals if vals is not None else tuple(cplx() for _ in range(n))
     before = evaluate(e, env, ienv)(vals)
     after = evaluate(out, env, ienv)(vals)
     assert np.allclose(before, after, atol=1e-5), name
-    assert actions_complete(out), name
+    assert applications_expanded(out), name
     assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))
 
 
@@ -62,23 +63,26 @@ def test_cases():
     for kk in range(2):
         check(
             f"zero form, argument with family index i = {kk}",
-            action(zero((), (), (V, V), ScalarType.real), 1, multiply(indexed(c, (i,)), w)),
+            form(
+                apply(zero((), (), (V, V), ScalarType.real), (v, multiply(indexed(c, (i,)), w))),
+                (v,),
+            ),
             {i: kk},
         )
-    check("form divided by a scalar", action(divide(F, num(3)), 0, z))
-    check("entry of a tensor of forms", action(indexed(tensor((L1, L2)), (1,)), 0, z))
-    check("index sum of forms", action(index_sum(multiply(indexed(c, (i,)), L1), (i,)), 0, z))
+    check("form divided by a scalar", form(apply(divide(F, num(3)), (z, u)), (u,)))
+    check("entry of a tensor of forms", apply(indexed(tensor((L1, L2)), (1,)), (z,)))
+    check("index sum of forms", apply(index_sum(multiply(indexed(c, (i,)), L1), (i,)), (z,)))
     S = form(add(multiply(v, u), multiply(q, w)), ((v, q),))
-    check("tuple argument (v, q) := (w, r)", action(S, 0, (w, r)))
+    check("tuple argument (v, q) := (w, r)", apply(S, ((w, r),)))
     check(
         "tuple argument swapped (v, q2) := (q2, v)",
-        action(form(add(multiply(v, u), multiply(q2, w)), ((v, q2),)), 0, (q2, v)),
+        apply(form(add(multiply(v, u), multiply(q2, w)), ((v, q2),)), ((q2, v),)),
     )
     B = form(index_sum(multiply(indexed(c, (i,)), v), (i,)), (v,))
     for kk in range(2):
         check(
             f"capture inside the form body, i = {kk}",
-            action(B, 0, multiply(indexed(c2, (i,)), w)),
+            apply(B, (multiply(indexed(c2, (i,)), w),)),
             {i: kk},
         )
 
@@ -86,17 +90,17 @@ def test_cases():
     M = form(
         index_sum(multiply(indexed(U, (i,)), conjugate(indexed(T, (i,)))), (i,)), (conjugate(T), U)
     )
-    check("vector mass form, actions at 1 and 0", action(action(M, 1, tensor((w, z))), 0, U2))
+    check("vector mass form, actions at 1 and 0", apply(M, (U2, tensor((w, z)))))
     check(
         "vector form, argument a component tensor",
-        action(M, 1, component_tensor(multiply(indexed(c, (k,)), w), (k,))),
+        partial(M, {U: component_tensor(multiply(indexed(c, (k,)), w), (k,))}),
         vals=(cplx(2),),
     )
-    check("vector pairing remains", action(form(multiply(action(lW, 0, Y), u), (Y,)), 0, U2))
+    check("vector pairing remains", apply(form(multiply(apply(lW, (Y,)), u), (Y,)), (U2,)))
     G = form(index_sum(multiply(indexed(Y, (j,)), indexed(U, (j,))), (j,)), (Y,))
     for kk in range(2):
         check(
             f"vector argument with family index j, body binds j, j = {kk}",
-            action(G, 0, component_tensor(multiply(indexed(c, (j,)), indexed(U2, (k,))), (k,))),
+            apply(G, (component_tensor(multiply(indexed(c, (j,)), indexed(U2, (k,))), (k,)),)),
             {j: kk},
         )

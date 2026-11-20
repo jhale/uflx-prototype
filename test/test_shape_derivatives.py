@@ -4,16 +4,16 @@ from testutil import grouped_topology, push_forward, side_domain
 
 from uflx_compiler import assemble, compile_form, evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     coordinate,
     directional_derivative,
     form,
     function,
     gradient,
-    image,
     index,
     index_sum,
     integral,
+    mesh,
     num,
     tensor,
 )
@@ -28,7 +28,7 @@ BOUNDARY = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("insid
 X = basix_space("X", T, P, 1)
 x0, x1 = function(X, "x0"), function(X, "x1")
 v0, v1 = function(X, "v0"), function(X, "v1")
-D = image(tensor((x0, x1)), RD(2))
+D = mesh(tensor((x0, x1)), EuclideanSpace(2))
 # Library coordinate data at shared vertices of a skewed square.
 COORDINATES = np.array([(0.0, 0.0), (1.0, 0.1), (1.2, 1.1), (-0.1, 0.9)])
 RNG = np.random.default_rng(3)
@@ -108,7 +108,7 @@ def test_the_shape_gradient_assembles_to_the_derivative_in_each_dof():
 def test_a_mesh_moved_by_a_displacement_is_the_mesh_of_the_moved_coordinates():
     # The coordinate function of an arbitrary Lagrangian-Eulerian mesh is x + d on the topology.
     d0, d1 = function(X, "d0"), function(X, "d1")
-    moved = image(tensor((x0 + d0, x1 + d1)), RD(2))
+    moved = mesh(tensor((x0 + d0, x1 + d1)), EuclideanSpace(2))
     displacement = RNG.normal(size=(4, 2)) * 0.05
     data = env(COORDINATES) | {
         "coefficients:d0": conforming_dofmap(X).gather(displacement[:, 0]),

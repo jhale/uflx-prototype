@@ -1,7 +1,7 @@
 import basix
 import numpy as np
 
-from uflx_spec_interpreter import RD, domain_map, index_sum, integral, pull_back, tensor
+from uflx_spec_interpreter import EuclideanSpace, domain_map, index_sum, integral, pull_back, tensor
 from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
 from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
 from uflx_spec_interpreter._src.nodes import Float, Integral, Zero
@@ -16,8 +16,8 @@ def apply_quadrature(f, degree):
             case Integral(g, BasixCell() as K):
                 # Keep the result domain-free while rebuilding enclosing fields.
                 # Point integrals are removed after tabulation, when their operands
-                # are domain-free arrays rather than fields on RD(0).
-                return integral(rule(g, K, degree), RD(0))
+                # are domain-free arrays rather than fields on EuclideanSpace(0).
+                return integral(rule(g, K, degree), EuclideanSpace(0))
         return e
 
     return expand_pull_backs(bottom_up(f, rewrite))
@@ -26,7 +26,7 @@ def apply_quadrature(f, degree):
 def rule(g, K, degree):
     if K.dimension == 0:
         # A point has one quadrature point of weight one, with no coordinates.
-        return pull_back(g, domain_map(RD(0), Zero((0,), (), (), "real"), K))
+        return pull_back(g, domain_map(EuclideanSpace(0), Zero((0,), (), (), "real"), K))
     if K.cell_type in (basix.CellType.quadrilateral, basix.CellType.hexahedron):
         return product_rule(g, K, degree)
     X, w = basix.make_quadrature(K.cell_type, degree)
@@ -34,7 +34,7 @@ def rule(g, K, degree):
     # The index is named by the rule alone, so the geometry at the points is one node in every
     # integral, and the pull-back makes an inner sum over the same rule fresh.
     q = derived_index("compiler.quadrature", K, degree)
-    return index_sum(weights[q] * pull_back(g, domain_map(RD(0), points[q], K)), (q,))
+    return index_sum(weights[q] * pull_back(g, domain_map(EuclideanSpace(0), points[q], K)), (q,))
 
 
 def product_rule(g, K, degree):
@@ -46,7 +46,7 @@ def product_rule(g, K, degree):
     weight = w[q[0]]
     for i in q[1:]:
         weight = weight * w[i]
-    return index_sum(weight * pull_back(g, domain_map(RD(0), points, K)), q)
+    return index_sum(weight * pull_back(g, domain_map(EuclideanSpace(0), points, K)), q)
 
 
 def constant(values):

@@ -1,8 +1,8 @@
 from test_integrals import D, K, u
 
 from uflx_spec_interpreter import (
-    action,
     add,
+    apply,
     conjugate,
     coordinate,
     directional_derivative,
@@ -35,7 +35,7 @@ def test_the_core_normal_form_allows_the_classes_of_its_table():
         integral(num(1), K),
         pull_back(u, cells),
         form(multiply(v, w), (v,)),
-        action(l, 0, conjugate(w)),
+        apply(l, (conjugate(w),)),
         runtime_array("q", (2,)),
     ):
         assert in_core_normal_form(e), e
@@ -51,7 +51,7 @@ def test_the_core_normal_form_rejects_what_its_table_leaves_out():
         pull_back(gradient(u, D), cells),
         directional_derivative(multiply(v, v), v, v, w),
         form(directional_derivative(multiply(v, v), v, v, w), (w,)),
-        action(form(multiply(v, w), (v,)), 0, w),
+        apply(form(multiply(v, w), (v,)), (w,)),
         add(num(1), integral(u, D)),
     ):
         assert not in_core_normal_form(e), e

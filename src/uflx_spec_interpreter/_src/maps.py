@@ -12,12 +12,12 @@ if TYPE_CHECKING:
 
 
 def domain_map(
-    P: AbstractCoordinateDomain | AbstractTopology,
-    psi: AbstractExpression,
-    Q: AbstractCoordinateDomain,
+    parameter_domain: AbstractCoordinateDomain | AbstractTopology,
+    parameterisation: AbstractExpression,
+    ambient_domain: AbstractCoordinateDomain,
 ) -> DomainMap:
-    return DomainMap(P, psi, Q)
+    return DomainMap(parameter_domain, parameterisation, ambient_domain)
 
 
-def pull_back(f: AbstractExpression, D: DomainMap | CellMap | SideMap) -> PullBack:
-    return PullBack(f, D)
+def pull_back(expression: AbstractExpression, map: DomainMap | CellMap | SideMap) -> PullBack:
+    return PullBack(expression, map)

@@ -12,15 +12,17 @@ import numpy as np
 
 from uflx_spec_interpreter import (
     add,
-    apply_actions,
     apply_derivatives,
+    expand_applications,
     function,
-    image,
     index_sum,
     lower,
     multiply,
     reference_integral,
     tensor,
+)
+from uflx_spec_interpreter import (
+    mesh as make_mesh,
 )
 from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
 from uflx_spec_interpreter._src.algorithms.substitution import substitute, substitute_values
@@ -142,7 +144,7 @@ def compile_ufcx(
     f, mesh, geometry, coordinate_element = _coordinate_fields(f, mesh)
 
     normalize = _normalizer()
-    f = apply_derivatives(apply_actions(f))
+    f = apply_derivatives(expand_applications(f))
     domain = _integration_domain(f, mesh)
     # The expression owns the complete local configuration, including unused slots.
     width = len(mesh.topology.cell_types)
@@ -325,7 +327,7 @@ def _coordinate_fields(f, mesh):
             function(X, ("ufcx_geometry", k))
             for k in range(mesh.ambient_coordinate_domain.dimension)
         )
-        local_mesh = image(tensor(geometry), mesh.ambient_coordinate_domain)
+        local_mesh = make_mesh(tensor(geometry), mesh.ambient_coordinate_domain)
         f = substitute(
             f, {mesh: local_mesh, mesh.coordinate_function: local_mesh.coordinate_function}
         )

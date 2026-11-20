@@ -2,11 +2,10 @@ import random
 import sys
 
 import numpy as np
-from testutil import assert_clean, check_types, contains, pairing
+from testutil import assert_clean, check_types, contains, form_with_fixed_argument, pairing
 
 from uflx_oracle import evaluate
 from uflx_spec_interpreter import (
-    action,
     add,
     conjugate,
     directional_derivative,
@@ -20,9 +19,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import Action
-from uflx_spec_interpreter._src.passes import actions
-from uflx_spec_interpreter._src.passes.actions import actions_complete
+from uflx_spec_interpreter._src.nodes import Apply
+from uflx_spec_interpreter._src.passes import applications
+from uflx_spec_interpreter._src.passes.applications import applications_expanded
 from uflx_toy.spaces import space
 
 V = space("V")
@@ -91,7 +90,7 @@ def random_form(rnd, kinds, depth):
         return index_sum(multiply(indexed(c, (i,)), random_form(rnd, kinds, depth - 1)), (i,))
     p = rnd.randrange(n + 1)
     inner = (*kinds[:p], rnd.random() < 0.3, *kinds[p:])
-    return action(random_form(rnd, inner, depth - 1), p, scalar(rnd, 2))
+    return form_with_fixed_argument(random_form(rnd, inner, depth - 1), p, scalar(rnd, 2))
 
 
 def main(trials):
@@ -104,8 +103,8 @@ def main(trials):
         rnd = random.Random(seed)
         kinds = tuple(rnd.random() < 0.3 for _ in range(rnd.randrange(3)))
         e = random_form(rnd, kinds, 4)
-        n_actions += str(e).count("Action(")
-        out = actions.apply_actions(e)
+        n_actions += str(e).count("Apply(")
+        out = applications.expand_applications(e)
         check_types(typed, e, out)
         vals = tuple(complex(*rng.normal(size=2)) for _ in range(len(e.argument_spaces)))
         before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
@@ -115,11 +114,11 @@ def main(trials):
                 print("first failure, seed", seed, before, after)
         if contains(
             e,
-            lambda n: isinstance(n, Action) and not pairing(n),
+            lambda n: isinstance(n, Apply) and not pairing(n),
         ):
             lazy += 1
-            rejected += not actions_complete(e)
-        if not actions_complete(out):
+            rejected += not applications_expanded(e)
+        if not applications_expanded(out):
             not_n1 += 1
     print(
         f"{trials} expressions with {n_actions} actions: {failures} values changed, "

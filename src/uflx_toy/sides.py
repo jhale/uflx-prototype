@@ -1,10 +1,10 @@
 """Library constructors for explicit relations and separately chosen orientation."""
 
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
+    conormal,
     domain_map,
     expand_pull_backs,
-    normal,
     pull_back,
     side_map,
     tensor,
@@ -51,11 +51,11 @@ def outward_conormals(relation):
     result = []
     for _, A in relation.entries:
         F, K = A.parameter_domain, A.ambient_domain
-        point = domain_map(RD(0), F.vertices[0], F)
+        point = domain_map(EuclideanSpace(0), F.vertices[0], F)
         position = expand_pull_backs(pull_back(A.parameterisation, point))
         result.append(reference_normal(A, tensor((position,)), K))
     return tuple(result)
 
 
-def outward_normal(relation):
-    return normal(relation, *outward_conormals(relation))
+def outward_conormal(relation):
+    return conormal(relation, *outward_conormals(relation))

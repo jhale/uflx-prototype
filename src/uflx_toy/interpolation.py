@@ -6,7 +6,7 @@ import basix
 import numpy as np
 
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     cell_map,
     component_tensor,
     determinant,
@@ -129,7 +129,7 @@ def _sample_and_reconstruct(f, basis, sampling_rule):
 
     def sample(point):
         position = tensor(tuple(num(float(x)) for x in point))
-        return integral(pull_back(f, domain_map(RD(0), position, K)), RD(0))
+        return integral(pull_back(f, domain_map(EuclideanSpace(0), position, K)), EuclideanSpace(0))
 
     samples = tuple(sample(point) for point in points)
 

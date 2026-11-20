@@ -6,7 +6,7 @@ import pytest
 
 from uflx_compiler import compile_form, evaluate
 from uflx_spec_interpreter import (
-    RD,
+    EuclideanSpace,
     component_tensor,
     coordinate,
     domain_map,
@@ -25,7 +25,10 @@ from uflx_toy.spaces import space
 
 def sample(f, point, cell):
     return integral(
-        pull_back(f, domain_map(RD(0), tensor(tuple(num(float(x)) for x in point)), cell)), RD(0)
+        pull_back(
+            f, domain_map(EuclideanSpace(0), tensor(tuple(num(float(x)) for x in point)), cell)
+        ),
+        EuclideanSpace(0),
     )
 
 
@@ -89,7 +92,7 @@ def test_incompatible_inputs_and_sampling_rules_are_rejected():
     with pytest.raises(ValueError, match="value shape"):
         interpolate(coordinate(K), V)
     with pytest.raises(ValueError, match="domain"):
-        interpolate(coordinate(RD(2))[0], V)
+        interpolate(coordinate(EuclideanSpace(2))[0], V)
     with pytest.raises(ValueError, match="sampling matrix"):
         interpolate(num(1), V, sampling_rule=(np.zeros((2, 2)), np.zeros((3, 3))))
     with pytest.raises(NotImplementedError, match="derivative DOFs"):

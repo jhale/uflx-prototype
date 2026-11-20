@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Never
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 from .base import Base
 
@@ -34,5 +35,6 @@ class AbstractTopology(Base):
 
         return cell_map(self, cell_slot)
 
-    def __iter__(self) -> Never:
-        raise TypeError(f"{type(self).__name__} is not iterable")
+    def __iter__(self) -> Iterator[CellMap]:
+        for slot in range(len(self.cell_types)):
+            yield self[slot]

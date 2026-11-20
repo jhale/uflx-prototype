@@ -46,7 +46,9 @@ def _entry(
             return _entry(substitute_values(body, dict(zip(bound, indices, strict=True))), ())
         case Integer(value=value) if not indices:
             return Fraction(value)
-        case Division(first=Integer(value=a), second=Integer(value=b)) if not indices and b:
+        case Division(numerator=Integer(value=a), denominator=Integer(value=b)) if (
+            not indices and b
+        ):
             return Fraction(a, b)
         case _:
             return None
@@ -90,7 +92,7 @@ def fold_matrix(
     """
     if not isinstance(expression, Determinant | Inverse):
         return expression
-    source = expression.operand
+    source = expression.matrix
     rows, columns = source.value_shape
     if rows != columns or not isinstance(rows, int) or rows > 3:
         return expression

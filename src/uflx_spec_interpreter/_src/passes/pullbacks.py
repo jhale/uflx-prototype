@@ -9,11 +9,13 @@ from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..meshes import is_cell
 from ..nodes import (
     Absolute,
-    Action,
+    Apply,
     BroadcastTo,
     CellMap,
     ComponentTensor,
+    Conditional,
     Conjugate,
+    Conormal,
     Coordinate,
     Curl,
     Determinant,
@@ -26,8 +28,8 @@ from ..nodes import (
     Indexed,
     IndexSum,
     Inverse,
+    LessThan,
     Logarithm,
-    Normal,
     Power,
     Product,
     PullBack,
@@ -42,8 +44,8 @@ from ..nodes import (
 from ..nodes.static import field_terminal
 from ..rules.coordinates import piola_law, transformed
 from ..rules.pullback_algebra import composed, pointwise, pullback_remains
-from ..rules.restriction import pull_back_normal, side_cell, side_maps
-from .actions import apply_actions
+from ..rules.restriction import pull_back_conormal, side_cell, side_maps
+from .applications import expand_applications
 
 if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
@@ -58,9 +60,8 @@ def _rule(
     match f:
         case Form():
             return pointwise(f, m, pb)
-        case Action(form, position, argument):
-            mapped_form = pb(form, m)
-            return apply_actions(Action(mapped_form, position, argument))
+        case Apply(form, arguments):
+            return expand_applications(Apply(pb(form, m), arguments))
         case _ if isinstance(m, SideMap) and f.domain is not None:
             return PullBack(f, m)
         case _ if f.domain is None:
@@ -95,12 +96,10 @@ def _rule(
             reference_cell = CellMap(m.topology, m.cell_slot)
             reference = pb(f.expression.expression, reference_cell)
             return transformed(expand(reference, m.reference_cell), law, m)
-        case Divergence(g, domain):
-            return pb(trace_of_gradient(g, domain), m)
-        case Curl(g, domain):
-            return pb(rotation_of_gradient(g, domain), m)
-        case Normal(sm) if (cell := side_cell(sm, m)) is not None:
-            return pull_back_normal(f, cell, pb)
+        case Divergence() | Curl():
+            return PullBack(f, m)
+        case Conormal(sm) if (cell := side_cell(sm, m)) is not None:
+            return pull_back_conormal(f, cell, pb)
         case PushForward(g, domain, law) if is_cell(m) and m.parent == domain:
             reference_cell = CellMap(m.topology, m.cell_slot)
             reference_value = pb(g, reference_cell)
@@ -108,7 +107,9 @@ def _rule(
         case _ if field_terminal(f) or isinstance(f, PushForward):
             return PullBack(f, m)
         case (
-            Sum()
+            Conditional()
+            | LessThan()
+            | Sum()
             | Product()
             | Division()
             | Power()
@@ -143,7 +144,7 @@ def expand_pull_backs(f: AbstractExpression) -> AbstractExpression:
             case _:
                 return e
 
-    return apply_actions(rewrite(f, expand))
+    return expand_applications(rewrite(f, expand))
 
 
 def pull_backs_expanded(e: AbstractExpression) -> bool:
