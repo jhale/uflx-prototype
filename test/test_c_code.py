@@ -14,6 +14,7 @@ from uflx_spec_interpreter import (
     EuclideanSpace,
     broadcast_to,
     component_tensor,
+    determinant,
     divergence,
     function,
     gathered_index,
@@ -101,6 +102,10 @@ def loop_examples():
     g = gathered_index(index_table(((2, 0), (1, 2)), 3), (i, j))
     v = runtime_array("a", (3,))
     yield "gather", index_sum(v[g], (i, j)), np.array([2.0, 3.0, 5.0])
+    matrix = runtime_array("a", (4, 4))
+    values = np.array([[0, 1, 0, 2], [2, 0, 1, 0], [0, 3, 2, 1], [1, 0, 2, 4]], dtype=float)
+    yield "determinant_4x4", determinant(matrix), values
+    yield "empty_determinant", determinant(runtime_array("a", (0, 0))), np.empty((0, 0))
     m = runtime_array("a", (2, 2))
     yield "inverse", index_sum(inverse(m)[i, j], (i, j)), np.array([[2.0, 1.0], [3.0, 4.0]])
     v = runtime_array("a", (2,))

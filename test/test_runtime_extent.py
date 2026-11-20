@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from testutil import contains
 
 from uflx_oracle import evaluate
@@ -43,6 +44,17 @@ def test_an_abstract_extent_is_compared_by_equality():
     assert points.value_shape == (q, 2)
     assert dict((weights[i] * points[i, 0]).free_indices) == {i: q}
     assert points[i].value_shape == (2,)
+
+
+def test_integer_indices_check_known_bounds_only():
+    data = np.array([[1.0, 2.0], [3.0, 4.0]])
+    env = {q: 2, points: data}
+    np.testing.assert_array_equal(evaluate(points[0], env)(()), data[0])
+    assert evaluate(points[1, 0], env)(()) == data[1, 0]
+    with pytest.raises(IndexError):
+        points[-1, 0]
+    with pytest.raises(IndexError):
+        points[0, 2]
 
 
 def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():

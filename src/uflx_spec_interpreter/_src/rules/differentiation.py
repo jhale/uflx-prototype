@@ -100,21 +100,11 @@ def derivative_of_node(
             if n == 1:
                 return matrix_derivative[0, 0]
             matrix = at(a)
-            # D08. Polynomial cofactors remain defined at singular matrices.
+            rows = tuple(matrix[r] for r in range(n))
+            # The determinant is linear in each row, including at singular matrices.
             return total(
-                Integer((-1) ** (i + j))
-                * Determinant(
-                    tensor(
-                        tuple(
-                            tensor(tuple(matrix[r, c] for c in range(n) if c != j))
-                            for r in range(n)
-                            if r != i
-                        )
-                    )
-                )
-                * matrix_derivative[i, j]
-                for i in range(n)
-                for j in range(n)
+                Determinant(tensor((*rows[:r], matrix_derivative[r], *rows[r + 1 :])))
+                for r in range(n)
             )
         case Inverse(a):
             matrix = at(a)

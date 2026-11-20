@@ -547,14 +547,16 @@ def c_kernel(
         return divide(f"{name}[{comp[0]}][{comp[1]}]", det)
 
     def determinant(A):
+        if not A:
+            return 1.0
         if len(A) == 1:
             return A[0][0]
         if len(A) == 2:
             return add(multiply(A[0][0], A[1][1]), negate(multiply(A[0][1], A[1][0])))
         total = 0.0
-        for c in range(3):
-            minor = [[A[r][k] for k in range(3) if k != c] for r in (1, 2)]
-            term = multiply(A[0][c], determinant(minor))
+        for c, value in enumerate(A[0]):
+            minor = [row[:c] + row[c + 1 :] for row in A[1:]]
+            term = multiply(value, determinant(minor))
             total = add(total, term if c % 2 == 0 else negate(term))
         return total
 

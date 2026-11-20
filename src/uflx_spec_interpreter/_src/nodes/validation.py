@@ -46,7 +46,7 @@ def entries(
         if type(i) is bool:
             raise TypeError("index requires an exact integer")
         if isinstance(i, int):
-            if type(n) is not int or not 0 <= i < n:
+            if i < 0 or (isinstance(n, int) and i >= n):
                 raise IndexError("integer entry is outside the axis")
         elif isinstance(i, Index):
             direct.append((i, n))
