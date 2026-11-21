@@ -11,6 +11,7 @@ from uflx_spec_interpreter import (
     add,
     component_tensor,
     coordinate,
+    expand_arithmetic,
     function,
     gradient,
     index,
@@ -113,7 +114,7 @@ def main(trials):
         kind = rnd.choice(["domain", "ambient", "none"])
         e = integral(integrand(rnd, dom, kind), dom)
         out3 = integrals.expand_integrals(e)
-        out = lower_spatial(out3)
+        out = expand_arithmetic(lower_spatial(out3))
         rejected += not integrals_expanded(e)
         check_types(bad, e, out)
         if not keeps_static_type(e, out):

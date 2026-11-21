@@ -4,18 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..algorithms.names import derived_indices
 from ..arithmetic import multiply, total
 from ..geometry import density
 from ..meshes import cell_map
-from ..nodes import (
-    ComponentTensor,
-    DomainMap,
-    Indexed,
-    Integral,
-    Mesh,
-    PullBack,
-)
+from ..nodes import DomainMap, Integral, Mesh, PullBack
 
 if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
@@ -24,11 +16,6 @@ if TYPE_CHECKING:
 def mesh_integral(e: AbstractExpression) -> AbstractExpression:
     # Expand a mesh integral into reference-cell integrals over fixed local slots.
     match e:
-        case Integral(f, Mesh() as d) if f.value_shape:
-            K = derived_indices("uflx.expand_integrals", (f, d), len(f.value_shape))
-            component_integral = Integral(Indexed(f, K), d)
-            expanded = mesh_integral(component_integral)
-            return ComponentTensor(expanded, K)
         case Integral(f, Mesh() as d):
             return total(reference_integral(f, d, j) for j in range(len(d.topology.cell_types)))
         case _:

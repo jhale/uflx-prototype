@@ -43,8 +43,9 @@ def test_selected_group_and_tensor_value():
     topology = grouped_topology((K, K), (((0, 1, 2),), ((0, 2, 3),)), ())
     mesh = vertex_mesh(topology, [(0, 0), (2, 0), (2, 1), (0, 3)])
     f = tensor((num(1), num(2)))
-    for group, area in enumerate((1, 3)):
-        piece = reference_integral(f, mesh, group)
+    pieces = tuple(reference_integral(f, mesh, slot) for slot in (0, 1))
+    assert expand_integrals(integral(f, mesh)) == pieces[0] + pieces[1]
+    for piece, area in zip(pieces, (1, 3), strict=True):
         assert isinstance(piece, Integral)
         assert piece.value_shape == (2,)
         assert np.allclose(evaluate(lower(piece), {})(()), (area, 2 * area))

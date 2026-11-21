@@ -1,7 +1,16 @@
 import basix
 import numpy as np
 
-from uflx_spec_interpreter import EuclideanSpace, domain_map, index_sum, integral, pull_back, tensor
+from uflx_spec_interpreter import (
+    EuclideanSpace,
+    component_tensor,
+    domain_map,
+    index_sum,
+    indexed,
+    integral,
+    pull_back,
+    tensor,
+)
 from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
 from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
 from uflx_spec_interpreter._src.nodes import Float, Integral, Zero
@@ -34,7 +43,7 @@ def rule(g, K, degree):
     # The index is named by the rule alone, so the geometry at the points is one node in every
     # integral, and the pull-back makes an inner sum over the same rule fresh.
     q = derived_index("compiler.quadrature", K, degree)
-    return index_sum(weights[q] * pull_back(g, domain_map(EuclideanSpace(0), points[q], K)), (q,))
+    return weighted_sum(g, K, points[q], weights[q], (q,))
 
 
 def product_rule(g, K, degree):
@@ -46,7 +55,14 @@ def product_rule(g, K, degree):
     weight = w[q[0]]
     for i in q[1:]:
         weight = weight * w[i]
-    return index_sum(weight * pull_back(g, domain_map(EuclideanSpace(0), points, K)), q)
+    return weighted_sum(g, K, points, weight, q)
+
+
+def weighted_sum(g, K, points, weight, quadrature_indices):
+    # IndexSum acts on a scalar, leaving the integrand's value axes and free indices intact.
+    axes = derived_indices("compiler.quadrature_component", (g,), len(g.value_shape))
+    value = pull_back(indexed(g, axes), domain_map(EuclideanSpace(0), points, K))
+    return component_tensor(index_sum(weight * value, quadrature_indices), axes)
 
 
 def constant(values):

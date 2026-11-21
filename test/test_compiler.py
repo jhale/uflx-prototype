@@ -32,6 +32,7 @@ from uflx_spec_interpreter import (
     mesh,
     num,
     pull_back,
+    reference_integral,
     tensor,
 )
 from uflx_spec_interpreter._src.algorithms.traversal import everywhere, memoized
@@ -84,6 +85,27 @@ def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
         expected = oracle(e, env)(())
         assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8), e
         assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8), e
+
+
+def test_tensor_quadrature_over_mixed_cells_preserves_free_indices():
+    D = mixed()[0]
+    x, y = coordinate(D)[0], coordinate(D)[1]
+    i = index("load")
+    scale = tensor((num(1), num(3)))[i]
+    f = scale * tensor((tensor((num(1), x)), tensor((y, x * y))))
+
+    whole = compile_form(integral(f, D), 2)
+    pieces = [
+        compile_form(reference_integral(f, D, j), 2) for j in range(len(D.topology.cell_types))
+    ]
+    for result in [whole, *pieces]:
+        assert result.value_shape == (2, 2)
+        assert result.free_indices == ((i, 2),)
+
+    # Integrals of 1, x, y and xy over the unit square, for each load.
+    expected = np.array([1, 3])[:, None, None] * np.array([[1, 0.5], [0.5, 0.25]])
+    np.testing.assert_allclose(evaluate(whole, {}), expected)
+    np.testing.assert_allclose(sum(evaluate(piece, {}) for piece in pieces), expected)
 
 
 def test_the_same_graph_runs_on_jax():
