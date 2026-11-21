@@ -5,19 +5,24 @@ import pytest
 from uflx_spec_interpreter import (
     EuclideanSpace,
     ScalarType,
+    Zero,
     add,
+    directional_derivative,
     domain_map,
     form,
     function,
     gradient,
     index,
+    index_sum,
     jacobian,
     matrix_product,
     multiply,
     num,
+    partial,
+    replace,
     transpose,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
+from uflx_spec_interpreter._src.algorithms.substitution import substitute, substitute_values
 from uflx_spec_interpreter._src.geometry import _metric
 from uflx_spec_interpreter._src.nodes import Function, Index
 from uflx_spec_interpreter._src.passes.lowering import lower_spatial
@@ -102,6 +107,56 @@ def test_capture_renaming_is_repeatable_and_then_fixed():
     assert changed.arguments[0] is bound
     # A fixed label still permits direct substitution of the named object itself.
     assert substitute(bound, {bound: w}) is w
+
+
+def test_substitution_freshens_only_the_term_with_a_match():
+    V = space("R", scalar_type=ScalarType.real)
+    x, w, z = (function(V, name) for name in "xwz")
+    F, H = form(x, (x,)), form(w * x, (x,))
+    assert replace(F, {w: x}) is F
+    result = replace(F + H, {w: x, z: x})
+    assert result.first is F
+    assert partial(result.first, {x: num(2)}) is num(2)
+    assert result.second is replace(H, {w: x})
+    (fresh,) = result.second.arguments
+    assert fresh is not x
+    assert result.second.expression is x * fresh
+
+
+def test_substitution_uses_only_eligible_outermost_matches_in_scope():
+    V = space("R", scalar_type=ScalarType.real)
+    x, w, z = (function(V, name) for name in "xwz")
+    body = w + z
+    assert replace(form(x * body, (x,)), {body: num(3), w: x}) is form(x * num(3), (x,))
+    nested = form(form(w, (w,)), (x,))
+    assert replace(nested, {w: x}) is nested
+    derivative = directional_derivative(x * x, x, w, num(1))
+    assert replace(derivative, {w: x}) is directional_derivative(x * x, x, x, num(1))
+
+
+def test_label_reconstruction_and_original_matches_under_a_binder():
+    V = space("R", scalar_type=ScalarType.real)
+    x, w = (function(V, name) for name in "xw")
+    tagged_w = function(V, ("tag", w))
+    tagged_x = function(V, ("tag", x))
+    original = form(tagged_w, (x,))
+    assert replace(original, {w: x}) is form(tagged_x, (x,))
+    assert substitute_values(original, {w: x}) is original
+    # Renaming x first would also rename x inside the key's label and lose the match.
+    result = replace(form(x * tagged_x, (x,)), {tagged_x: x})
+    (fresh,) = result.arguments
+    assert fresh is not x
+    assert result.expression is fresh * x
+
+
+@pytest.mark.parametrize("substitution", [replace, substitute_values])
+def test_index_substitution_freshens_for_a_used_zero_family_index(substitution):
+    i, j, k = (index(name) for name in "ijk")
+    summed = index_sum(Zero((), ((i, 2), (j, 2)), (), ScalarType.real), (i,))
+    assert substitution(summed, {k: i}) is summed
+    result = substitution(summed, {j: i})
+    assert result.indices != (i,)
+    assert result.free_indices == ((i, 2),)
 
 
 def test_derived_index_dependencies_rewrite_without_changing_layout():

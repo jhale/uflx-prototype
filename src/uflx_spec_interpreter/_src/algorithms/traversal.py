@@ -33,19 +33,20 @@ def rebuild(e: Base, **changes: Construction) -> Construction:
     return type(e)(*values.values())
 
 
+def map_construction(value: Construction, fn: Callable[[Base], Construction]) -> Construction:
+    if isinstance(value, Base):
+        return fn(value)
+    if isinstance(value, tuple):
+        return tuple(map_construction(item, fn) for item in value)
+    return value
+
+
 def map_fields(
     e: Base, fn: Callable[[Base], Construction], names: Sequence[str] | None = None
 ) -> Construction:
     # Rebuild e with fn applied to every node in the named fields.
-    def walk(x: Construction) -> Construction:
-        if isinstance(x, Base):
-            return fn(x)
-        if isinstance(x, tuple):
-            return tuple(walk(y) for y in x)
-        return x
-
     names = e.argument_names if names is None else names
-    return rebuild(e, **{n: walk(getattr(e, n)) for n in names})
+    return rebuild(e, **{n: map_construction(getattr(e, n), fn) for n in names})
 
 
 def memoized(rule: Callable[Concatenate[Callable[_P, _R], _P], _R]) -> Callable[_P, _R]:

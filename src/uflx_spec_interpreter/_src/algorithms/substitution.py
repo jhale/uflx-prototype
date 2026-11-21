@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import weakref
 from collections.abc import Callable, Mapping, Sequence
+from functools import cache
 from typing import TYPE_CHECKING, TypeVar, cast
 
 from ..nodes import AbstractExpression, Base, Function, Index, Zero
 from ..nodes.structure import operands
 from ..nodes.types import Construction
 from .binding import binding_signature, scoped_body_fields
-from .traversal import map_fields, memoized, rebuild
+from .traversal import map_construction, map_fields, rebuild
 
 if TYPE_CHECKING:
     from ..nodes.indices import AbstractExtent
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 
 _T = TypeVar("_T", bound=Base)
 _K = TypeVar("_K", bound=Base)
+_Renames = tuple[tuple[Base, Function | Index], ...]
 
 
 def occurs(target: Base, node: Construction) -> bool:
@@ -97,16 +99,17 @@ def _rename(node: Base, name: Index | Function, avoid: Sequence[Construction]) -
     return Function(name.space, label)
 
 
-def freshen(node: _T, avoid: Sequence[Construction]) -> _T:
-    # Freshen only names that could capture something in the inserted values.
-    renames: dict[Base, Construction] = {
-        name: _rename(node, name, avoid)
+def _fresh_names(node: Base, avoid: Sequence[Construction]) -> _Renames:
+    return tuple(
+        (name, _rename(node, name, avoid))
         for name in node.bound()
         if any(occurs(name, replacement) for replacement in avoid)
-    }
-    if not renames:
-        return node
-    return _rename_scope(node, renames)
+    )
+
+
+def freshen(node: _T, avoid: Sequence[Construction]) -> _T:
+    renames = _fresh_names(node, avoid)
+    return _rename_scope(node, dict(renames)) if renames else node
 
 
 def _rename_scope(node: _T, renames: Mapping[_K, Construction]) -> _T:
@@ -145,9 +148,7 @@ def rename_bound(node: _T, renames: Mapping[Index | Function, Index | Function])
 
 
 def substitute(node: Base, mapping: Mapping[_K, Construction]) -> Construction:
-    # Sort once so dictionary insertion order cannot affect fresh names.
-    ordered = sorted(mapping.items(), key=lambda pair: pair[0].digest)
-    return memoized(_substituted)(node, tuple(ordered))
+    return _substitute(node, mapping, dependencies=True)
 
 
 def _substitute_zero(node: Zero, replace: Callable[[Base], Construction]) -> Construction:
@@ -166,33 +167,84 @@ def _substitute_zero(node: Zero, replace: Callable[[Base], Construction]) -> Con
     return rebuild(cast("Base", new), free_indices=merge_indices(*pairs))
 
 
-def _substituted(
-    walk: Callable[[Base, tuple[tuple[Base, Construction], ...]], Construction],
-    node: Base,
-    pairs: tuple[tuple[Base, Construction], ...],
-    dependencies: bool = True,
+def _substitute(
+    root: Base, replacements: Mapping[_K, Construction], *, dependencies: bool
 ) -> Construction:
-    mapping = dict(pairs)
-    if node in mapping:
-        return mapping[node]
-    if isinstance(node, Zero):
-        return _substitute_zero(node, lambda child: walk(child, pairs))
-    if node.labels and not dependencies:
-        return node
-    fields = node.argument_names if dependencies else (*node.value_fields, *node.index_fields)
-    # Derived labels follow substitutions; freshened binder labels remain fixed.
-    if _is_renamed_label(getattr(node, "label", None)):
-        fields = tuple(name for name in fields if name not in node.labels)
-    if node.labels or not node.scope:
-        return map_fields(node, lambda child: walk(child, pairs), fields)
-    scoped_pairs = {
-        target: replacement for target, replacement in pairs if not _bound_in(target, node)
-    }
-    node = freshen(node, list(scoped_pairs.values()))
-    unbound_fields = [name for name in fields if name not in node.scope]
-    node = cast("Base", map_fields(node, lambda child: walk(child, pairs), unbound_fields))
-    inner_pairs = tuple(scoped_pairs.items())
-    return map_fields(node, lambda child: walk(child, inner_pairs), node.scope)
+    """Match on the original graph and rebuild with capture-avoiding binder names."""
+    mapping: dict[Base, Construction] = dict(
+        sorted(replacements.items(), key=lambda pair: pair[0].digest)
+    )
+    empty: frozenset[Base] = frozenset()
+
+    def fields(node: Base) -> tuple[str, ...]:
+        if dependencies or isinstance(node, Zero):
+            return node.argument_names
+        if node.labels:
+            return ()
+        return (*node.value_fields, *node.index_fields)
+
+    @cache
+    def eligible(node: Base, keys: frozenset[Base]) -> frozenset[Base]:
+        return frozenset(key for key in keys if not _bound_in(key, node))
+
+    @cache
+    def matches(node: Base, keys: frozenset[Base]) -> frozenset[Base]:
+        # Only insertions on these edges can introduce a free name. A whole-node
+        # match masks its children, and label contents never add free occurrences.
+        if node in keys:
+            return frozenset((node,))
+        found: set[Base] = set()
+        for field in fields(node):
+            active = eligible(node, keys) if field in node.scope else keys
+            if active and field not in node.labels:
+                for child in operands(node, (field,)):
+                    found.update(matches(child, active))
+        return frozenset(found)
+
+    def scope_renames(node: Base, keys: frozenset[Base], renames: _Renames) -> _Renames:
+        inherited = tuple(pair for pair in renames if not _bound_in(pair[0], node))
+        if not any(occurs(name, mapping[key]) for name in node.bound() for key in keys):
+            return inherited
+        scoped = tuple(field for field in fields(node) if field in node.scope)
+        used = {key for child in operands(node, scoped) for key in matches(child, keys)}
+        avoid = tuple(value for key, value in mapping.items() if key in used)
+        return inherited + _fresh_names(node, avoid)
+
+    @cache
+    def visit(node: Base, keys: frozenset[Base], renames: _Renames) -> Construction:
+        # Match the original node before applying any enclosing binder's renames.
+        if node in keys:
+            return mapping[node]
+        if not keys and not renames:
+            return node
+        if isinstance(node, Zero):
+            return _substitute_zero(node, lambda child: visit(child, keys, renames))
+
+        selected = fields(node)
+        inner_keys, inner_renames = keys, renames
+        if node.scope:
+            inner_keys = eligible(node, keys)
+            inner_renames = scope_renames(node, inner_keys, renames)
+
+        renamed = dict(renames).get(node)
+        changes: dict[str, Construction] = {}
+        for field in node.argument_names:
+            if field in node.labels:
+                if renamed is not None:
+                    changes[field] = renamed.label
+                    continue
+                if _is_renamed_label(getattr(node, field)):
+                    continue
+            active, bound = (inner_keys, inner_renames) if field in node.scope else (keys, renames)
+            if field not in selected:
+                active = empty
+            if active or bound:
+                changes[field] = map_construction(
+                    getattr(node, field), lambda child: visit(child, active, bound)
+                )
+        return rebuild(node, **changes)
+
+    return visit(root, frozenset(mapping), ())
 
 
 def replace(e: Base, mapping: dict[Base, Construction]) -> Construction:
@@ -204,16 +256,7 @@ def substitute_values(
     node: AbstractExpression, mapping: Mapping[_K, Construction]
 ) -> AbstractExpression:
     # Value instantiation holds geometry and identity metadata fixed.
-    pairs = tuple(sorted(mapping.items(), key=lambda item: item[0].digest))
-
-    def visit(
-        walk: Callable[[Base, tuple[tuple[Base, Construction], ...]], Construction],
-        node: Base,
-        pairs: tuple[tuple[Base, Construction], ...],
-    ) -> Construction:
-        return _substituted(walk, node, pairs, False)
-
-    return cast("AbstractExpression", memoized(visit)(node, pairs))
+    return cast("AbstractExpression", _substitute(node, mapping, dependencies=False))
 
 
 def _renamed_label(
