@@ -48,24 +48,16 @@ def assert_imports_none_of(package, forbidden):
 
 
 def test_the_core_imports_neither_the_extension_nor_the_oracle():
-    # Imports go from the oracle and the compiler to the Basix extension to the core, never back,
-    # and the compiler never reads the oracle.
-    assert_imports_none_of("uflx", {"uflx_basix", "uflx_oracle", "uflx_compiler"})
-    assert_imports_none_of("uflx_basix", {"uflx_oracle", "uflx_compiler"})
-    assert_imports_none_of("uflx_compiler", {"uflx_oracle"})
+    assert_imports_none_of("uflx", {"uflx_basix", "uflx_oracle"})
+    assert_imports_none_of("uflx_basix", {"uflx_oracle"})
 
 
-@pytest.mark.parametrize(
-    ("package", "allowed"),
-    [
-        ("uflx_basix", PUBLIC_MODULES - {"uflx.algorithms"}),
-        ("uflx_compiler", PUBLIC_MODULES),
-    ],
-)
-def test_extension_and_compiler_use_public_core_modules(package, allowed):
-    for path in files(package):
+def test_extension_uses_public_core_modules():
+    for path in files("uflx_basix"):
         # Quadrature uses the public core traversal to visit reference integrals.
-        modules = PUBLIC_MODULES if path == SOURCE / "uflx_basix" / "quadrature.py" else allowed
+        modules = (
+            PUBLIC_MODULES if path.name == "quadrature.py" else PUBLIC_MODULES - {"uflx.algorithms"}
+        )
         for m in imported(path):
             if m.partition(".")[0] == "uflx":
                 assert m in modules, (path, m)
@@ -73,7 +65,7 @@ def test_extension_and_compiler_use_public_core_modules(package, allowed):
 
 def test_suite_imports_follow_package_order():
     root = SOURCE.parent
-    layers = ("uflx", "uflx_basix", "uflx_oracle", "uflx_compiler")
+    layers = ("uflx", "uflx_basix", "uflx_oracle")
     for path in (root / "test").rglob("*.py"):
         folder = path.relative_to(root / "test").parts[0]
         # Helpers directly under test/ are available to every suite.

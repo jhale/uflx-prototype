@@ -142,7 +142,7 @@ def test_basix_vertex_field_reproduces_reference_coordinates(cell_name):
     )
 
 
-def test_core_interpretation_without_basix_compiler_or_lowering():
+def test_core_interpretation_without_basix_or_lowering():
     import subprocess
     import sys
 
@@ -153,7 +153,7 @@ class BlockDependencies:
     def find_spec(self, name, path=None, target=None):
         if name == "basix":
             raise ModuleNotFoundError("optional Basix dependency", name=name)
-        if name.startswith(("uflx._src.passes", "uflx_compiler")):
+        if name.startswith("uflx._src.passes"):
             raise AssertionError(name)
 
 sys.meta_path.insert(0, BlockDependencies())

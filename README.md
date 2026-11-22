@@ -1,9 +1,9 @@
 # UFLx spec interpreter
 
-The `uflx-spec-interpreter` distribution provides four Python packages. Import
-language operations from the `uflx` submodules, use `uflx_basix` for concrete cells, spaces and
-DOF maps, compile forms with `uflx_compiler`, and evaluate expressions directly
-with `uflx_oracle`.
+The `uflx-spec-interpreter` distribution provides three Python packages. Import
+language operations from the `uflx` submodules, use `uflx_basix` for concrete
+cells, spaces, quadrature and DOF maps, and evaluate expressions with `uflx_oracle`.
+The experimental form compiler and its tests live on the `jhale/experimental-compiler` branch.
 
 | Public module | What to import |
 | --- | --- |
@@ -44,7 +44,7 @@ The optional optimiser requires Python 3.12+ and the `optimisation` extra:
 pip install -e ".[optimisation]"
 ```
 
-It is invoked explicitly and is not yet wired into the compiler pipeline:
+Call the optimiser explicitly on the expression to simplify.
 
 ```python
 from uflx._src.optimisation import OptimisationOptions, optimise
@@ -94,7 +94,7 @@ egglog, so `log(det(I))` becomes zero, including for repeated matrix families.
 
 Other operations remain opaque in egglog; UFLx traversal can still optimise their
 value operands. General tensor arithmetic should be core-lowered first.
-Complex constants remain opaque. Existing compiler cleanup remains separate; it does not inherit this optimiser's policy.
+Complex constants remain opaque.
 
 Rules that discard an operand, such as multiplication by zero, require evidence
 that the operand is mathematically defined. Terminals denote supplied, defined
@@ -163,9 +163,8 @@ The core implements the evaluation passes in the UFLx language specification
 (`design/language.md` in the uflx repository). The tests check the passes against
 an independent numerical reference interpreter.
 
-The repository has four packages in `src/`, and imports go only from the oracle
-and the compiler to the extension to the core, which `test/uflx/test_boundaries.py`
-checks:
+The oracle imports the Basix extension and the core language. The Basix
+extension imports the core. `test/uflx/test_boundaries.py` checks this order.
 
 - `uflx`: the core, with only what the specification defines
 - `uflx_basix`: a language extension, with the classes that the specification
@@ -179,24 +178,13 @@ checks:
   as weighted sums using a chosen Basix degree or explicit points and weights.
   `uflx_basix.assembly` supplies explicit library DOF maps
   for gathering coefficients and scattering local tensors
-- `uflx_oracle`: the numerical reference interpreter used to check passes and compiled results
-- `uflx_compiler`: a form compiler after the core normal form, using Basix
-  quadrature and a tabulation pass that rewrites a function of a
-  `BasixSpace` at the points as its coefficients times the tabulated basis, a
-  table that `runtime_tables` fills at assembly for points known only then,
-  `kernel_inputs`, which lists the arrays and extents that a consumer passes by
-  label, such as `"coefficients:u"`, and
-  an evaluator of the arithmetic that remains on NumPy or JAX arrays, after
-  `fold` has computed once the subgraphs that read no kernel input
-  and `assemble`, which puts the unit vectors in place of the coefficients of
-  each argument of a form, so that the form evaluates to its local tensor.
-  `assemble_bound` additionally gathers and scatters using caller-supplied DOF maps
+- `uflx_oracle`: the numerical reference interpreter used to check transformations
 
 ### Choosing quadrature per integral
 
 `apply_quadrature(reference, select=choose)` calls `choose` once for each distinct
 Basix reference-cell integral in the input expression. Return an integer degree
-to use the compiler's usual rule for that cell, a pair of reference points and
+to use the usual Basix rule for that cell, a pair of reference points and
 weights to supply a rule, or `None` to leave the integral for a later pass.
 
 For example, suppose `mass`, `stiffness`, and `load` are three lowered integrals
@@ -214,40 +202,31 @@ finished = apply_quadrature(partial, select={load: 2}.get)
 ```
 
 The pass builds the weighted sums and expands their pullbacks. The resulting
-UFLx expression can be evaluated in the oracle or tabulated by the compiler.
+UFLx expression can be evaluated in the oracle.
 To apply a common degree to the whole expression, use
 `apply_quadrature(reference, degree=2)`.
 
 ### Local coefficients and library assembly
 
-[The air–liquid–solid example](examples/air_liquid_solid.py) constructs five
-separate local contributions with abstract vector geometry and explains their
-library bindings in diagrams. It does not require a three-cell patch.
-
 `BasixSpace.cell_dofs` describes a packed local layout, and `num_dofs` is its
 size. Two P1 triangle slots have rows `((0, 1, 2), (3, 4, 5))`, even if the
 topology identifies their vertices. The Basix `discontinuous` option selects
-an element; it does not instruct the compiler to identify DOFs across cells.
+the element. A library DOF map specifies sharing across cells.
 
 A library supplies a separate `DofMap`. Its indices associate each packed
 local coefficient with an assembled DOF. Repeated indices establish shared
-values when gathering and accumulate contributions when scattering:
+values when gathering and accumulate contributions when scattering.
 
 ```python
-from uflx_compiler import assemble, assemble_bound
 from uflx_basix.assembly import DofMap
 
 # For two triangles with vertex rows (0,1,2) and (0,2,3).
 mapping = DofMap((0, 1, 2, 0, 2, 3), 4)
 local_values = mapping.gather(assembled_values)  # 4 -> 6 coefficients
-geometry = {"coefficients:x": packed_coordinate_dofs}
-local_matrix = assemble(a, degree=2)(geometry)  # 6 x 6
-matrix = assemble_bound(a, 2, {u: mapping, v: mapping})(geometry)  # 4 x 4
+assembled_load = mapping.scatter(local_load)     # 6 -> 4 contributions
 ```
 
-`assemble_bound` bindings are keyed by symbolic functions; coefficient and
-coordinate functions may be bound as well as arguments. Unbound functions keep
-the local layout. `conforming_dofmap(V)` derives such a map
+`conforming_dofmap(V)` derives a map
 from vertex labels and Basix entity DOFs for elements requiring no DOF
 transformations. Other solvers provide their own connectivity and transformations.
 The scatter operation uses NumPy. Local evaluation and `DofMap.gather`
@@ -265,229 +244,9 @@ area = Interpreter({x: packed_coordinate_dofs}).evaluate(integral(num(1), domain
 ```
 
 The library supplies compatible coordinates and facet correspondence across
-cells with matching traces. Side names do not determine
-outward orientation. A physical region's shape does not determine its kernel's
-reference cell type; local expressions are instantiated on selected mesh cells.
-
-The C emitter, `uflx_compiler.c_code.c_kernel`, emits scalar arithmetic with
-loops over `output_indices`. `index_bindings` maps remaining
-indices to C expressions, such as `entity_local_index[0]`. Index sums become
-nested C loops; outer integral sums surround the output loops. Input-independent
-subgraphs become constant multidimensional tables. A buffered scope tree schedules
-computations using their free indices and bound component positions. Structurally
-equal expressions share temporaries; entire reductions and partial products move
-outside loops they do not depend on. Computations reused across output
-indices can be precomputed into temporary arrays before the output loops. This
-also separates basis evaluation from tensor contraction. Arrays span only the
-required output indices, and structurally equal expressions share them. Loads
-and expressions with at most one arithmetic operation are left inline. Runtime geometry independent of quadrature
-is computed once per invocation, while coefficient evaluation at each point is
-shared across argument DOFs. Computations remain inside conditional branches
-unless a reusable value is already available in an enclosing scope. Scalar products
-are regrouped by the scope where their factors become available, so quadrature weights and geometry can be multiplied before basis
-products. Small reductions (up to three entries) that select explicit tensor
-components are expanded to expose shared geometry. When no outer reduction remains,
-coupled component blocks also collect geometry products before the basis-pair
-contraction. Within quadrature loops, coupled matrices retain shared physical derivatives.
-Actions collect geometry and coefficient factors before the test-basis loop,
-including when those factors vary over quadrature points.
-Where a quadrature loop contains basis loops, the emitter can first compute the
-pointwise geometry and coefficient factors for all quadrature points, then run the
-basis contractions in a second loop. This exposes preparation to vectorisation
-without changing the order of the scalar reductions or output accumulation.
-Only scalar values used by the basis loops are stored, with at most 4096 doubles
-per split. Single-point loops and unsupported scopes retain their original schedule.
-This is enabled by default; set `split_quadrature=False` on `c_kernel` to disable
-it. Splitting can cost more than it saves for small kernels, so the best choice
-also depends on the target C compiler.
-
-For element matrices and actions, a bounded
-reference-contraction pass separates runtime factors that are independent of the
-reduction indices from constant basis and quadrature factors. It evaluates the
-constant sums into tables and combines identical tables. For component blocks,
-scalar scales stay outside the tables so that different blocks can reuse them;
-for scalar outputs, equal runtime coefficients are combined first to reduce
-arithmetic per entry. The resulting terms share an output traversal. Actions can also
-expand coefficient DOF sums within the same term budget. Affine mass and stiffness
-matrices and small actions can therefore avoid runtime quadrature. Curved geometry and varying coefficients retain their
-reductions when this separation is unavailable. Expansion is limited to 64 terms
-and table/work extents to 65,536 entries; exceeding a limit keeps the original
-reduction. Set `preintegrate=False` on `c_kernel` to disable the pass.
-Small scalar table contractions remove exactly zero columns and combine equal
-or opposite columns before C emission. Matching permits a relative difference of
-32 double-precision epsilons, with no absolute tolerance, to account for
-roundoff in tabulated values. This may change floating-point results. The pass
-requires runtime coefficients independent of the remaining table axes and is
-limited to 16 contracted entries and 4096 table entries. Set `sparse_tables=False`
-on `c_kernel` to disable it.
-For a single small matrix block (at most three basis functions per axis),
-constant reference factors can collect quadrature-dependent geometry into metric
-coefficients before the basis contraction. This avoids constructing and
-multiplying physical gradients separately for each entry, including on curved
-cells. Bases that vary across quadrature retain their existing factorisation.
-Small matrix basis loops (at most three entries per axis and 64 output updates
-across the emitted blocks) are specialised, including inside quadrature loops,
-when they select explicit tensor entries and write directly to the output. The
-existing simplifier then removes zero contributions before C emission, including with strict C flags. Set
-`specialize_basis=False` on `c_kernel` to retain these loops.
-Preintegration and product regrouping can change floating-point rounding, even
-with strict C flags; no language change or egglog is required.
-For dense square component blocks with a common outer reduction, the compiler
-can reuse an off-diagonal block after proving transpose equality. It compares
-normalised expressions with the basis indices exchanged, using alpha equivalence
-to handle bound indices. Only proven representatives are accumulated into local
-tables, then added to the existing output; nonsymmetric blocks are computed
-independently. Local tables are limited to 4096 doubles. Set
-`reuse_transposes=False` on `c_kernel` to disable this path. Accumulating locally
-can change floating-point rounding.
-A single-use multiplication directly
-before an accumulation is emitted in that accumulation, allowing the C compiler
-to generate fused multiply-add instructions with its normal contraction settings.
-Shared and hoisted products keep their temporaries.
-Fused multiply-add operations may round
-differently from separate multiplication and addition; no fast-math flags are
-required. The runtime arrays keep the flat
-pointer interface: `read(label, offset)` must accept an integer or a C expression
-for the offset, for example `f"w[{offset}]"`. The backend retains its real-valued,
-static-extent arithmetic subset. With no output indices it accumulates into `A[0]`.
-
-`compile_ufcx(f, mesh, degree, name="my_form", coefficients=..., constants=...)`
-provides the UFCx output boundary. It returns C source and the coefficient,
-constant and local tensor layouts. The source includes FFCx's `ufcx.h` and exports
-`my_form` (`ufcx_form`), `my_form_integral` (`ufcx_integral`) and `my_form_kernel`.
-Compile it with the include directory containing your installed FFCx header.
-Explicit input sequences set packing order; omitted sequences use graph traversal
-order. Offsets count scalar entries in `w` and `c`.
-
-`sum_factorisation=True` on `compile_ufcx` enables an experimental path for
-scalar cell actions on tensor-product elements. It retains one-dimensional
-basis tables, evaluates fields and geometry through staged contractions, computes
-pointwise weights or fluxes, and projects back one direction at a time. Constant
-quadrature weights are folded into the corresponding 1D tables. Broadcast axes
-from constant derivatives retain separate directional factors. Each
-stage computes an output entry with a local reduction and writes it once,
-without a separate pass to zero the intermediate array. Standard Basix input
-and output ordering is preserved. Matrices, vector arguments and facets
-use the ordinary emitter; staged arrays exceeding 256 KiB also fall back to it.
-The option defaults to `False` while scheduling is being evaluated. These
-contractions change floating-point summation order.
-
-Basis values and reference derivatives close to −1, 0 or 1 are clamped to those
-exact values before simplification. This applies to compile-time and runtime
-basis tables, with FFCx-compatible tolerances (`rtol=1e-6`, `atol=1e-9`).
-Quadrature points, weights and general expression constants are not clamped.
-
-The external interface uses standard Basix element ordering and cell-local DOFs.
-The experimental sum-factorised path converts to tensor-product ordering internally
-and scatters the result back. A kernel
-computes one cell or facet contribution, with outer loops over local argument DOFs;
-the solver packs cell-local coefficients and three-component coordinate DOFs,
-performs DOF transformations, and assembles the result. Mesh connectivity and
-coordinate values are absent from the generated kernel. Equivalent input graphs
-may still produce differently ordered arithmetic after canonicalisation.
-
-The supported UFCx subset is float64 cell, exterior-facet and interior-facet
-integrals of rank 0, 1 or 2, on one mesh with one Basix cell type. Facet kernels
-currently require a uniform reference facet type. The expression must describe
-the local configuration: one parent cell slot for cell and exterior-facet
-kernels, or two distinct parent cell slots for interior-facet kernels. Facet
-kernels require one integration slot; each explicit relation selects a parent
-slot. Unsupported configurations are rejected; zero and one-sided integrands
-retain the complete declared layout. Geometry is a vector Basix function or a
-tensor of scalar Basix coordinate functions. The coordinate element sets the
-geometry degree. Supply its cell-local coordinate DOFs, including the
-higher-order nodes for a curved mesh.
-Element families and degrees follow the spaces in `uflx_basix`, with the equispaced
-variant; custom variants are not yet exposed. Mixed arguments and complex inputs
-are rejected. Scalar and tensor constants are packed separately from coefficients.
-Blocked vector and tensor spaces use `basix_space(..., shape=(d,))` or
-`shape=(d, d)` with a scalar base element. Each scalar basis DOF carries the
-components consecutively, matching Basix/UFCx ordering. Arguments and
-coefficients use this layout on cells and both kinds of facets; a vector form
-produces one full local tensor in one kernel call. Basis and component indices
-remain separate: component choices are specialised before C emission, removing
-structural zeros. Component updates share a basis-pair loop and write directly
-into the interleaved output. Dense output loop nests are flattened when every
-access uses the contiguous output offset. Tables laid out along those output
-axes use flat row-major storage, allowing direct access without recovering
-individual indices. Row-dependent computations and transposed accesses keep
-their existing loops. Scalar contractions collect repeated trial factors
-and prepare their material/geometry-scaled coefficients outside the basis-pair
-loop. A divisor independent of the collected basis index stays with the
-coefficient, so divided linear combinations can be factored in the same way
-as products. This also moves transformations of test functions onto their
-coefficients in action kernels. Divided reference-only factors retain their existing schedule; factoring
-is applied when the numerator contains runtime computations and is itself
-factored by the collector. Quadrature-invariant basis contractions retain their existing grouping
-to preserve hoisting. In single-block kernels, small spatial contractions with
-invariant transformation coefficients are collected into geometry metrics before basis evaluation;
-for affine Poisson this computes the symmetric metric outside quadrature.
-Varying transformations and coupled component blocks retain their existing
-evaluation order. Symmetry-compressed tensor spaces and mixed elements are not
-supported.
-
-The source targets the UFCx interface in FFCx 0.12; other versions need their own compatibility validation.
-
-For exterior facets (`ds`), construct the boundary with `side_domain` on a
-source topology and an explicit reference inclusion `A` into parent slot 0:
-
-```python
-boundary = side_domain(mesh, boundary_topology, (0, A))
-trace = pull_back(integrand, side_map(boundary, (mesh[0], A)))
-code = compile_ufcx(integral(trace, boundary), mesh, degree=4)
-assert code.integral_type == "exterior_facet"
-```
-
-The generated kernel selects a reference facet using `entity_local_index[0]`
-in Basix local-facet numbering. Its facet tables, measure and outward normals
-come from reference geometry; the boundary topology's connectivity is not
-embedded. Exterior facets require no quadrature permutation. Compile cell and
-boundary contributions separately: one generated form currently has one
-integration domain and the default integral ID `-1`.
-
-For interior facets (`dS`), the parent has two cell slots. Reference inclusions
-`A0` and `A1` map the interface reference cell into those slots. Construct the
-integration geometry explicitly, then restrict each field through its relation.
-`code.integral_type` is then `"interior_facet"`. For example:
-
-```python
-interface = side_domain(mesh, interface_topology, (0, A0))
-plus = side_map(interface, (mesh[0], A0))
-minus = side_map(interface, (mesh[1], A1))
-jump = pull_back(u, plus) - pull_back(u, minus)
-code = compile_ufcx(integral(jump * jump, interface), mesh, degree=4)
-```
-
-UFCx supplies two entries in `entity_local_index` and `quadrature_permutation`.
-Permutation numbers are `2 * rotations + reflections`. The compiler precomputes
-separate reference-facet and basis tables for each side, then selects them at
-runtime. It does not generate kernels for every pair of facets or permutations.
-Constant folding preserves output and dispatch indices to avoid materialising
-cross-products of the two sides' tables.
-
-The UFCx adapter binds complete affine reference facets at runtime. It rejects
-cut inclusions and reference conormals whose orientation is not reference-constant;
-for supported normals it preserves the separately supplied orientation sign.
-General inclusions remain available to the core and reference compiler.
-
-Interior coefficients use `w[coefficient][side][local_dof]`, in parent cell-slot order.
-The map entries select their declared slots; names such as `plus` have no core meaning.
-Coordinates use `coordinate_dofs[side][coordinate_dof][3]`; constants are shared
-between sides. Each argument axis has twice the element dimension, in parent
-cell-slot order. A bilinear kernel therefore fills all four coupling
-blocks. The solver remains responsible for element DOF transformations and for
-packing two conforming cells with their facet permutations.
-
-`test/uflx_compiler/test_ufcx.py` compares generated local tensors and descriptors with FFCx,
-including higher-order elements, Piola maps, curved cells and every local facet
-of intervals, triangles, quadrilaterals, tetrahedra and hexahedra. Interior-facet
-comparisons cover every local-facet pair and every rotation/reflection combination.
-It also contains DOLFINx cell, exterior-facet and interior-facet assembly tests using the generated
-`ufcx_form` address directly. These tests
-skip when their optional dependencies are unavailable. With local FFCx and UFL
-checkouts on `PYTHONPATH`, run `pytest test/uflx_compiler/test_ufcx.py`; `UFCX_INCLUDE_DIR` can
-supply the header directory separately. Keep the compiled shared library alive
-while DOLFINx uses the form's pointers.
+cells with matching traces. The library supplies outward conormals separately
+from side names. Each selected mesh cell determines the reference cell for its
+local expression.
 
 The standard recipe in `_src/passes/lowering.py` coordinates:
 
@@ -501,7 +260,7 @@ The standard recipe in `_src/passes/lowering.py` coordinates:
 
 Standard derivative evaluation exposes dependent geometry before differentiation
 and rejects unresolved dependencies. Inner derivatives are resolved first.
-Quadrature and tabulation follow the checked core boundary. Geometry derivatives use the core
+Quadrature follows the checked core boundary. Geometry derivatives use the core
 `directional_derivative` and `lower` operations.
 
 ### Full application and named binding
@@ -572,13 +331,9 @@ and directions participate in outer derivatives. Unresolved geometry or space
 dependence is rejected. The former private differentiation experiment delegates
 to this core path.
 
-The `test_*_exploration.py` files exercise these boundaries. Geometry checks
-compare area, energy, coordinate fields, perimeter, and Raviart–Thomas mass against
-finite differences, including second geometry derivatives. Mixed field/geometry
-derivatives agree in both orders for energy and Raviart–Thomas mass, and with
-independent finite differences. An affine-interval Hermite reconstruction probe
-checks physical endpoint slopes and differentiation of the geometry-dependent
-coefficient transformation. It is not a general Hermite element implementation.
+The `test_*_exploration.py` files exercise these boundaries. An affine-interval
+Hermite reconstruction probe checks physical endpoint slopes and differentiation
+of the geometry-dependent coefficient transformation. It is not a general Hermite element implementation.
 
 The proposed form restriction is that no bound function occurs free in any exposed
 argument space, including inherited slots. Spaces may depend on free geometry
@@ -605,12 +360,12 @@ when the full differential is real.
 Alternatively, use a real direction `q` of a compatible library space. Bind
 `D[q]` and `D[i*q]` as separate real slots, adding real-variable derivative
 blocks. Apply `real_part` or `imaginary_part` to bodies before binding real test
-and direction functions to obtain real matrices. The mixed-block tests compare
-both representations with finite differences of assembled FE residuals.
+and direction functions to obtain real matrices. The oracle tests the mixed
+differential and its explicit parts against finite differences.
 
 `uflx.calculus.reference_integral(f, D, cell_slot)` gives one local cell’s reference integral.
 Mesh expansion adds these integrals over the fixed slots without introducing
-an array index or cell sum. UFCx compilation selects its local slot directly.
+an array index or cell sum.
 It works for cells and facet meshes. `CellMap(parent, cell_slot)` selects a slot;
 `SideMap(parent, source, entries)` stores one `(parent_slot, inclusion)` per
 source slot. The factory accepts `side_map(E, (cell, A))`, inferring the parent from
@@ -625,7 +380,7 @@ lookup belong to the calling finite element package.
 the operator overloads of the specification, which call these free functions
 and reject Python numbers.
 
-### Writing a compiler pass
+### Writing a transformation pass
 
 Import node classes from `uflx.nodes` for pattern matching, annotations and
 extension base classes. Import graph operations from `uflx.algorithms`. For
@@ -707,7 +462,7 @@ The private modules of `_src`:
 
 `uflx_oracle.interpreter.Interpreter` evaluates the original expression tree.
 Use it to obtain a value for a field, apply a form to numerical arguments, or
-check a lowering or compilation result. Install `pip install -e ".[oracle]"` for
+compare an expression before and after lowering. Install `pip install -e ".[oracle]"` for
 the JAX evaluator and Basix. Both `ReferenceSimplex` and `BasixCell` use degree-12
 Basix quadrature on intervals, triangles and tetrahedra. Point integrals use one
 sample of weight one. The oracle uses JAX's active precision. Set
@@ -800,17 +555,15 @@ that determine array shapes are static.
 ### Running the tests
 
 Run `pytest test` for the full suite or select a package, for example
-`pytest test/uflx_compiler`. Each test belongs to the lowest layer that can run its assertions and fixtures.
+`pytest test/uflx_oracle`. Each test belongs to the lowest layer that can run its assertions and fixtures.
 
 | Test folder | What it can use |
 | --- | --- |
 | `test/uflx/` | Core language and passes, with an abstract field space for symbolic tests |
 | `test/uflx_basix/` | Core and Basix, including concrete elements, meshes and DOF maps |
 | `test/uflx_oracle/` | Both lower layers and oracle evaluation |
-| `test/uflx_compiler/` | All four packages, including the oracle for checking compiled results |
 
-Shared fixtures follow the same import order. The compiler package itself stays
-independent of the oracle.
+Shared fixtures follow the same import order.
 
 The oracle tests check on random expressions that a pass keeps the value
 and the static type, that its output is in its grammar, and that the grammar
@@ -852,7 +605,7 @@ and optional domains using permitted graph arguments.
 
 `replace` traverses construction dependencies and preserves lexical binding;
 evaluation traverses only value operands. Rewrite completion preserves complex
-arithmetic and family indices. The oracle and compiler handle complex literals,
+arithmetic and family indices. The oracle handles complex literals,
 determinants and explicit cell reads independently of the rewrite rules.
 
 Test utilities supply the default transformation laws and side selections used
@@ -874,16 +627,11 @@ Unknown extension operations require an extension recipe before core lowering.
 
 Directional differentiation evaluates undifferentiated operands at the point and
 inserts directions unchanged. `apply_derivatives` does not collect scalar algebra.
-The compiler explicitly requests the optional `uflx_compiler/algebra.py` normalizer.
-Both that optimizer and compiler simplification complete each rewritten child's
-static type before rebuilding its parent. Compiler index instantiation uses the
-core's capture-avoiding value substitution, followed by folding known index tables.
 
 ## Static type checking
 
 Install the `lint` extra and run `pyright` from the repository root. The strict
-configuration includes only `src/uflx`; the compiler, oracle,
-Basix extension and tests are excluded. No diagnostic categories are disabled.
+configuration covers `src/uflx`. No diagnostic categories are disabled.
 
 Python argument types are now checked statically instead of repeatedly checked
 inside constructors and passes. Construction still enforces the primitive argument
@@ -961,7 +709,7 @@ without the specification.
 
 Each public submodule declares its exports in `__all__`. Importing `uflx` alone
 loads only the package root. Node classes retain the spelling in the specification.
-The compiler and Basix extension use these public imports.
+The Basix extension uses these public imports.
 
 Shared interfaces have ordinary names within `_src`. Module-local helpers begin
 with `_`. Strict Pyright checks cross-module access.

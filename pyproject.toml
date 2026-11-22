@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "uflx-spec-interpreter"
 version = "0.1.0"
-description = "A numerical reference interpreter, symbolic transformations and form compiler for UFLx"
+description = "A numerical reference interpreter and symbolic transformations for UFLx"
 requires-python = ">=3.11"
 dependencies = ["numpy"]
 
@@ -25,7 +25,7 @@ addopts = "-n 6 --import-mode=importlib"
 
 [tool.coverage.run]
 branch = true
-source = ["uflx", "uflx_basix", "uflx_oracle", "uflx_compiler"]
+source = ["uflx", "uflx_basix", "uflx_oracle"]
 
 [tool.coverage.report]
 show_missing = true
@@ -40,11 +40,11 @@ select = ["E", "W", "F", "I", "RUF", "UP", "ICN", "NPY", "FLY", "LOG", "ISC"]
 ignore = ["E731", "E741"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["uflx", "uflx_basix", "uflx_oracle", "uflx_compiler"]
+known-first-party = ["uflx", "uflx_basix", "uflx_oracle"]
 
 [tool.pyright]
 include = ["src/uflx"]
-exclude = ["src/uflx_compiler", "src/uflx_oracle", "src/uflx_basix", "test"]
+exclude = ["src/uflx_oracle", "src/uflx_basix", "test"]
 typeCheckingMode = "strict"
 pythonVersion = "3.11"
 reportUnnecessaryTypeIgnoreComment = "error"
