@@ -7,6 +7,7 @@ import jax.numpy as jnp
 
 from uflx.nodes import AbstractExpression
 
+from ._context import Sample
 from ._external import Pointwise as Pointwise
 from ._semantics import Frame
 
@@ -29,20 +30,20 @@ class Interpreter:
     ):
         """Return the numerical value for the given ordered form slots.
 
-        Supply free index values in indices, coordinates keyed by domain in points,
-        and local cell slots keyed by mesh or topology in cells.
+        Supply free index values in indices and coordinates keyed by domain in points.
+        When a point evaluation needs one of several local cells, supply its slot
+        in cells, keyed by mesh or topology.
         """
         arguments = tuple(arguments)
         if len(arguments) != len(expression.argument_spaces):
             raise ValueError(
                 f"expected {len(expression.argument_spaces)} form arguments, got {len(arguments)}"
             )
-        frame = Frame(
-            dict(self.environment),
-            dict(indices or {}),
+        site = Sample(
             {domain: jnp.asarray(point, dtype=float) for domain, point in (points or {}).items()},
             dict(cells or {}),
         )
+        frame = Frame(dict(self.environment) | dict(indices or {}), site)
         value = frame.value(expression, arguments)
         # Eager scalar results can be used as UFLx literals. A traced scalar stays in the graph.
         if (

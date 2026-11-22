@@ -10,7 +10,7 @@ from ._context import Operand, call, sample
 
 
 class ExpressionBinding(Operand):
-    """A replacement expression evaluated with the frame and slots at its use site."""
+    """A replacement expression evaluated at the caller's sampling location."""
 
 
 def members(entry):
@@ -24,9 +24,9 @@ def conjugated(value):
         return Conjugate(value)
     if callable(value):
 
-        def field(frame, *args):
+        def field(site, *args):
             arguments = tuple(conjugated(arg) for arg in args)
-            return conjugated(call(frame, value, *arguments))
+            return conjugated(call(site, value, *arguments))
 
         return Operand(field)
     return jnp.conj(value)
@@ -39,19 +39,19 @@ def function_value(node, frame, arguments):
         return elements.field_value(node, frame)
     binding = frame.environment[node]
     if isinstance(binding, dict):
-        binding = binding[frame.cells.get(domain, 0)]
+        binding = binding[frame.site.slot(domain)]
     if isinstance(binding, AbstractExpression):
         return frame.value(binding, arguments)
 
     value = binding
     if space.argument_spaces:
-        value = call(frame, binding, *arguments)
+        value = call(frame.site, binding, *arguments)
         if isinstance(value, dict):
-            value = value[frame.cells.get(domain, 0)]
+            value = value[frame.site.slot(domain)]
     if callable(value) and domain is not None:
-        return sample(value, frame, domain)
+        return sample(value, frame.site, domain)
     if callable(value) and not space.argument_spaces:
-        value = call(frame, value)
+        value = call(frame.site, value)
     return jnp.asarray(value) if isinstance(value, (tuple, list)) else value
 
 
@@ -59,22 +59,22 @@ def supplied(operand, signature, frame):
     if isinstance(operand, tuple):
         return tuple(supplied(m, s, frame) for m, s in zip(operand, signature, strict=True))
 
-    def apply(caller, *slots):
-        def read(local):
-            value = frame.sampled_in(local).value(operand, slots)
+    def apply(site, *slots):
+        def read(at):
+            value = frame.value(operand, slots, at=at)
             return (
                 jnp.asarray(value, dtype=complex) if signature.scalar_type == "complex" else value
             )
 
         if signature.domain is not None:
 
-            def field(sampling_frame, point):
-                return read(sampling_frame.at({signature.domain: point}))
+            def field(site, point):
+                return read(site.at({signature.domain: point}))
 
             return Operand(field)
-        return read(caller)
+        return read(site)
 
-    return Operand(apply) if operand.argument_spaces else apply(frame)
+    return Operand(apply) if operand.argument_spaces else apply(frame.site)
 
 
 def form_value(body, declarations, frame, arguments):
@@ -87,15 +87,16 @@ def form_value(body, declarations, frame, arguments):
                 bindings[member.operand] = conjugated(item)
             else:
                 bindings[member] = item
-    return frame.bind_arguments(bindings).value(body, arguments[:count])
+    return frame.bind(bindings).value(body, arguments[:count])
 
 
 def directional(body, variables, point, direction, frame, arguments):
     def perturbed(epsilon):
         def seed(point, direction):
-            def varied(caller, slots):
-                local = frame.sampled_in(caller)
-                return local.value(point, slots) + epsilon * local.value(direction, slots)
+            def varied(site, slots):
+                return frame.value(point, slots, at=site) + epsilon * frame.value(
+                    direction, slots, at=site
+                )
 
             return ExpressionBinding(varied)
 
@@ -105,7 +106,7 @@ def directional(body, variables, point, direction, frame, arguments):
                 members(variables), members(point), members(direction), strict=True
             )
         }
-        value = frame.bind_arguments(overrides).value(body, arguments)
+        value = frame.bind(overrides).value(body, arguments)
         # An integer literal denotes a real constant in a differentiable expression.
         return jnp.asarray(value, dtype=jnp.result_type(value, 0.0))
 

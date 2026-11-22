@@ -16,13 +16,13 @@ from ._tensors import inverse, size
 
 
 def gradient(operand, domain, frame, arguments):
-    point = jnp.asarray(frame.points[domain])
+    point = jnp.asarray(frame.site.points[domain])
     if point.size == 0:
         shape = tuple(size(n, frame) for n in operand.value_shape)
         return jnp.empty((*shape, 0), dtype=complex if operand.scalar_type == "complex" else float)
 
     def field(p):
-        value = frame.at({domain: p}).value(operand, arguments)
+        value = frame.value(operand, arguments, at=frame.site.at({domain: p}))
         return jnp.asarray(value, dtype=jnp.result_type(value, 0.0))
 
     result = jax.jacfwd(field)(point)
@@ -48,34 +48,35 @@ def pull_back(operand, mapping, frame, arguments):
         parent = mapping.parent
         if isinstance(parent, Mesh):
             point = chart_of(parent[slot], frame)(point)
-        local = frame.at({parent: point}, cells={parent: slot})
+        site = frame.site.at({parent: point}, cells={parent: slot})
     elif isinstance(mapping, CellMap):
         parent = mapping.parent
         point = (
-            frame.points[mapping.reference_cell]
+            frame.site.points[mapping.reference_cell]
             if isinstance(parent, AbstractTopology)
             else jnp.real(frame.value(mapping.parameterisation))
         )
-        local = frame.at({parent: point}, cells={parent: mapping.cell_slot})
+        site = frame.site.at({parent: point}, cells={parent: mapping.cell_slot})
     else:
         point = jnp.real(frame.value(mapping.parameterisation))
-        local = frame.at({mapping.ambient_domain: point})
-    return local.value(operand, arguments)
+        site = frame.site.at({mapping.ambient_domain: point})
+    return frame.value(operand, arguments, at=site)
 
 
 def push_forward(operand, mesh, law, frame, arguments):
-    slot = frame.cells.get(mesh, 0)
+    slot = frame.site.slot(mesh)
     chart = chart_of(mesh[slot], frame)
-    ref = reference_point(chart, frame.points[mesh], mesh.dimension)
+    ref = reference_point(chart, frame.site.points[mesh], mesh.dimension)
     topology = mesh.topology
-    field = frame.at({topology: ref}, cells={topology: slot}).value(operand, arguments)
+    site = frame.site.at({topology: ref}, cells={topology: slot})
+    field = frame.value(operand, arguments, at=site)
     return transformed(field, law, jax.jacfwd(chart)(ref))
 
 
 def conormal(side, conormals, frame):
     slot, parent_slot, inclusion, ref, target = side_reference(side, frame)
     J = jax.jacfwd(chart_of(side.parent[parent_slot], frame))(target)
-    local = frame.at({inclusion.parameter_domain: ref})
-    normal = jnp.real(local.value(conormals[slot]))
+    site = frame.site.at({inclusion.parameter_domain: ref})
+    normal = jnp.real(frame.value(conormals[slot], at=site))
     vector = inverse(J).T @ normal
     return vector / jnp.linalg.norm(vector)

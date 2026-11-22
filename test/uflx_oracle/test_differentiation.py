@@ -2,6 +2,7 @@
 
 import math
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -122,7 +123,11 @@ def test_predicate_can_read_an_opaque_value_while_differentiating_a_branch():
     response = external_operator(Sine(), (u,))
     field = conditional(less_than(response, num(0)), u * u, u)
     derivative = directional_derivative(field, u, x, num(3))
-    oracle = Interpreter({Sine(): Pointwise(jnp.sin)})
+    # JAX cannot apply forward AD to a custom_vjp function. The comparison
+    # only uses its value, even when its operand depends on the variable.
+    sine = jax.custom_vjp(jnp.sin)
+    sine.defvjp(lambda x: (jnp.sin(x), x), lambda x, g: (jnp.cos(x) * g,))
+    oracle = Interpreter({Sine(): Pointwise(sine)})
     assert oracle.evaluate(derivative, points={P: [-2]}) == -12
 
 

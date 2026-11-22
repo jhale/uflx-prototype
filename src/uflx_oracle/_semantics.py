@@ -1,6 +1,6 @@
 """Numerical semantics of the expression nodes, evaluated with lexical bindings."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import jax
 import jax.numpy as jnp
@@ -48,72 +48,57 @@ from uflx_basix.nodes import RuntimeArray, VertexCoordinates
 
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors
+from ._context import Sample
 from ._external import evaluate_external
 from ._geometry import integrate
 
 
 @dataclass(frozen=True, eq=False)
 class Frame:
-    """Evaluate with fixed function bindings, index assignments and spatial points."""
+    """Evaluate expressions with fixed lexical bindings at one sampling location."""
 
     environment: dict
-    indices: dict
-    points: dict
-    cells: dict
-    comparison: bool = False
+    site: Sample
     _memo: dict = field(default_factory=dict, repr=False)
 
-    def value(self, node, arguments=()):
+    def value(self, node, arguments=(), *, at=None):
+        if at is not None and at is not self.site:
+            return replace(self, site=at, _memo={}).value(node, arguments)
         if arguments:
             return interpret(node, self, arguments)
-        # Only the node's free indices can affect its value at this point.
-        key = (node, tuple(self.indices.get(i) for i, _ in node.free_indices))
-        if any(hasattr(i, "shape") for i in jax.tree.leaves(key[1])):
-            return interpret(node, self, arguments)
+        key = node
+        if node.free_indices:
+            indices = tuple(self.environment.get(i) for i, _ in node.free_indices)
+            if any(hasattr(i, "shape") for i in jax.tree.leaves(indices)):
+                return interpret(node, self, ())
+            key = (node, indices)
         if key not in self._memo:
-            result = interpret(node, self, ())
-            self._memo[key] = jax.lax.stop_gradient(result) if self.comparison else result
+            self._memo[key] = interpret(node, self, ())
         return self._memo[key]
 
-    def at(self, points, cells=None):
-        return Frame(
-            self.environment,
-            self.indices,
-            self.points | points,
-            self.cells if cells is None else self.cells | cells,
-            self.comparison,
-        )
-
-    def sampled_in(self, caller):
-        """Keep lexical bindings and use the points and cells at the sampling site."""
-        if self.points is caller.points and self.cells is caller.cells:
-            return self
-        return Frame(self.environment, self.indices, caller.points, caller.cells, caller.comparison)
-
-    def bind_arguments(self, bindings):
-        return Frame(
-            self.environment | bindings, self.indices, self.points, self.cells, self.comparison
-        )
+    def bind(self, bindings):
+        return replace(self, environment=self.environment | bindings, _memo={})
 
     def bind_indices(self, indices):
-        return Frame(
-            self.environment,
-            self.indices | indices,
-            self.points,
-            self.cells,
-            self.comparison,
-            self._memo,
-        )
+        # The cache key already distinguishes a node's free index values.
+        return replace(self, environment=self.environment | indices)
 
     def input(self, node, label):
         """Library data may be supplied by node or by its runtime label."""
         return self.environment[node] if node in self.environment else self.environment[label]
 
 
+class _PredicateFrame(Frame):
+    """Use primal operand values throughout a comparison, including external calls."""
+
+    def value(self, node, arguments=(), *, at=None):
+        return jax.lax.stop_gradient(super().value(node, arguments, at=at))
+
+
 def interpret(node, frame, arguments):
     binding = frame.environment.get(node)
     if isinstance(binding, _forms.ExpressionBinding):
-        return binding.read(frame, arguments)
+        return binding.read(frame.site, arguments)
 
     value = frame.value
     match node:
@@ -125,15 +110,15 @@ def interpret(node, frame, arguments):
         case Complex(a, b):
             return complex(a.value, b.value)
         case LessThan(a, b):
-            points = {k: jax.lax.stop_gradient(p) for k, p in frame.points.items()}
-            local = Frame(frame.environment, frame.indices, points, frame.cells, comparison=True)
+            points = {d: jax.lax.stop_gradient(p) for d, p in frame.site.points.items()}
+            local = _PredicateFrame(frame.environment, frame.site.at(points))
             return jnp.real(local.value(a)) < jnp.real(local.value(b))
         case Conditional(predicate, left, right):
             condition = value(predicate)
             dtype = {"boolean": bool, "real": float, "complex": complex}[node.scalar_type]
 
             def branch(expr):
-                local = frame.bind_arguments({})
+                local = replace(frame, _memo={})
                 return jnp.asarray(local.value(expr, arguments), dtype=dtype)
 
             if not isinstance(condition, jax.core.Tracer):
@@ -190,7 +175,7 @@ def interpret(node, frame, arguments):
         case Tensor(entries):
             return jnp.stack([value(entry, arguments) for entry in entries])
         case Indexed(x, indices):
-            key = _tensors.flat(_tensors.index_value(i, frame.indices) for i in indices)
+            key = _tensors.flat(_tensors.index_value(i, frame.environment) for i in indices)
             return jnp.asarray(value(x, arguments))[key]
         case ComponentTensor() | IndexSum():
             return _tensors.bound_tensor(node, frame, arguments)
@@ -209,7 +194,7 @@ def interpret(node, frame, arguments):
         case DirectionalDerivative(body, variables, point, direction):
             return _forms.directional(body, variables, point, direction, frame, arguments)
         case Coordinate(domain):
-            return jnp.asarray(frame.points[domain], dtype=float)
+            return jnp.asarray(frame.site.points[domain], dtype=float)
         case Gradient(x, domain):
             return _spatial.gradient(x, domain, frame, arguments)
         case Divergence(x, domain):
@@ -217,7 +202,7 @@ def interpret(node, frame, arguments):
         case Curl(x, domain):
             return _spatial.curl(x, domain, frame, arguments)
         case Integral(x, domain):
-            return integrate(domain, lambda local: local.value(x, arguments), frame)
+            return integrate(domain, lambda site: value(x, arguments, at=site), frame)
         case PullBack(x, mapping):
             return _spatial.pull_back(x, mapping, frame, arguments)
         case PushForward(x, mesh, law):

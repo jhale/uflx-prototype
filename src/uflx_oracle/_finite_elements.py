@@ -51,22 +51,6 @@ def cell_quadrature(cell):
     return basix.make_quadrature(cell_type, 12)
 
 
-def inside_cell(cell, point):
-    if cell.dimension == 0:
-        return True
-    facets = basix.cell.topology(cell.cell_type)[-2]
-    vertices = basix.geometry(cell.cell_type)
-    normals = basix.cell.facet_outward_normals(cell.cell_type)
-    return jnp.all(
-        jnp.stack(
-            [
-                (point - vertices[facet[0]]) @ normal <= 1e-9
-                for facet, normal in zip(facets, normals, strict=True)
-            ]
-        )
-    )
-
-
 @cache
 def _tabulator(element, orders):
     """Basix provides exact derivative tables even at traced evaluation points."""
@@ -108,14 +92,14 @@ def tabulate(element, point):
 def field_value(node, frame):
     space = node.space
     topology = space.domain
-    slot = frame.cells.get(topology, 0)
     coefficients = frame.input(node, f"coefficients:{node.label}")
     if isinstance(coefficients, AbstractExpression):
         return frame.value(coefficients)
     if callable(coefficients):
         # A form slot may supply a field directly on the reference cell.
-        return sample(coefficients, frame, topology)
-    basis = tabulate(space.element(slot), frame.points[topology])
+        return sample(coefficients, frame.site, topology)
+    slot = frame.site.slot(topology)
+    basis = tabulate(space.element(slot), frame.site.points[topology])
 
     local = jnp.asarray(coefficients)[np.asarray(space.cell_dofs[slot])]
     if space.block_shape:
@@ -125,9 +109,9 @@ def field_value(node, frame):
 
 def basis_value(node, frame):
     space = node.space
-    if frame.cells.get(space.domain, 0) != node.cell_slot:
+    if frame.site.slot(space.domain) != node.cell_slot:
         return np.zeros(node.value_shape)
-    basis = tabulate(space.element(node.cell_slot), frame.points[space.domain])
+    basis = tabulate(space.element(node.cell_slot), frame.site.points[space.domain])
     return basis.reshape(node.value_shape)
 
 
@@ -139,9 +123,9 @@ def vertex_element(cell_type):
 
 
 def vertex_value(topology, vertices, frame):
-    slot = frame.cells.get(topology, 0)
+    slot = frame.site.slot(topology)
     cell = topology.cell_types[slot]
-    point = frame.points[topology]
+    point = frame.site.points[topology]
     if is_basix_cell(cell) and cell.dimension:
         weights = tabulate(vertex_element(cell.cell_type), point)[:, 0]
     elif cell.num_vertices == cell.dimension + 1:

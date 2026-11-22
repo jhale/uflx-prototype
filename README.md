@@ -692,14 +692,19 @@ Pass field data to `Interpreter(environment)`, keyed by function nodes. A field 
 be a numerical value, a UFLx expression, or a callable of the current coordinate.
 Basix fields accept local coefficient arrays. Runtime arrays and extents accept
 node or label keys.
-Use `arguments=(u_value, v_value)` for ordered form slots, `indices={i: k}`
-for free indices, and `cells={domain: slot}` to select a local cell. A tuple-valued
-slot takes a tuple. Each call starts with a fresh evaluation frame. A form extends
-the function bindings, an index sum assigns indices, and quadrature supplies a
-point for each sample. The parent frame keeps its original bindings. A Python
-callback that re-enters the interpreter supplies `points` explicitly and sets
-`cells` when it needs a particular cell. Whole-field external operators receive
-a callable `field(point)` that retains the cell where the operator was evaluated.
+Use `arguments=(u_value, v_value)` for ordered form slots and `indices={i: k}`
+for free indices. A tuple-valued slot takes a tuple.
+
+The assembler selects the physical cell or facet and supplies its local data.
+A field bound to a callable takes just the evaluation point. When the expression
+uses a cell map or side map, the map identifies the local slot to read. A mesh
+integral visits each slot in its declared local configuration.
+
+For direct point evaluation, pass `cells={domain: slot}` when a coefficient
+or chart must be selected from several local slots. A single-cell domain uses
+slot zero. On an interior facet, each side map selects its own parent slot so
+both traces can be evaluated at the same point. An external operator that receives a
+whole field can sample it as `field(point)` on the selected slot.
 
 The oracle walks the original UFLx graph using JAX operations. A spatial
 derivative differentiates a function of the point. A directional derivative

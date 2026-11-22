@@ -47,11 +47,18 @@ def test_cell_point_and_free_index_are_explicit_inputs():
     V = space("vector", (2,), domain=SQUARE)
     u = function(V, "field")
     i = index("component")
-    interpreter = Interpreter({u: {0: lambda x: -x, 1: lambda x: 2 * x}})
+    point = {SQUARE: [0.2, 0.3]}
+    fields = {0: lambda x: -x, 1: lambda x: 2 * x}
+    interpreter = Interpreter({u: fields})
+    with pytest.raises(ValueError, match="local cell slot"):
+        interpreter.evaluate(u[i], indices={i: 1}, points=point)
     for slot, expected in enumerate((-0.3, 0.6)):
         assert interpreter.evaluate(
-            u[i], indices={i: 1}, points={SQUARE: [0.2, 0.3]}, cells={SQUARE: slot}
+            u[i], indices={i: 1}, points=point, cells={SQUARE: slot}
         ) == pytest.approx(expected)
+        # An assembler can bind the selected field directly.
+        local = Interpreter({u: fields[slot]})
+        assert local.evaluate(u[i], indices={i: 1}, points=point) == pytest.approx(expected)
 
 
 def test_callback_reentry_uses_its_explicit_point():
@@ -117,7 +124,7 @@ def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
     xi = VertexCoordinates(topology, ((0.0,), (1.0,), (0.0,)))[0]
     field = push_forward(xi, mesh, transformation_law((), 0))
     point = 0.2 * vertices[1] + 0.3 * vertices[2]
-    sample = dict(points={mesh: point}, cells={mesh: 0})
+    sample = dict(points={mesh: point})
     assert oracle.evaluate(field, **sample) == pytest.approx(0.2)
     expected = (1, -1 / height, 0)[:ambient_dimension]
     actual = oracle.evaluate(gradient(field, mesh), **sample)
@@ -195,20 +202,15 @@ def test_applied_field_reads_the_cell_where_the_form_samples_it():
     assert interpreter.evaluate(expression) == pytest.approx(1.5)
 
 
-@pytest.mark.parametrize(("cells_given", "solves"), [(False, 2), (True, 1)])
-def test_tangent_projector_reuses_the_located_reference_point(cells_given, solves):
-    from unittest.mock import patch
-
-    from uflx_oracle import _geometry
-
+def test_surface_gradient_uses_the_supplied_slot_on_a_shared_edge():
     from ..uflx_basix.surface import M
 
-    # The point lies in the second triangle, on the plane z = y - x/2.
-    point = {M: [0.2, 0.8, 0.7]}
-    cells = {M: 1} if cells_given else {}
-    with patch.object(_geometry, "reference_point", wraps=_geometry.reference_point) as invert:
-        gradient_z = Interpreter().evaluate(
-            gradient(coordinate(M)[2], M), points=point, cells=cells
-        )
-    np.testing.assert_allclose(gradient_z, np.array([-2, 4, 5]) / 9)
-    assert invert.call_count == solves
+    # The two triangles meet at this point but have different tangent planes.
+    points = {M: [0.5, 0.5, 0.25]}
+    expr = gradient(coordinate(M)[2], M)
+    oracle = Interpreter()
+    with pytest.raises(ValueError, match="local cell slot"):
+        oracle.evaluate(expr, points=points)
+    for slot, expected in enumerate((np.array([0, 2, 1]) / 5, np.array([-2, 4, 5]) / 9)):
+        actual = oracle.evaluate(expr, points=points, cells={M: slot})
+        np.testing.assert_allclose(actual, expected, atol=1e-14)
