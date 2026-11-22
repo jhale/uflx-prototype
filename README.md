@@ -718,37 +718,30 @@ value, derivative = jax.jit(jax.value_and_grad(at))(jnp.array([3., 4.]))
 # value = 13, derivative = [6, 1]
 ```
 
-Functions bound to fields or whole-field operators may use JAX operations on
-their arguments. For a pointwise JAX implementation, use
-`Pointwise(jnp.sin, traceable=True)` to trace its computation and derivatives directly. A whole-field operator may sample a supplied field at multiple
-points during the call. Under JAX transformations, bindings must be pure and
-captured fields containing traced inputs must be used within the trace.
-Cell selections, element types and extents that determine array shapes are static.
-
-To differentiate through an opaque library function, represent it as an
-`ExternalOperator` and bind its declared derivative action. For a pointwise
-scalar operation `law` with output on the operand's domain,
-the library can bind ordinary numerical functions.
+Bind an external operation to a JAX-traceable function. A field operand is a
+callable of its coordinates, so a binding can sample the same field at several
+points. Use `Pointwise` when the function takes operand values at the current
+point. JAX differentiates through either calling convention.
 
 ```python
-import math
+import jax.numpy as jnp
 from uflx._src.extensions.external_operators import external_operator
 from uflx_oracle.interpreter import Interpreter, Pointwise
 
 response = external_operator(law, (x[0],))
-interpreter = Interpreter({
-    law: Pointwise(math.sin),
-    law.derivative_action(): Pointwise(lambda x, dx: math.cos(x) * dx),
-})
+interpreter = Interpreter({law: Pointwise(jnp.sin)})
 interpreter.evaluate(gradient(response, plane), points=point)  # [cos(3), 0]
 ```
 
-`Pointwise` passes the operand values at the current point. Ordinary external
-bindings can still consume whole fields, for example to sample an operand at
-several points. In both cases the derivative action receives all operand values,
-followed by their directions in the same order. Repeated operands keep their slots.
-An independent operation needs no derivative action. When tracing a conditional,
-supply the bindings needed by both branches.
+If a library needs a custom derivative, it can define one on the JAX function
+with `jax.custom_jvp`. If you explicitly expand a UFLx derivative with
+`apply_external_derivatives`, bind the derivative-action operation that appears
+in the expanded expression.
+
+Under JAX transformations, bindings must be pure and captured fields containing
+traced inputs must be used within the trace. When tracing a conditional, supply
+the bindings needed by both branches. Cell selections, element types and extents
+that determine array shapes are static.
 
 ### Running the tests
 

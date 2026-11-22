@@ -113,7 +113,9 @@ def test_derivative_of_full_terminal_application():
 def test_external_operator_derivative_action_and_missing_rule():
     x = function(space("R", scalar_type="real"), "x")
     f = external_operator(Energy(), (x, x))
-    d = apply_external_derivatives(directional_derivative(f, x, x, num(3)))
+    derivative = directional_derivative(f, x, x, num(3))
+    assert value(derivative, {x: 2, Energy(): lambda a, b: a * b}) == 12
+    d = apply_external_derivatives(derivative)
     assert d.operation is EnergyTangent() and d.operands == (x, x, num(3), num(3))
     assert value(d, {x: 2, EnergyTangent(): lambda a, b, h, k: h * b + a * k}) == 12
     with pytest.raises(TypeError, match="no derivative action"):

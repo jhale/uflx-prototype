@@ -12,7 +12,7 @@ from ._geometry import (
     tangent_projector,
     transformed,
 )
-from ._tensors import size
+from ._tensors import inverse, size
 
 
 def gradient(operand, domain, frame, arguments):
@@ -25,9 +25,7 @@ def gradient(operand, domain, frame, arguments):
         value = frame.at({domain: p}).value(operand, arguments)
         return jnp.asarray(value, dtype=jnp.result_type(value, 0.0))
 
-    # Evaluate one direction at a time so an eager zero tangent to an opaque
-    # operator can be discarded without asking its library for a derivative.
-    result = jnp.stack([jax.jvp(field, (point,), (v,))[1] for v in jnp.eye(point.size)], axis=-1)
+    result = jax.jacfwd(field)(point)
     if isinstance(domain, Mesh) and domain.dimension < point.size:
         result = result @ tangent_projector(domain, frame)
     return result
@@ -79,5 +77,5 @@ def conormal(side, conormals, frame):
     J = jax.jacfwd(chart_of(side.parent[parent_slot], frame))(target)
     local = frame.at({inclusion.parameter_domain: ref})
     normal = jnp.real(local.value(conormals[slot]))
-    vector = jnp.linalg.pinv(J).T @ normal
+    vector = inverse(J).T @ normal
     return vector / jnp.linalg.norm(vector)

@@ -180,9 +180,7 @@ def interpret(node, frame, arguments):
         case Determinant(a):
             return _tensors.determinant(value(a))
         case Inverse(a):
-            matrix = jnp.asarray(value(a))
-            rows, columns = matrix.shape
-            return jnp.linalg.inv(matrix) if rows == columns else jnp.linalg.pinv(matrix)
+            return _tensors.inverse(jnp.asarray(value(a)))
         case BroadcastTo(x, shape):
             target = tuple(_tensors.size(n, frame) for n in shape)
             if 0 in target:

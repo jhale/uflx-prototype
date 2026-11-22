@@ -96,6 +96,34 @@ def test_unbounded_euclidean_space_has_no_unit_simplex_quadrature():
         Interpreter().evaluate(integral(num(1), EuclideanSpace(2)))
 
 
+@pytest.mark.parametrize("ambient_dimension", [2, 3])
+def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
+    from uflx.geometry import push_forward, transformation_law
+    from uflx_basix.nodes import VertexCoordinates
+    from uflx_basix.topology import static_topology
+
+    from ..uflx_basix.meshes import vertex_mesh
+
+    topology = static_topology((reference_simplex(2),), ((0, 1, 2),))
+    height = 1e-9
+    vertices = np.zeros((3, ambient_dimension))
+    vertices[1:, 0] = 1
+    vertices[2, 1] = height
+    mesh = vertex_mesh(topology, vertices)
+    oracle = Interpreter()
+    np.testing.assert_allclose(oracle.evaluate(integral(num(1), mesh)), height / 2, atol=0)
+
+    # The first reference coordinate is x - y / height on the physical triangle.
+    xi = VertexCoordinates(topology, ((0.0,), (1.0,), (0.0,)))[0]
+    field = push_forward(xi, mesh, transformation_law((), 0))
+    point = 0.2 * vertices[1] + 0.3 * vertices[2]
+    sample = dict(points={mesh: point}, cells={mesh: 0})
+    assert oracle.evaluate(field, **sample) == pytest.approx(0.2)
+    expected = (1, -1 / height, 0)[:ambient_dimension]
+    actual = oracle.evaluate(gradient(field, mesh), **sample)
+    np.testing.assert_allclose(actual, expected, atol=0)
+
+
 @pytest.mark.parametrize("cell_name", ["prism", "pyramid"])
 def test_basix_vertex_field_reproduces_reference_coordinates(cell_name):
     import basix

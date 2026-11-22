@@ -6,6 +6,7 @@ import jax.numpy as jnp
 from uflx.nodes import AbstractCoordinateDomain, Mesh
 
 from . import _finite_elements as elements
+from . import _tensors
 
 
 def chart_of(piece, frame):
@@ -17,20 +18,20 @@ def chart_of(piece, frame):
 
 
 def reference_point(chart, point, dim):
-    """Solve for the reference point and differentiate its stationarity condition."""
+    """Invert a cell chart by Newton iteration (Gauss-Newton for an embedded cell)."""
     initial = jnp.full(dim, 1 / (dim + 1))
     if not dim:
         return initial
     jacobian = jax.jacfwd(chart)
 
-    def stationarity(ref):
-        return jacobian(ref).T @ (chart(ref) - jnp.real(point))
+    def correction(ref):
+        return _tensors.solve(jacobian(ref), chart(ref) - jnp.real(point))
 
-    def solve(_, ref):
+    def iterate(correction, ref):
         def step(state):
             i, ref, _ = state
-            correction = jnp.linalg.pinv(jacobian(ref)) @ (chart(ref) - jnp.real(point))
-            return i + 1, ref - correction, jnp.linalg.norm(correction)
+            delta = correction(ref)
+            return i + 1, ref - delta, jnp.linalg.norm(delta)
 
         return jax.lax.while_loop(
             lambda state: (state[0] < 30) & (state[2] >= 1e-12),
@@ -41,7 +42,7 @@ def reference_point(chart, point, dim):
     def tangent_solve(linear, rhs):
         return jnp.linalg.solve(jax.jacfwd(linear)(jnp.zeros_like(rhs)), rhs)
 
-    return jax.lax.custom_root(stationarity, initial, solve, tangent_solve)
+    return jax.lax.custom_root(correction, initial, iterate, tangent_solve)
 
 
 def tangent_projector(domain, frame):
@@ -50,8 +51,8 @@ def tangent_projector(domain, frame):
     def candidate(piece):
         chart = chart_of(piece, frame)
         ref = reference_point(chart, point, domain.dimension)
-        tangent = jax.jacfwd(chart)(ref)
-        return ref, chart(ref), tangent @ jnp.linalg.pinv(tangent)
+        Q, _ = jnp.linalg.qr(jax.jacfwd(chart)(ref))
+        return ref, chart(ref), Q @ Q.T
 
     if domain in frame.cells:
         return candidate(domain[frame.cells[domain]])[2]
@@ -99,7 +100,7 @@ def integrate(domain, fn, frame):
             ref = local.points[piece.reference_cell]
             physical = chart(ref)
             J = jax.jacfwd(chart)(ref)
-            density = volume_factor(J) if len(ref) else 1.0
+            density = jnp.abs(jacobian_scale(J))
             sample = local.at(
                 {domain: physical, domain.ambient_domain: physical}, cells={domain: slot}
             )
@@ -113,14 +114,19 @@ def integrate(domain, fn, frame):
     return total
 
 
-def volume_factor(J):
-    return jnp.sqrt(jnp.abs(jnp.linalg.det(J.T @ J)))
+def jacobian_scale(J):
+    """Return the signed determinant for a square chart or the density for an embedded chart."""
+    if J.shape[0] == J.shape[1]:
+        return _tensors.determinant(J)
+    _, R = jnp.linalg.qr(J)
+    return jnp.abs(jnp.prod(jnp.diag(R)))
 
 
 def transformed(value, law, J):
     value = jnp.asarray(value)
     for axis, variance in enumerate(law.variances, start=value.ndim - len(law.variances)):
-        matrix = jnp.linalg.pinv(J).T if variance == "covariant" else J
+        matrix = _tensors.inverse(J).T if variance == "covariant" else J
         value = jnp.moveaxis(jnp.tensordot(value, matrix, axes=([axis], [1])), -1, axis)
-    scale = jnp.linalg.det(J) if J.shape[0] == J.shape[1] else volume_factor(J)
-    return value / scale**law.weight
+    if law.weight:
+        value = value / jacobian_scale(J) ** law.weight
+    return value

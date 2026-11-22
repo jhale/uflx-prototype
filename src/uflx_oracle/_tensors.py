@@ -1,4 +1,4 @@
-"""Runtime extents, index assignments and enumeration of bound tensor axes."""
+"""Tensor operations, runtime extents and index assignments."""
 
 from itertools import product
 
@@ -57,6 +57,18 @@ def bound_tensor(node, frame, arguments):
     if not entries:
         return jnp.empty(flat(extents), dtype=dtype)
     return jnp.asarray(entries, dtype=dtype).reshape(flat(extents))
+
+
+def solve(matrix, rhs):
+    """Solve a full-column-rank system, in the least-squares sense if rectangular."""
+    if matrix.shape[0] != matrix.shape[1]:
+        Q, R = jnp.linalg.qr(matrix)
+        return jnp.linalg.solve(R, Q.T @ rhs)
+    return jnp.linalg.solve(matrix, rhs)
+
+
+def inverse(matrix):
+    return solve(matrix, jnp.eye(matrix.shape[0], dtype=matrix.dtype))
 
 
 @jax.custom_jvp

@@ -15,7 +15,8 @@ class Interpreter:
     """A numerical reference interpreter with field and operation bindings.
 
     Bind fields to numbers, arrays, UFLx expressions or JAX-traceable functions of a point.
-    Use Pointwise and a declared derivative action for an opaque numerical library call.
+    Bind external operations to JAX-traceable functions. A field operand is a callable
+    of its coordinates. Wrap a function in Pointwise to pass values at the current point.
     Bind operator-valued functions to callables of their slots. Runtime arrays,
     coefficients and extents also accept their library labels.
     """

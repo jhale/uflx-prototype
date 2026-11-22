@@ -33,7 +33,7 @@ def test_jit_value_and_gradient_of_integrated_spatial_derivative():
     np.testing.assert_allclose(gradients, [8, 4])
 
 
-def test_jit_samples_whole_field_and_honours_declared_action():
+def test_jit_differentiates_whole_field_samples():
     cell = reference_simplex(1)
     a = function(space("scale", scalar_type="real"), "a")
     x = coordinate(cell)[0]
@@ -43,16 +43,11 @@ def test_jit_samples_whole_field_and_honours_declared_action():
     def read(field, scale):
         return scale * (field(jnp.array([0.25])) + field(jnp.array([0.75])))
 
-    def declared(field, scale, dfield, dscale):
-        # A distinct result detects accidental AD through the primal binding.
-        return 3 * (scale * dfield(jnp.array([1.0])) + dscale * field(jnp.array([1.0])))
+    def run(value):
+        return Interpreter({a: value, law: read}).evaluate(expression)
 
-    def run(value, library):
-        return Interpreter({a: value, law: read, **library}).evaluate(expression)
-
-    for library, expected in [({}, 4.0), ({law.derivative_action(): declared}, 12.0)]:
-        val, deriv = jax.jit(jax.value_and_grad(lambda v: run(v, library)))(2.0)
-        np.testing.assert_allclose([val, deriv], [4.0, expected])
+    val, deriv = jax.jit(jax.value_and_grad(run))(2.0)
+    np.testing.assert_allclose([val, deriv], [4.0, 4.0])
 
 
 def test_basix_tabulation_at_traced_points_and_coefficients():
@@ -77,22 +72,26 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
 
 
 @pytest.mark.parametrize("reference_precision", [False], indirect=True)
-def test_opaque_pointwise_declared_action_transposes_under_jit(reference_precision):
+def test_external_jax_custom_jvp_transposes_under_jit(reference_precision):
     a = function(space("scale", scalar_type="real"), "a")
     law = Energy()
-    expr = external_operator(law, (a, a))
-    bindings = {
-        law: Pointwise(lambda x, y: math.sin(x) * y),
-        law.derivative_action(): Pointwise(
-            lambda x, y, h, k: math.cos(x) * y * h + math.sin(x) * k
-        ),
-    }
+    expr = external_operator(law, (a, -a))
+
+    @jax.custom_jvp
+    def maximum(x, y):
+        return jnp.maximum(x, y)
+
+    @maximum.defjvp
+    def tangent(primals, directions):
+        x, y = primals
+        dx, dy = directions
+        # Choose the first operand's derivative at a tie.
+        return maximum(x, y), jnp.where(x >= y, dx, dy)
 
     def read(value):
-        return Interpreter({a: value, **bindings}).evaluate(expr)
+        return Interpreter({a: value, law: maximum}).evaluate(expr)
 
-    actual = jax.jit(jax.grad(read))(0.5)
-    np.testing.assert_allclose(actual, 0.5 * math.cos(0.5) + math.sin(0.5), rtol=1e-6)
+    assert jax.jit(jax.grad(read))(0.0) == 1.0
 
 
 def test_spatial_derivative_of_a_field_returned_by_a_library():
@@ -106,9 +105,6 @@ def test_spatial_derivative_of_a_field_returned_by_a_library():
         library = {
             a: value,
             law: lambda field: lambda p: p[0] * jnp.sin(field(p)),
-            law.derivative_action(): lambda field, dfield: (
-                lambda p: p[0] * jnp.cos(field(p)) * dfield(p)
-            ),
         }
         return Interpreter(library).evaluate(expr, points={cell: point})
 
@@ -124,6 +120,6 @@ def test_pointwise_jax_binding_is_traced_directly():
     expr = external_operator(law, (a,))
 
     def read(value):
-        return Interpreter({a: value, law: Pointwise(jnp.sin, traceable=True)}).evaluate(expr)
+        return Interpreter({a: value, law: Pointwise(jnp.sin)}).evaluate(expr)
 
     np.testing.assert_allclose(jax.jit(jax.grad(read))(0.5), math.cos(0.5))
