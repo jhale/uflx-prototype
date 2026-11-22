@@ -22,10 +22,10 @@ from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import function
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type
+from ..uflx.spaces import space
 from ..uflx_basix.integrals import K
 
 X = coordinate(K)

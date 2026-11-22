@@ -13,9 +13,10 @@ from uflx.forms import apply, form, function
 from uflx.nodes import Complex, EuclideanSpace, Float, Integer, ScalarType, Zero
 from uflx.passes import lower
 from uflx.tensors import determinant
-from uflx_basix.runtime import runtime_array, runtime_extent
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.library import runtime_array, runtime_extent
+from ..uflx.spaces import space
 
 
 def test_complex_is_a_terminal_and_stays_complex():

@@ -7,11 +7,12 @@ import uflx.geometry as geometry
 from uflx.forms import function
 from uflx.geometry import mesh
 from uflx.nodes import EuclideanSpace, Mesh
-from uflx_basix.basix_cells import basix_cell
-from uflx_basix.basix_nodes import BasixCell
-from uflx_basix.basix_spaces import basix_space
-from uflx_basix.cells import reference_simplex
+from uflx_basix.cells import cell
+from uflx_basix.nodes import BasixCell
 from uflx_basix.spaces import space
+
+from ..uflx.spaces import space as field_space
+from .cells import reference_simplex
 
 
 def vertex_mesh(T, vertices, *, label="x"):
@@ -19,7 +20,7 @@ def vertex_mesh(T, vertices, *, label="x"):
     vertices = np.asarray(vertices, dtype=float)
     shape = (vertices.shape[1],)
     if isinstance(T.cell_types[0], BasixCell):
-        X = basix_space("geometry", T, basix.ElementFamily.P, 1, shape=shape)
+        X = space("geometry", T, basix.ElementFamily.P, 1, shape=shape)
         x = function(X, label)
         values = np.empty(X.num_dofs)
         for j, row in enumerate(T.cells):
@@ -29,7 +30,7 @@ def vertex_mesh(T, vertices, *, label="x"):
         bindings = {f"coefficients:{label}": values}
     else:
         # ReferenceSimplex fixtures supply an affine field on each reference cell.
-        x = function(space("geometry", shape, T, scalar_type="real"), label)
+        x = function(field_space("geometry", shape, T, scalar_type="real"), label)
 
         def chart(row):
             origin = vertices[row[0]]
@@ -46,7 +47,7 @@ def push_forward(f, domain, law=None):
 
 
 # Named selections belong to these legacy test fixtures, not to topology nodes.
-# Production examples construct relations directly with uflx_basix.sides.
+# The public constructor for an explicit relation is uflx.geometry.side_map.
 _fixture_sides = {}
 
 
@@ -69,15 +70,15 @@ def side_domain(domain, topology, selection=None):
 
 
 def side_data(source, slot, name):
-    from uflx_basix.sides import outward_conormals
+    from ..uflx.sides import outward_conormals
 
     relation = _fixture_sides[source][name]
     return relation.entries[slot][1], outward_conormals(relation)[slot]
 
 
 def static_topology(cell_types, cells, sides=()):
-    from uflx_basix.sides import static_side_map
-    from uflx_basix.topology import static_topology as construct
+    from ..uflx.library import static_topology as construct
+    from ..uflx.sides import static_side_map
 
     source = construct(cell_types, cells)
     if sides:
@@ -93,8 +94,8 @@ def static_topology(cell_types, cells, sides=()):
 
 
 def tabulated_topology(label, cell_types, sides, positions):
-    from uflx_basix.sides import tabulated_side_map
-    from uflx_basix.topology import tabulated_topology as construct
+    from ..uflx.library import tabulated_topology as construct
+    from ..uflx.sides import tabulated_side_map
 
     source = construct(label, cell_types)
     _fixture_sides[source] = {
@@ -134,8 +135,8 @@ def grouped_topology(cell_types, cells, sides):
 def square(K):
     # The square of two triangles on the reference cell K, with its diagonal and boundary.
     I = (
-        basix_cell(basix.CellType.interval)
-        if K == basix_cell(basix.CellType.triangle)
+        cell(basix.CellType.interval)
+        if K == cell(basix.CellType.triangle)
         else reference_simplex(1)
     )
     T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
@@ -152,7 +153,7 @@ def square(K):
 
 def quadrilaterals():
     # The unit square as two quadrilaterals split at x = 1/2, with bilinear cell maps.
-    Q, I = basix_cell(basix.CellType.quadrilateral), basix_cell(basix.CellType.interval)
+    Q, I = cell(basix.CellType.quadrilateral), cell(basix.CellType.interval)
     T = grouped_topology((Q,), (((0, 1, 3, 4), (1, 2, 4, 5)),), ())
     D, bindings = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
     interior = grouped_topology((I,), (((1, 4),),), ((("+", T, 0), ("-", T, 0)),))
@@ -170,7 +171,7 @@ def quadrilaterals():
 def mixed():
     # The unit square as two triangles left of x = 1/2 and one quadrilateral right of it.
     Tri, Q, I = (
-        basix_cell(t)
+        cell(t)
         for t in (basix.CellType.triangle, basix.CellType.quadrilateral, basix.CellType.interval)
     )
     T = grouped_topology((Tri, Q), (((0, 1, 4), (0, 4, 3)), ((1, 2, 4, 5),)), ())

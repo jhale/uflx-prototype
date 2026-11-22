@@ -11,8 +11,9 @@ from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.spaces import space
 
 V = space("Hermite-independent-data", scalar_type="real")
 length, s, q0, m0, q1, m1 = (function(V, name) for name in ("L", "s", "q0", "m0", "q1", "m1"))

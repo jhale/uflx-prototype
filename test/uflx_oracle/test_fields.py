@@ -14,10 +14,10 @@ from uflx.calculus import coordinate, directional_derivative, gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import density, pull_back
 from uflx.tensors import index, index_sum, indexed
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, form_with_fixed_argument
+from ..uflx.spaces import space
 from ..uflx_basix.integrals import GEOMETRY, K
 from ..uflx_basix.integrals import D as MESH
 

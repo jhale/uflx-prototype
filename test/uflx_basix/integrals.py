@@ -1,8 +1,8 @@
 from uflx.forms import function
 from uflx.tensors import index
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 
+from ..uflx.spaces import space
+from .cells import reference_simplex
 from .meshes import grouped_topology, vertex_mesh
 
 K = reference_simplex(2)

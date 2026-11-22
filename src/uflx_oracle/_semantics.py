@@ -45,7 +45,6 @@ from uflx.nodes import (
     Tensor,
     Zero,
 )
-from uflx_basix.nodes import RuntimeArray
 
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors
@@ -230,8 +229,8 @@ def evaluate(node, bindings, site, arguments=()):
             return _spatial.push_forward(field(x), mesh, law, site, value)
         case Conormal(side, conormals):
             return _spatial.conormal(side, conormals, site, value)
-        case RuntimeArray():
-            return jnp.asarray(lookup(bindings, node, node.label))
         case _ if elements.is_basix_basis(node):
             return elements.basis_value(node, site)
+        case AbstractExpression(is_terminal=True, domain=None, argument_spaces=(), free_indices=()):
+            return jnp.asarray(lookup(bindings, node))
     raise TypeError(f"the reference interpreter has no evaluation rule for {type(node).__name__}")

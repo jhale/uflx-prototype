@@ -10,8 +10,9 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, form, function, partial
 from uflx.nodes import ScalarType
 from uflx.passes import apply_derivatives, expand_applications
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.spaces import space
 
 
 def lower(e):

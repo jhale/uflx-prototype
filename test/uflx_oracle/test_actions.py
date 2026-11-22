@@ -6,10 +6,10 @@ from uflx.arithmetic import add, conjugate, multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.tensors import component_tensor, index, indexed, tensor
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import ill_typed
+from ..uflx.spaces import space
 
 rng = np.random.default_rng(1)
 V, Vd = space("V"), dual_space(space("V"))

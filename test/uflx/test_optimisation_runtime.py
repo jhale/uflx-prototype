@@ -9,9 +9,9 @@ from uflx._src.optimisation import OptimisationOptions, optimise
 from uflx._src.tensors import identity
 from uflx.arithmetic import num
 from uflx.tensors import component_tensor, index, index_sum, tensor
-from uflx_basix.nodes import RuntimeArray
 
-from ..uflx.test_optimisation import nodes
+from .library import RuntimeArray
+from .test_optimisation import nodes
 
 
 def optimise_core(expression, iterations=3, max_region=60, loop_aware=True):
@@ -39,7 +39,8 @@ def test_alpha_atom_buckets_check_collisions_and_preserve_free_identities(monkey
     from uflx._src.algorithms.alpha import AlphaHasher
     from uflx._src.optimisation.encoding import decode, encode
     from uflx.forms import function
-    from uflx_basix.spaces import space
+
+    from .spaces import space
 
     V = space("alpha-atom", scalar_type="real")
     u, v = (function(V, name) for name in ("u", "v"))

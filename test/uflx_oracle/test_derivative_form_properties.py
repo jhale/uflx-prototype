@@ -9,10 +9,10 @@ from uflx.arithmetic import absolute, add, conjugate, multiply, num, real_part
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.nodes import ScalarType
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, ill_typed
+from ..uflx.spaces import space
 
 C, R = space("C"), space("R", scalar_type=ScalarType.real)
 

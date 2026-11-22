@@ -8,10 +8,10 @@ from uflx.forms import function
 from uflx.geometry import jacobian, mesh
 from uflx.nodes import EuclideanSpace, ScalarType
 from uflx.tensors import index
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 
 from ..testutil import table
+from ..uflx.spaces import space
+from .cells import reference_simplex
 from .meshes import grouped_topology, vertex_mesh
 
 

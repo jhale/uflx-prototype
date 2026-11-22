@@ -10,10 +10,10 @@ from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx.tensors import component_tensor, determinant, index, tensor
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import contains
+from ..uflx.spaces import space
 
 
 @pytest.mark.parametrize("n", [0, 1, 2, 3])

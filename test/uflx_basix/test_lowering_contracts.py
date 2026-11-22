@@ -5,8 +5,9 @@ from uflx.arithmetic import num
 from uflx.calculus import directional_derivative, integral
 from uflx.forms import function
 from uflx.nodes import EuclideanSpace, ScalarType
-from uflx_basix.runtime import runtime_array
-from uflx_basix.spaces import space
+
+from ..uflx.library import runtime_array
+from ..uflx.spaces import space
 
 
 def test_later_compiler_capabilities_are_not_checked():
@@ -21,11 +22,11 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
     import basix
 
     from uflx._src.meshes import mesh
-    from uflx_basix.basix_cells import basix_cell
+    from uflx_basix.cells import cell
 
     from .meshes import square
 
-    D = square(basix_cell(basix.CellType.triangle))[0]
+    D = square(cell(basix.CellType.triangle))[0]
     q = function(
         space("coordinates", value_shape=(2,), domain=D.topology, scalar_type=ScalarType.real), "q"
     )

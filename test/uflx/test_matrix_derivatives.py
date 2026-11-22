@@ -3,7 +3,8 @@
 import pytest
 
 from uflx.tensors import determinant, index, inverse
-from uflx_basix.runtime import runtime_array, runtime_extent
+
+from .library import runtime_array, runtime_extent
 
 
 @pytest.mark.parametrize("operation", [determinant, inverse])

@@ -9,11 +9,10 @@ from uflx.forms import function
 from uflx.geometry import cell_map, mesh
 from uflx.nodes import EuclideanSpace, ScalarType, Zero
 from uflx.tensors import gathered_index, index, indexed
-from uflx_basix.cells import reference_simplex
-from uflx_basix.indices import index_table
-from uflx_basix.runtime import runtime_array
-from uflx_basix.spaces import space
 
+from ..uflx.library import index_table, runtime_array
+from ..uflx.spaces import space
+from .cells import reference_simplex
 from .meshes import grouped_topology
 
 

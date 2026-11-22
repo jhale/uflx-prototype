@@ -8,14 +8,19 @@ from uflx.arithmetic import num
 from uflx.calculus import coordinate
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import tensor
-from uflx_basix.basix_cells import basix_cell
-from uflx_basix.basix_spaces import basix_space
+from uflx_basix.cells import cell
 from uflx_basix.interpolation import interpolate
+from uflx_basix.spaces import space
+
+from ..uflx.library import static_topology
 
 
 def test_incompatible_inputs_and_sampling_rules_are_rejected():
-    K = basix_cell(basix.CellType.triangle)
-    V = basix_space("target", K, basix.ElementFamily.P, 1)
+    K = cell(basix.CellType.triangle)
+    V = space("target", K, basix.ElementFamily.P, 1)
+    topology = static_topology((K,), ((0, 1, 2),))
+    with pytest.raises(ValueError, match="reference cell"):
+        interpolate(num(1), space("physical target", topology, basix.ElementFamily.P, 1))
     with pytest.raises(ValueError, match="value shape"):
         interpolate(coordinate(K), V)
     with pytest.raises(ValueError, match="domain"):
@@ -23,7 +28,7 @@ def test_incompatible_inputs_and_sampling_rules_are_rejected():
     with pytest.raises(ValueError, match="sampling matrix"):
         interpolate(num(1), V, sampling_rule=(np.zeros((2, 2)), np.zeros((3, 3))))
     with pytest.raises(NotImplementedError, match="derivative DOFs"):
-        H = basix_space("Hermite", K, basix.ElementFamily.Hermite, 3)
+        H = space("Hermite", K, basix.ElementFamily.Hermite, 3)
         interpolate(num(1), H)
 
 
@@ -44,8 +49,8 @@ interpolation_cases = pytest.mark.parametrize(
 
 
 def interpolation_case(cell_type, family, degree, shape):
-    K = basix_cell(cell_type)
-    V = basix_space("target", K, family, degree, shape=shape)
+    K = cell(cell_type)
+    V = space("target", K, family, degree, shape=shape)
     x = coordinate(K)
 
     def expression(shape, offset=1):

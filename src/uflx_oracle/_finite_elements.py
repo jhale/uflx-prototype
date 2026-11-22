@@ -9,7 +9,6 @@ import jax.numpy as jnp
 import numpy as np
 
 from uflx.nodes import AbstractExpression
-from uflx_basix.nodes import ReferenceSimplex
 
 from ._context import lookup
 
@@ -20,11 +19,7 @@ except ModuleNotFoundError as error:
         raise
     basix = None
 else:
-    from uflx_basix.basix_nodes import BasixBasis, BasixCell, BasixSpace
-
-
-def is_basix_cell(cell):
-    return basix is not None and isinstance(cell, BasixCell)
+    from uflx_basix.nodes import BasixBasis, BasixSpace
 
 
 def is_basix_space(space):
@@ -33,23 +28,6 @@ def is_basix_space(space):
 
 def is_basix_basis(node):
     return basix is not None and isinstance(node, BasixBasis)
-
-
-@cache
-def cell_quadrature(cell):
-    """Return reference points and weights for numerical integration."""
-    if cell.dimension == 0:
-        return np.empty((1, 0)), np.ones(1)
-    if is_basix_cell(cell):
-        cell_type = cell.cell_type
-    elif isinstance(cell, ReferenceSimplex) and 1 <= cell.dimension <= 3:
-        if basix is None:
-            raise ModuleNotFoundError("simplex quadrature requires fenics-basix", name="basix")
-        simplices = (basix.CellType.interval, basix.CellType.triangle, basix.CellType.tetrahedron)
-        cell_type = simplices[cell.dimension - 1]
-    else:
-        raise NotImplementedError(f"no reference quadrature for {cell}")
-    return basix.make_quadrature(cell_type, 12)
 
 
 @cache

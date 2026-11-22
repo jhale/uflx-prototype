@@ -10,18 +10,18 @@ import pytest
 from uflx._src.extensions.external_operators import external_operator
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import function
-from uflx_basix.cells import reference_simplex
 from uflx_oracle.interpreter import Interpreter, Pointwise
 
 from ..external_operators import Energy
-from ..uflx.spaces import space
+from ..uflx.spaces import space as field_space
+from ..uflx_basix.cells import reference_simplex
 from .test_differentiation import Sine
 
 
 def test_jit_value_and_gradient_of_integrated_spatial_derivative():
     cell = reference_simplex(1)
     x = coordinate(cell)[0]
-    a = function(space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", scalar_type="real"), "a")
     slope = gradient(a * x * x, cell)[0]
     expression = integral(slope * slope, cell)
 
@@ -35,7 +35,7 @@ def test_jit_value_and_gradient_of_integrated_spatial_derivative():
 
 def test_jit_differentiates_whole_field_samples():
     cell = reference_simplex(1)
-    a = function(space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", scalar_type="real"), "a")
     x = coordinate(cell)[0]
     law = Energy()
     expression = external_operator(law, (a * x, a))
@@ -53,17 +53,17 @@ def test_jit_differentiates_whole_field_samples():
 def test_basix_tabulation_at_traced_points_and_coefficients():
     import basix
 
-    from uflx_basix.basix_cells import basix_cell
-    from uflx_basix.basix_spaces import basix_space
+    from uflx_basix.cells import cell
+    from uflx_basix.spaces import space
 
-    cell = basix_cell(basix.CellType.interval)
-    V = basix_space("quadratic", cell, basix.ElementFamily.P, 2)
+    K = cell(basix.CellType.interval)
+    V = space("quadratic", K, basix.ElementFamily.P, 2)
     u = function(V, "u")
     dofs = V.element(0).points[:, 0] ** 2
-    slope = gradient(u, cell)[0]
+    slope = gradient(u, K)[0]
 
     def sample(dofs, point):
-        return Interpreter({u: dofs}).evaluate(slope, points={cell: point})
+        return Interpreter({u: dofs}).evaluate(slope, points={K: point})
 
     f = jax.jit(jax.vmap(jax.value_and_grad(sample, argnums=1), in_axes=(None, 0)))
     values, hessians = f(dofs, jnp.array([[0.375], [0.75]]))
@@ -74,18 +74,18 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
 def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
     import basix
 
-    from uflx_basix.basix_cells import basix_cell
-    from uflx_basix.basix_spaces import basix_space
+    from uflx_basix.cells import cell
+    from uflx_basix.spaces import space
 
-    cell = basix_cell(basix.CellType.tetrahedron)
-    V = basix_space("cubic", cell, basix.ElementFamily.P, 3)
+    K = cell(basix.CellType.tetrahedron)
+    V = space("cubic", K, basix.ElementFamily.P, 3)
     u = function(V, "u")
     r, s, t = V.element(0).points.T
     oracle = Interpreter({u: r * s * t + r * r * s})
-    dr_ds = gradient(gradient(u, cell), cell)[0, 1]
+    dr_ds = gradient(gradient(u, K), K)[0, 1]
 
     def sample(point):
-        return oracle.evaluate(dr_ds, points={cell: point})
+        return oracle.evaluate(dr_ds, points={K: point})
 
     points = jnp.array([[0.2, 0.3, 0.1], [0.4, 0.1, 0.25]])
     mixed, derivatives = jax.jit(jax.vmap(jax.value_and_grad(sample)))(points)
@@ -95,7 +95,7 @@ def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
 
 @pytest.mark.parametrize("reference_precision", [False], indirect=True)
 def test_external_jax_custom_jvp_transposes_under_jit(reference_precision):
-    a = function(space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", scalar_type="real"), "a")
     law = Energy()
     expr = external_operator(law, (a, -a))
 
@@ -118,7 +118,7 @@ def test_external_jax_custom_jvp_transposes_under_jit(reference_precision):
 
 def test_spatial_derivative_of_a_field_returned_by_a_library():
     cell = reference_simplex(1)
-    a = function(space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", scalar_type="real"), "a")
     x = coordinate(cell)[0]
     law = Sine()
     expr = external_operator(law, (a * x,))
@@ -137,7 +137,7 @@ def test_spatial_derivative_of_a_field_returned_by_a_library():
 
 
 def test_pointwise_jax_binding_is_traced_directly():
-    a = function(space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", scalar_type="real"), "a")
     law = Sine()
     expr = external_operator(law, (a,))
 

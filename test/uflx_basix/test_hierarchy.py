@@ -2,9 +2,9 @@ from uflx._src import nodes
 from uflx._src.meshes import cell_map
 from uflx._src.nodes import CellMap, Coordinate, GatheredIndex, Indexed, PullBack
 from uflx._src.passes import pullbacks
-from uflx_basix.cells import reference_simplex
-from uflx_basix.nodes import IndexTable
 
+from ..uflx.library import IndexTable
+from .cells import reference_simplex
 from .integrals import D, c
 
 

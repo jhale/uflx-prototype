@@ -10,10 +10,10 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import Boolean, EuclideanSpace
 from uflx.passes import expand_applications, lower
 from uflx.tensors import component_tensor, index, index_sum, tensor
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..external_operators import Energy, EnergyTangent
+from ..uflx.spaces import space
 
 
 def value(expression, env=None, indices=None):

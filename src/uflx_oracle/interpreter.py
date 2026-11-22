@@ -18,8 +18,8 @@ class Interpreter:
     Bind fields to numbers, arrays, UFLx expressions or JAX-traceable functions of a point.
     Bind external operations to JAX-traceable functions. A field operand is a callable
     of its coordinates. Wrap a function in Pointwise to pass values at the current point.
-    Bind operator-valued functions to callables of their slots. Runtime arrays,
-    coefficients and extents also accept their library labels.
+    Bind operator-valued functions to callables of their slots. Domain-free input terminals
+    with no free indices or slots accept arrays. Inputs and extents also accept library labels.
     """
 
     def __init__(self, environment: Mapping | None = None):

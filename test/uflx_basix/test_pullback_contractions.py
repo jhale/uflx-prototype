@@ -5,9 +5,9 @@ from uflx._src.nodes import CellMap
 from uflx.forms import function
 from uflx.geometry import cell_map, jacobian, mesh
 from uflx.nodes import EuclideanSpace, ScalarType
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 
+from ..uflx.spaces import space
+from .cells import reference_simplex
 from .meshes import grouped_topology
 
 

@@ -15,11 +15,11 @@ from uflx.geometry import cell_map, domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, indexed
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type, table
+from ..uflx.spaces import space
+from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.integrals import GEOMETRY, D, u
 from ..uflx_basix.meshes import side_domain, side_map, tabulated_topology
 from ..uflx_basix.surface import GEOMETRY as SURFACE_GEOMETRY

@@ -9,10 +9,10 @@ from uflx.arithmetic import absolute, conjugate, multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import form, function
 from uflx.nodes import ScalarType
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import ill_typed, keeps_static_type
+from ..uflx.spaces import space
 
 # Derivatives in two unknowns at once, as for a mixed problem.
 C, R = space("C"), space("R", scalar_type=ScalarType.real)

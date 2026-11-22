@@ -10,11 +10,11 @@ from uflx.forms import function
 from uflx.geometry import density, domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index, index_sum, tensor
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import table
+from ..uflx.spaces import space
+from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.meshes import grouped_topology, vertex_mesh
 
 

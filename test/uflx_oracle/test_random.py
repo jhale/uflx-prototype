@@ -10,10 +10,10 @@ from uflx.arithmetic import add, conjugate, divide, multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import form, function
 from uflx.tensors import index, index_sum, indexed, tensor
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, form_with_fixed_argument, pairing
+from ..uflx.spaces import space
 
 V = space("V")
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")

@@ -2,17 +2,16 @@
 
 from operator import index
 
-import basix
 import numpy as np
 
 from uflx.algorithms import derived_index, derived_indices, map_values, memoized
 from uflx.calculus import integral
 from uflx.geometry import domain_map, pull_back
-from uflx.nodes import EuclideanSpace, Float, Integral, Zero
+from uflx.nodes import EuclideanSpace, Integral, Zero
 from uflx.passes import expand_pull_backs
-from uflx.tensors import component_tensor, index_sum, indexed, tensor
+from uflx.tensors import component_tensor, index_sum, indexed
 
-from .basix_nodes import BasixCell
+from .nodes import BasixCell, table
 
 
 def apply_quadrature(f, degree=None, *, select=None):
@@ -34,33 +33,12 @@ def apply_quadrature(f, degree=None, *, select=None):
         if choice is None:
             return e
         K = e.integration_domain
-        sampled = (
-            explicit_rule(e.expression, K, *choice)
-            if isinstance(choice, tuple)
-            else rule(e.expression, K, choice)
-        )
+        points, weights = choice if isinstance(choice, tuple) else K.quadrature(index(choice))
+        sampled = explicit_rule(e.expression, K, points, weights)
         # Keep the replacement domain-free while rebuilding its parents.
-        result = integral(sampled, EuclideanSpace(0))
-        return result if select is None else expand_pull_backs(result)
+        return expand_pull_backs(integral(sampled, EuclideanSpace(0)))
 
-    result = memoized(visit)(f)
-    # The fixed-degree pass also expands existing pull-backs outside the integrals.
-    return expand_pull_backs(result) if select is None else result
-
-
-def rule(g, K, degree):
-    degree = index(degree)
-    if K.dimension == 0:
-        # A point has one quadrature point of weight one, with no coordinates.
-        return pull_back(g, domain_map(EuclideanSpace(0), Zero((0,), (), (), "real"), K))
-    if K.cell_type in (basix.CellType.quadrilateral, basix.CellType.hexahedron):
-        return product_rule(g, K, degree)
-    X, w = basix.make_quadrature(K.cell_type, degree)
-    points, weights = constant(X), constant(w)
-    # The index is named by the rule alone, so the geometry at the points is one node in every
-    # integral, and the pull-back makes an inner sum over the same rule fresh.
-    q = derived_index("compiler.quadrature", K, degree)
-    return weighted_sum(g, K, points[q], weights[q], (q,))
+    return memoized(visit)(f)
 
 
 def explicit_rule(g, K, points, weights):
@@ -69,34 +47,9 @@ def explicit_rule(g, K, points, weights):
         raise ValueError("expected weights of shape (n,) and reference points of shape (n, tdim)")
     if not weights.size:
         return Zero(g.value_shape, g.free_indices, g.argument_spaces, g.scalar_type)
-    points = constant(points) if K.dimension else Zero((weights.size, 0), (), (), "real")
-    weights = constant(weights)
-    q = derived_index("compiler.quadrature", K, points, weights)
-    return weighted_sum(g, K, points[q], weights[q], (q,))
-
-
-def product_rule(g, K, degree):
-    # Coordinate k of the points reads only its own index, which tabulation reads as separable.
-    X, w = basix.make_quadrature(basix.CellType.interval, degree)
-    X, w = constant(X[:, 0]), constant(w)
-    q = derived_indices("compiler.quadrature", (K, degree), K.dimension)
-    points = tensor(tuple(X[i] for i in q))
-    weight = w[q[0]]
-    for i in q[1:]:
-        weight = weight * w[i]
-    return weighted_sum(g, K, points, weight, q)
-
-
-def weighted_sum(g, K, points, weight, quadrature_indices):
+    points, weights = table(points), table(weights)
+    q = derived_index("uflx_basix.quadrature", K, points, weights)
     # IndexSum acts on a scalar, leaving the integrand's value axes and free indices intact.
-    axes = derived_indices("compiler.quadrature_component", (g,), len(g.value_shape))
-    value = pull_back(indexed(g, axes), domain_map(EuclideanSpace(0), points, K))
-    return component_tensor(index_sum(weight * value, quadrature_indices), axes)
-
-
-def constant(values):
-    # An array of numbers as a Tensor of Floats, or a Float.
-    values = np.asarray(values)
-    if values.ndim == 0:
-        return Float(float(values))
-    return tensor(tuple(map(constant, values)))
+    axes = derived_indices("uflx_basix.quadrature_component", (g,), len(g.value_shape))
+    value = pull_back(indexed(g, axes), domain_map(EuclideanSpace(0), points[q], K))
+    return component_tensor(index_sum(weights[q] * value, (q,)), axes)

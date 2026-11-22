@@ -12,9 +12,9 @@ from uflx.forms import function
 from uflx.geometry import mesh, pull_back, transformation_law
 from uflx.nodes import EuclideanSpace, ScalarType
 from uflx.passes import apply_gradients, expand_pull_backs
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 
+from ..uflx.spaces import space
+from .cells import reference_simplex
 from .meshes import grouped_topology, push_forward
 
 

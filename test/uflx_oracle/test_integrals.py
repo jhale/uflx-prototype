@@ -15,11 +15,11 @@ from uflx.forms import function
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, indexed, tensor
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, keeps_static_type
+from ..uflx.spaces import space
+from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.integrals import GEOMETRY, SQUARE, D, I, K, c, u
 from ..uflx_basix.meshes import grouped_topology, vertex_mesh
 

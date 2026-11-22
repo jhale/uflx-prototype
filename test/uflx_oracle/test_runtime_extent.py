@@ -9,11 +9,11 @@ from uflx.calculus import coordinate, integral
 from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index_sum
-from uflx_basix.cells import reference_simplex
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import contains
-from ..uflx_basix.test_runtime_extent import i, points, q, weights
+from ..uflx.test_runtime_extent import i, points, q, weights
+from ..uflx_basix.cells import reference_simplex
 
 T, POINT = reference_simplex(2), EuclideanSpace(0)
 X = coordinate(T)

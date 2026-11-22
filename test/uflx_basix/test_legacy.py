@@ -1,7 +1,7 @@
 import basix
 
 from uflx._src.nodes import Conjugate
-from uflx_basix.basix_cells import basix_cell
+from uflx_basix.cells import cell
 
 from .legacy import (
     Coefficient,
@@ -19,7 +19,7 @@ from .legacy import (
 )
 from .meshes import grouped_topology, vertex_mesh
 
-K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
+K, I = cell(basix.CellType.triangle), cell(basix.CellType.interval)
 T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 BOUNDARY = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("inside", T, 0),),))
 LOWER = grouped_topology((K,), (((0, 1, 2),),), ((("inside", T, 0),),))

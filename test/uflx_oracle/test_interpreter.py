@@ -8,14 +8,14 @@ from uflx.calculus import coordinate, curl, divergence, gradient, integral
 from uflx.forms import apply, form, function
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index, tensor
-from uflx_basix.cells import reference_simplex
 from uflx_oracle.interpreter import Interpreter
 
-from ..uflx.spaces import space
+from ..uflx.spaces import space as field_space
+from ..uflx_basix.cells import reference_simplex
 
 
 def test_evaluation_reads_current_bindings_and_form_arguments():
-    V = space("coefficient", scalar_type="real")
+    V = field_space("coefficient", scalar_type="real")
     u = function(V, "u")
     env = {u: lambda: 3}
     interpreter = Interpreter(env)
@@ -31,11 +31,10 @@ def test_evaluation_reads_current_bindings_and_form_arguments():
 
 
 def test_cell_point_and_free_index_are_explicit_inputs():
-    from uflx_basix.spaces import space
-
+    from ..uflx.spaces import space as field_space
     from ..uflx_basix.integrals import SQUARE
 
-    V = space("vector", (2,), domain=SQUARE)
+    V = field_space("vector", (2,), domain=SQUARE)
     u = function(V, "field")
     i = index("component")
     point = {SQUARE: [0.2, 0.3]}
@@ -55,7 +54,7 @@ def test_cell_point_and_free_index_are_explicit_inputs():
 def test_callback_reentry_uses_its_explicit_point():
     P = EuclideanSpace(1)
     x = coordinate(P)[0]
-    u = function(space("field", domain=P, scalar_type="real"), "u")
+    u = function(field_space("field", domain=P, scalar_type="real"), "u")
 
     def shifted(point):
         with pytest.raises(KeyError):
@@ -97,8 +96,8 @@ def test_unbounded_euclidean_space_has_no_unit_simplex_quadrature():
 @pytest.mark.parametrize("ambient_dimension", [2, 3])
 def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
     from uflx.geometry import push_forward, transformation_law
-    from uflx_basix.topology import static_topology
 
+    from ..uflx.library import static_topology
     from ..uflx_basix.meshes import vertex_mesh
 
     topology = static_topology((reference_simplex(2),), ((0, 1, 2),))
@@ -107,7 +106,7 @@ def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
     vertices[1:, 0] = 1
     vertices[2, 1] = height
     mesh, geometry = vertex_mesh(topology, vertices)
-    xi = function(space("reference coordinate", domain=topology, scalar_type="real"), "xi")
+    xi = function(field_space("reference coordinate", domain=topology, scalar_type="real"), "xi")
     oracle = Interpreter(geometry | {xi: lambda p: p[0]})
     np.testing.assert_allclose(oracle.evaluate(integral(num(1), mesh)), height / 2, atol=0)
 
@@ -125,13 +124,14 @@ def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
 def test_basix_vertex_field_reproduces_reference_coordinates(cell_name):
     import basix
 
-    from uflx_basix.basix_cells import basix_cell
-    from uflx_basix.topology import static_topology
+    from uflx_basix.cells import cell
+
+    from ..uflx.library import static_topology
 
     cell_type = basix.CellType[cell_name]
-    cell = basix_cell(cell_type)
+    K = cell(cell_type)
     vertices = tuple(tuple(map(float, vertex)) for vertex in basix.geometry(cell_type))
-    topology = static_topology((cell,), (tuple(range(len(vertices))),))
+    topology = static_topology((K,), (tuple(range(len(vertices))),))
     from ..uflx_basix.meshes import vertex_mesh
 
     domain, geometry = vertex_mesh(topology, vertices)
@@ -167,15 +167,15 @@ assert Interpreter().evaluate(num(2) * num(3)) == 6
 def test_basix_form_slot_accepts_an_applied_field():
     import basix
 
-    from uflx_basix.basix_cells import basix_cell
-    from uflx_basix.basix_spaces import basix_space
+    from uflx_basix.cells import cell
+    from uflx_basix.spaces import space
 
-    cell = basix_cell(basix.CellType.triangle)
-    V = basix_space("trial", cell, basix.ElementFamily.P, 1)
+    K = cell(basix.CellType.triangle)
+    V = space("trial", K, basix.ElementFamily.P, 1)
     u = function(V, "u")
     identity = form(u, (u,))
-    field = coordinate(cell)[0]
-    point = {cell: [0.2, 0.3]}
+    field = coordinate(K)[0]
+    point = {K: [0.2, 0.3]}
     interpreter = Interpreter()
     assert interpreter.evaluate(apply(identity, (field,)), points=point) == pytest.approx(0.2)
     assert interpreter.evaluate(identity, (lambda x: x[1],), points=point) == pytest.approx(0.3)
@@ -184,7 +184,7 @@ def test_basix_form_slot_accepts_an_applied_field():
 def test_applied_field_reads_the_cell_where_the_form_samples_it():
     from ..uflx_basix.integrals import GEOMETRY, D
 
-    V = space("piecewise", domain=D, scalar_type="real")
+    V = field_space("piecewise", domain=D, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     expression = apply(form(integral(v, D), (v,)), (u,))
 

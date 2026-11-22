@@ -12,14 +12,16 @@ from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import function
 from uflx.geometry import domain_map, pull_back
 from uflx.passes import expand_arithmetic
-from uflx_basix.basix_cells import basix_cell
-from uflx_basix.cells import reference_simplex
-from uflx_basix.inclusions import affine_map, reference_normal
-from uflx_basix.sides import outward_conormal
+from uflx_basix.cells import cell
+from uflx_basix.interpolation import interpolate
 from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import table
+from ..uflx.inclusions import affine_map, reference_normal
+from ..uflx.sides import outward_conormal
+from ..uflx.spaces import space as field_space
+from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.meshes import (
     mixed,
     quadrilaterals,
@@ -34,16 +36,24 @@ def value(e, P=None, X=()):
     return np.real(Interpreter().evaluate(e, points=points))
 
 
+def test_reference_interpolation_uses_the_element_sampling_points():
+    K = cell(basix.CellType.triangle)
+    V = space("P1", K, basix.ElementFamily.P, 1)
+    x = coordinate(K)[0]
+    interpolant = interpolate(x * x, V)
+    assert value(interpolant, K, (0.25, 0.5)) == pytest.approx(0.25)
+
+
 @pytest.mark.parametrize(
-    ("n", "cell"),
+    ("n", "cell_type"),
     [
         (1, basix.CellType.interval),
         (2, basix.CellType.triangle),
         (3, basix.CellType.tetrahedron),
     ],
 )
-def test_a_basix_simplex_is_the_unit_simplex(n, cell):
-    K = basix_cell(cell)
+def test_a_basix_simplex_is_the_unit_simplex(n, cell_type):
+    K = cell(cell_type)
     assert (K.dimension, K.num_vertices) == (n, n + 1)
     simplex = reference_simplex(n)
     assert np.allclose(value(K.vertices), value(simplex.vertices))
@@ -53,22 +63,22 @@ def test_a_basix_simplex_is_the_unit_simplex(n, cell):
 
 
 @pytest.mark.parametrize(
-    ("n", "cell"), [(2, basix.CellType.triangle), (3, basix.CellType.tetrahedron)]
+    ("n", "cell_type"), [(2, basix.CellType.triangle), (3, basix.CellType.tetrahedron)]
 )
-def test_the_tabulated_facet_normals_are_the_cofactor_normals(n, cell):
-    K, F = basix_cell(cell), reference_simplex(n - 1)
+def test_the_tabulated_facet_normals_are_the_cofactor_normals(n, cell_type):
+    K, F = cell(cell_type), reference_simplex(n - 1)
     V = value(K.vertices)
-    for f, facet in enumerate(basix.cell.topology(cell)[n - 1]):
+    for f, facet in enumerate(basix.cell.topology(cell_type)[n - 1]):
         points = table([[float(x) for x in V[v]] for v in facet])
         A = domain_map(F, affine_map(F, points), K)
         m = value(reference_normal(A, points, K), F, np.full(n - 1, 0.2))
-        tabulated = value(K.facet_normals)[f]
+        tabulated = basix.cell.facet_outward_normals(cell_type)[f]
         assert np.allclose(m / np.linalg.norm(m), tabulated)
 
 
 def facet_integrals(K):
     D, E, B, geometry = square(K)
-    u = function(space("V", domain=D), "u")
+    u = function(field_space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     x = coordinate(D)
     env = geometry | {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
@@ -91,12 +101,12 @@ def facet_integrals(K):
 
 def test_a_mesh_of_basix_triangles_integrates_as_one_of_unit_simplices():
     assert np.allclose(
-        facet_integrals(basix_cell(basix.CellType.triangle)), facet_integrals(reference_simplex(2))
+        facet_integrals(cell(basix.CellType.triangle)), facet_integrals(reference_simplex(2))
     )
 
 
 def test_library_conormals_are_separate_from_the_inclusion():
-    for K in (basix_cell(basix.CellType.triangle), reference_simplex(2)):
+    for K in (cell(basix.CellType.triangle), reference_simplex(2)):
         _, E, _, _ = square(K)
         A, m = side_data(E.topology, 0, "+")
         vector = value(m, A.parameter_domain, (0.5,))
@@ -106,7 +116,7 @@ def test_library_conormals_are_separate_from_the_inclusion():
 
 def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
     D, E, B, geometry = quadrilaterals()
-    u = function(space("V", domain=D), "u")
+    u = function(field_space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     x = coordinate(D)
     env = geometry | {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
@@ -137,7 +147,7 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
         and len(D.topology.cell_types) == 3
         and len(E.topology.cell_types) == 2
     )
-    u = function(space("V", domain=D), "u")
+    u = function(field_space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     # A function that differs between the cells, keyed by the local cell slot.
     x = coordinate(D)

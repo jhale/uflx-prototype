@@ -11,8 +11,9 @@ from uflx._src.passes import derivatives
 from uflx.arithmetic import conjugate
 from uflx.forms import form, function
 from uflx.nodes import Integer
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.spaces import space
 
 
 @pytest.mark.parametrize("antilinear", [False, True])

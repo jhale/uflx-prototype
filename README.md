@@ -2,7 +2,7 @@
 
 The `uflx-spec-interpreter` distribution provides three Python packages. Import
 language operations from the `uflx` submodules, use `uflx_basix` for concrete
-cells, spaces, quadrature and DOF maps, and evaluate expressions with `uflx_oracle`.
+reference cells, finite elements, interpolation and quadrature, and evaluate expressions with `uflx_oracle`.
 The experimental form compiler and its tests live on the `jhale/experimental-compiler` branch.
 
 | Public module | What to import |
@@ -166,19 +166,33 @@ an independent numerical reference interpreter.
 The oracle imports the Basix extension and the core language. The Basix
 extension imports the core. `test/uflx/test_boundaries.py` checks this order.
 
-- `uflx`: the core, with only what the specification defines
-- `uflx_basix`: a language extension, with the classes that the specification
-  leaves to a library or to an extension, `IndexTable`, `RuntimeExtent`,
-  `RuntimeArray`, the space `Space`, the reference cell `ReferenceSimplex`, and the
-  topologies `StaticTopology` and `TabulatedTopology`. `sides.py` constructs explicit
-  relations from vertex correspondences or reference positions and supplies
-  separately chosen outward conormals. `BasixCell` supplies reference geometry
-  from Basix, and `BasixSpace` supplies finite elements with independent
-  cell-local coefficients. `uflx_basix.quadrature` rewrites reference integrals
-  as weighted sums using a chosen Basix degree or explicit points and weights.
-  `uflx_basix.assembly` supplies explicit library DOF maps
-  for gathering coefficients and scattering local tensors
-- `uflx_oracle`: the numerical reference interpreter used to check transformations
+- `uflx` implements the core language and its transformations.
+- `uflx_basix` attaches Basix reference cells, finite elements and basis values
+  to UFLx expressions. Its two operations use reference-cell data.
+  `interpolate(f, V)` uses the element’s sampling points and interpolation matrix.
+  `apply_quadrature` turns selected reference integrals into weighted sums.
+- `uflx_oracle` evaluates the resulting expressions numerically.
+
+### Interpolation on a reference cell
+
+```python
+import basix
+
+from uflx.calculus import coordinate
+from uflx_basix.cells import cell
+from uflx_basix.spaces import space
+from uflx_basix.interpolation import interpolate
+
+K = cell(basix.CellType.triangle)
+V = space("P1", K, basix.ElementFamily.P, 1)
+x = coordinate(K)
+p = interpolate(x[0] * x[0], V)
+```
+
+Here `p` is the linear field on the reference triangle that agrees with
+`x[0] * x[0]` at its three vertices. For a physical field, the caller selects
+the cell and maps the field to reference coordinates, including any Piola
+transformation required by the element. Interpolation supports value sampling.
 
 ### Choosing quadrature per integral
 
@@ -194,8 +208,8 @@ even though all three have the same integration domain.
 ```python
 from uflx_basix.quadrature import apply_quadrature
 
-points = [[1/6, 1/6], [2/3, 1/6], [1/6, 2/3]]
-weights = [1/6, 1/6, 1/6]
+points = [[1 / 6, 1 / 6], [2 / 3, 1 / 6], [1 / 6, 2 / 3]]
+weights = [1 / 6, 1 / 6, 1 / 6]
 rules = {mass: (points, weights), stiffness: 4}
 partial = apply_quadrature(mass + stiffness + load, select=rules.get)
 finished = apply_quadrature(partial, select={load: 2}.get)
@@ -213,31 +227,17 @@ size. Two P1 triangle slots have rows `((0, 1, 2), (3, 4, 5))`, even if the
 topology identifies their vertices. The Basix `discontinuous` option selects
 the element. A library DOF map specifies sharing across cells.
 
-A library supplies a separate `DofMap`. Its indices associate each packed
-local coefficient with an assembled DOF. Repeated indices establish shared
-values when gathering and accumulate contributions when scattering.
-
-```python
-from uflx_basix.assembly import DofMap
-
-# For two triangles with vertex rows (0,1,2) and (0,2,3).
-mapping = DofMap((0, 1, 2, 0, 2, 3), 4)
-local_values = mapping.gather(assembled_values)  # 4 -> 6 coefficients
-assembled_load = mapping.scatter(local_load)     # 6 -> 4 contributions
-```
-
-`conforming_dofmap(V)` derives a map
-from vertex labels and Basix entity DOFs for elements requiring no DOF
-transformations. Other solvers provide their own connectivity and transformations.
-The scatter operation uses NumPy. Local evaluation and `DofMap.gather`
-can also use JAX.
+The assembler supplies one local coefficient per entry in that layout. For
+two P1 triangles with vertex rows `(0, 1, 2)` and `(0, 2, 3)`, it can gather
+scalar nodal values with `assembled_values[[0, 1, 2, 0, 2, 3]]`. The assembler
+also handles orientation and the accumulation of local contributions.
 
 Geometry data follow the same packing contract. For a quadratic triangle mesh
 in two dimensions, each cell supplies six pairs of coordinates in the coordinate
 element's DOF order. The oracle reads them through the ordinary coefficient binding.
 
 ```python
-X = basix_space("geometry", topology, basix.ElementFamily.P, 2, shape=(2,))
+X = space("geometry", topology, basix.ElementFamily.P, 2, shape=(2,))
 x = function(X, "x")
 domain = mesh(x, EuclideanSpace(2))
 area = Interpreter({x: packed_coordinate_dofs}).evaluate(integral(num(1), domain))
@@ -463,8 +463,9 @@ The private modules of `_src`:
 `uflx_oracle.interpreter.Interpreter` evaluates the original expression tree.
 Use it to obtain a value for a field, apply a form to numerical arguments, or
 compare an expression before and after lowering. Install `pip install -e ".[oracle]"` for
-the JAX evaluator and Basix. Both `ReferenceSimplex` and `BasixCell` use degree-12
-Basix quadrature on intervals, triangles and tetrahedra. Point integrals use one
+the JAX evaluator and Basix. For a positive-dimensional reference cell the oracle
+reads numerical points and weights from `cell.quadrature(12)`. A `BasixCell`
+supplies the Basix rule of that degree. Point integrals use one
 sample of weight one. The oracle uses JAX's active precision. Set
 `JAX_ENABLE_X64=true` for double-precision reference values.
 
@@ -479,15 +480,16 @@ x = coordinate(plane)
 f = x[0] ** num(2) + x[1]
 interpreter = Interpreter()
 point = {plane: [3.0, 4.0]}
-interpreter.evaluate(f, points=point)                  # 13.0
+interpreter.evaluate(f, points=point)  # 13.0
 interpreter.evaluate(gradient(f, plane), points=point)  # [6.0, 1.0]
 ```
 
 Pass field data to `Interpreter(environment)`, keyed by function nodes. A field can
 be a numerical value, a UFLx expression, or a callable of the current coordinate.
 The oracle can read the same field more than once during evaluation, so callbacks
-should be pure. Basix fields accept local coefficient arrays. Runtime arrays and
-extents accept node or label keys.
+should be pure. Basix fields accept local coefficient arrays. A domain-free library
+terminal with no indices or form slots can be bound to an array. Such terminals
+and runtime extents accept node keys or their library-defined labels.
 Use `arguments=(u_value, v_value)` for ordered form slots. A tuple-valued slot
 takes a tuple. Free indices appear as leading axes of the result, in the order
 of `expression.free_indices`, followed by the tensor value shape. Pass
@@ -520,10 +522,12 @@ its inputs.
 import jax
 import jax.numpy as jnp
 
+
 def at(p):
     return interpreter.evaluate(f, points={plane: p})
 
-value, derivative = jax.jit(jax.value_and_grad(at))(jnp.array([3., 4.]))
+
+value, derivative = jax.jit(jax.value_and_grad(at))(jnp.array([3.0, 4.0]))
 # value = 13, derivative = [6, 1]
 ```
 
@@ -559,8 +563,8 @@ Run `pytest test` for the full suite or select a package, for example
 
 | Test folder | What it can use |
 | --- | --- |
-| `test/uflx/` | Core language and passes, with an abstract field space for symbolic tests |
-| `test/uflx_basix/` | Core and Basix, including concrete elements, meshes and DOF maps |
+| `test/uflx/` | Core language and passes, with fixture spaces, runtime data and topologies |
+| `test/uflx_basix/` | Core and Basix, including reference elements, interpolation and quadrature |
 | `test/uflx_oracle/` | Both lower layers and oracle evaluation |
 
 Shared fixtures follow the same import order.
@@ -601,7 +605,7 @@ in `_src/nodes/validation.py`. These checks do not prove mathematical hypotheses
 or form linearity. Downstream libraries remain responsible for their own leaf
 contracts. `ScalarType.real` and `ScalarType.complex` are plain string constants, so they
 satisfy the construction-argument whitelist. The factories in `uflx_basix` encode external enum values
-and optional domains using permitted graph arguments.
+using permitted graph arguments.
 
 `replace` traverses construction dependencies and preserves lexical binding;
 evaluation traverses only value operands. Rewrite completion preserves complex
@@ -616,8 +620,8 @@ operator overloads never convert Python numbers.
 This remains a small interpreter, not a production implementation. Some derived
 properties are computed lazily and cached rather than eagerly during construction;
 the existing pass functions implement their rule tables directly rather than
-exposing a general extension-table dispatcher. Library topology contracts and
-numerical capabilities are tested through the implementations in `uflx_basix`.
+exposing a general extension-table dispatcher. Generic spaces, runtime data and topologies are test fixtures in `test/uflx/`.
+The Basix tests exercise the finite-element and reference-cell adapters.
 
 Each node declares `value_fields` for evaluation and `index_fields` for value
 instantiation. Construction dependencies include every annotated argument, including

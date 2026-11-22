@@ -9,9 +9,9 @@ from uflx.arithmetic import num
 from uflx.calculus import coordinate, integral, reference_integral
 from uflx.passes import expand_integrals, lower
 from uflx.tensors import index, indexed, tensor
-from uflx_basix.sides import outward_conormal
 from uflx_oracle.interpreter import Interpreter
 
+from ..uflx.sides import outward_conormal
 from ..uflx_basix.integrals import GEOMETRY, D, K
 from ..uflx_basix.meshes import grouped_topology, vertex_mesh
 from .test_facets import E_bnd, E_int, sides_int

@@ -6,11 +6,11 @@ from uflx.arithmetic import num
 from uflx.calculus import gradient
 from uflx.geometry import pull_back
 from uflx.nodes import EuclideanSpace
-from uflx_basix.basix_cells import basix_cell
+from uflx_basix.cells import cell
 
 from .meshes import square
 
-K = basix_cell(basix.CellType.triangle)
+K = cell(basix.CellType.triangle)
 D, _, _, GEOMETRY = square(K)
 
 

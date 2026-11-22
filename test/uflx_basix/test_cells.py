@@ -1,8 +1,9 @@
 from uflx.arithmetic import num
 from uflx.calculus import coordinate
 from uflx.tensors import component_tensor, index, inverse, tensor
-from uflx_basix.cells import reference_simplex
-from uflx_basix.inclusions import affine_map
+
+from ..uflx.inclusions import affine_map
+from .cells import reference_simplex
 
 # The affine maps and normals of the library of the toy, which side tables are built from.
 

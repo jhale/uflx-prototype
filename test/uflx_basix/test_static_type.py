@@ -5,9 +5,9 @@ from uflx.arithmetic import multiply, num
 from uflx.calculus import directional_derivative, gradient
 from uflx.forms import function
 from uflx.nodes import Integer, ScalarType
-from uflx_basix.spaces import space
 
 from ..testutil import keeps_static_type
+from ..uflx.spaces import space
 from .integrals import D, K
 from .integrals import u as on_D
 

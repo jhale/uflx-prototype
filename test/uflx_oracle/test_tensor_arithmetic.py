@@ -11,9 +11,10 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, form, function
 from uflx.passes import apply_derivatives, expand_arithmetic, lower
 from uflx.tensors import index, indexed
-from uflx_basix.runtime import runtime_array, runtime_extent
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.library import runtime_array, runtime_extent
+from ..uflx.spaces import space
 
 
 @pytest.mark.parametrize("shape", [(3,), (2, 3), (0,)])

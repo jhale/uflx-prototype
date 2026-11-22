@@ -9,10 +9,10 @@ from uflx.forms import form, function
 from uflx.geometry import pull_back
 from uflx.nodes import ScalarType
 from uflx.tensors import index, index_sum, tensor
-from uflx_basix.basix_spaces import basix_space
-from uflx_basix.sides import outward_conormal
 from uflx_basix.spaces import space
 
+from ..uflx.sides import outward_conormal
+from ..uflx.spaces import space as field_space
 from .meshes import push_forward, side_domain, side_map
 
 
@@ -26,7 +26,7 @@ class FunctionSpace:
     def __init__(self, mesh, family, degree, shape=()):
         # The layer offers the Lagrange elements only, which the family names.
         self.mesh, self.shape = mesh, shape
-        self.space = basix_space("V", mesh.domain.topology, basix.ElementFamily.P, degree)
+        self.space = space("V", mesh.domain.topology, basix.ElementFamily.P, degree)
 
     def function(self, label):
         # The toy has no blocked spaces, so a vector function is a tensor of its components.
@@ -55,13 +55,13 @@ def Coefficient(V, name):
 
 
 def Constant(name, shape=()):
-    return function(space(name, shape, None, ScalarType.real), name)
+    return function(field_space(name, shape, None, ScalarType.real), name)
 
 
 def FacetNormal(mesh):
     # A placeholder on the mesh, which restrict replaces by the normal of the facets.
     n = mesh.domain.ambient_domain.dimension
-    return function(space("facet normal", (n,), mesh.domain, ScalarType.real), "facet normal")
+    return function(field_space("facet normal", (n,), mesh.domain, ScalarType.real), "facet normal")
 
 
 def is_facet_normal(obj):

@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from uflx.nodes import AbstractExpression, AbstractFunctionSpace, AbstractTopology, Mesh
 
 
-def lookup(bindings, node, label):
+def lookup(bindings, node, label=None):
     """Library data may be supplied by node or by its runtime label."""
-    return bindings[node] if node in bindings else bindings[label]
+    if node in bindings:
+        return bindings[node]
+    return bindings[getattr(node, "label", node) if label is None else label]
 
 
 @dataclass(frozen=True, eq=False)

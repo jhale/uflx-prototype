@@ -9,8 +9,9 @@ from uflx.arithmetic import conjugate, num
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function
 from uflx.passes import apply_derivatives, expand_applications, lower
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.spaces import space
 
 
 def test_actions_exposed_by_binding_are_finished():

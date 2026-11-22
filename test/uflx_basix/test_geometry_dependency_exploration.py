@@ -7,8 +7,8 @@ from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.forms import form, function
 from uflx.passes import apply_derivatives
-from uflx_basix.spaces import space
 
+from ..uflx.spaces import space
 from .shape_derivatives import D, functionals, v0, v1, x0, x1
 
 

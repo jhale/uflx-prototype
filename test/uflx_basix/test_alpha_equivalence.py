@@ -8,9 +8,9 @@ from uflx.calculus import integral
 from uflx.forms import form, function, rebind
 from uflx.geometry import mesh
 from uflx.nodes import EuclideanSpace
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 
+from ..uflx.spaces import space
+from .cells import reference_simplex
 from .meshes import grouped_topology
 
 

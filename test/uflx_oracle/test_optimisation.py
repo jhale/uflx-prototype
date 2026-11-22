@@ -14,8 +14,9 @@ def test_complex_grouped_form_and_rebind():
     from uflx._src.algorithms.binding import alpha_equivalent
     from uflx.arithmetic import conjugate
     from uflx.forms import form, function, rebind
-    from uflx_basix.spaces import space
     from uflx_oracle.interpreter import Interpreter
+
+    from ..uflx.spaces import space
 
     V = space("optimisation-complex", scalar_type="complex")
     u, v, w, p = (function(V, name) for name in ("u", "v", "w", "p"))

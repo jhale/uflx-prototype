@@ -8,8 +8,9 @@ from uflx.arithmetic import conjugate, num, real_part
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.spaces import space
 
 C, R = space("complex-block", scalar_type="complex"), space("real-block", scalar_type="real")
 z, h, a = (function(C, name) for name in ("z", "h", "a"))

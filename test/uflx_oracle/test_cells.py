@@ -1,10 +1,10 @@
 import numpy as np
 
 from uflx.geometry import domain_map
-from uflx_basix.cells import reference_simplex
-from uflx_basix.inclusions import affine_map, centroid, reference_normal
 from uflx_oracle.interpreter import Interpreter
 
+from ..uflx.inclusions import affine_map, centroid, reference_normal
+from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.test_cells import table
 
 

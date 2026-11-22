@@ -7,10 +7,10 @@ from uflx.arithmetic import add, conjugate, divide, multiply, num
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.nodes import ScalarType
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import ill_typed
+from ..uflx.spaces import space
 
 rng = np.random.default_rng(2)
 V, Vd, Q = space("V"), dual_space(space("V")), space("Q")

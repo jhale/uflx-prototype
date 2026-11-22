@@ -10,9 +10,9 @@ from uflx.forms import form, function
 from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace, GatheredIndex
 from uflx.tensors import broadcast_to, component_tensor, index, index_sum, tensor
-from uflx_basix.nodes import IndexTable, RuntimeArray, RuntimeExtent
 from uflx_oracle.interpreter import Interpreter
 
+from ..uflx.library import IndexTable, RuntimeArray, RuntimeExtent
 from ..uflx.spaces import space
 
 

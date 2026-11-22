@@ -15,9 +15,9 @@ from uflx.geometry import cell_map, domain_map, mesh, pull_back, side_map
 from uflx.nodes import EuclideanSpace, ScalarType
 from uflx.passes import expand_integrals, expand_pull_backs
 from uflx.tensors import index, tensor
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 
+from ..uflx.spaces import space
+from .cells import reference_simplex
 from .meshes import side_data, static_topology
 
 

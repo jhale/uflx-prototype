@@ -4,9 +4,9 @@ from uflx.arithmetic import add, conjugate, multiply, num
 from uflx.calculus import coordinate, directional_derivative, gradient, integral
 from uflx.forms import apply, dual_space, form, function
 from uflx.geometry import pull_back
-from uflx_basix.runtime import runtime_array
-from uflx_basix.spaces import space
 
+from ..uflx.library import runtime_array
+from ..uflx.spaces import space
 from .integrals import D, K, u
 
 V = space("V")

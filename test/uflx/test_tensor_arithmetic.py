@@ -2,7 +2,7 @@
 
 import pytest
 
-from uflx_basix.runtime import runtime_array
+from .library import runtime_array
 
 
 @pytest.mark.parametrize("operation", [lambda a, b: a + b, lambda a, b: a * b, lambda a, b: a / b])

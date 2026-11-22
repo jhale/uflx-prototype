@@ -1,5 +1,6 @@
 from uflx.tensors import index
-from uflx_basix.runtime import runtime_array, runtime_extent
+
+from .library import runtime_array, runtime_extent
 
 i = index("i")
 q, r = runtime_extent("q"), runtime_extent("r")

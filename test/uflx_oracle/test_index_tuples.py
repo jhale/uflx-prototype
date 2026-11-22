@@ -7,8 +7,9 @@ from uflx.arithmetic import multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.spaces import space
 
 r = tuple(index(f"r{n}") for n in range(3))
 s = tuple(index(f"s{n}") for n in range(3))

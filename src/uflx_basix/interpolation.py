@@ -2,112 +2,44 @@
 
 from math import prod
 
-import basix
 import numpy as np
 
-from uflx.arithmetic import num
 from uflx.calculus import integral
-from uflx.geometry import cell_map, domain_map, jacobian, pull_back, push_forward
-from uflx.nodes import AbstractExpression, CellMap, EuclideanSpace, Mesh
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import AbstractExpression, EuclideanSpace
 from uflx.tensors import (
     component_tensor,
-    determinant,
     index,
     index_sum,
-    inverse,
     matrix_product,
     tensor,
 )
 
-from .basix_nodes import BasixBasis, BasixCell, BasixSpace, table
-from .basix_spaces import basix_space
+from .nodes import BasixBasis, BasixCell, BasixSpace, table
 
 
 def interpolate(
     f: AbstractExpression,
     V: BasixSpace,
     *,
-    cell: CellMap | None = None,
     sampling_rule: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> AbstractExpression:
-    """Interpolate using symbolic sampling, basis reconstruction and push-forward.
+    """Interpolate f on a Basix reference cell and return a UFLx expression.
 
-    Args:
-        f: A field on the target cell, or a domain-free value.
-        V: A Basix space on a reference cell, or on the topology of cell.parent.
-        cell: Optional physical cell map. If omitted for a mesh field, interpolate
-            on every local cell. An explicit cell restricts the result to that
-            cell, with zero on other cells. Maps must be invertible and between
-            equal dimensions. The result is a field on the physical mesh.
-        sampling_rule: Optional (points, matrix) replacing Basix's value sampling.
-            Matrix columns are component-major, then point, for the unblocked
-            element. The rule must be dual to the target basis. Its quadrature
-            defines the interpolation, including for nonpolynomial inputs.
-
-    Returns:
-        A core expression retaining the symbolic dependencies of f.
-
-    Raises:
-        ValueError: If the field or sampling rule is incompatible with V.
-        NotImplementedError: For unsupported cells, maps or derivative DOFs.
+    The optional (points, matrix) pair replaces the element's value-sampling
+    rule. Matrix columns run over components first, then points.
     """
     if not isinstance(V, BasixSpace):
         raise ValueError("interpolation requires a Basix space")
-    if V.family == basix.ElementFamily.Hermite:
-        raise NotImplementedError("interpolation with derivative DOFs is not supported")
+    K = V.domain
+    if not isinstance(K, BasixCell):
+        raise ValueError("interpolation requires a target space on a Basix reference cell")
     if f.value_shape != V.value_shape or f.scalar_type != V.scalar_type:
         raise ValueError("input value shape and scalar type must match the target space")
-    if f.argument_spaces or V.argument_spaces:
+    if f.argument_spaces:
         raise ValueError("function inputs must be empty")
-    if cell is None and isinstance(f.domain, Mesh):
-        fields = [
-            interpolate(f, V, cell=cell_map(f.domain, j), sampling_rule=sampling_rule)
-            for j in range(len(f.domain.topology.cell_types))
-        ]
-        return sum(fields[1:], fields[0])
-    if cell is None:
-        if not isinstance(V.domain, BasixCell):
-            raise ValueError("a topology target requires a physical mesh field or cell map")
-        return _sample_and_reconstruct(f, BasixBasis(V, 0), sampling_rule)
-
-    if not isinstance(cell, CellMap) or not isinstance(cell.parent, Mesh):
-        raise ValueError("physical interpolation requires a mesh cell map")
-    D, K = cell.parent, cell.reference_cell
-    if K.dimension != D.ambient_domain.dimension:
-        raise NotImplementedError("physical interpolation requires equal dimensions")
-    if V.domain not in (K, D.topology):
-        raise ValueError("target space must be on the cell's reference cell or topology")
-    if f.domain not in (None, D, D.ambient_domain):
-        raise ValueError("input must be on the physical mesh or its ambient domain")
-    topology_space = (
-        V
-        if V.domain == D.topology
-        else basix_space(
-            V.label,
-            D.topology,
-            V.family,
-            V.degree,
-            V.discontinuous,
-            V.scalar_type,
-            shape=V.block_shape,
-        )
-    )
-    source_map = (
-        domain_map(K, cell.parameterisation, D.ambient_domain)
-        if f.domain == D.ambient_domain
-        else cell
-    )
-    reference_value = _inverse_transform(pull_back(f, source_map), V.law, jacobian(cell))
-    interpolant = _sample_and_reconstruct(
-        reference_value, BasixBasis(topology_space, cell.cell_slot), sampling_rule
-    )
-    return push_forward(interpolant, D, V.law)
-
-
-def _sample_and_reconstruct(f, basis, sampling_rule):
-    V, j = basis.space, basis.cell_slot
-    K = V.domain if isinstance(V.domain, BasixCell) else V.domain.cell_types[j]
-    E = V.element(j)
+    basis = BasixBasis(V, 0)
+    E = V.element(0)
     if f.domain not in (None, K):
         raise ValueError("input domain must match the target cell")
     if E.interpolation_nderivs:
@@ -123,7 +55,7 @@ def _sample_and_reconstruct(f, basis, sampling_rule):
         raise ValueError("sampling data must be finite")
 
     def sample(point):
-        position = tensor(tuple(num(float(x)) for x in point))
+        position = table(point)
         return integral(pull_back(f, domain_map(EuclideanSpace(0), position, K)), EuclideanSpace(0))
 
     samples = tuple(sample(point) for point in points)
@@ -142,24 +74,3 @@ def _sample_and_reconstruct(f, basis, sampling_rule):
         phi = basis[(a, *axes)]
     dofs = matrix_product(table(matrix), values)
     return component_tensor(index_sum(dofs[a] * phi, (a,)), axes)
-
-
-def _inverse_transform(value, law, J):
-    # J^T on covariant axes, J^{-1} on contravariant axes, then det(J)^weight.
-    axes = tuple(
-        index(("inverse_transform", value, law, J, "value", k))
-        for k in range(len(value.value_shape))
-    )
-    contracted = tuple(
-        index(("inverse_transform", value, law, J, "sum", k)) for k in range(len(law.variances))
-    )
-    leading = len(axes) - len(contracted)
-    expression = value[(*axes[:leading], *contracted)]
-    for variance, out, inner in zip(law.variances, axes[leading:], contracted, strict=True):
-        expression = expression * (
-            J[inner, out] if variance == "covariant" else inverse(J)[out, inner]
-        )
-    expression = index_sum(expression, contracted)
-    if law.weight:
-        expression = expression * determinant(J) ** num(law.weight)
-    return component_tensor(expression, axes)

@@ -1,5 +1,5 @@
-from .nodes import ReferenceSimplex
+from .nodes import BasixCell
 
 
-def reference_simplex(n):
-    return ReferenceSimplex(n)
+def cell(cell_type):
+    return BasixCell(cell_type.value)

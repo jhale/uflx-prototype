@@ -10,7 +10,7 @@ from ._context import lookup
 
 
 def size(extent, bindings):
-    return lookup(bindings, extent, extent.label) if isinstance(extent, AbstractExtent) else extent
+    return lookup(bindings, extent) if isinstance(extent, AbstractExtent) else extent
 
 
 def axes(node, bindings):

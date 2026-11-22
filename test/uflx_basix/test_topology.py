@@ -1,8 +1,8 @@
 from uflx._src.nodes import SideMap
 from uflx.forms import function
 from uflx.geometry import pull_back
-from uflx_basix.spaces import space
 
+from ..uflx.spaces import space
 from .integrals import DIAGONAL, SQUARE, D, K
 from .integrals import I as interval
 from .meshes import grouped_topology, side_domain, side_map

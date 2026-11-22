@@ -14,12 +14,12 @@ from uflx.forms import function
 from uflx.geometry import mesh, pull_back
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
-from uflx_basix.cells import reference_simplex
-from uflx_basix.sides import outward_conormal
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type
+from ..uflx.sides import outward_conormal
+from ..uflx.spaces import space
+from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.integrals import DIAGONAL
 from ..uflx_basix.meshes import side_domain, side_map
 from ..uflx_basix.surface import FOLD, GEOMETRY, R3, M

@@ -16,7 +16,7 @@ from uflx.tensors import determinant, tensor
 from uflx_oracle.interpreter import Interpreter, Pointwise
 
 from ..external_operators import Energy
-from ..uflx.spaces import space
+from ..uflx.spaces import space as field_space
 
 
 def test_derivatives_at_scales_where_perturbations_round_away():
@@ -24,7 +24,7 @@ def test_derivatives_at_scales_where_perturbations_round_away():
     x = coordinate(P)[0]
     interpreter = Interpreter()
     assert interpreter.evaluate(gradient(x, P), points={P: [1e24]})[0] == 1
-    u = function(space("scalar", scalar_type="real"), "u")
+    u = function(field_space("scalar", scalar_type="real"), "u")
     d = directional_derivative(u * u, u, num(1e24), num(2))
     assert interpreter.evaluate(d) == 4e24
     for exponent in (num(0), num(0.0), num(1)):
@@ -34,7 +34,7 @@ def test_derivatives_at_scales_where_perturbations_round_away():
 
 def test_nested_spatial_and_directional_seeds():
     P = EuclideanSpace(1)
-    u = function(space("field", domain=P, scalar_type="real"), "u")
+    u = function(field_space("field", domain=P, scalar_type="real"), "u")
     x = coordinate(P)[0]
     interpreter = Interpreter({u: x ** num(3)})
     d = directional_derivative(u * u, u, u, x)
@@ -45,7 +45,7 @@ def test_nested_spatial_and_directional_seeds():
 
 
 def test_real_linear_complex_variation_and_determinant_at_singular_matrix():
-    u = function(space("complex"), "u")
+    u = function(field_space("complex"), "u")
     d = directional_derivative(conjugate(u) * u, u, num(1 + 2j), num(3 + 4j))
     assert Interpreter().evaluate(d) == 22
     A = tensor((tensor((u, num(0))), tensor((num(0), num(3)))))
@@ -62,7 +62,7 @@ class Sine(AbstractOperation):
 def test_spatial_and_field_derivatives_of_pointwise_external():
     P = EuclideanSpace(1)
     x = coordinate(P)[0]
-    u = function(space("field", domain=P, scalar_type="real"), "u")
+    u = function(field_space("field", domain=P, scalar_type="real"), "u")
     response = external_operator(Sine(), (u * u,))
     interpreter = Interpreter({u: x, Sine(): Pointwise(jnp.sin)})
     point = {P: [2]}
@@ -87,8 +87,8 @@ def test_second_derivative_of_pointwise_external():
 
 def test_directional_derivative_of_whole_field_external():
     P = EuclideanSpace(1)
-    u = function(space("field", domain=P, scalar_type="real"), "u")
-    a = function(space("parameter", scalar_type="real"), "a")
+    u = function(field_space("field", domain=P, scalar_type="real"), "u")
+    a = function(field_space("parameter", scalar_type="real"), "a")
     expr = external_operator(Energy(), (u, a))
     point = np.array([0.25])
     env = {
@@ -104,7 +104,7 @@ def test_directional_derivative_of_whole_field_external():
 
 def test_traceable_field_supports_spatial_and_directional_derivatives():
     P = EuclideanSpace(1)
-    u = function(space("field", domain=P, scalar_type="real"), "u")
+    u = function(field_space("field", domain=P, scalar_type="real"), "u")
     oracle = Interpreter({u: lambda point: point[0] ** 2})
     assert oracle.evaluate(u, points={P: [3]}) == 9
     np.testing.assert_allclose(oracle.evaluate(gradient(u, P), points={P: [3]}), [6])
@@ -115,7 +115,7 @@ def test_traceable_field_supports_spatial_and_directional_derivatives():
 def test_predicate_can_read_an_opaque_value_while_differentiating_a_branch():
     P = EuclideanSpace(1)
     x = coordinate(P)[0]
-    u = function(space("predicate", domain=P, scalar_type="real"), "u")
+    u = function(field_space("predicate", domain=P, scalar_type="real"), "u")
     field = conditional(less_than(u, num(0)), x * x, x)
     oracle = Interpreter({u: lambda point: float(point[0])})
     assert oracle.evaluate(gradient(field, P), points={P: [-2]})[0] == -4
@@ -150,11 +150,11 @@ def test_comparison_evaluates_the_spatial_derivative_in_its_operand():
 def test_basix_second_derivatives_come_from_basis_tabulation():
     import basix
 
-    from uflx_basix.basix_cells import basix_cell
-    from uflx_basix.basix_spaces import basix_space
+    from uflx_basix.cells import cell
+    from uflx_basix.spaces import space
 
-    K = basix_cell(basix.CellType.triangle)
-    V = basix_space("quadratic", K, basix.ElementFamily.P, 2)
+    K = cell(basix.CellType.triangle)
+    V = space("quadratic", K, basix.ElementFamily.P, 2)
     u = function(V, "u")
     x, y = V.element(0).points.T
     interpreter = Interpreter({u: x * x + 3 * x * y + 2 * y * y})
@@ -167,11 +167,12 @@ def test_basix_second_derivatives_come_from_basis_tabulation():
 
 def test_second_spatial_derivative_on_a_curved_mesh():
     from uflx.geometry import mesh
-    from uflx_basix.cells import reference_simplex
-    from uflx_basix.topology import static_topology
+
+    from ..uflx.library import static_topology
+    from ..uflx_basix.cells import reference_simplex
 
     T = static_topology((reference_simplex(1),), ((0, 1),))
-    t = function(space("parameter", domain=T, scalar_type="real"), "t")
+    t = function(field_space("parameter", domain=T, scalar_type="real"), "t")
     curve = mesh(tensor((t, t * t)), EuclideanSpace(2))
     x = coordinate(curve)[0]
     # grad(x) = (1, 2t) / (1 + 4t**2). Differentiate along the curve at t = 1/2.

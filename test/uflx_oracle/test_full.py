@@ -26,7 +26,6 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, conjugate_space, dual_space, form, function
 from uflx.nodes import ScalarType
 from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import (
@@ -37,6 +36,7 @@ from ..testutil import (
     keeps_static_type,
     pairing,
 )
+from ..uflx.spaces import space
 
 V, Vd = space("V"), dual_space(space("V"))
 W, Wd = space("W", value_shape=(2,)), dual_space(space("W", value_shape=(2,)))

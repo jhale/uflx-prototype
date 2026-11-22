@@ -12,10 +12,10 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace, ScalarType
 from uflx.passes import expand_applications, expand_pull_backs
 from uflx.tensors import index, tensor
-from uflx_basix.cells import reference_simplex
-from uflx_basix.spaces import space
 
+from ..uflx.spaces import space
 from ..uflx.test_action_spatial import OperatorSpace
+from .cells import reference_simplex
 
 
 def setup():
@@ -30,11 +30,11 @@ def setup():
 def test_side_pullback_transforms_output_before_deferral_and_keeps_tuple_family():
     import basix
 
-    from uflx_basix.basix_cells import basix_cell
+    from uflx_basix.cells import cell
 
     from .meshes import side_map, square
 
-    D, E, _, _ = square(basix_cell(basix.CellType.triangle))
+    D, E, _, _ = square(cell(basix.CellType.triangle))
     sm = side_map(D, E)
     assert isinstance(sm, SideMap)
     V = space("tuple-input", domain=D, scalar_type=ScalarType.real)

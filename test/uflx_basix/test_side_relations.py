@@ -9,9 +9,9 @@ from uflx.arithmetic import num
 from uflx.calculus import coordinate
 from uflx.geometry import cell_map, conormal, domain_map, mesh, side_domain, side_map
 from uflx.tensors import index, tensor
-from uflx_basix.basix_nodes import BasixCell
-from uflx_basix.nodes import StaticTopology, TabulatedTopology
+from uflx_basix.nodes import BasixCell
 
+from ..uflx.library import StaticTopology, TabulatedTopology
 from .meshes import vertex_mesh
 
 

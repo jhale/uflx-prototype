@@ -11,9 +11,9 @@ from uflx.calculus import coordinate, gradient
 from uflx.forms import function
 from uflx.geometry import cell_map, pull_back
 from uflx.passes import expand_pull_backs
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
+from ..uflx.spaces import space
 from ..uflx_basix.test_pullback_contractions import geometry
 
 

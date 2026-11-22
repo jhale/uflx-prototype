@@ -8,8 +8,9 @@ from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
-from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
+
+from ..uflx.spaces import space
 
 
 def test_at_point_derivative_does_not_substitute_into_inserted_direction():
