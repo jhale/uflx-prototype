@@ -1,10 +1,10 @@
 """Numerical meanings of spatial derivatives, field mappings and conormals."""
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 
 from uflx.nodes import AbstractTopology, CellMap, Mesh, SideMap
 
-from . import _dual as ad
 from ._geometry import (
     chart_of,
     reference_point,
@@ -16,17 +16,20 @@ from ._tensors import size
 
 
 def gradient(operand, domain, frame, arguments):
-    point = ad.asarray(frame.points[domain])
-    if np.size(ad.primal(point)) == 0:
+    point = jnp.asarray(frame.points[domain])
+    if point.size == 0:
         shape = tuple(size(n, frame) for n in operand.value_shape)
-        return np.empty((*shape, 0), dtype=complex if operand.scalar_type == "complex" else float)
+        return jnp.empty((*shape, 0), dtype=complex if operand.scalar_type == "complex" else float)
 
     def field(p):
-        return ad.asarray(frame.at({domain: p}).value(operand, arguments))
+        value = frame.at({domain: p}).value(operand, arguments)
+        return jnp.asarray(value, dtype=jnp.result_type(value, 0.0))
 
-    result = ad.jacobian(field, point)
-    if isinstance(domain, Mesh) and domain.dimension < np.size(ad.primal(point)):
-        result = ad.matmul(result, tangent_projector(domain, frame))
+    # Evaluate one direction at a time so an eager zero tangent to an opaque
+    # operator can be discarded without asking its library for a derivative.
+    result = jnp.stack([jax.jvp(field, (point,), (v,))[1] for v in jnp.eye(point.size)], axis=-1)
+    if isinstance(domain, Mesh) and domain.dimension < point.size:
+        result = result @ tangent_projector(domain, frame)
     return result
 
 
@@ -36,9 +39,9 @@ def curl(operand, domain, frame, arguments):
     def antisymmetric(a):
         if a.shape[-1] == 2:
             return a[1, 0] - a[0, 1]
-        return np.array([a[2, 1] - a[1, 2], a[0, 2] - a[2, 0], a[1, 0] - a[0, 1]])
+        return jnp.array([a[2, 1] - a[1, 2], a[0, 2] - a[2, 0], a[1, 0] - a[0, 1]])
 
-    return ad.linear(antisymmetric, g)
+    return antisymmetric(g)
 
 
 def pull_back(operand, mapping, frame, arguments):
@@ -53,11 +56,11 @@ def pull_back(operand, mapping, frame, arguments):
         point = (
             frame.points[mapping.reference_cell]
             if isinstance(parent, AbstractTopology)
-            else ad.linear(np.real, frame.value(mapping.parameterisation))
+            else jnp.real(frame.value(mapping.parameterisation))
         )
         local = frame.at({parent: point}, cells={parent: mapping.cell_slot})
     else:
-        point = ad.linear(np.real, frame.value(mapping.parameterisation))
+        point = jnp.real(frame.value(mapping.parameterisation))
         local = frame.at({mapping.ambient_domain: point})
     return local.value(operand, arguments)
 
@@ -68,13 +71,13 @@ def push_forward(operand, mesh, law, frame, arguments):
     ref = reference_point(chart, frame.points[mesh], mesh.dimension)
     topology = mesh.topology
     field = frame.at({topology: ref}, cells={topology: slot}).value(operand, arguments)
-    return transformed(field, law, ad.jacobian(chart, ref))
+    return transformed(field, law, jax.jacfwd(chart)(ref))
 
 
 def conormal(side, conormals, frame):
     slot, parent_slot, inclusion, ref, target = side_reference(side, frame)
-    J = ad.jacobian(chart_of(side.parent[parent_slot], frame), target)
+    J = jax.jacfwd(chart_of(side.parent[parent_slot], frame))(target)
     local = frame.at({inclusion.parameter_domain: ref})
-    normal = ad.linear(np.real, local.value(conormals[slot]))
-    vector = ad.matmul(ad.linear(np.transpose, ad.pinv(J)), normal)
-    return ad.divide(vector, ad.norm(vector))
+    normal = jnp.real(local.value(conormals[slot]))
+    vector = jnp.linalg.pinv(J).T @ normal
+    return vector / jnp.linalg.norm(vector)

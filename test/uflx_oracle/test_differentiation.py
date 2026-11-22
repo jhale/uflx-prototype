@@ -25,6 +25,9 @@ def test_derivatives_at_scales_where_perturbations_round_away():
     u = function(space("scalar", scalar_type="real"), "u")
     d = directional_derivative(u * u, u, num(1e24), num(2))
     assert interpreter.evaluate(d) == 4e24
+    for exponent in (num(0), num(0.0), num(1)):
+        derivative = directional_derivative(u**exponent, u, num(0), num(1))
+        assert interpreter.evaluate(derivative) == exponent.value
 
 
 def test_nested_spatial_and_directional_seeds():
@@ -130,25 +133,14 @@ def test_whole_field_external_action_receives_fields_and_ordered_directions():
     assert Interpreter(env).evaluate(directional_derivative(expr, v, num(0), num(1))) == 0
 
 
-def test_python_field_is_only_called_with_a_numerical_point():
+def test_traceable_field_supports_spatial_and_directional_derivatives():
     P = EuclideanSpace(1)
-    u = function(space("opaque", domain=P, scalar_type="real"), "u")
-    calls = []
-
-    def field(point):
-        assert isinstance(point, np.ndarray) and point.dtype != object
-        calls.append(point.copy())
-        return point[0] ** 2
-
-    interpreter = Interpreter({u: field})
-    assert interpreter.evaluate(u, points={P: [3]}) == 9
-    with pytest.raises(TypeError, match=r"ExternalOperator.*derivative action"):
-        interpreter.evaluate(gradient(u, P), points={P: [3]})
-    assert len(calls) == 1
-
-    # Varying the field at a fixed point only needs its numerical value.
+    u = function(space("field", domain=P, scalar_type="real"), "u")
+    oracle = Interpreter({u: lambda point: point[0] ** 2})
+    assert oracle.evaluate(u, points={P: [3]}) == 9
+    np.testing.assert_allclose(oracle.evaluate(gradient(u, P), points={P: [3]}), [6])
     derivative = directional_derivative(u * u, u, u, num(2))
-    assert interpreter.evaluate(derivative, points={P: [3]}) == 36
+    assert oracle.evaluate(derivative, points={P: [3]}) == 36
 
 
 def test_predicate_can_read_an_opaque_value_while_differentiating_a_branch():

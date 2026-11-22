@@ -1,30 +1,16 @@
 """Lexical form slots, supplied fields and simultaneous directional derivatives."""
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 
-from uflx._src.algorithms.substitution import occurs_in_values
 from uflx.nodes import AbstractExpression, Conjugate
 
-from . import _dual as ad
 from . import _finite_elements as elements
-from ._context import Operand, call, parts, sample, tags
+from ._context import Operand, call, sample
 
 
 class ExpressionBinding(Operand):
     """A replacement expression evaluated with the frame and slots at its use site."""
-
-
-def variation_tags(operand, environment):
-    """Find active variations of a whole field before a library samples it."""
-    active = set()
-    for node, binding in environment.items():
-        if isinstance(node, AbstractExpression) and occurs_in_values(node, operand):
-            for value in binding.values() if isinstance(binding, dict) else (binding,):
-                if isinstance(value, AbstractExpression):
-                    active.update(variation_tags(value, environment))
-                else:
-                    active.update(tags(value))
-    return active
 
 
 def members(entry):
@@ -42,24 +28,8 @@ def conjugated(value):
             arguments = tuple(conjugated(arg) for arg in args)
             return conjugated(call(frame, value, *arguments))
 
-        return Operand(field, lambda: tags(value))
-    return ad.linear(np.conj, value)
-
-
-def multilinear(apply, slots):
-    """Vary one form slot at a time, using the declared linearity in each slot."""
-    active = tags(slots)
-    if not active:
-        return apply(slots)
-    tag = max(active)
-    values, directions = zip(*(parts(slot, tag) for slot in slots), strict=True)
-    tangent = 0
-    for i, direction in enumerate(directions):
-        if tag in tags(slots[i]):
-            tangent = ad.add(
-                tangent, multilinear(apply, (*values[:i], direction, *values[i + 1 :]))
-            )
-    return ad.pair(tag, multilinear(apply, values), tangent)
+        return Operand(field)
+    return jnp.conj(value)
 
 
 def function_value(node, frame, arguments):
@@ -73,19 +43,16 @@ def function_value(node, frame, arguments):
     if isinstance(binding, AbstractExpression):
         return frame.value(binding, arguments)
 
-    def apply(slots):
-        value = binding
-        if space.argument_spaces:
-            value = call(frame, binding, *slots)
-            if isinstance(value, dict):
-                value = value[frame.cells.get(domain, 0)]
-        if callable(value) and domain is not None:
-            return sample(value, frame, domain)
-        if callable(value) and not space.argument_spaces:
-            value = call(frame, value)
-        return np.asarray(value) if isinstance(value, (tuple, list)) else value
-
-    return multilinear(apply, arguments) if space.argument_spaces else apply(())
+    value = binding
+    if space.argument_spaces:
+        value = call(frame, binding, *arguments)
+        if isinstance(value, dict):
+            value = value[frame.cells.get(domain, 0)]
+    if callable(value) and domain is not None:
+        return sample(value, frame, domain)
+    if callable(value) and not space.argument_spaces:
+        value = call(frame, value)
+    return jnp.asarray(value) if isinstance(value, (tuple, list)) else value
 
 
 def supplied(operand, signature, frame):
@@ -95,21 +62,19 @@ def supplied(operand, signature, frame):
     def apply(caller, *slots):
         def read(local):
             value = frame.sampled_in(local).value(operand, slots)
-            return ad.asarray(value, dtype=complex) if signature.scalar_type == "complex" else value
+            return (
+                jnp.asarray(value, dtype=complex) if signature.scalar_type == "complex" else value
+            )
 
         if signature.domain is not None:
 
             def field(sampling_frame, point):
                 return read(sampling_frame.at({signature.domain: point}))
 
-            return Operand(field, lambda: variation_tags(operand, frame.environment))
+            return Operand(field)
         return read(caller)
 
-    return (
-        Operand(apply, lambda: variation_tags(operand, frame.environment))
-        if operand.argument_spaces
-        else apply(frame)
-    )
+    return Operand(apply) if operand.argument_spaces else apply(frame)
 
 
 def form_value(body, declarations, frame, arguments):
@@ -126,27 +91,22 @@ def form_value(body, declarations, frame, arguments):
 
 
 def directional(body, variables, point, direction, frame, arguments):
-    tag = ad.fresh_tag()
+    def perturbed(epsilon):
+        def seed(point, direction):
+            def varied(caller, slots):
+                local = frame.sampled_in(caller)
+                return local.value(point, slots) + epsilon * local.value(direction, slots)
 
-    def seed(point, direction):
-        def varied(caller, slots):
-            local = frame.sampled_in(caller)
-            return ad.pair(tag, local.value(point, slots), local.value(direction, slots))
+            return ExpressionBinding(varied)
 
-        def variations():
-            return (
-                {tag}
-                | variation_tags(point, frame.environment)
-                | variation_tags(direction, frame.environment)
+        overrides = {
+            variable: seed(p, d)
+            for variable, p, d in zip(
+                members(variables), members(point), members(direction), strict=True
             )
+        }
+        value = frame.bind_arguments(overrides).value(body, arguments)
+        # An integer literal denotes a real constant in a differentiable expression.
+        return jnp.asarray(value, dtype=jnp.result_type(value, 0.0))
 
-        return ExpressionBinding(varied, variations)
-
-    overrides = {
-        variable: seed(p, d)
-        for variable, p, d in zip(
-            members(variables), members(point), members(direction), strict=True
-        )
-    }
-    result = frame.bind_arguments(overrides).value(body, arguments)
-    return ad.split(result, tag)[1]
+    return jax.jvp(perturbed, (0.0,), (1.0,))[1]

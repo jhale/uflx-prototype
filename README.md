@@ -486,7 +486,8 @@ Nested internal binders may freshen during substitution.
 `expand_applications` expands each `Apply` using simultaneous substitution.
 
 `Boolean`, `less_than` and `conditional` support symbolic selection.
-The oracle evaluates only the selected branch for each free-index assignment.
+Eager evaluation selects a branch for each free-index assignment. A traced
+predicate produces a JAX conditional, with both branches traced.
 Library operations can use `_src/extensions/external_operators.py` to declare an
 operand signature and a derivative action. Its `apply_external_derivatives` recipe
 passes the library all point values followed by all direction values in operand order.
@@ -666,8 +667,9 @@ The private modules of `_src`:
 
 `uflx_oracle.interpreter.Interpreter` evaluates the original expression tree.
 Use it to obtain a value for a field, apply a form to numerical arguments, or
-check a lowering or compilation result. Core expressions require NumPy.
-Install `pip install -e ".[oracle]"` for Basix elements, coefficient tables and quadrature.
+check a lowering or compilation result. Install `pip install -e ".[oracle]"` for
+the JAX evaluator and Basix. The oracle uses JAX's active precision. Set
+`JAX_ENABLE_X64=true` for double-precision reference values.
 
 ```python
 from uflx.arithmetic import num
@@ -697,11 +699,29 @@ callback that re-enters the interpreter supplies `points` explicitly and sets
 `cells` when it needs a particular cell. Whole-field external operators receive
 a callable `field(point)` that retains the cell where the operator was evaluated.
 
-The oracle evaluates spatial and directional derivatives with explicit rules for
-UFLx nodes. Basix supplies basis derivatives by tabulation. To define a
-differentiable field in UFLx, bind its function node to an expression such as
-`x[0] ** num(2)`. An ordinary Python field receives numerical coordinates and
-can be sampled wherever the calculation needs its value.
+The oracle walks the original UFLx graph using JAX operations. A spatial
+derivative differentiates a function of the point. A directional derivative
+differentiates a simultaneous variation of the named functions. Basix supplies
+exact basis derivatives at evaluation points. For example, an ordinary JAX
+transformation can differentiate an entire evaluation with respect to its inputs.
+
+```python
+import jax
+import jax.numpy as jnp
+
+def at(p):
+    return interpreter.evaluate(f, points={plane: p})
+
+value, derivative = jax.jit(jax.value_and_grad(at))(jnp.array([3., 4.]))
+# value = 13, derivative = [6, 1]
+```
+
+Functions bound to fields or whole-field operators may use JAX operations on
+their arguments. For a pointwise JAX implementation, use
+`Pointwise(jnp.sin, traceable=True)` to trace its computation and derivatives directly. A whole-field operator may sample a supplied field at multiple
+points during the call. Under JAX transformations, bindings must be pure and
+captured fields containing traced inputs must be used within the trace.
+Cell selections, element types and extents that determine array shapes are static.
 
 To differentiate through an opaque library function, represent it as an
 `ExternalOperator` and bind its declared derivative action. For a pointwise
@@ -725,7 +745,8 @@ interpreter.evaluate(gradient(response, plane), points=point)  # [cos(3), 0]
 bindings can still consume whole fields, for example to sample an operand at
 several points. In both cases the derivative action receives all operand values,
 followed by their directions in the same order. Repeated operands keep their slots.
-An independent operation or an unselected conditional branch needs no derivative action.
+An independent operation needs no derivative action. When tracing a conditional,
+supply the bindings needed by both branches.
 
 ### Running the tests
 

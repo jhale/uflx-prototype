@@ -2,11 +2,11 @@
 
 from itertools import product
 
-import numpy as np
+import jax
+import jax.numpy as jnp
 
 from uflx.nodes import AbstractExtent, GatheredIndex, Index, IndexSum
 
-from . import _dual as ad
 from ._forms import members
 
 
@@ -22,7 +22,12 @@ def index_value(index, indices):
     if isinstance(index, GatheredIndex):
         value = index.table.values
         for i in index.indices:
-            value = value[index_value(i, indices)]
+            key = index_value(i, indices)
+            if isinstance(key, jax.core.Tracer):
+                value = jnp.asarray(value)
+            value = value[key]
+        if getattr(value, "ndim", 0):
+            return tuple(value)
         return value
     return index
 
@@ -44,11 +49,24 @@ def bound_tensor(node, frame, arguments):
         bound = frame.bind_indices(dict(zip(node.indices, combo, strict=True)))
         value = bound.value(operand, arguments)
         if summed:
-            total = ad.add(total, value)
+            total = total + value
         else:
-            entries.append(ad.linear(np.real, value) if node.scalar_type == "real" else value)
+            entries.append(jnp.real(value) if node.scalar_type == "real" else value)
     if summed:
         return total
     if not entries:
-        return np.empty(flat(extents), dtype=dtype)
-    return ad.linear(lambda a: np.asarray(a, dtype=dtype).reshape(flat(extents)), ad.stack(entries))
+        return jnp.empty(flat(extents), dtype=dtype)
+    return jnp.asarray(entries, dtype=dtype).reshape(flat(extents))
+
+
+@jax.custom_jvp
+def determinant(matrix):
+    return jnp.linalg.det(matrix)
+
+
+@determinant.defjvp
+def _determinant_jvp(primals, tangents):
+    # The determinant is multilinear in its rows, including at singular matrices.
+    (matrix,), (direction,) = primals, tangents
+    tangent = sum(determinant(matrix.at[i].set(direction[i])) for i in range(len(matrix)))
+    return determinant(matrix), jnp.asarray(tangent, dtype=matrix.dtype)

@@ -1,12 +1,14 @@
 """Numerical data supplied by the Basix extension."""
 
 from functools import cache
+from math import prod
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 from uflx.nodes import AbstractExpression
 
-from . import _dual as ad
 from ._context import sample
 
 try:
@@ -44,28 +46,52 @@ def inside_cell(cell, point):
     facets = basix.cell.topology(cell.cell_type)[-2]
     vertices = basix.geometry(cell.cell_type)
     normals = basix.cell.facet_outward_normals(cell.cell_type)
-    return all(
-        (point - vertices[facet[0]]) @ normal <= 1e-9
-        for facet, normal in zip(facets, normals, strict=True)
+    return jnp.all(
+        jnp.stack(
+            [
+                (point - vertices[facet[0]]) @ normal <= 1e-9
+                for facet, normal in zip(facets, normals, strict=True)
+            ]
+        )
     )
 
 
-def tabulate(element, point, orders=None):
-    """Read exact partial derivatives of a basis from the Basix derivative table."""
-    if orders is None:
-        orders = (0,) * np.size(ad.primal(point))
-    if isinstance(point, ad.Dual):
-        base = tabulate(element, point.value, orders)
-        tangent = np.zeros_like(ad.primal(base))
+@cache
+def _tabulator(element, orders):
+    """Basix provides exact derivative tables even at traced evaluation points."""
+
+    def host(point):
+        points = np.asarray(point, dtype=element.dtype)
+        batch = points.shape[:-1]
+        table = element.tabulate(sum(orders), points.reshape(prod(batch), len(orders)))
+        values = table[basix.index(*orders) if orders else 0]
+        return values.reshape(*batch, element.dim, element.value_size).astype(
+            point.dtype, copy=False
+        )
+
+    @jax.custom_jvp
+    def tabulate(point):
+        if not isinstance(point, jax.core.Tracer):
+            return jnp.asarray(host(point))
+        shape = jax.ShapeDtypeStruct((element.dim, element.value_size), point.dtype)
+        return jax.pure_callback(host, shape, point, vmap_method="broadcast_all")
+
+    @tabulate.defjvp
+    def derivative(primals, tangents):
+        (point,), (direction,) = primals, tangents
+        value = tabulate(point)
+        tangent = jnp.zeros_like(value)
         for axis in range(len(orders)):
             partial = (*orders[:axis], orders[axis] + 1, *orders[axis + 1 :])
-            tangent = ad.add(
-                tangent,
-                ad.multiply(tabulate(element, point.value, partial), ad.entry(point.tangent, axis)),
-            )
-        return ad.Dual(point.tag, base, tangent)
-    table = element.tabulate(sum(orders), np.asarray([point], dtype=float))
-    return table[basix.index(*orders) if orders else 0, 0]
+            tangent = tangent + _tabulator(element, partial)(point) * direction[axis]
+        return value, tangent
+
+    return tabulate
+
+
+def tabulate(element, point):
+    point = jnp.asarray(point, dtype=float)
+    return _tabulator(element, (0,) * len(point))(point)
 
 
 def field_value(node, frame):
@@ -80,13 +106,10 @@ def field_value(node, frame):
         return sample(coefficients, frame, topology)
     basis = tabulate(space.element(slot), frame.points[topology])
 
-    def reconstruct(dofs, basis):
-        local = np.asarray(dofs)[list(space.cell_dofs[slot])]
-        if space.block_shape:
-            return (local.reshape(-1, space.block_size).T @ basis[:, 0]).reshape(space.value_shape)
-        return (local @ basis).reshape(space.value_shape)
-
-    return ad.bilinear(reconstruct, coefficients, basis)
+    local = jnp.asarray(coefficients)[np.asarray(space.cell_dofs[slot])]
+    if space.block_shape:
+        return (local.reshape(-1, space.block_size).T @ basis[:, 0]).reshape(space.value_shape)
+    return (local @ basis).reshape(space.value_shape)
 
 
 def basis_value(node, frame):
@@ -94,7 +117,7 @@ def basis_value(node, frame):
     if frame.cells.get(space.domain, 0) != node.cell_slot:
         return np.zeros(node.value_shape)
     basis = tabulate(space.element(node.cell_slot), frame.points[space.domain])
-    return ad.linear(lambda a: a.reshape(node.value_shape), basis)
+    return basis.reshape(node.value_shape)
 
 
 @cache
@@ -109,21 +132,16 @@ def vertex_value(topology, vertices, frame):
     cell = topology.cell_types[slot]
     point = frame.points[topology]
     if is_basix_cell(cell) and cell.dimension:
-        weights = ad.entry(tabulate(vertex_element(cell.cell_type), point), (slice(None), 0))
+        weights = tabulate(vertex_element(cell.cell_type), point)[:, 0]
     elif cell.num_vertices == cell.dimension + 1:
-        weights = ad.stack(
-            [
-                ad.subtract(1, ad.linear(np.sum, point)),
-                *(ad.entry(point, i) for i in range(cell.dimension)),
-            ]
-        )
+        weights = jnp.concatenate((jnp.atleast_1d(1 - jnp.sum(point)), point))
     else:
         bits = np.array(
             [[(v >> d) & 1 for d in range(cell.dimension)] for v in range(cell.num_vertices)]
         )
         weights = np.ones(cell.num_vertices)
         for axis in range(cell.dimension):
-            x = ad.entry(point, axis)
-            factors = ad.add(1 - bits[:, axis], ad.multiply(2 * bits[:, axis] - 1, x))
-            weights = ad.multiply(weights, factors)
-    return ad.matmul(weights, np.asarray(vertices)[list(topology.cells[slot])])
+            x = point[axis]
+            factors = 1 - bits[:, axis] + (2 * bits[:, axis] - 1) * x
+            weights = weights * factors
+    return weights @ np.asarray(vertices)[list(topology.cells[slot])]

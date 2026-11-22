@@ -19,7 +19,7 @@ from uflx._src.extensions.external_operators import (
     external_operator,
 )
 from uflx.arithmetic import num
-from uflx.calculus import directional_derivative
+from uflx.calculus import coordinate, directional_derivative
 from uflx.forms import apply, form, function
 from uflx.nodes import Apply, DirectionalDerivative, Function, Integer, Product
 from uflx_oracle.interpreter import Interpreter
@@ -120,20 +120,24 @@ class SampleProduct(AbstractOperation):
         return SampleProduct(self.order + 1)
 
 
-def library_bindings(saved):
+def library_bindings(saved=None):
+    def remember(*fields):
+        if saved is not None:
+            saved.append(fields)
+
     def sample(field):
         return sum(field(np.array([x, 0.125])) for x in (0.125, 0.5))
 
     def value(field, a):
-        saved.append((field,))
+        remember(field)
         return a * sample(field)
 
     def first(field, a, dfield, da):
-        saved.append((field, dfield))
+        remember(field, dfield)
         return a * sample(dfield) + da * sample(field)
 
     def second(field, a, dfield, da, hfield, ha, hdfield, hda):
-        saved.append((field, dfield, hfield, hdfield))
+        remember(field, dfield, hfield, hdfield)
         return a * sample(hdfield) + ha * sample(dfield) + da * sample(hfield) + hda * sample(field)
 
     return {SampleProduct(0): value, SampleProduct(1): first, SampleProduct(2): second}
@@ -157,7 +161,10 @@ def test_whole_field_against_oracle():
 
     cells = {0: cell_field(0), 1: cell_field(2)}
     direction = cell_field(1)
-    oracle = Interpreter({u: cells, h: direction, a: 2.0, **library_bindings([])})
+    # The graph oracle takes traceable fields. Only the host adapter under test
+    # retains Python callbacks and checks that it supplies concrete NumPy points.
+    x = coordinate(D)[0]
+    oracle = Interpreter({u: {0: x, 1: num(2) + x}, h: num(1) + x, a: 2.0, **library_bindings()})
     retained = {}
     with jax.checking_leaks():
         for cell, field in cells.items():

@@ -3,12 +3,13 @@
 from functools import lru_cache
 from itertools import product
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 from uflx.nodes import AbstractCoordinateDomain, EuclideanSpace, Mesh
 from uflx_basix.nodes import ReferenceSimplex
 
-from . import _dual as ad
 from . import _finite_elements as elements
 
 
@@ -31,55 +32,66 @@ def simplex_quadrature(dimension):
 def chart_of(piece, frame):
     def chart(point):
         local = frame.at({piece.reference_cell: point})
-        return ad.linear(np.real, local.value(piece.parameterisation))
+        return jnp.real(local.value(piece.parameterisation))
 
     return chart
 
 
 def reference_point(chart, point, dim):
-    """Invert a cell chart by Gauss-Newton iteration."""
-    ref = np.full(dim, 1 / (dim + 1))
-    if dim:
-        for _ in range(30):
-            residual = ad.subtract(chart(ref), ad.linear(np.real, point))
-            correction = ad.matmul(ad.pinv(ad.jacobian(chart, ref)), residual)
-            ref = ad.subtract(ref, correction)
-            if converged(correction):
-                break
-    return ref
+    """Solve for the reference point and differentiate its stationarity condition."""
+    initial = jnp.full(dim, 1 / (dim + 1))
+    if not dim:
+        return initial
+    jacobian = jax.jacfwd(chart)
 
+    def stationarity(ref):
+        return jacobian(ref).T @ (chart(ref) - jnp.real(point))
 
-def converged(correction):
-    # At a stationary primal point the inverse chart's tangents may still be changing.
-    if isinstance(correction, ad.Dual):
-        return converged(correction.value) and converged(correction.tangent)
-    return np.linalg.norm(correction) < 1e-12
+    def solve(_, ref):
+        def step(state):
+            i, ref, _ = state
+            correction = jnp.linalg.pinv(jacobian(ref)) @ (chart(ref) - jnp.real(point))
+            return i + 1, ref - correction, jnp.linalg.norm(correction)
 
+        return jax.lax.while_loop(
+            lambda state: (state[0] < 30) & (state[2] >= 1e-12),
+            step,
+            (0, ref, jnp.inf),
+        )[1]
 
-def locate(domain, point, frame):
-    """Return the cell and its reference coordinate for a physical point."""
-    slot = frame.cells.get(domain)
-    if slot is not None:
-        return slot, reference_point(chart_of(domain[slot], frame), point, domain.dimension)
+    def tangent_solve(linear, rhs):
+        return jnp.linalg.solve(jax.jacfwd(linear)(jnp.zeros_like(rhs)), rhs)
 
-    for slot, piece in enumerate(domain):
-        chart = chart_of(piece, frame)
-        ref = reference_point(chart, point, domain.dimension)
-        cell = piece.reference_cell
-        inside = (
-            elements.inside_cell(cell, ad.primal(ref))
-            if elements.is_basix_cell(cell)
-            else np.all(ad.primal(ref) > -1e-9) and np.sum(ad.primal(ref)) < 1 + 1e-9
-        )
-        if inside and np.linalg.norm(ad.primal(chart(ref)) - np.real(ad.primal(point))) < 1e-9:
-            return slot, ref
-    raise ValueError(f"no cell of {domain} contains {point}")
+    return jax.lax.custom_root(stationarity, initial, solve, tangent_solve)
 
 
 def tangent_projector(domain, frame):
-    slot, ref = locate(domain, frame.points[domain], frame)
-    tangent = ad.jacobian(chart_of(domain[slot], frame), ref)
-    return ad.matmul(tangent, ad.pinv(tangent))
+    point = frame.points[domain]
+
+    def candidate(piece):
+        chart = chart_of(piece, frame)
+        ref = reference_point(chart, point, domain.dimension)
+        tangent = jax.jacfwd(chart)(ref)
+        return ref, chart(ref), tangent @ jnp.linalg.pinv(tangent)
+
+    if domain in frame.cells:
+        return candidate(domain[frame.cells[domain]])[2]
+    projection = jnp.full((len(point), len(point)), jnp.nan)
+    found = False
+    for piece in domain:
+        ref, physical, matrix = candidate(piece)
+        cell = piece.reference_cell
+        inside = (
+            elements.inside_cell(cell, ref)
+            if elements.is_basix_cell(cell)
+            else jnp.all(ref > -1e-9) & (jnp.sum(ref) < 1 + 1e-9)
+        )
+        valid = inside & (jnp.linalg.norm(physical - jnp.real(point)) < 1e-9)
+        projection = jnp.where(valid & ~jnp.asarray(found), matrix, projection)
+        found = found | valid
+    if not isinstance(found, jax.core.Tracer) and not found:
+        raise ValueError(f"no cell of {domain} contains {point}")
+    return projection
 
 
 def side_reference(side, frame):
@@ -91,7 +103,7 @@ def side_reference(side, frame):
         chart = chart_of(source[slot], frame)
         point = reference_point(chart, point, source.dimension)
     local = frame.at({inclusion.parameter_domain: point})
-    target = ad.linear(np.real, local.value(inclusion.parameterisation))
+    target = jnp.real(local.value(inclusion.parameterisation))
     return slot, parent_slot, inclusion, point, target
 
 
@@ -103,10 +115,9 @@ def integrate(domain, fn, frame):
             rule = simplex_quadrature(domain.dimension)
         else:
             raise NotImplementedError(f"no reference quadrature for {domain}")
-        total = 0
-        for point, weight in rule:
-            total = ad.add(total, ad.multiply(weight, fn(frame.at({domain: np.asarray(point)}))))
-        return total
+        points, weights = zip(*rule, strict=True)
+        samples = jax.vmap(lambda p: fn(frame.at({domain: p})))(jnp.asarray(points))
+        return jnp.tensordot(jnp.asarray(weights), samples, axes=1)
 
     def integrate_piece(slot, piece):
         chart = chart_of(piece, frame)
@@ -114,38 +125,29 @@ def integrate(domain, fn, frame):
         def mapped(local):
             ref = local.points[piece.reference_cell]
             physical = chart(ref)
-            J = ad.jacobian(chart, ref)
+            J = jax.jacfwd(chart)(ref)
             density = volume_factor(J) if len(ref) else 1.0
             sample = local.at(
                 {domain: physical, domain.ambient_domain: physical}, cells={domain: slot}
             )
-            return ad.multiply(density, fn(sample))
+            return density * fn(sample)
 
         return integrate(piece.reference_cell, mapped, frame)
 
     total = 0
     for slot, piece in enumerate(domain):
-        total = ad.add(total, integrate_piece(slot, piece))
+        total = total + integrate_piece(slot, piece)
     return total
 
 
 def volume_factor(J):
-    gram = ad.matmul(ad.linear(np.transpose, J), J)
-    return ad.sqrt(ad.absolute(ad.determinant(gram)))
+    return jnp.sqrt(jnp.abs(jnp.linalg.det(J.T @ J)))
 
 
 def transformed(value, law, J):
-    inverse = ad.pinv(J)
-    value = ad.asarray(value)
-    for axis, variance in enumerate(
-        law.variances, start=np.ndim(ad.primal(value)) - len(law.variances)
-    ):
-        matrix = ad.linear(np.transpose, inverse) if variance == "covariant" else J
-        value = ad.bilinear(
-            lambda v, m: np.moveaxis(np.tensordot(v, m, axes=([axis], [1])), -1, axis),
-            value,
-            matrix,
-        )
-    m, n = np.shape(ad.primal(J))
-    scale = ad.determinant(J) if m == n else volume_factor(J)
-    return ad.divide(value, ad.power(scale, law.weight))
+    value = jnp.asarray(value)
+    for axis, variance in enumerate(law.variances, start=value.ndim - len(law.variances)):
+        matrix = jnp.linalg.pinv(J).T if variance == "covariant" else J
+        value = jnp.moveaxis(jnp.tensordot(value, matrix, axes=([axis], [1])), -1, axis)
+    scale = jnp.linalg.det(J) if J.shape[0] == J.shape[1] else volume_factor(J)
+    return value / scale**law.weight

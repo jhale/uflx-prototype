@@ -2,9 +2,11 @@
 
 from collections.abc import Mapping
 
+import jax
+import jax.numpy as jnp
+
 from uflx.nodes import AbstractExpression
 
-from . import _dual as ad
 from ._external import Pointwise as Pointwise
 from ._semantics import Frame
 
@@ -12,8 +14,8 @@ from ._semantics import Frame
 class Interpreter:
     """A numerical reference interpreter with field and operation bindings.
 
-    Bind fields to numbers, arrays, UFLx expressions or numerical point callbacks.
-    Use an ExternalOperator with a derivative action for a differentiable library function.
+    Bind fields to numbers, arrays, UFLx expressions or JAX-traceable functions of a point.
+    Use Pointwise and a declared derivative action for an opaque numerical library call.
     Bind operator-valued functions to callables of their slots. Runtime arrays,
     coefficients and extents also accept their library labels.
     """
@@ -37,7 +39,15 @@ class Interpreter:
         frame = Frame(
             dict(self.environment),
             dict(indices or {}),
-            {domain: ad.asarray(point) for domain, point in (points or {}).items()},
+            {domain: jnp.asarray(point, dtype=float) for domain, point in (points or {}).items()},
             dict(cells or {}),
         )
-        return frame.value(expression, arguments)
+        value = frame.value(expression, arguments)
+        # Eager scalar results can be used as UFLx literals. A traced scalar stays in the graph.
+        if (
+            isinstance(value, jax.Array)
+            and not isinstance(value, jax.core.Tracer)
+            and not value.ndim
+        ):
+            return value.item()
+        return value
