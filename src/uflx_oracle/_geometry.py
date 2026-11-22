@@ -1,32 +1,11 @@
 """Reference coordinates, physical charts and numerical integration."""
 
-from functools import lru_cache
-from itertools import product
-
 import jax
 import jax.numpy as jnp
-import numpy as np
 
-from uflx.nodes import AbstractCoordinateDomain, EuclideanSpace, Mesh
-from uflx_basix.nodes import ReferenceSimplex
+from uflx.nodes import AbstractCoordinateDomain, Mesh
 
 from . import _finite_elements as elements
-
-
-@lru_cache
-def simplex_quadrature(dimension):
-    """Map a tensor product of Gauss rules on [0, 1] onto a unit simplex."""
-    nodes, weights = np.polynomial.legendre.leggauss(6 if dimension == 1 else 5)
-    interval = tuple(zip((nodes + 1) / 2, weights / 2, strict=True))
-    rule = []
-    for factors in product(interval, repeat=dimension):
-        point, remaining, weight = [], 1.0, 1.0
-        for node, w in factors:
-            point.append(remaining * node)
-            weight *= remaining * w
-            remaining *= 1 - node
-        rule.append((tuple(point), weight))
-    return tuple(rule)
 
 
 def chart_of(piece, frame):
@@ -109,13 +88,7 @@ def side_reference(side, frame):
 
 def integrate(domain, fn, frame):
     if isinstance(domain, AbstractCoordinateDomain):
-        if elements.is_basix_cell(domain):
-            rule = elements.cell_quadrature(domain)
-        elif isinstance(domain, ReferenceSimplex) or domain == EuclideanSpace(0):
-            rule = simplex_quadrature(domain.dimension)
-        else:
-            raise NotImplementedError(f"no reference quadrature for {domain}")
-        points, weights = zip(*rule, strict=True)
+        points, weights = elements.cell_quadrature(domain)
         samples = jax.vmap(lambda p: fn(frame.at({domain: p})))(jnp.asarray(points))
         return jnp.tensordot(jnp.asarray(weights), samples, axes=1)
 

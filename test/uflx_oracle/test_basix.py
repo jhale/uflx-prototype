@@ -1,3 +1,5 @@
+from math import factorial
+
 import basix
 import numpy as np
 import pytest
@@ -43,7 +45,11 @@ def value(e, P=None, X=()):
 def test_a_basix_simplex_is_the_unit_simplex(n, cell):
     K = basix_cell(cell)
     assert (K.dimension, K.num_vertices) == (n, n + 1)
-    assert np.allclose(value(K.vertices), value(reference_simplex(n).vertices))
+    simplex = reference_simplex(n)
+    assert np.allclose(value(K.vertices), value(simplex.vertices))
+    for domain in (simplex, K):
+        moment = integral(coordinate(domain)[0] ** num(12), domain)
+        assert value(moment) == pytest.approx(factorial(12) / factorial(12 + n), rel=1e-12)
 
 
 @pytest.mark.parametrize(

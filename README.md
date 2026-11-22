@@ -668,7 +668,9 @@ The private modules of `_src`:
 `uflx_oracle.interpreter.Interpreter` evaluates the original expression tree.
 Use it to obtain a value for a field, apply a form to numerical arguments, or
 check a lowering or compilation result. Install `pip install -e ".[oracle]"` for
-the JAX evaluator and Basix. The oracle uses JAX's active precision. Set
+the JAX evaluator and Basix. Both `ReferenceSimplex` and `BasixCell` use degree-12
+Basix quadrature on intervals, triangles and tetrahedra. Point integrals use one
+sample of weight one. The oracle uses JAX's active precision. Set
 `JAX_ENABLE_X64=true` for double-precision reference values.
 
 ```python
