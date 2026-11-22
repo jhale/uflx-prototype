@@ -62,9 +62,24 @@ def evaluate(node, bindings, site, arguments=()):
     def field(expr):
         return lambda sample: value(expr, arguments, at=sample)
 
+    order = _tensors.axes(node, bindings)
+
+    def operand(expr, slots=(), *, at=site, rank=len(node.value_shape)):
+        data = value(expr, slots, at=at)
+        padding = rank - len(expr.value_shape)
+        return _tensors.align(data, _tensors.axes(expr, bindings), order, padding)
+
+    if order and 0 in _tensors.shape(node, bindings)[: len(order)]:
+        return jnp.empty(_tensors.shape(node, bindings), dtype=_tensors.dtype(node))
+
     binding = bindings.get(node)
     if isinstance(binding, BoundExpression):
         return binding.read(site, arguments)
+
+    def pointwise():
+        return _tensors.pointwise(
+            node, bindings, lambda indices: value(node, arguments, bind=indices)
+        )
 
     match node:
         case Boolean(v) | Float(v):
@@ -82,35 +97,32 @@ def evaluate(node, bindings, site, arguments=()):
 
             def compare():
                 with jax.ensure_compile_time_eval():
-                    return jnp.real(value(a, at=at)) < jnp.real(value(b, at=at))
+                    return jnp.real(operand(a, at=at)) < jnp.real(operand(b, at=at))
 
             # Make captured coefficient values explicit so outer AD stops at the predicate.
             predicate, inputs = jax.closure_convert(compare)
             return predicate(*map(jax.lax.stop_gradient, inputs))
         case Conditional(predicate, left, right):
+            if _tensors.axes(predicate, bindings):
+                return pointwise()
             condition = value(predicate)
-            dtype = {"boolean": bool, "real": float, "complex": complex}[node.scalar_type]
 
             def branch(expr):
-                return jnp.asarray(value(expr, arguments), dtype=dtype)
+                result = jnp.asarray(operand(expr, arguments), dtype=_tensors.dtype(node))
+                return jnp.broadcast_to(result, _tensors.shape(node, bindings))
 
             if not isinstance(condition, jax.core.Tracer):
                 return branch(left if condition else right)
             return jax.lax.cond(condition, lambda: branch(left), lambda: branch(right))
-        case Zero(shape, _, _, scalar_type):
-            dtype = complex if scalar_type == "complex" else float
-            return (
-                jnp.zeros(tuple(_tensors.size(n, bindings) for n in shape), dtype=dtype)
-                if shape
-                else dtype(0)
-            )
+        case Zero():
+            return jnp.zeros(_tensors.shape(node, bindings), dtype=_tensors.dtype(node))
         case Sum(a, b):
-            return value(a, arguments) + value(b, arguments)
+            return operand(a, arguments) + operand(b, arguments)
         case Product(a, b):
             n = len(a.argument_spaces)
-            return value(a, arguments[:n]) * value(b, arguments[n:])
+            return operand(a, arguments[:n]) * operand(b, arguments[n:])
         case Division(a, b):
-            return jnp.divide(value(a, arguments), value(b))
+            return jnp.divide(operand(a, arguments), operand(b))
         case Conjugate(a):
             return jnp.conj(value(a, tuple(_forms.conjugated(v) for v in arguments)))
         case RealPart(a):
@@ -126,32 +138,32 @@ def evaluate(node, bindings, site, arguments=()):
                     return jnp.asarray(v, dtype=complex)
                 return jnp.asarray(jnp.real(v), dtype=float)
 
-            base = cast(value(a, arguments))
+            base = cast(operand(a, arguments))
             if isinstance(node, Power):
                 if isinstance(node.exponent, Integer):
                     return base**node.exponent.value
                 if isinstance(node.exponent, Float) and node.exponent.value == 0:
                     return jnp.ones_like(base)
-                return jnp.power(base, cast(value(node.exponent)))
+                return jnp.power(base, cast(operand(node.exponent)))
             return jnp.sqrt(base) if isinstance(node, SquareRoot) else jnp.log(base)
-        case Determinant(a):
-            return _tensors.determinant(value(a))
-        case Inverse(a):
-            return _tensors.inverse(jnp.asarray(value(a)))
-        case BroadcastTo(x, shape):
-            target = tuple(_tensors.size(n, bindings) for n in shape)
+        case Determinant(a) | Inverse(a):
+            matrix_op = _tensors.determinant if isinstance(node, Determinant) else _tensors.inverse
+            for _ in order:
+                matrix_op = jax.vmap(matrix_op)
+            return matrix_op(jnp.asarray(value(a)))
+        case BroadcastTo(x, _):
+            target = _tensors.shape(node, bindings)
             if 0 in target:
-                dtype = {"boolean": bool, "complex": complex, "real": float}[node.scalar_type]
-                return jnp.empty(target, dtype=dtype)
-            return jnp.broadcast_to(value(x, arguments), target)
+                return jnp.empty(target, dtype=_tensors.dtype(node))
+            return jnp.broadcast_to(operand(x, arguments), target)
         case Tensor(entries):
-            return jnp.stack([value(entry, arguments) for entry in entries])
-        case Indexed(x, indices):
-            key = _tensors.flat(_tensors.index_value(i, bindings) for i in indices)
-            return jnp.asarray(value(x, arguments))[key]
+            parts = [operand(x, arguments, rank=len(x.value_shape)) for x in entries]
+            return jnp.stack(jnp.broadcast_arrays(*parts), axis=len(order))
+        case Indexed(x, _):
+            return _tensors.indexed(node, value(x, arguments), bindings)
         case ComponentTensor() | IndexSum():
-            return _tensors.bound_tensor(
-                node, bindings, lambda indices: value(node.expression, arguments, bind=indices)
+            return _tensors.bind_indices(
+                node, bindings, arguments, lambda x, local, slots: evaluate(x, local, site, slots)
             )
         case Function():
             return _forms.function_value(node, bindings, site, arguments, value)
@@ -161,24 +173,27 @@ def evaluate(node, bindings, site, arguments=()):
                 body, arguments[:n], bind=_forms.form_bindings(declarations, arguments[n:])
             )
         case Apply(operator, operands):
+            if order:
+                return pointwise()
             slots = tuple(
                 _forms.supplied(x, s, site, value)
                 for x, s in zip(operands, operator.argument_spaces, strict=True)
             )
             return value(operator, slots)
         case ExternalOperator():
+            if order:
+                return pointwise()
             return evaluate_external(node, bindings[node.operation], site, value)
         case DirectionalDerivative():
+            if order:
+                return pointwise()
             return _forms.directional(node, arguments, value)
         case Coordinate(domain):
             return jnp.asarray(site.points[domain], dtype=float)
         case Gradient(x, domain):
             point = jnp.asarray(site.points[domain])
             if not point.size:
-                shape = tuple(_tensors.size(n, bindings) for n in x.value_shape)
-                return jnp.empty(
-                    (*shape, 0), dtype=complex if x.scalar_type == "complex" else float
-                )
+                return jnp.empty(_tensors.shape(node, bindings), dtype=_tensors.dtype(node))
 
             def at_point(p):
                 result = value(x, arguments, at=site.at({domain: p}))
@@ -195,6 +210,8 @@ def evaluate(node, bindings, site, arguments=()):
         case Integral(x, domain):
             return integrate(domain, field(x), site, value)
         case PullBack(x, mapping):
+            if _tensors.axes(mapping, bindings):
+                return pointwise()
             return value(x, arguments, at=_spatial.pullback_site(mapping, site, value))
         case PushForward(x, mesh, law):
             return _spatial.push_forward(field(x), mesh, law, site, value)

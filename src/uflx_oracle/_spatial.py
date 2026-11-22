@@ -16,8 +16,11 @@ from ._tensors import inverse
 
 def curl(g):
     if g.shape[-1] == 2:
-        return g[1, 0] - g[0, 1]
-    return jnp.array([g[2, 1] - g[1, 2], g[0, 2] - g[2, 0], g[1, 0] - g[0, 1]])
+        return g[..., 1, 0] - g[..., 0, 1]
+    return jnp.stack(
+        (g[..., 2, 1] - g[..., 1, 2], g[..., 0, 2] - g[..., 2, 0], g[..., 1, 0] - g[..., 0, 1]),
+        axis=-1,
+    )
 
 
 def pullback_site(mapping, site, value):

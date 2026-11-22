@@ -30,7 +30,8 @@ class Interpreter:
     ):
         """Return the numerical value for the given ordered form slots.
 
-        Supply free index values in indices and coordinates keyed by domain in points.
+        Unselected free indices are leading array axes in expression.free_indices order.
+        Select an entry with indices={i: k}. Supply coordinates keyed by domain in points.
         When a point evaluation needs one of several local cells, supply its slot
         in cells, keyed by mesh or topology.
         """
