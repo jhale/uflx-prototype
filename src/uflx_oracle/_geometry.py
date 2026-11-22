@@ -6,6 +6,7 @@ import jax.numpy as jnp
 from uflx.nodes import AbstractCoordinateDomain, Mesh
 
 from . import _tensors
+from ._finite_elements import reference_quadrature
 
 
 def chart_of(piece, site, value):
@@ -66,12 +67,7 @@ def side_reference(side, site, value):
 
 def integrate(domain, fn, site, value):
     if isinstance(domain, AbstractCoordinateDomain):
-        if domain.dimension == 0:
-            points, weights = jnp.empty((1, 0)), jnp.ones(1)
-        elif hasattr(domain, "quadrature"):
-            points, weights = domain.quadrature(12)
-        else:
-            raise NotImplementedError(f"no reference quadrature for {domain}")
+        points, weights = reference_quadrature(domain)
         samples = jax.vmap(lambda p: fn(site.at({domain: p})))(jnp.asarray(points))
         return jnp.tensordot(jnp.asarray(weights), samples, axes=1)
 

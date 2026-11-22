@@ -196,14 +196,16 @@ transformation required by the element. Interpolation supports value sampling.
 
 ### Choosing quadrature per integral
 
-`apply_quadrature(integral, points, weights)` samples one integral on a Basix
-reference cell. Get a rule from the cell or supply your own arrays. Here
-`mass` is an integral on the reference triangle `K`.
+Use `basix.make_quadrature` to choose the rule. Pass its points and weights
+to `apply_quadrature` to express the integral as a weighted sum in UFLx.
+Here `mass` is an integral on the reference triangle `K`.
 
 ```python
+import basix
+
 from uflx_basix.quadrature import apply_quadrature
 
-points, weights = K.quadrature(2)
+points, weights = basix.make_quadrature(K.cell_type, degree=2)
 sampled_mass = apply_quadrature(mass, points, weights)
 ```
 
@@ -213,14 +215,15 @@ Here `load` stays available for a later choice of rule.
 ```python
 from uflx.algorithms import substitute_values
 
+stiffness_rule = basix.make_quadrature(K.cell_type, degree=4)
 partial = substitute_values(
     mass + stiffness + load,
-    {mass: sampled_mass, stiffness: apply_quadrature(stiffness, *K.quadrature(4))},
+    {mass: sampled_mass, stiffness: apply_quadrature(stiffness, *stiffness_rule)},
 )
 ```
 
 For a common degree across a form, use the core traversal. It visits nested
-integrals from the inside out.
+integrals from the inside out. Point integrals are already exact.
 
 ```python
 from uflx.algorithms import bottom_up
@@ -229,8 +232,11 @@ from uflx_basix.nodes import BasixCell
 
 
 def sample(node):
-    if isinstance(node, Integral) and isinstance(node.integration_domain, BasixCell):
-        return apply_quadrature(node, *node.integration_domain.quadrature(2))
+    if isinstance(node, Integral):
+        K = node.integration_domain
+        if isinstance(K, BasixCell) and K.dimension > 0:
+            points, weights = basix.make_quadrature(K.cell_type, degree=2)
+            return apply_quadrature(node, points, weights)
     return node
 
 
@@ -483,9 +489,9 @@ The private modules of `_src`:
 `uflx_oracle.interpreter.Interpreter` evaluates the original expression tree.
 Use it to obtain a value for a field, apply a form to numerical arguments, or
 compare an expression before and after lowering. Install `pip install -e ".[oracle]"` for
-the JAX evaluator and Basix. For a positive-dimensional reference cell the oracle
-reads numerical points and weights from `cell.quadrature(12)`. A `BasixCell`
-supplies the Basix rule of that degree. Point integrals use one
+the JAX evaluator and Basix. For an integral on a positive-dimensional Basix cell,
+the oracle calls `basix.make_quadrature(K.cell_type, degree=12)`. Other reference
+cells can supply their own `quadrature(degree)` method. A point integral uses one
 sample of weight one. The oracle uses JAX's active precision. Set
 `JAX_ENABLE_X64=true` for double-precision reference values.
 

@@ -46,12 +46,6 @@ class BasixCell(AbstractReferenceCell):
             return Zero((1, 0), (), (), ScalarType.real)
         return table(basix.cell.geometry(self.cell_type))
 
-    def quadrature(self, degree):
-        """Reference points and weights in Basix cell order."""
-        if self.dimension == 0:
-            return np.empty((1, 0)), np.ones(1)
-        return basix.make_quadrature(self.cell_type, degree)
-
 
 @final
 class BasixSpace(AbstractFunctionSpace):

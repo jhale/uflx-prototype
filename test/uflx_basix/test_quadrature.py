@@ -11,7 +11,7 @@ from uflx_basix.quadrature import apply_quadrature
 def test_quadrature_requires_one_reference_integral():
     K = cell(basix.CellType.interval)
     a = integral(coordinate(K)[0], K)
-    points, weights = K.quadrature(2)
+    points, weights = basix.make_quadrature(K.cell_type, 2)
     with pytest.raises(TypeError, match="single Integral"):
         apply_quadrature(a + a, points, weights)
     with pytest.raises(ValueError, match="reference cell"):

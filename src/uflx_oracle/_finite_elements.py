@@ -1,4 +1,4 @@
-"""Numerical data supplied by the Basix extension."""
+"""Reference quadrature and finite-element tabulation for the oracle."""
 
 from functools import cache
 from itertools import product
@@ -19,7 +19,18 @@ except ModuleNotFoundError as error:
         raise
     basix = None
 else:
-    from uflx_basix.nodes import BasixBasis, BasixSpace
+    from uflx_basix.nodes import BasixBasis, BasixCell, BasixSpace
+
+
+def reference_quadrature(domain):
+    """Return the numerical rule the oracle uses for an unevaluated integral."""
+    if domain.dimension == 0:
+        return np.empty((1, 0)), np.ones(1)
+    if basix is not None and isinstance(domain, BasixCell):
+        return basix.make_quadrature(domain.cell_type, degree=12)
+    if hasattr(domain, "quadrature"):
+        return domain.quadrature(12)
+    raise NotImplementedError(f"no reference quadrature for {domain}")
 
 
 def is_basix_space(space):

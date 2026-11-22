@@ -24,14 +24,16 @@ def test_choose_rules_for_distinct_integrals_on_the_same_cell():
         expression,
         {
             a: apply_quadrature(a, [[0.25]], [1.0]),
-            b: apply_quadrature(b, *K.quadrature(4)),
+            b: apply_quadrature(b, *basix.make_quadrature(K.cell_type, 4)),
         },
     )
     assert partial.entries[2] is c
     assert partial.entries[0] is partial.entries[3]
     np.testing.assert_allclose(Interpreter().evaluate(partial), [1 / 16, 1 / 4, 1 / 5, 1 / 16])
 
-    finished = substitute_values(partial, {c: apply_quadrature(c, *K.quadrature(1))})
+    finished = substitute_values(
+        partial, {c: apply_quadrature(c, *basix.make_quadrature(K.cell_type, 1))}
+    )
     assert finished.entries[:2] == partial.entries[:2]
     np.testing.assert_allclose(Interpreter().evaluate(finished), [1 / 16, 1 / 4, 1 / 16, 1 / 16])
 
@@ -56,7 +58,7 @@ def test_one_integral_or_a_bottom_up_traversal_of_nested_integrals():
 def test_point_evaluations_can_be_expanded_after_sampling():
     K = cell(basix.CellType.triangle)
     moment = integral(coordinate(K)[0], K)
-    sampled = apply_quadrature(moment, *K.quadrature(2))
+    sampled = apply_quadrature(moment, *basix.make_quadrature(K.cell_type, 2))
     assert contains(sampled, lambda node: isinstance(node, PullBack))
     expanded = expand_pull_backs(sampled)
     assert not contains(expanded, lambda node: isinstance(node, PullBack))
@@ -68,7 +70,7 @@ def test_custom_rule_preserves_tensor_and_free_axes():
     x = coordinate(K)
     i = index("row")
     expr = integral(tensor((num(1), num(2)))[i] * x, K)
-    points, weights = basix.make_quadrature(K.cell_type, 2)
+    points, weights = basix.make_quadrature(K.cell_type, 2, rule=basix.QuadratureType.xiao_gimbutas)
     quadrature = apply_quadrature(expr, points, weights)
     assert (
         quadrature.value_shape == expr.value_shape and quadrature.free_indices == expr.free_indices
@@ -90,6 +92,6 @@ def test_basix_rule_on_a_tensor_product_cell(cell_type):
     K = cell(cell_type)
     x = coordinate(K)
     moment = integral(x[0] * x[0] + x[K.dimension - 1], K)
-    assert Interpreter().evaluate(apply_quadrature(moment, *K.quadrature(2))) == pytest.approx(
-        5 / 6
-    )
+    assert Interpreter().evaluate(
+        apply_quadrature(moment, *basix.make_quadrature(K.cell_type, 2))
+    ) == pytest.approx(5 / 6)
