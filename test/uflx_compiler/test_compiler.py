@@ -30,7 +30,7 @@ from uflx_compiler import (
     runtime_tables,
 )
 from uflx_compiler.inputs import arrays
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import contains
 from ..uflx_basix.meshes import (
@@ -72,7 +72,7 @@ def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
         lazy = (Integral, PullBack, Gradient, Coordinate)
         assert not contains(compiled, lambda n, lazy=lazy: isinstance(n, lazy))
         env = {"coefficients:u": U}
-        expected = oracle(e, env)(())
+        expected = Interpreter(env).evaluate(e)
         assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8), e
         assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8), e
 
@@ -167,7 +167,7 @@ def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
         compiled = compile_form(e, 4)
         lazy = (Integral, PullBack, Gradient, Coordinate)
         assert not contains(compiled, lambda n, lazy=lazy: isinstance(n, lazy))
-        expected = oracle(e, env)(())
+        expected = Interpreter(env).evaluate(e)
         assert np.isclose(
             evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8, atol=1e-12
         ), e
@@ -216,7 +216,7 @@ def test_a_function_at_points_known_only_at_assembly():
             }
             given = {"q": n, "points": X, "weights": W, "coefficients:u": U}
             env = runtime_tables(compiled, given)
-            expected = oracle(e, given)(())
+            expected = Interpreter(given).evaluate(e)
             assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8)
             # JAX takes the arrays in a fixed order, and the extent stays a Python int.
             keys = [k for k in env if k != "q"]
@@ -257,10 +257,10 @@ def test_geometry_from_coordinates_given_at_assembly():
     energy = integral(g[0] * g[0] + g[1] * g[1], D)
     compiled = compile_form(energy, 4)
     env = geometry(coordinates) | {"coefficients:u": U}
-    expected = oracle(energy, env)(())
+    expected = Interpreter(env).evaluate(energy)
     assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8)
     M = assemble(form(integral(u * v, D), (vT, uT)), 4)(geometry(coordinates))
-    expected = oracle(integral(u * v, D), geometry(coordinates) | {uT: U, vT: W})(())
+    expected = Interpreter(geometry(coordinates) | {uT: U, vT: W}).evaluate(integral(u * v, D))
     assert np.isclose(W @ M @ U, expected)
 
 
@@ -324,4 +324,4 @@ def test_the_simplification_reduces_the_gradient_of_a_coordinate_to_arithmetic()
     )
     U = rng.normal(size=u.expression.space.num_dofs)
     env = geometry(coordinates) | {"coefficients:u": U}
-    assert np.isclose(evaluate(compiled, env), oracle(f, env)(()))
+    assert np.isclose(evaluate(compiled, env), Interpreter(env).evaluate(f))

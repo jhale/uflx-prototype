@@ -10,7 +10,7 @@ from uflx_basix.assembly import conforming_dofmap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import compile_form, evaluate, fold, tabulation
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import contains
 from ..uflx_basix.meshes import grouped_topology, push_forward, quadrilaterals, vertex_mesh
@@ -41,7 +41,7 @@ def test_quadrilateral_kernels_factor_and_agree_with_the_oracle(degree, disconti
         compiled = compile_form(e, 2 * degree + 2)
         assert factored(compiled, 2), e
         value = evaluate(compiled, {"coefficients:u": U}, np, fold(compiled))
-        assert np.isclose(value, oracle(e, {uT: U})(()), rtol=1e-8), e
+        assert np.isclose(value, Interpreter({uT: U}).evaluate(e), rtol=1e-8), e
 
 
 def test_a_hexahedron_kernel_factors_and_agrees_with_the_oracle():
@@ -58,7 +58,7 @@ def test_a_hexahedron_kernel_factors_and_agrees_with_the_oracle():
     compiled = compile_form(e, 6)
     assert factored(compiled, 3)
     value = evaluate(compiled, {"coefficients:u": U}, np, fold(compiled))
-    assert np.isclose(value, oracle(e, {uT: U})(()), rtol=1e-8)
+    assert np.isclose(value, Interpreter({uT: U}).evaluate(e), rtol=1e-8)
 
 
 def flops(e, U):

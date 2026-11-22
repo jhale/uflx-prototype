@@ -14,7 +14,7 @@ from uflx.tensors import index, index_sum, tensor
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import compile_form, evaluate
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.meshes import grouped_topology, push_forward, vertex_mesh
 
@@ -76,7 +76,9 @@ def test_a_raviart_thomas_function_pushed_forward_agrees_with_the_oracle():
         for f in forms:
             values.append(evaluate(compile_form(f, 12), by_label(geometry) | {"coefficients:v": W}))
             # The oracle differentiates by differences, to about 1e-8.
-            assert np.isclose(values[-1], oracle(f, geometry | {vT: W})(()), rtol=1e-6, atol=1e-6)
+            assert np.isclose(
+                values[-1], Interpreter(geometry | {vT: W}).evaluate(f), rtol=1e-6, atol=1e-6
+            )
         fluxes.append(values[1])
     # Bending the shared diagonal leaves the boundary, so the divergence has the same integral.
     assert np.isclose(fluxes[0], fluxes[1], rtol=1e-12)
@@ -109,7 +111,9 @@ def test_the_divergence_of_a_raviart_thomas_function_is_the_reference_divergence
         ):
             value = evaluate(compile_form(integral(f, D), 12), data)
             assert np.isclose(value, evaluate(compile_form(integral(g, D), 12), data))
-            assert np.isclose(value, oracle(integral(f, D), geometry | {vT: W})(()), rtol=1e-6)
+            assert np.isclose(
+                value, Interpreter(geometry | {vT: W}).evaluate(integral(f, D)), rtol=1e-6
+            )
         # The identity needs no derivative of the Jacobian, so no second derivative is read.
         assert not second_derivatives(integral(divergence(v, D), D))
 
@@ -127,7 +131,7 @@ def test_the_curl_of_a_nedelec_function_is_the_reference_curl():
         )
         value = evaluate(compile_form(f, 12), data)
         assert np.isclose(value, evaluate(compile_form(by_hand, 12), data))
-        assert np.isclose(value, oracle(f, geometry | {uT: W})(()), rtol=1e-6)
+        assert np.isclose(value, Interpreter(geometry | {uT: W}).evaluate(f), rtol=1e-6)
         assert not second_derivatives(f)
 
 
@@ -144,7 +148,7 @@ def test_the_curl_of_a_nedelec_function_on_a_tetrahedron_is_the_reference_curl()
     value = evaluate(compile_form(f, 4), {"coefficients:u": W})
     expected = integral(index_sum(by_hand[i] * by_hand[i], (i,)), D)
     assert np.isclose(value, evaluate(compile_form(expected, 4), {"coefficients:u": W}))
-    assert np.isclose(value, oracle(f, {uT: W})(()), rtol=1e-6)
+    assert np.isclose(value, Interpreter({uT: W}).evaluate(f), rtol=1e-6)
 
 
 def test_the_divergence_of_a_field_with_no_piola_map_is_the_trace_of_its_gradient():

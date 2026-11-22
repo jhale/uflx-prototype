@@ -11,7 +11,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import form, function
 from uflx.tensors import index, index_sum, indexed, tensor
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, form_with_fixed_argument, pairing
 
@@ -98,7 +98,8 @@ def main(trials):
         out = applications.expand_applications(e)
         check_types(typed, e, out)
         vals = tuple(complex(*rng.normal(size=2)) for _ in range(len(e.argument_spaces)))
-        before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
+        oracle = Interpreter(env)
+        before, after = oracle.evaluate(e, arguments=vals), oracle.evaluate(out, arguments=vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-4):
             failures += 1
             if failures == 1:

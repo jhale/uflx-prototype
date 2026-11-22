@@ -13,7 +13,7 @@ from uflx_basix.basix_spaces import basix_space
 from uflx_basix.interpolation import interpolate
 from uflx_basix.topology import static_topology
 from uflx_compiler import compile_form, evaluate
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from .test_interpolation import sample
 
@@ -75,4 +75,6 @@ def test_interpolation_on_two_cells_with_variable_jacobians(curvature):
             ]
             np.testing.assert_allclose(actual, expected, atol=1e-11)
             point_value = sample(pull_back(expression, cell_map(D, j)), points[0], K)
-            np.testing.assert_allclose(oracle(point_value, env)(()), expected[0], atol=1e-6)
+            np.testing.assert_allclose(
+                Interpreter(env).evaluate(point_value), expected[0], atol=1e-6
+            )

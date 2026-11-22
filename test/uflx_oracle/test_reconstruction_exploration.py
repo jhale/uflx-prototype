@@ -12,7 +12,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 V = space("Hermite-independent-data", scalar_type="real")
 length, s, q0, m0, q1, m1 = (function(V, name) for name in ("L", "s", "q0", "m0", "q1", "m1"))
@@ -27,7 +27,7 @@ DATA = {length: 1.7, s: 0.37, q0: 0.4, m0: -0.2, q1: 1.3, m1: 0.8}
 
 
 def scalar(e, data):
-    return evaluate(e, data)(())
+    return Interpreter(data).evaluate(e)
 
 
 def test_reconstruction_preserves_physical_endpoint_dofs():

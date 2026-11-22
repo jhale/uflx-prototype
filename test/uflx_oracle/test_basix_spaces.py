@@ -12,7 +12,7 @@ from uflx.passes import expand_arithmetic
 from uflx_basix.assembly import conforming_dofmap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.meshes import mixed, push_forward, side_map, square
 
@@ -38,7 +38,8 @@ def value(e, env):
     out = lower_spatial(integrals.expand_integrals(e))
     out = expand_arithmetic(out)
     assert in_core_normal_form(out)
-    before, after = evaluate(e, env)(()), evaluate(out, env)(())
+    oracle = Interpreter(env)
+    before, after = oracle.evaluate(e), oracle.evaluate(out)
     assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
     return np.real(after)
 

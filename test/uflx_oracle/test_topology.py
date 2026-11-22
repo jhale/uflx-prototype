@@ -1,6 +1,6 @@
 import numpy as np
 
-from uflx_oracle import at, evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.integrals import I as interval
 from ..uflx_basix.integrals import K
@@ -17,10 +17,8 @@ def test_the_side_data_of_the_diagonal_of_the_example():
         assert side_map(square, diagonal, side).entries[0][0] == cells[0]
         assert A.parameter_domain == interval
         for t in (0.0, 0.4, 1.0):
-            point = at(
-                interval, np.array([t]), lambda A=A: evaluate(A.parameterisation, {}, {})(())
-            )
+            point = Interpreter().evaluate(A.parameterisation, points={interval: np.array([t])})
             assert np.allclose(np.real(point), inclusion(t))
-        normal = np.real(at(interval, np.array([0.5]), lambda m=m: evaluate(m, {}, {})(())))
+        normal = np.real(Interpreter().evaluate(m, points={interval: np.array([0.5])}))
         # Out of K, from the centroid (1/3, 1/3) through the facet.
         assert normal @ (inclusion(0.5) - np.array([1, 1]) / 3) > 0

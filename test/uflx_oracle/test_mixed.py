@@ -10,7 +10,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import form, function
 from uflx.nodes import ScalarType
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import ill_typed, keeps_static_type
 
@@ -31,7 +31,7 @@ def test_a_tuple_variable_moves_every_member_to_the_point():
     e = directional_derivative(multiply(u, p), (u, p), (a0, a1), (h0, h1))
     expected = ENV[h0] * ENV[a1] + ENV[a0] * ENV[h1]
     for f in (e, passes(e)):
-        assert np.isclose(evaluate(f, ENV)(()), expected)
+        assert np.isclose(Interpreter(ENV).evaluate(f), expected)
     assert not np.isclose(expected, ENV[h0] * ENV[p] + ENV[u] * ENV[h1])
 
 
@@ -44,7 +44,11 @@ def check(F, x, entry, values):
     e = form(body, (entry,))
     out = passes(e)
     assert keeps_static_type(e, out)
-    before, after = evaluate(e, ENV)((values,)), evaluate(out, ENV)((values,))
+    oracle = Interpreter(ENV)
+    before, after = (
+        oracle.evaluate(e, arguments=(values,)),
+        oracle.evaluate(out, arguments=(values,)),
+    )
     assert np.isclose(before, after, rtol=1e-6), (before, after)
     return after
 
@@ -78,7 +82,7 @@ def test_a_mixed_derivative_that_is_not_holomorphic():
 
 def test_a_constant_point_and_direction():
     e = directional_derivative(multiply(u, p), (u, p), (num(2), num(3)), (num(1), num(0)))
-    assert np.isclose(evaluate(passes(e), ENV)(()), 3)
+    assert np.isclose(Interpreter(ENV).evaluate(passes(e)), 3)
 
 
 def test_mixed_scalar_variables_are_valid_but_a_mixed_product_slot_is_not():
@@ -86,6 +90,6 @@ def test_mixed_scalar_variables_are_valid_but_a_mixed_product_slot_is_not():
     d = directional_derivative(u * lam, (u, lam), (u, lam), (v, mu))
     data = {u: 0.3 + 0.2j, lam: 0.4, v: 0.5 - 0.1j, mu: -0.2}
     expected = data[v] * data[lam] + data[u] * data[mu]
-    assert np.isclose(evaluate(passes(d), data)(()), expected)
+    assert np.isclose(Interpreter(data).evaluate(passes(d)), expected)
     with pytest.raises(ValueError, match="one scalar type"):
         form(d, ((v, mu),))

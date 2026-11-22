@@ -14,7 +14,7 @@ from uflx_basix.spaces import space
 from uflx_compiler.algebra import _normalizer
 from uflx_compiler.evaluation import evaluate as evaluate_array
 from uflx_compiler.simplification import instantiated, simplify
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 
 @pytest.mark.parametrize("scalar_type", (ScalarType.real, ScalarType.complex))
@@ -39,7 +39,7 @@ def test_zero_construction_and_reconstruction(scalar_type):
         applied.scalar_type,
     ) == ((2,), ((k, 3),), (), scalar_type)
     assert instantiated(applied, {k: 1}) is zero((2,), (), (), scalar_type)
-    assert np.iscomplexobj(evaluate(zero((2,), (), (), scalar_type), {})([])) == (
+    assert np.iscomplexobj(Interpreter().evaluate(zero((2,), (), (), scalar_type))) == (
         scalar_type == ScalarType.complex
     )
 

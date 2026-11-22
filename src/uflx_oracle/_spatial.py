@@ -47,27 +47,27 @@ def pull_back(operand, mapping, frame, arguments):
         parent = mapping.parent
         if isinstance(parent, Mesh):
             point = chart_of(parent[slot], frame)(point)
-        bindings = {("piece", parent): slot, parent: point}
-    elif isinstance(mapping, CellMap) and isinstance(mapping.parent, AbstractTopology):
-        bindings = {
-            ("piece", mapping.parent): mapping.cell_slot,
-            mapping.parent: frame.points[mapping.reference_cell],
-        }
+        local = frame.at({parent: point}, cells={parent: slot})
+    elif isinstance(mapping, CellMap):
+        parent = mapping.parent
+        point = (
+            frame.points[mapping.reference_cell]
+            if isinstance(parent, AbstractTopology)
+            else ad.linear(np.real, frame.value(mapping.parameterisation))
+        )
+        local = frame.at({parent: point}, cells={parent: mapping.cell_slot})
     else:
         point = ad.linear(np.real, frame.value(mapping.parameterisation))
-        if isinstance(mapping, CellMap):
-            bindings = {("piece", mapping.parent): mapping.cell_slot, mapping.parent: point}
-        else:
-            bindings = {mapping.ambient_domain: point}
-    return frame.at(bindings).value(operand, arguments)
+        local = frame.at({mapping.ambient_domain: point})
+    return local.value(operand, arguments)
 
 
 def push_forward(operand, mesh, law, frame, arguments):
-    slot = frame.points.get(("piece", mesh), 0)
+    slot = frame.cells.get(mesh, 0)
     chart = chart_of(mesh[slot], frame)
     ref = reference_point(chart, frame.points[mesh], mesh.dimension)
     topology = mesh.topology
-    field = frame.at({("piece", topology): slot, topology: ref}).value(operand, arguments)
+    field = frame.at({topology: ref}, cells={topology: slot}).value(operand, arguments)
     return transformed(field, law, ad.jacobian(chart, ref))
 
 

@@ -15,7 +15,7 @@ from uflx_basix.cells import reference_simplex
 from uflx_basix.inclusions import affine_map, reference_normal
 from uflx_basix.sides import outward_conormal
 from uflx_basix.spaces import space
-from uflx_oracle import at, evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import table
 from ..uflx_basix.meshes import (
@@ -28,7 +28,8 @@ from ..uflx_basix.meshes import (
 
 
 def value(e, P=None, X=()):
-    return np.real(at(P, np.asarray(X, dtype=float), lambda: evaluate(e, {})(())))
+    points = {P: X} if P is not None else {}
+    return np.real(Interpreter().evaluate(e, points=points))
 
 
 @pytest.mark.parametrize(
@@ -76,8 +77,9 @@ def facet_integrals(K):
         out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
         assert in_core_normal_form(out)
-        values.append(evaluate(out, env)(()))
-        assert np.isclose(evaluate(e, env)(()), values[-1], rtol=1e-6)
+        oracle = Interpreter(env)
+        values.append(oracle.evaluate(out))
+        assert np.isclose(oracle.evaluate(e), values[-1], rtol=1e-6)
     return np.array(values)
 
 
@@ -115,7 +117,8 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
         out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
         assert in_core_normal_form(out)
-        before, after = evaluate(e, env)(()), evaluate(out, env)(())
+        oracle = Interpreter(env)
+        before, after = oracle.evaluate(e), oracle.evaluate(out)
         assert np.isclose(before, after, rtol=1e-6), (before, after)
         if expected is not None:
             assert np.isclose(after, expected, rtol=1e-6), (after, expected)
@@ -153,7 +156,8 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
         out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
         assert in_core_normal_form(out)
-        before, after = evaluate(e, env)(()), evaluate(out, env)(())
+        oracle = Interpreter(env)
+        before, after = oracle.evaluate(e), oracle.evaluate(out)
         assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
         if expected is not None:
             assert np.isclose(after, expected, rtol=1e-6, atol=1e-9), (after, expected)

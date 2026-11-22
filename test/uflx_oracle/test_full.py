@@ -27,7 +27,7 @@ from uflx.forms import apply, conjugate_space, dual_space, form, function
 from uflx.nodes import ScalarType
 from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import (
     assert_clean,
@@ -284,7 +284,11 @@ def main(trials):
         fr = dict(e.free_indices)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             ienv = dict(zip(fr, combo))
-            before, after = evaluate(e, env, ienv)(vals), evaluate(out, env, ienv)(vals)
+            oracle = Interpreter(env)
+            before, after = (
+                oracle.evaluate(e, arguments=vals, indices=ienv),
+                oracle.evaluate(out, arguments=vals, indices=ienv),
+            )
             if not np.allclose(before, after, rtol=1e-3, atol=1e-4):
                 bad["value"] += 1
                 if bad["value"] <= 3:

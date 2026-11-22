@@ -19,7 +19,7 @@ from uflx.passes import apply_derivatives, expand_applications
 from uflx.tensors import index, tensor
 from uflx_basix.spaces import space
 from uflx_compiler.algebra import _normalizer
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 
 def nodes(e):
@@ -66,8 +66,9 @@ def test_opaque_library_dual_function_needs_no_custom_simplification():
     assert not any(isinstance(n, Apply) for n in nodes(minus))
     env = {u: 0.7 + 0.2j, L: lambda z: (2 + 3j) * z}
     h = 0.3 - 0.1j
-    assert np.isclose(evaluate(plus, env)((h,)), (2 + 3j) * 2 * env[u] * h)
-    assert evaluate(minus, env)((h,)) == 0
+    oracle = Interpreter(env)
+    assert np.isclose(oracle.evaluate(plus, arguments=(h,)), (2 + 3j) * 2 * env[u] * h)
+    assert oracle.evaluate(minus, arguments=(h,)) == 0
 
 
 class LibraryValue(AbstractExpression):
@@ -158,9 +159,10 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
 
     def supply_library_values(e):
         if isinstance(e, LibrarySlope):
-            return num(3 * evaluate(e.operand, {})(()) ** 2)
+            return num(3 * Interpreter().evaluate(e.operand) ** 2)
         if isinstance(e, LibraryJVP):
-            return num(3 * evaluate(e.point, {})(()) ** 2 * evaluate(e.direction, {})(()))
+            oracle = Interpreter()
+            return num(3 * oracle.evaluate(e.point) ** 2 * oracle.evaluate(e.direction))
         return e
 
     # Use x^3 as the externally implemented example; the core never sees that body.
@@ -170,7 +172,7 @@ def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
     ):
         out = lower(apply(derivative, (argument,)))
         resolved = bottom_up(out, supply_library_values)
-        assert np.isclose(evaluate(resolved, {})(()), expected)
+        assert np.isclose(Interpreter().evaluate(resolved), expected)
 
 
 @pytest.mark.parametrize("shape", [(), (2,)])

@@ -15,14 +15,14 @@ from uflx.passes import lower
 from uflx.tensors import determinant
 from uflx_basix.runtime import runtime_array, runtime_extent
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 
 def test_complex_is_a_terminal_and_stays_complex():
     z = Complex(Integer(2), Float(-3.0))
     assert expression_operands(z) == []
     assert z.scalar_type is ScalarType.complex
-    assert evaluate(z, {})(()) == 2 - 3j
+    assert Interpreter().evaluate(z) == 2 - 3j
     assert lower(Complex(Integer(1), Integer(0))).scalar_type is ScalarType.complex
 
 
@@ -33,7 +33,7 @@ def test_determinants_require_fixed_dimensions_and_accept_empty_shapes():
     assert isinstance(determinant(runtime_array("A", (2, 2))), Determinant)
     d = determinant(Zero((0, 0), (), (), ScalarType.real))
     assert lower(d) is d
-    assert evaluate(d, {})(()) == 1
+    assert Interpreter().evaluate(d) == 1
     with pytest.raises(ValueError):
         determinant(runtime_array("rectangular", (2, 3)))
 
@@ -42,21 +42,22 @@ def test_action_conjugation_and_real_to_complex_embedding():
     V = space("V")
     u = function(V, "u")
     e = apply(conjugate(form(u, (u,))), (Complex(Integer(2), Integer(3)),))
-    assert evaluate(lower(e), {})(()) == 2 + 3j
+    oracle = Interpreter()
+    assert oracle.evaluate(lower(e)) == 2 + 3j
     f = apply(form(u ** Float(0.5), (u,)), (Integer(-1),))
     assert lower(f).scalar_type is ScalarType.complex
-    assert np.isclose(evaluate(lower(f), {})(()), 1j)
+    assert np.isclose(oracle.evaluate(lower(f)), 1j)
 
 
 def test_derivative_substitutes_the_point_but_leaves_the_direction_alone():
     V = space("R", scalar_type=ScalarType.real)
     u = function(V, "u")
     e = directional_derivative(u * u, u, Integer(3), u)
-    assert np.isclose(evaluate(lower(e), {u: 2})(()), 12)
+    assert np.isclose(Interpreter({u: 2}).evaluate(lower(e)), 12)
 
 
 def test_zero_dimensional_coordinate_gradient_has_empty_shape():
     e = gradient(coordinate(EuclideanSpace(0)), EuclideanSpace(0))
     out = lower(e)
     assert out.value_shape == (0, 0)
-    assert evaluate(out, {})(()).shape == (0, 0)
+    assert Interpreter().evaluate(out).shape == (0, 0)

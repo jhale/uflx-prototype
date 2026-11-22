@@ -6,7 +6,7 @@ from uflx.forms import function
 from uflx.geometry import cell_map, pull_back, side_map
 from uflx.passes import expand_pull_backs
 from uflx_basix.spaces import space
-from uflx_oracle import at, evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.meshes import side_data
 from ..uflx_basix.test_map_slots import configuration
@@ -25,5 +25,5 @@ def test_side_map_resolves_both_parent_slots_without_indices():
         assert mapped.domain is S
         out = expand_pull_backs(pull_back(mapped, cell_map(S, 0)))
         assert out is pull_back(pull_back(f, cell_map(T, slot)), A)
-        value = at(F, np.array([0.4]), lambda: evaluate(A.parameterisation, {})(()))
+        value = Interpreter().evaluate(A.parameterisation, points={F: np.array([0.4])})
         np.testing.assert_allclose(value, expected)

@@ -7,7 +7,7 @@ import pytest
 from uflx.nodes import Integer
 from uflx.tensors import index, index_sum
 from uflx_basix.runtime import runtime_array, runtime_extent
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 
 @pytest.mark.parametrize("symbolic", [False, True])
@@ -19,5 +19,5 @@ def test_empty_sum_does_not_read_the_summand(symbolic):
     f = runtime_array("unavailable", (n,))
     total = index_sum(Integer(2) * f[i], (i,))
     env = {"empty": 0, n: 0} if symbolic else {}
-    assert evaluate(total, env)(()) == 0
+    assert Interpreter(env).evaluate(total) == 0
     assert compiled_value(total, env) == 0

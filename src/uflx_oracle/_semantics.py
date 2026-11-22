@@ -60,6 +60,7 @@ class Frame:
     environment: dict
     indices: dict
     points: dict
+    cells: dict
     _memo: dict = field(default_factory=dict, repr=False)
 
     def value(self, node, arguments=()):
@@ -71,8 +72,19 @@ class Frame:
             self._memo[key] = interpret(node, self, ())
         return self._memo[key]
 
-    def at(self, bindings):
-        return Frame(self.environment, self.indices, self.points | bindings)
+    def at(self, points, cells=None):
+        return Frame(
+            self.environment,
+            self.indices,
+            self.points | points,
+            self.cells if cells is None else self.cells | cells,
+        )
+
+    def sampled_in(self, caller):
+        """Keep lexical bindings and use the points and cells at the sampling site."""
+        if self.points is caller.points and self.cells is caller.cells:
+            return self
+        return Frame(self.environment, self.indices, caller.points, caller.cells)
 
     def for_comparison(self):
         # A predicate reads values at the current point, including the point of a
@@ -91,13 +103,14 @@ class Frame:
             {node: value_only(v) for node, v in self.environment.items()},
             self.indices,
             {domain: ad.primal(p) for domain, p in self.points.items()},
+            self.cells,
         )
 
     def bind_arguments(self, bindings):
-        return Frame(self.environment | bindings, self.indices, self.points)
+        return Frame(self.environment | bindings, self.indices, self.points, self.cells)
 
     def bind_indices(self, indices):
-        return Frame(self.environment, self.indices | indices, self.points, self._memo)
+        return Frame(self.environment, self.indices | indices, self.points, self.cells, self._memo)
 
     def input(self, node, label):
         """Library data may be supplied by node or by its runtime label."""
@@ -209,7 +222,7 @@ def interpret(node, frame, arguments):
         case RuntimeArray():
             return frame.input(node, node.label)
         case VertexCoordinates(topology, vertices):
-            return elements.vertex_value(topology, vertices, frame.points)
+            return elements.vertex_value(topology, vertices, frame)
         case _ if elements.is_basix_basis(node):
-            return elements.basis_value(node, frame.points)
+            return elements.basis_value(node, frame)
     raise TypeError(f"the reference interpreter has no evaluation rule for {type(node).__name__}")

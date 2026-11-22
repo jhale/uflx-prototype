@@ -8,7 +8,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 r = tuple(index(f"r{n}") for n in range(3))
 s = tuple(index(f"s{n}") for n in range(3))
@@ -29,7 +29,7 @@ A, B, T = RNG.normal(size=(2, 3)), RNG.normal(size=(3, 2)), RNG.normal(size=(2, 
 
 
 def value(e, ienv=None):
-    return np.real(np.asarray(evaluate(e, {}, ienv)(())))
+    return np.real(np.asarray(Interpreter().evaluate(e, indices=ienv)))
 
 
 def test_one_index_per_axis_retains_extents_in_order():
@@ -48,8 +48,9 @@ def test_a_directional_derivative_through_index_tuples():
     e = directional_derivative(f, x, x, h)
     out = derivatives.apply_derivatives(e)
     env = {x: 0.7, h: 0.3}
-    assert np.isclose(evaluate(e, env)(()), evaluate(out, env)(()), rtol=1e-6)
-    assert np.isclose(evaluate(out, env)(()), 4 * 0.7**3 * 0.3 * np.sum(T * T))
+    oracle = Interpreter(env)
+    assert np.isclose(oracle.evaluate(e), oracle.evaluate(out), rtol=1e-6)
+    assert np.isclose(oracle.evaluate(out), 4 * 0.7**3 * 0.3 * np.sum(T * T))
 
 
 def test_substitution_renames_a_bound_index_tuple():
@@ -74,4 +75,5 @@ def test_a_gradient_of_a_tensor_built_with_index_tuples():
     e = integral(indexed(gradient(f, K), (1, 2, 0, 1)), K)
     out = gradients.apply_gradients(e)
     assert in_core_normal_form(out) and not in_core_normal_form(e)
-    assert np.isclose(evaluate(e, {})(()), evaluate(out, {})(()), rtol=1e-6)
+    oracle = Interpreter()
+    assert np.isclose(oracle.evaluate(e), oracle.evaluate(out), rtol=1e-6)

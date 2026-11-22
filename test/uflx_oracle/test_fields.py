@@ -15,7 +15,7 @@ from uflx.forms import form, function
 from uflx.geometry import density, pull_back
 from uflx.tensors import index, index_sum, indexed
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, form_with_fixed_argument
 from ..uflx_basix.integrals import D as MESH
@@ -91,7 +91,8 @@ def main(trials):
         )
         check_types(bad, e, out)
         vals = tuple(args[: len(e.argument_spaces)])
-        before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
+        oracle = Interpreter(env)
+        before, after = oracle.evaluate(e, arguments=vals), oracle.evaluate(out, arguments=vals)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
             bad["value"] += 1
             if bad["value"] <= 3:

@@ -22,7 +22,7 @@ from uflx.tensors import broadcast_to, component_tensor, index, index_sum, tenso
 from uflx_basix.runtime import runtime_array, runtime_extent
 from uflx_basix.spaces import space
 from uflx_compiler import evaluate
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 
 @pytest.mark.parametrize(
@@ -42,7 +42,7 @@ def test_values(source, target):
     e = broadcast_to(x, target)
     expected = np.broadcast_to(data, target)
     np.testing.assert_array_equal(evaluate(e, {"x": data}), expected)
-    np.testing.assert_array_equal(oracle(e, {x: data})(()), expected)
+    np.testing.assert_array_equal(Interpreter({x: data}).evaluate(e), expected)
     assert lower(e) is e
 
 
@@ -55,7 +55,7 @@ def test_symbolic_extents():
     e = broadcast_to(num(3), (n,))
     for count in (0, 3):
         np.testing.assert_array_equal(evaluate(e, {"n": count}), np.full(count, 3))
-        np.testing.assert_array_equal(oracle(e, {n: count})(()), np.full(count, 3))
+        np.testing.assert_array_equal(Interpreter({n: count}).evaluate(e), np.full(count, 3))
 
 
 def test_empty_target_does_not_read_its_operand():
@@ -64,7 +64,7 @@ def test_empty_target_does_not_read_its_operand():
         e = broadcast_to(x, (0, 2))
         with np.errstate(invalid="raise"):
             assert evaluate(e, {}).shape == (0, 2)
-            assert oracle(e, {})(()).shape == (0, 2)
+            assert Interpreter().evaluate(e).shape == (0, 2)
         assert replace(e, {x: num(7)}).value is num(7)
 
 
@@ -75,7 +75,7 @@ def test_broadcast_with_free_indices_keeps_value_axes_separate():
     np.testing.assert_array_equal(evaluate(e, {}), np.array([np.full((3, 2), k) for k in (2, 3)]))
     selected = component_tensor(e[j, 1], (i, j))
     np.testing.assert_array_equal(evaluate(selected, {}), [[2, 2, 2], [3, 3, 3]])
-    np.testing.assert_array_equal(oracle(selected, {})(()), [[2, 2, 2], [3, 3, 3]])
+    np.testing.assert_array_equal(Interpreter().evaluate(selected), [[2, 2, 2], [3, 3, 3]])
 
 
 def test_completion_of_tensor_and_two_missing_indices():

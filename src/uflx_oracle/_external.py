@@ -40,9 +40,9 @@ def evaluate_external(node, frame):
 
         binding = frame.environment[operation]
         fn = binding.function if isinstance(binding, Pointwise) else binding
-        result = call(frame.points, fn, *inputs)
+        result = call(frame, fn, *inputs)
         if node.domain is not None and callable(result):
-            return sample(result, frame.points, frame.points[node.domain])
+            return sample(result, frame, node.domain)
         return np.asarray(result) if isinstance(result, (list, tuple)) else result
 
     return evaluate(operation, inputs)

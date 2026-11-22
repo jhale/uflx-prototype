@@ -9,11 +9,11 @@ from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 
 def test_at_point_derivative_does_not_substitute_into_inserted_direction():
     x = function(space("direct-derivative"), "x")
     e = directional_derivative(x * x, x, num(2), x)
     out = apply_derivatives(e)
-    assert np.isclose(oracle(out, {x: 3})(()), 12)
+    assert np.isclose(Interpreter({x: 3}).evaluate(out), 12)

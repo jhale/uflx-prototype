@@ -14,7 +14,7 @@ from uflx.passes import expand_integrals
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import compile_form, evaluate
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.meshes import grouped_topology, push_forward, side_map, square, vertex_mesh
 from ..uflx_basix.test_coordinate_functions import VERTICES, K, P, T, coordinates, p1_mesh
@@ -43,7 +43,7 @@ def test_a_p1_coordinate_function_gives_the_values_of_the_explicit_mesh():
         compiled = compile_form(f, 4)
         expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
         assert np.isclose(evaluate(compiled, labelled(geometry) | {"coefficients:u": U}), expected)
-        assert np.isclose(oracle(f, geometry | {u.expression: U})(()), expected)
+        assert np.isclose(Interpreter(geometry | {u.expression: U}).evaluate(f), expected)
 
 
 def test_the_jacobian_of_a_mesh_is_the_reference_gradient_of_the_coordinate_function():
@@ -82,7 +82,9 @@ def test_a_curved_p2_coordinate_function_agrees_with_the_oracle():
     for f in functionals(D, u):
         compiled = compile_form(f, 16)
         value = evaluate(compiled, labelled(geometry) | {"coefficients:u": U})
-        assert np.isclose(value, oracle(f, geometry | {u.expression: U})(()), rtol=1e-9), f
+        assert np.isclose(
+            value, Interpreter(geometry | {u.expression: U}).evaluate(f), rtol=1e-9
+        ), f
 
 
 def test_a_discontinuous_coordinate_function_from_the_vertices_of_each_cell():
@@ -115,7 +117,7 @@ def test_fixed_cells_read_independent_fields():
     for expression in reads:
         assert expression.free_indices == ()
         value = evaluate(compile_form(expression, 4), env)
-        assert np.isclose(value, oracle(expression, geometry | {u.expression: U})(()))
+        assert np.isclose(value, Interpreter(geometry | {u.expression: U}).evaluate(expression))
     assert np.isclose(
         evaluate(compile_form(sum(reads, num(0)), 4), env),
         sum(evaluate(compile_form(e, 4), env) for e in reads),
@@ -152,7 +154,7 @@ def test_a_mesh_from_the_coordinates_of_the_vertices_gives_the_values_of_the_exp
     for f, g in zip(functionals(D, u), functionals(E, w), strict=True):
         expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
         assert np.isclose(evaluate(compile_form(f, 4), {"coefficients:u": U}), expected)
-        assert np.isclose(oracle(f, {u.expression: U})(()), expected)
+        assert np.isclose(Interpreter({u.expression: U}).evaluate(f), expected)
 
 
 def test_the_jump_of_a_function_on_a_topology_across_a_facet():
@@ -165,6 +167,6 @@ def test_the_jump_of_a_function_on_a_topology_across_a_facet():
     f = integral(pull_back(jump, cell_map(S, 0)), I)
     W = np.array([0.0, 1.0, 2.0, 5.0, -1.0, 3.0])
     value = evaluate(compile_form(f, 2), {"coefficients:d": W})
-    assert np.isclose(value, oracle(f, {d: W})(()))
+    assert np.isclose(value, Interpreter({d: W}).evaluate(f))
     # Vertices 0 and 2 of the diagonal are dofs 0 and 2 of cell 0 and dofs 3 and 4 of cell 1.
     assert np.isclose(value, ((0.0 - 5.0) + (2.0 - -1.0)) / 2)

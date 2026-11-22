@@ -17,7 +17,7 @@ from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, indexed
 from uflx_basix.cells import reference_simplex
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type, table
 from ..uflx_basix.integrals import D, u
@@ -168,7 +168,8 @@ def main(trials):
         else:
             has_function = contains(e, lambda n: isinstance(n, Function))
             bad["unlocated"] += has_function and not contains(out, stays_for_the_mesh_library)
-        before, after = evaluate(e, ENV)(()), evaluate(out, ENV)(())
+        oracle = Interpreter(ENV)
+        before, after = oracle.evaluate(e), oracle.evaluate(out)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-5):
             bad["value"] += 1
             if bad["value"] <= 3:

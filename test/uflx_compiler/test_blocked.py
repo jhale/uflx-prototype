@@ -15,7 +15,7 @@ from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.spaces import space
 from uflx_compiler import compile_form, compile_ufcx, evaluate
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.meshes import quadrilaterals, side_map, square
 from .test_ufcx import boundary_mesh, build, interior_mesh, model, paired_geometry
@@ -194,7 +194,9 @@ def test_blocked_fields_in_array_compiler_and_oracle(cell, shape):
     U = push_forward(u, D, V.law)
     f = integral(sum((U[idx] * U[idx] for idx in np.ndindex(shape)), num(0)), D)
     env = {"coefficients:u": np.random.default_rng(7).normal(size=V.num_dofs)}
-    np.testing.assert_allclose(evaluate(compile_form(f, 6), env), oracle(f, env)(()), rtol=1e-8)
+    np.testing.assert_allclose(
+        evaluate(compile_form(f, 6), env), Interpreter(env).evaluate(f), rtol=1e-8
+    )
 
 
 @pytest.mark.parametrize("rank", [0, 1, 2])

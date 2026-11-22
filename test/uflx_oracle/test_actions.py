@@ -7,7 +7,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.tensors import component_tensor, index, indexed, tensor
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import ill_typed
 
@@ -26,8 +26,9 @@ def check(name, e, ienv=None):
     ienv = ienv or {}
     out = applications.expand_applications(e)
     n = len(e.argument_spaces)
-    before = evaluate(e, env, ienv)(args[:n])
-    after = evaluate(out, env, ienv)(args[:n])
+    oracle = Interpreter(env)
+    before = oracle.evaluate(e, arguments=args[:n], indices=ienv)
+    after = oracle.evaluate(out, arguments=args[:n], indices=ienv)
     assert np.allclose(before, after, atol=1e-6), name
     assert applications_expanded(out), name
     assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))
@@ -68,4 +69,4 @@ def test_cases():
     # The argument contains the variable of the derivative: expect h * u, not 2 h u.
     J = form(directional_derivative(multiply(u, v), u, u, h), (v,))
     out = check("action on a form with a derivative of u at u", apply(J, (u,)))
-    assert np.isclose(evaluate(out, env)(()), env[h] * env[u])
+    assert np.isclose(Interpreter(env).evaluate(out), env[h] * env[u])

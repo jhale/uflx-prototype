@@ -692,9 +692,10 @@ Use `arguments=(u_value, v_value)` for ordered form slots, `indices={i: k}`
 for free indices, and `cells={domain: slot}` to select a local cell. A tuple-valued
 slot takes a tuple. Each call starts with a fresh evaluation frame. A form extends
 the function bindings, an index sum assigns indices, and quadrature supplies a
-point for each sample. The parent frame keeps its original bindings. The callback
-interfaces `evaluate(expression, env)(arguments)` and `at(domain, point, callback)`
-use the same interpreter.
+point for each sample. The parent frame keeps its original bindings. A Python
+callback that re-enters the interpreter supplies `points` explicitly and sets
+`cells` when it needs a particular cell. Whole-field external operators receive
+a callable `field(point)` that retains the cell where the operator was evaluated.
 
 The oracle evaluates spatial and directional derivatives with explicit rules for
 UFLx nodes. Basix supplies basis derivatives by tabulation. To define a

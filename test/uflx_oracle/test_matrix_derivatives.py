@@ -10,7 +10,7 @@ from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx.tensors import component_tensor, determinant, index, tensor
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import contains
 
@@ -31,7 +31,7 @@ def test_determinant_derivative_at_singular_matrix(n, scalar_type):
         direction = direction * (1 + 2j)
     # At diag(0, 1, ...), only the (0, 0) cofactor is nonzero.
     expected = direction[0, 0] if n else 0
-    np.testing.assert_allclose(evaluate(derivative, {A: point, H: direction})(()), expected)
+    np.testing.assert_allclose(Interpreter({A: point, H: direction}).evaluate(derivative), expected)
 
 
 def test_determinant_derivative_uses_point_and_preserves_its_family():
@@ -43,7 +43,7 @@ def test_determinant_derivative_uses_point_and_preserves_its_family():
     derivative = apply_derivatives(
         component_tensor(directional_derivative(determinant(A), t, points, num(1)), (i,))
     )
-    np.testing.assert_allclose(evaluate(derivative, {})(()), [0, 6])
+    np.testing.assert_allclose(Interpreter().evaluate(derivative), [0, 6])
 
 
 def test_second_determinant_derivative_at_zero():
@@ -52,7 +52,7 @@ def test_second_determinant_derivative_at_zero():
     first = directional_derivative(determinant(A), t, t, num(1))
     second = apply_derivatives(directional_derivative(first, t, num(0), num(1)))
     assert not contains(second, lambda node: isinstance(node, Inverse))
-    np.testing.assert_allclose(evaluate(second, {})(()), 2)
+    np.testing.assert_allclose(Interpreter().evaluate(second), 2)
 
 
 def test_determinant_derivative_matches_finite_difference():
@@ -67,5 +67,5 @@ def test_determinant_derivative_matches_finite_difference():
         np.linalg.det(point + step * direction) - np.linalg.det(point - step * direction)
     ) / (2 * step)
     np.testing.assert_allclose(
-        evaluate(derivative, {A: point, H: direction})(()), expected, rtol=1e-8
+        Interpreter({A: point, H: direction}).evaluate(derivative), expected, rtol=1e-8
     )

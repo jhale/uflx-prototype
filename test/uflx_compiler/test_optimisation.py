@@ -195,7 +195,7 @@ def test_derivative_redundancies_surviving_current_cleanup(kind):
     from uflx.passes import apply_derivatives, lower
     from uflx_basix.spaces import space
     from uflx_compiler.algebra import _normalizer
-    from uflx_oracle import evaluate as oracle
+    from uflx_oracle.interpreter import Interpreter
 
     V = space("optimisation-derivative", scalar_type="real")
     u, v, w, h = (function(V, name) for name in ("u", "v", "w", "h"))
@@ -217,8 +217,9 @@ def test_derivative_redundancies_surviving_current_cleanup(kind):
     for seed in range(10):
         rng = np.random.default_rng(seed)
         env = {x: rng.uniform(-0.8, 0.8, size=x.value_shape) for x in (u, v, w, h)}
-        expected = oracle(derivative, env)(())
-        np.testing.assert_allclose(oracle(result, env)(()), expected, rtol=1e-10, atol=1e-10)
+        oracle = Interpreter(env)
+        expected = oracle.evaluate(derivative)
+        np.testing.assert_allclose(oracle.evaluate(result), expected, rtol=1e-10, atol=1e-10)
 
 
 def test_coefficient_cancellation_removes_defined_input():

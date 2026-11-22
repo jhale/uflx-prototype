@@ -13,7 +13,7 @@ from uflx.passes import apply_derivatives, expand_arithmetic, lower
 from uflx.tensors import index, indexed
 from uflx_basix.runtime import runtime_array, runtime_extent
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 
 @pytest.mark.parametrize("shape", [(3,), (2, 3), (0,)])
@@ -33,9 +33,8 @@ def test_arithmetic_preserves_nodes_and_lowers_values(shape):
             expanded,
             lambda e: not isinstance(e, Sum | Product | Division) or not e.value_shape,
         )
-        np.testing.assert_allclose(
-            evaluate(expanded, environment)(()), evaluate(expression, environment)(())
-        )
+        oracle = Interpreter(environment)
+        np.testing.assert_allclose(oracle.evaluate(expanded), oracle.evaluate(expression))
         assert expand_arithmetic(expanded) is expanded
         assert lower(expression) is expanded
         assert lower(expanded) is expanded
@@ -57,9 +56,10 @@ def test_symbolic_axes_and_free_indices_survive_expansion():
             coefficients: np.array([2.0, 4.0]),
             i: entry,
         }
+        oracle = Interpreter(environment)
         np.testing.assert_allclose(
-            evaluate(expanded, environment, {i: entry})(()),
-            evaluate(expression, environment, {i: entry})(()),
+            oracle.evaluate(expanded, indices={i: entry}),
+            oracle.evaluate(expression, indices={i: entry}),
         )
 
 
@@ -69,6 +69,7 @@ def test_tensor_product_derivative_and_action():
     expression = x * v
     derivative = apply_derivatives(directional_derivative(expression, x, num(2), num(1)))
     values = {v: np.array([3.0, 5.0])}
-    np.testing.assert_allclose(evaluate(lower(derivative), values)(()), values[v])
+    oracle = Interpreter(values)
+    np.testing.assert_allclose(oracle.evaluate(lower(derivative)), values[v])
     applied = apply(form(expression, (x,)), (num(4),))
-    np.testing.assert_allclose(evaluate(lower(applied), values)(()), 4 * values[v])
+    np.testing.assert_allclose(oracle.evaluate(lower(applied)), 4 * values[v])

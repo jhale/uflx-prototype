@@ -9,7 +9,7 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_integrals
 from uflx.tensors import component_tensor, index
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.test_pull_back_gradients import D, K, nodes
 
@@ -28,11 +28,11 @@ def test_a_gradient_pulled_back_by_a_map_that_is_not_a_cell_needs_no_inverse():
     f = pull_back(gradient(x[0] * x[0] * x[1], P), phi)[0]
     out = core(f)
     assert in_core_normal_form(out) and not any(isinstance(n, Inverse) for n in nodes(out))
-    from uflx_oracle import at
 
+    oracle = Interpreter()
     assert np.isclose(
-        at(P, np.array([0.2, 0.3]), lambda: oracle(out, {})(())),
-        at(P, np.array([0.2, 0.3]), lambda: oracle(f, {})(())),
+        oracle.evaluate(out, points={P: np.array([0.2, 0.3])}),
+        oracle.evaluate(f, points={P: np.array([0.2, 0.3])}),
     )
 
 
@@ -41,7 +41,8 @@ def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
     f = integral(gradient(X[0] * X[0] * X[1], D)[0], D)
     out = core(f)
     assert in_core_normal_form(out) and not any(isinstance(n, Inverse) for n in nodes(out))
-    assert np.isclose(oracle(out, {})(()), oracle(f, {})(()))
+    oracle = Interpreter()
+    assert np.isclose(oracle.evaluate(out), oracle.evaluate(f))
 
 
 def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
@@ -49,7 +50,6 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
     from uflx.geometry import cell_map, push_forward, transformation_law
     from uflx.passes import expand_pull_backs
     from uflx.tensors import tensor
-    from uflx_oracle import at
 
     for constant in (num(0), num(3), num(2j), tensor((num(1), num(2)))):
         mapped = push_forward(constant, D, transformation_law((), 0))
@@ -61,8 +61,9 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
         assert result.scalar_type == original.scalar_type
         assert result.argument_spaces == original.argument_spaces
         assert not any(isinstance(n, Inverse) for n in nodes(result))
+        oracle = Interpreter()
         np.testing.assert_allclose(
-            oracle(result, {})(()),
-            at(K, np.array([0.2, 0.3]), lambda: oracle(original, {})(())),
+            oracle.evaluate(result),
+            oracle.evaluate(original, points={K: np.array([0.2, 0.3])}),
             atol=1e-12,
         )

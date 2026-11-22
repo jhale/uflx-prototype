@@ -7,7 +7,7 @@ from uflx.nodes import AbstractExpression, Conjugate
 
 from . import _dual as ad
 from . import _finite_elements as elements
-from ._context import Operand, call, callback_points, parts, sample, tags
+from ._context import Operand, call, parts, sample, tags
 
 
 class ExpressionBinding(Operand):
@@ -38,9 +38,9 @@ def conjugated(value):
         return Conjugate(value)
     if callable(value):
 
-        def field(*args):
+        def field(frame, *args):
             arguments = tuple(conjugated(arg) for arg in args)
-            return conjugated(call(callback_points.get(), value, *arguments))
+            return conjugated(call(frame, value, *arguments))
 
         return Operand(field, lambda: tags(value))
     return ad.linear(np.conj, value)
@@ -69,20 +69,20 @@ def function_value(node, frame, arguments):
         return elements.field_value(node, frame)
     binding = frame.environment[node]
     if isinstance(binding, dict):
-        binding = binding[frame.points.get(("piece", domain), 0)]
+        binding = binding[frame.cells.get(domain, 0)]
     if isinstance(binding, AbstractExpression):
         return frame.value(binding, arguments)
 
     def apply(slots):
         value = binding
         if space.argument_spaces:
-            value = call(frame.points, binding, *slots)
+            value = call(frame, binding, *slots)
             if isinstance(value, dict):
-                value = value[frame.points.get(("piece", domain), 0)]
+                value = value[frame.cells.get(domain, 0)]
         if callable(value) and domain is not None:
-            return sample(value, frame.points, frame.points[domain])
+            return sample(value, frame, domain)
         if callable(value) and not space.argument_spaces:
-            value = call(frame.points, value)
+            value = call(frame, value)
         return np.asarray(value) if isinstance(value, (tuple, list)) else value
 
     return multilinear(apply, arguments) if space.argument_spaces else apply(())
@@ -92,23 +92,23 @@ def supplied(operand, signature, frame):
     if isinstance(operand, tuple):
         return tuple(supplied(m, s, frame) for m, s in zip(operand, signature, strict=True))
 
-    def apply(*slots):
+    def apply(caller, *slots):
         def read(local):
-            value = local.value(operand, slots)
+            value = frame.sampled_in(local).value(operand, slots)
             return ad.asarray(value, dtype=complex) if signature.scalar_type == "complex" else value
 
         if signature.domain is not None:
 
-            def field(point):
-                return read(frame.at(callback_points.get() | {signature.domain: point}))
+            def field(sampling_frame, point):
+                return read(sampling_frame.at({signature.domain: point}))
 
             return Operand(field, lambda: variation_tags(operand, frame.environment))
-        return read(frame.at(callback_points.get()) if slots else frame)
+        return read(caller)
 
     return (
         Operand(apply, lambda: variation_tags(operand, frame.environment))
         if operand.argument_spaces
-        else apply()
+        else apply(frame)
     )
 
 
@@ -130,7 +130,7 @@ def directional(body, variables, point, direction, frame, arguments):
 
     def seed(point, direction):
         def varied(caller, slots):
-            local = frame.at(caller.points)
+            local = frame.sampled_in(caller)
             return ad.pair(tag, local.value(point, slots), local.value(direction, slots))
 
         def variations():

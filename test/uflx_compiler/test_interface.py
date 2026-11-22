@@ -8,7 +8,7 @@ from uflx.geometry import pull_back
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import assemble, compile_form, evaluate, runtime_tables
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.meshes import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
@@ -52,7 +52,9 @@ def test_a_function_on_a_submesh_couples_to_a_function_on_the_mesh(integrand):
         "coefficients:lam": rng.normal(size=L.num_dofs),
     }
     compiled = compile_form(f, 3)
-    assert np.isclose(evaluate(compiled, runtime_tables(compiled, given)), oracle(f, given)(()))
+    assert np.isclose(
+        evaluate(compiled, runtime_tables(compiled, given)), Interpreter(given).evaluate(f)
+    )
 
 
 def test_the_block_of_a_lagrange_multiplier_on_a_submesh():
@@ -62,5 +64,7 @@ def test_the_block_of_a_lagrange_multiplier_on_a_submesh():
     rng = np.random.default_rng(1)
     U, Lam = rng.normal(size=V.num_dofs), rng.normal(size=L.num_dofs)
     w, z = function(V, "w"), function(L, "z")
-    expected = oracle(coupling(push_forward(w, D), push_forward(z, DM)), {w: U, z: Lam})(())
+    expected = Interpreter({w: U, z: Lam}).evaluate(
+        coupling(push_forward(w, D), push_forward(z, DM))
+    )
     assert np.isclose(Lam @ B @ U, expected)

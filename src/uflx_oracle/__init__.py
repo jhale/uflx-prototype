@@ -1,5 +1,5 @@
 """Numerical reference semantics for UFLx."""
 
-from .interpreter import Interpreter, at, evaluate
+from .interpreter import Interpreter
 
-__all__ = ["Interpreter", "at", "evaluate"]
+__all__ = ["Interpreter"]

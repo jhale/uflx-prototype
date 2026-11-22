@@ -3,13 +3,14 @@ import numpy as np
 from uflx.geometry import domain_map
 from uflx_basix.cells import reference_simplex
 from uflx_basix.inclusions import affine_map, centroid, reference_normal
-from uflx_oracle import at, evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.test_cells import table
 
 
 def value(e, P=None, X=()):
-    return np.real(at(P, np.asarray(X, dtype=float), lambda: evaluate(e, {})(())))
+    points = {P: X} if P is not None else {}
+    return np.real(Interpreter().evaluate(e, points=points))
 
 
 def test_the_hypotenuse_of_the_unit_triangle():

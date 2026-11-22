@@ -1,27 +1,11 @@
 """The boundary between interpreted operands and numerical Python callbacks."""
 
 from collections.abc import Callable
-from contextvars import ContextVar
 from dataclasses import dataclass
 
 import numpy as np
 
 from . import _dual as ad
-
-callback_points = ContextVar("uflx_oracle_callback_points", default={})
-
-
-def call_at(points, fn, *args):
-    token = callback_points.set(points)
-    try:
-        return fn(*args)
-    finally:
-        callback_points.reset(token)
-
-
-def at(domain, point, fn):
-    """Call fn with a point bound on domain."""
-    return call_at(callback_points.get() | {domain: point}, fn)
 
 
 @dataclass(frozen=True)
@@ -31,8 +15,8 @@ class Operand:
     read: Callable
     variations: Callable = frozenset
 
-    def __call__(self, *args):
-        return self.read(*args)
+    def __call__(self, frame, *args):
+        return self.read(frame, *args)
 
 
 def tags(value):
@@ -51,8 +35,8 @@ def parts(value, tag):
     if callable(value):
 
         def component(i):
-            def read(*args):
-                return parts(call(callback_points.get(), value, *args), tag)[i]
+            def read(frame, *args):
+                return parts(call(frame, value, *args), tag)[i]
 
             return Operand(read, lambda: tags(value) - {tag})
 
@@ -60,29 +44,28 @@ def parts(value, tag):
     return ad.split(value, tag)
 
 
-def numerical(value):
+def numerical(value, frame):
     """A library may sample an operand or apply it to its own numerical arguments."""
     if isinstance(value, ad.Dual):
         if ad.is_zero(value.tangent):
-            return numerical(value.value)
+            return numerical(value.value, frame)
         raise TypeError(
             "use an ExternalOperator with a declared derivative action for this callback"
         )
     if isinstance(value, tuple):
-        return tuple(numerical(v) for v in value)
+        return tuple(numerical(v, frame) for v in value)
     if callable(value):
-        return lambda *args: numerical(value(*args))
+        return lambda *args: numerical(call(frame, value, *args), frame)
     return value
 
 
-def call(points, fn, *args):
+def call(frame, fn, *args):
     """Only interpreted operands accept internal derivative values."""
     if isinstance(fn, Operand):
-        return call_at(points, fn, *args)
-    locations = {domain: ad.primal(point) for domain, point in points.items()}
-    return call_at(locations, fn, *(numerical(arg) for arg in args))
+        return fn(frame, *args)
+    return fn(*(numerical(arg, frame) for arg in args))
 
 
-def sample(field, points, point):
-    result = call(points, field, point)
+def sample(field, frame, domain):
+    result = call(frame, field, frame.points[domain])
     return np.asarray(result) if isinstance(result, (list, tuple)) else result

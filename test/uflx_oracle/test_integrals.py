@@ -17,7 +17,7 @@ from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, indexed, tensor
 from uflx_basix.cells import reference_simplex
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, keeps_static_type
 from ..uflx_basix.integrals import SQUARE, D, I, K, c, u
@@ -118,7 +118,8 @@ def main(trials):
         fr = dict(e.free_indices)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             ienv = dict(zip(fr, combo))
-            before, after = evaluate(e, env, ienv)(()), evaluate(out, env, ienv)(())
+            oracle = Interpreter(env)
+            before, after = oracle.evaluate(e, indices=ienv), oracle.evaluate(out, indices=ienv)
             if not np.allclose(before, after, rtol=1e-6, atol=1e-8):
                 bad["value"] += 1
                 if bad["value"] <= 3:

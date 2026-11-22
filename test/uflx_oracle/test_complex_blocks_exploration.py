@@ -9,7 +9,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 C, R = space("complex-block", scalar_type="complex"), space("real-block", scalar_type="real")
 z, h, a = (function(C, name) for name in ("z", "h", "a"))
@@ -17,7 +17,7 @@ r, k, b = (function(R, name) for name in ("r", "k", "b"))
 
 
 def value(f, data):
-    return evaluate(apply_derivatives(f), data)(())
+    return Interpreter(data).evaluate(apply_derivatives(f))
 
 
 @pytest.mark.parametrize("real_output", [False, True])

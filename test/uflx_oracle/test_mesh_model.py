@@ -12,7 +12,7 @@ from uflx.nodes import EuclideanSpace
 from uflx.tensors import index, index_sum, tensor
 from uflx_basix.cells import reference_simplex
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import table
 from ..uflx_basix.meshes import grouped_topology, vertex_mesh
@@ -28,7 +28,9 @@ def test_integrate_members_then_sum_only_the_selected_index():
     assert dict(members.free_indices) == {i: 3, configuration: 2}
     assert dict(total.free_indices) == {configuration: 2}
     for c, expected in enumerate((10, 20)):
-        assert np.isclose(evaluate(lower_spatial(total), {}, {configuration: c})(()), expected)
+        assert np.isclose(
+            Interpreter().evaluate(lower_spatial(total), indices={configuration: c}), expected
+        )
 
 
 def test_integration_patches_need_no_field_domain():
@@ -40,7 +42,7 @@ def test_integration_patches_need_no_field_domain():
     )
     f = coordinate(EuclideanSpace(1))[0]
     expression = sum((integral(pull_back(f, M) * density(M), P) for M in patches), num(0))
-    assert np.isclose(evaluate(lower_spatial(expression), {})(()), 12.5)
+    assert np.isclose(Interpreter().evaluate(lower_spatial(expression)), 12.5)
 
 
 def test_mesh_integral_retains_integrand_indices_across_substitution():
@@ -59,5 +61,5 @@ def test_mesh_integral_retains_integrand_indices_across_substitution():
     assert inserted.free_indices == first.free_indices == second.free_indices == ((c, 2),)
     for n, expected in enumerate((4, 14)):
         for form in (inserted, first, second):
-            assert np.isclose(evaluate(lower_spatial(form), {}, {c: n})(()), expected)
+            assert np.isclose(Interpreter().evaluate(lower_spatial(form), indices={c: n}), expected)
     assert expand_integrals(inserted) is first

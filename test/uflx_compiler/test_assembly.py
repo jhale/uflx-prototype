@@ -12,7 +12,7 @@ from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.sides import outward_conormal
 from uflx_compiler import assemble, assemble_bound, compile_form, evaluate, fold
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.meshes import mixed, push_forward, side_map, square
 
@@ -69,7 +69,7 @@ def test_an_assembled_bilinear_form_with_facet_terms_on_a_mixed_mesh():
     A = assemble(form(interior_penalty(u, v, D, E), (vT, uT)), 3)({})
     rng = np.random.default_rng(9)
     W, Z = rng.normal(size=V.num_dofs), rng.normal(size=V.num_dofs)
-    expected = oracle(interior_penalty(z, w, D, E), {wT: W, zT: Z})(())
+    expected = Interpreter({wT: W, zT: Z}).evaluate(interior_penalty(z, w, D, E))
     assert np.isclose(W @ A @ Z, expected, rtol=1e-8)
     assert np.allclose(A, A.T)
     assert np.allclose(assemble(form(interior_penalty(u, v, D, E), (vT, uT)), 3)({}, jnp), A)

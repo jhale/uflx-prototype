@@ -57,6 +57,11 @@ def converged(correction):
 
 
 def locate(domain, point, frame):
+    """Return the cell and its reference coordinate for a physical point."""
+    slot = frame.cells.get(domain)
+    if slot is not None:
+        return slot, reference_point(chart_of(domain[slot], frame), point, domain.dimension)
+
     for slot, piece in enumerate(domain):
         chart = chart_of(piece, frame)
         ref = reference_point(chart, point, domain.dimension)
@@ -67,26 +72,21 @@ def locate(domain, point, frame):
             else np.all(ad.primal(ref) > -1e-9) and np.sum(ad.primal(ref)) < 1 + 1e-9
         )
         if inside and np.linalg.norm(ad.primal(chart(ref)) - np.real(ad.primal(point))) < 1e-9:
-            return slot
+            return slot, ref
     raise ValueError(f"no cell of {domain} contains {point}")
 
 
 def tangent_projector(domain, frame):
-    point = frame.points[domain]
-    slot = frame.points.get(("piece", domain))
-    if slot is None:
-        slot = locate(domain, point, frame)
-    chart = chart_of(domain[slot], frame)
-    tangent = ad.jacobian(chart, reference_point(chart, point, domain.dimension))
+    slot, ref = locate(domain, frame.points[domain], frame)
+    tangent = ad.jacobian(chart_of(domain[slot], frame), ref)
     return ad.matmul(tangent, ad.pinv(tangent))
 
 
 def side_reference(side, frame):
     source = side.source
-    points = frame.points
-    slot = points.get(("piece", source), 0)
+    slot = frame.cells.get(source, 0)
     parent_slot, inclusion = side.entries[slot]
-    point = points[source]
+    point = frame.points[source]
     if isinstance(source, Mesh):
         chart = chart_of(source[slot], frame)
         point = reference_point(chart, point, source.dimension)
@@ -117,7 +117,7 @@ def integrate(domain, fn, frame):
             J = ad.jacobian(chart, ref)
             density = volume_factor(J) if len(ref) else 1.0
             sample = local.at(
-                {("piece", domain): slot, domain: physical, domain.ambient_domain: physical}
+                {domain: physical, domain.ambient_domain: physical}, cells={domain: slot}
             )
             return ad.multiply(density, fn(sample))
 

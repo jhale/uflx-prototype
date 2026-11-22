@@ -12,7 +12,7 @@ from uflx.geometry import cell_map, pull_back
 from uflx.passes import expand_pull_backs
 from uflx_basix.nodes import VertexCoordinates
 from uflx_basix.spaces import space
-from uflx_oracle import at, evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx_basix.test_pullback_contractions import geometry
 
@@ -38,8 +38,7 @@ def test_gradient_pullback_uses_covariant_law_for_scalar_and_vector_fields(vecto
     # Component two, for a vector field, has ambient gradient (0,1).
     env = {x: VertexCoordinates(T, ((0.0, 0.0), (1.0, 2.0)))}
     env[u] = coordinate(D) if vector else coordinate(D)[0]
-    indices = {}
     out = lower_spatial(actual)
-    value = at(C.reference_cell, np.array([0.3]), lambda: evaluate(out, env, indices)(()))
+    value = Interpreter(env).evaluate(out, points={C.reference_cell: [0.3]})
     desired = np.array([[1, 2], [2, 4]]) / 5 if vector else np.array([1, 2]) / 5
     np.testing.assert_allclose(value, desired, atol=1e-6)

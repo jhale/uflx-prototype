@@ -70,16 +70,15 @@ def tabulate(element, point, orders=None):
 
 def field_value(node, frame):
     space = node.space
-    points = frame.points
     topology = space.domain
-    slot = points.get(("piece", topology), 0)
+    slot = frame.cells.get(topology, 0)
     coefficients = frame.input(node, f"coefficients:{node.label}")
     if isinstance(coefficients, AbstractExpression):
         return frame.value(coefficients)
     if callable(coefficients):
         # A form slot may supply a field directly on the reference cell.
-        return sample(coefficients, points, points[topology])
-    basis = tabulate(space.element(slot), points[topology])
+        return sample(coefficients, frame, topology)
+    basis = tabulate(space.element(slot), frame.points[topology])
 
     def reconstruct(dofs, basis):
         local = np.asarray(dofs)[list(space.cell_dofs[slot])]
@@ -90,11 +89,11 @@ def field_value(node, frame):
     return ad.bilinear(reconstruct, coefficients, basis)
 
 
-def basis_value(node, points):
+def basis_value(node, frame):
     space = node.space
-    if points.get(("piece", space.domain), 0) != node.cell_slot:
+    if frame.cells.get(space.domain, 0) != node.cell_slot:
         return np.zeros(node.value_shape)
-    basis = tabulate(space.element(node.cell_slot), points[space.domain])
+    basis = tabulate(space.element(node.cell_slot), frame.points[space.domain])
     return ad.linear(lambda a: a.reshape(node.value_shape), basis)
 
 
@@ -105,10 +104,10 @@ def vertex_element(cell_type):
     )
 
 
-def vertex_value(topology, vertices, points):
-    slot = points.get(("piece", topology), 0)
+def vertex_value(topology, vertices, frame):
+    slot = frame.cells.get(topology, 0)
     cell = topology.cell_types[slot]
-    point = points[topology]
+    point = frame.points[topology]
     if is_basix_cell(cell) and cell.dimension:
         weights = ad.entry(tabulate(vertex_element(cell.cell_type), point), (slice(None), 0))
     elif cell.num_vertices == cell.dimension + 1:

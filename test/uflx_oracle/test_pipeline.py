@@ -24,7 +24,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function
 from uflx.tensors import index, index_sum, indexed, tensor
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, form_with_fixed_argument
 
@@ -130,7 +130,8 @@ def main(trials):
         out2 = derivatives.apply_derivatives(out1)
         check_types(counts, e, out1, out2)
         vals = tuple(0.3 * complex(*rng.normal(size=2)) for _ in range(len(e.argument_spaces)))
-        before, after = evaluate(e, env)(vals), evaluate(out2, env)(vals)
+        oracle = Interpreter(env)
+        before, after = oracle.evaluate(e, arguments=vals), oracle.evaluate(out2, arguments=vals)
         if not np.allclose(before, after, rtol=1e-3, atol=1e-4):
             counts["changed"] += 1
             if counts["changed"] <= 3:

@@ -10,7 +10,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.nodes import ScalarType
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, ill_typed
 
@@ -78,7 +78,8 @@ def main(trials):
         value = LOAD_VALUE if space is C else LOAD_VALUE.real
         env[load(space)] = lambda x, value=value: value * x
         vals = tuple(0.5 * scalar() for _ in range(len(e.argument_spaces)))
-        before, after = evaluate(e, env)(vals), evaluate(out, env)(vals)
+        oracle = Interpreter(env)
+        before, after = oracle.evaluate(e, arguments=vals), oracle.evaluate(out, arguments=vals)
         if not np.allclose(before, after, rtol=1e-5, atol=1e-6):
             bad += 1
             if bad <= 3:
@@ -110,5 +111,9 @@ def test_pairing_with_the_conjugate():
         )
         out = derivatives.apply_derivatives(applications.expand_applications(e))
         assert not (ill_typed(e) or ill_typed(out))
-        before, after = evaluate(e, env)((0.4 + 0.9j,)), evaluate(out, env)((0.4 + 0.9j,))
+        oracle = Interpreter(env)
+        before, after = (
+            oracle.evaluate(e, arguments=(0.4 + 0.9j,)),
+            oracle.evaluate(out, arguments=(0.4 + 0.9j,)),
+        )
         assert np.isclose(before, after) and abs(after) > 0.1

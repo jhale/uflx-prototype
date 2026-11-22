@@ -17,7 +17,7 @@ from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
 from uflx_basix.cells import reference_simplex
 from uflx_basix.sides import outward_conormal
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type
 from ..uflx_basix.integrals import DIAGONAL
@@ -126,7 +126,8 @@ def check(name, e, env, bad, rows):
     if not keeps_static_type(e, out):
         bad["static"] += 1
     bad["grammar"] += not (pull_backs_expanded(out) and in_core_normal_form(out))
-    before, after = evaluate(e, env)(()), evaluate(out, env)(())
+    oracle = Interpreter(env)
+    before, after = oracle.evaluate(e), oracle.evaluate(out)
     if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
         bad["value"] += 1
         if bad["value"] <= 3:

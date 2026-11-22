@@ -10,7 +10,7 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index_sum
 from uflx_basix.cells import reference_simplex
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import contains
 from ..uflx_basix.test_runtime_extent import i, points, q, weights
@@ -29,8 +29,9 @@ def runtime_quadrature():
 def test_integer_indices_check_known_bounds_only():
     data = np.array([[1.0, 2.0], [3.0, 4.0]])
     env = {q: 2, points: data}
-    np.testing.assert_array_equal(evaluate(points[0], env)(()), data[0])
-    assert evaluate(points[1, 0], env)(()) == data[1, 0]
+    oracle = Interpreter(env)
+    np.testing.assert_array_equal(oracle.evaluate(points[0]), data[0])
+    assert oracle.evaluate(points[1, 0]) == data[1, 0]
     with pytest.raises(IndexError):
         points[-1, 0]
     with pytest.raises(IndexError):
@@ -60,4 +61,4 @@ def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():
         expected = sum(wk * (p[0] ** 2 * p[1] + 3 * p[0]) for p, wk in zip(P, w, strict=True))
         env = {q: n, points: P, weights: w}
         for g in (e, out):
-            assert np.isclose(evaluate(g, env)(()), expected)
+            assert np.isclose(Interpreter(env).evaluate(g), expected)

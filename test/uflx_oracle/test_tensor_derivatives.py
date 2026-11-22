@@ -11,7 +11,7 @@ from uflx.forms import apply, form, function
 from uflx.passes import apply_derivatives
 from uflx.tensors import tensor
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 
 class ExternalValue(AbstractExpression):
@@ -72,7 +72,8 @@ def test_independent_external_operator_derivative(
     assert derivative.scalar_type == scalar_type
     direction = np.ones(shape) if shape else 1.0
     arguments = ((2.0,) if existing_slot else ()) + (direction,)
-    np.testing.assert_array_equal(evaluate(derivative, {})(arguments), np.zeros(shape))
+    oracle = Interpreter()
+    np.testing.assert_array_equal(oracle.evaluate(derivative, arguments=arguments), np.zeros(shape))
 
     # The zero remains usable as a form, including for another derivative.
     contracted = apply_derivatives(
@@ -81,7 +82,9 @@ def test_independent_external_operator_derivative(
     assert contracted.argument_spaces == slots
     second = apply_derivatives(form(directional_derivative(derivative, u, u, k), (k,)))
     assert second.argument_spaces == (*slots, V, V)
-    np.testing.assert_array_equal(evaluate(second, {})((*arguments, direction)), np.zeros(shape))
+    np.testing.assert_array_equal(
+        oracle.evaluate(second, arguments=(*arguments, direction)), np.zeros(shape)
+    )
 
 
 @pytest.mark.parametrize("shape", [(2,), (2, 2)])
@@ -98,7 +101,8 @@ def test_nonzero_tensor_wirtinger_parts(shape, antilinear):
     direction = np.arange(np.prod(shape)).reshape(shape) + (0.7 + 0.4j)
     expected = (3 if antilinear else 2) * direction
     np.testing.assert_allclose(
-        evaluate(derivative, {u: direction * (1 - 2j)})((direction,)), expected
+        Interpreter({u: direction * (1 - 2j)}).evaluate(derivative, arguments=(direction,)),
+        expected,
     )
 
 
@@ -109,4 +113,4 @@ def test_vector_action_derivative_with_both_operands_dependent():
     expression = apply(operator, (u,))
     derivative = apply_derivatives(directional_derivative(expression, u, u, h))
     assert derivative.value_shape == (2,)
-    np.testing.assert_allclose(evaluate(derivative, {u: 2.0, h: 0.5})(()), [2.0, 6.0])
+    np.testing.assert_allclose(Interpreter({u: 2.0, h: 0.5}).evaluate(derivative), [2.0, 6.0])

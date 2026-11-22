@@ -1,7 +1,5 @@
 """Analytic checks of the reference interpreter, independent of lowering and compilation."""
 
-from contextvars import Context
-
 import numpy as np
 import pytest
 
@@ -11,7 +9,7 @@ from uflx.forms import apply, form, function
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index, tensor
 from uflx_basix.cells import reference_simplex
-from uflx_oracle.interpreter import Interpreter, at, evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..uflx.spaces import space
 
@@ -31,10 +29,11 @@ def test_calls_read_current_bindings_and_share_subexpressions_within_one_call():
     expression = u + u
     assert interpreter.evaluate(expression) == 6
     assert calls == 1
-    bound = evaluate(expression, env)
-    assert bound(()) == 6
+    v = function(V, "v")
+    assert interpreter.evaluate(u + apply(form(v, (v,)), (u,))) == 6
+    assert calls == 2
     env[u] = 4
-    assert interpreter.evaluate(expression) == bound(()) == 8
+    assert interpreter.evaluate(expression) == 8
     assert interpreter.evaluate(form(expression, (u,)), arguments=(5,)) == 10
     with pytest.raises(ValueError, match="expected 1 form argument"):
         interpreter.evaluate(form(expression, (u,)))
@@ -55,22 +54,18 @@ def test_cell_point_and_free_index_are_explicit_inputs():
         ) == pytest.approx(expected)
 
 
-def test_nested_evaluations_restore_points_even_on_failure():
+def test_callback_reentry_uses_its_explicit_point():
     P = EuclideanSpace(1)
     x = coordinate(P)[0]
+    u = function(space("field", domain=P, scalar_type="real"), "u")
 
-    def check():
-        assert evaluate(x, {})(()) == 2
-        assert Interpreter().evaluate(x, points={P: [3]}) == 3
+    def shifted(point):
         with pytest.raises(KeyError):
-            Context().run(lambda: evaluate(x, {})(()))
-        with pytest.raises(ZeroDivisionError):
-            at(P, [4], lambda: 1 / 0)
-        return evaluate(x, {})(())
+            interpreter.evaluate(x)
+        return interpreter.evaluate(x, points={P: point + 1})
 
-    assert at(P, [2], check) == 2
-    with pytest.raises(KeyError):
-        evaluate(x, {})(())
+    interpreter = Interpreter({u: shifted})
+    assert interpreter.evaluate(u + x, points={P: [2]}) == 5
 
 
 @pytest.mark.parametrize("dimension", [2, 3])
@@ -166,7 +161,26 @@ def test_applied_field_reads_the_cell_where_the_form_samples_it():
 
     # The unit square consists of two triangles of area 1/2.
     def sample(point):
-        return evaluate(coordinate(D)[0], {})(())
+        return interpreter.evaluate(coordinate(D)[0], points={D: point})
 
     interpreter = Interpreter({u: {0: sample, 1: lambda point: sample(point) + 2}})
     assert interpreter.evaluate(expression) == pytest.approx(1.5)
+
+
+@pytest.mark.parametrize(("cells_given", "solves"), [(False, 2), (True, 1)])
+def test_tangent_projector_reuses_the_located_reference_point(cells_given, solves):
+    from unittest.mock import patch
+
+    from uflx_oracle import _geometry
+
+    from ..uflx_basix.surface import M
+
+    # The point lies in the second triangle, on the plane z = y - x/2.
+    point = {M: [0.2, 0.8, 0.7]}
+    cells = {M: 1} if cells_given else {}
+    with patch.object(_geometry, "reference_point", wraps=_geometry.reference_point) as invert:
+        gradient_z = Interpreter().evaluate(
+            gradient(coordinate(M)[2], M), points=point, cells=cells
+        )
+    np.testing.assert_allclose(gradient_z, np.array([-2, 4, 5]) / 9)
+    assert invert.call_count == solves

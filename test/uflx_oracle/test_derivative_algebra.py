@@ -12,7 +12,7 @@ from uflx.arithmetic import conjugate
 from uflx.forms import form, function
 from uflx.nodes import Integer
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 
 @pytest.mark.parametrize("antilinear", [False, True])
@@ -32,7 +32,7 @@ def test_rotated_direction_uses_the_general_differential(monkeypatch, antilinear
     assert len(calls) == 2
     point, direction = 0.7 + 0.2j, 0.3 - 0.1j
     expected = 0 if antilinear else 2 * point * direction
-    assert np.isclose(evaluate(out, {u: point})((direction,)), expected)
+    assert np.isclose(Interpreter({u: point}).evaluate(out, arguments=(direction,)), expected)
 
 
 def test_direction_occurring_at_point_does_not_use_shortcut(monkeypatch):
@@ -52,7 +52,7 @@ def test_direction_occurring_at_point_does_not_use_shortcut(monkeypatch):
     assert len(calls) == 1
     assert calls[0][3] is Complex(Integer(0), Integer(1)) * h
     point = 0.7 + 0.2j
-    assert np.isclose(evaluate(out, {h: point})(()), 2j * point**2)
+    assert np.isclose(Interpreter({h: point}).evaluate(out), 2j * point**2)
 
 
 def test_mixed_differential_retains_general_projection(monkeypatch):
@@ -71,4 +71,6 @@ def test_mixed_differential_retains_general_projection(monkeypatch):
     )
     assert len(calls) == 2
     point, direction = 0.7 + 0.2j, 0.3 - 0.1j
-    assert np.isclose(evaluate(out, {u: point})((direction,)), point.conjugate() * direction)
+    assert np.isclose(
+        Interpreter({u: point}).evaluate(out, arguments=(direction,)), point.conjugate() * direction
+    )

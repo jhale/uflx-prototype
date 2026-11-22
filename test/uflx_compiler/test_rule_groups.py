@@ -11,7 +11,7 @@ from uflx.passes import apply_derivatives, apply_gradients
 from uflx.tensors import component_tensor, index, index_sum, tensor
 from uflx_basix.spaces import space
 from uflx_compiler import evaluate
-from uflx_oracle import evaluate as oracle
+from uflx_oracle.interpreter import Interpreter
 
 
 @pytest.mark.parametrize(
@@ -23,7 +23,7 @@ def test_literal_power_rules_at_zero_base(exponent):
     e = directional_derivative(power(u, exponent), u, num(0), num(3))
     out = apply_derivatives(e)
     with np.errstate(all="raise"):
-        expected = 0 if isinstance(exponent, Zero) or oracle(exponent, {})(()) == 0 else 3
+        expected = 0 if isinstance(exponent, Zero) or Interpreter().evaluate(exponent) == 0 else 3
         assert evaluate(out, {}) == expected
     assert out.scalar_type == e.scalar_type
 
@@ -33,7 +33,7 @@ def test_spatial_power_rules_preserve_the_component_axis(exponent):
     P = EuclideanSpace(2)
     e = gradient(power(coordinate(P)[0], exponent), P)
     out = apply_gradients(e)
-    expected = [0, 0] if oracle(exponent, {})(()) == 0 else [1, 0]
+    expected = [0, 0] if Interpreter().evaluate(exponent) == 0 else [1, 0]
     np.testing.assert_array_equal(evaluate(out, {}), expected)
     assert out.value_shape == (2,)
     assert out.scalar_type == e.scalar_type
