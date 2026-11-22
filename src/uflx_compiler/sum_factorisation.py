@@ -22,12 +22,12 @@ from uflx.nodes import (
 )
 from uflx.tensors import broadcast_to, index_sum, tensor
 from uflx_basix.nodes import RuntimeArray
+from uflx_basix.quadrature import constant
 from uflx_basix.runtime import runtime_array
 
 from .c_code import c_kernel
 from .evaluation import evaluate
 from .inputs import runtime_arrays
-from .quadrature import constant
 from .simplification import is_zero, simplify
 
 

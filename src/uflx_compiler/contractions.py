@@ -26,11 +26,11 @@ from uflx.nodes import (
     Zero,
 )
 from uflx.tensors import index_sum
+from uflx_basix.quadrature import constant
 
 from .algebra import _normalizer
 from .evaluation import evaluate
 from .inputs import arrays
-from .quadrature import constant
 from .simplification import literal, simplify
 
 

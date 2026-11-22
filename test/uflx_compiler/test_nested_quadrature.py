@@ -12,8 +12,24 @@ from uflx.tensors import tensor
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.interpolation import interpolate
+from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.topology import static_topology
 from uflx_compiler import compile_form, evaluate
+from uflx_compiler.simplification import simplify
+from uflx_compiler.tabulation import tabulate
+
+
+def test_tabulate_a_quadratic_field_with_a_selected_basix_rule():
+    cell = basix_cell(basix.CellType.triangle)
+    space = basix_space("P2", cell, basix.ElementFamily.P, 2)
+    u = function(space, "u")
+    r, s = space.element(0).points.T
+    dofs = r * r + s
+    expr = integral(u, cell)
+    points, weights = [[0.25, 0.5]], [0.5]
+    samples = apply_quadrature(expr, select={expr: (points, weights)}.get)
+    arrays = simplify(tabulate(samples))
+    assert np.isclose(evaluate(arrays, {"coefficients:u": dofs}), 0.5 * (0.25**2 + 0.5))
 
 
 def dot(a, b):

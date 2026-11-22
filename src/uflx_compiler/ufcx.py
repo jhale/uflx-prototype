@@ -38,13 +38,13 @@ from uflx.passes import apply_derivatives, expand_applications, lower
 from uflx.tensors import index_sum
 from uflx_basix.basix_nodes import BasixSpace
 from uflx_basix.nodes import IndexTable
+from uflx_basix.quadrature import apply_quadrature, constant
 from uflx_basix.runtime import runtime_array
 
 from .algebra import _normalizer
 from .c_code import c_kernel
 from .evaluation import evaluate
 from .facets import _facet_tables
-from .quadrature import apply_quadrature, constant
 from .simplification import simplify
 from .sum_factorisation import action_kernel
 from .tabulation import arrayed, leaf, nested, separable, table_read

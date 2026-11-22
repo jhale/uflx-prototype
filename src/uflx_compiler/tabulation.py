@@ -17,11 +17,11 @@ from uflx.nodes import (
 from uflx.tensors import index_sum, tensor
 from uflx_basix.basix_nodes import BasixBasis, BasixCell, BasixSpace
 from uflx_basix.nodes import IndexTable, RuntimeArray
+from uflx_basix.quadrature import constant
 from uflx_basix.runtime import runtime_array
 
 from .evaluation import evaluate
 from .inputs import Basis, runtime_arrays
-from .quadrature import constant
 
 
 def tabulate(f):

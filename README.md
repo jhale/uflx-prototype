@@ -175,12 +175,13 @@ checks:
   relations from vertex correspondences or reference positions and supplies
   separately chosen outward conormals. `BasixCell` supplies reference geometry
   from Basix, and `BasixSpace` supplies finite elements with independent
-  cell-local coefficients. `uflx_basix.assembly` supplies explicit library DOF maps
+  cell-local coefficients. `uflx_basix.quadrature` rewrites reference integrals
+  as weighted sums using a chosen Basix degree or explicit points and weights.
+  `uflx_basix.assembly` supplies explicit library DOF maps
   for gathering coefficients and scattering local tensors
 - `uflx_oracle`: the numerical reference interpreter used to check passes and compiled results
-- `uflx_compiler`: a form compiler after the core normal form, with a quadrature
-  pass that rewrites an integral over a Basix cell as a weighted sum over the
-  points of a rule of Basix, a tabulation pass that rewrites a function of a
+- `uflx_compiler`: a form compiler after the core normal form, using Basix
+  quadrature and a tabulation pass that rewrites a function of a
   `BasixSpace` at the points as its coefficients times the tabulated basis, a
   table that `runtime_tables` fills at assembly for points known only then,
   `kernel_inputs`, which lists the arrays and extents that a consumer passes by
@@ -190,6 +191,32 @@ checks:
   and `assemble`, which puts the unit vectors in place of the coefficients of
   each argument of a form, so that the form evaluates to its local tensor.
   `assemble_bound` additionally gathers and scatters using caller-supplied DOF maps
+
+### Choosing quadrature per integral
+
+`apply_quadrature(reference, select=choose)` calls `choose` once for each distinct
+Basix reference-cell integral in the input expression. Return an integer degree
+to use the compiler's usual rule for that cell, a pair of reference points and
+weights to supply a rule, or `None` to leave the integral for a later pass.
+
+For example, suppose `mass`, `stiffness`, and `load` are three lowered integrals
+on one reference triangle. A dictionary selects two by their node identity,
+even though all three have the same integration domain.
+
+```python
+from uflx_basix.quadrature import apply_quadrature
+
+points = [[1/6, 1/6], [2/3, 1/6], [1/6, 2/3]]
+weights = [1/6, 1/6, 1/6]
+rules = {mass: (points, weights), stiffness: 4}
+partial = apply_quadrature(mass + stiffness + load, select=rules.get)
+finished = apply_quadrature(partial, select={load: 2}.get)
+```
+
+The pass builds the weighted sums and expands their pullbacks. The resulting
+UFLx expression can be evaluated in the oracle or tabulated by the compiler.
+To apply a common degree to the whole expression, use
+`apply_quadrature(reference, degree=2)`.
 
 ### Local coefficients and library assembly
 

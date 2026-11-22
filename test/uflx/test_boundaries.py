@@ -64,9 +64,11 @@ def test_the_core_imports_neither_the_extension_nor_the_oracle():
 )
 def test_extension_and_compiler_use_public_core_modules(package, allowed):
     for path in files(package):
+        # Quadrature uses the public core traversal to visit reference integrals.
+        modules = PUBLIC_MODULES if path == SOURCE / "uflx_basix" / "quadrature.py" else allowed
         for m in imported(path):
             if m.partition(".")[0] == "uflx":
-                assert m in allowed, (path, m)
+                assert m in modules, (path, m)
 
 
 def test_suite_imports_follow_package_order():

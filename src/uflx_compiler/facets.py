@@ -10,12 +10,12 @@ from uflx.nodes import Conormal, EuclideanSpace, SideMap
 from uflx.passes import lower
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.inclusions import affine_map, reference_normal
+from uflx_basix.quadrature import constant
 from uflx_basix.runtime import runtime_array
 from uflx_basix.sides import outward_conormals
 
 from .algebra import _normalizer
 from .evaluation import evaluate
-from .quadrature import constant
 
 
 def _permutations(cell_type):
