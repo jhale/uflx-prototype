@@ -718,15 +718,16 @@ def test_oversized_region_reuses_a_shared_child_search(monkeypatch):
     )
 
 
-@pytest.mark.parametrize("groups", [("arithmetic",), ("herbie",)])
 @pytest.mark.parametrize("preserve", [False, True])
-def test_runtime_polynomial_cancellation_respects_fp_policy(groups, preserve):
+def test_runtime_polynomial_cancellation_respects_fp_policy(preserve):
     x = RuntimeArray("defined-polynomial", ())
     polynomial = x * x + num(2) * x
     expression = polynomial - polynomial
     result = optimise(
         expression,
-        OptimisationOptions(rule_groups=groups, preserve_floating_point_evaluation=preserve),
+        OptimisationOptions(
+            rule_groups=("arithmetic",), preserve_floating_point_evaluation=preserve
+        ),
     ).expression
     if preserve:
         assert result is expression

@@ -150,7 +150,6 @@ def test_defined_runtime_input_does_not_make_logarithm_total():
 
     x = RuntimeArray("log-input", ())
     partial = logarithm(x)
-    for groups in (("arithmetic",), ("herbie",)):
-        for expression in (num(0) * partial, partial - partial):
-            result = optimise(expression, OptimisationOptions(rule_groups=groups)).expression
-            assert partial in nodes(result)
+    for expression in (num(0) * partial, partial - partial):
+        result = optimise(expression, OptimisationOptions(rule_groups=("arithmetic",))).expression
+        assert partial in nodes(result)

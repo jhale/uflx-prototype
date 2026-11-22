@@ -22,7 +22,7 @@ class OptimisationOptions:
     grouping and reduction order, using structural and safe unary simplifications.
     """
 
-    rule_groups: tuple[Literal["arithmetic", "indexed", "herbie"], ...] = ("arithmetic", "indexed")
+    rule_groups: tuple[Literal["arithmetic", "indexed"], ...] = ("arithmetic", "indexed")
     preserve_floating_point_evaluation: bool = False
     iterations: int = 3
     max_region_nodes: int = 60
@@ -31,8 +31,8 @@ class OptimisationOptions:
     def __post_init__(self) -> None:
         if type(self.preserve_floating_point_evaluation) is not bool:
             raise ValueError("preserve_floating_point_evaluation must be a bool")
-        if not self.rule_groups or set(self.rule_groups) - {"arithmetic", "indexed", "herbie"}:
-            raise ValueError("select arithmetic, indexed and/or herbie rule groups")
+        if not self.rule_groups or set(self.rule_groups) - {"arithmetic", "indexed"}:
+            raise ValueError("select at least one of the arithmetic and indexed rule groups")
         if type(self.iterations) is not int or self.iterations < 1:
             raise ValueError("iterations must be a positive integer")
         if type(self.max_region_nodes) is not int or self.max_region_nodes < 1:

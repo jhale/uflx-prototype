@@ -83,14 +83,6 @@ Division by an unknown or zero denominator is retained; fractions are never
 converted to approximate floating-point constants. These arithmetic rewrites
 are disabled by `preserve_floating_point_evaluation=True`.
 
-An experimental `herbie` rule group provides 75 translated arithmetic and
-polynomial identities from a pinned Herbie catalogue. Select it with
-`OptimisationOptions(rule_groups=("herbie", "indexed"))`; the default remains the
-smaller `arithmetic` collection. See [the vendored rules and translation audit](third_party/herbie/README.md)
-for provenance, domain guards, exclusions and regeneration instructions. These
-rules are disabled when floating-point evaluation is preserved and can increase
-search cost substantially.
-
 The optimiser also folds determinants and nonsingular inverses of stored square
 matrices up to 3 by 3, using exact integer/rational arithmetic. It reads entries
 through tensor construction, indexing and broadcasts when the source is known

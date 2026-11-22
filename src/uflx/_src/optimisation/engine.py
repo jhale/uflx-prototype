@@ -31,7 +31,6 @@ from ..nodes import (
 from ..nodes.structure import expression_operands
 from .costs import loop_cost
 from .encoding import decode, encode
-from .herbie import herbie_arithmetic, herbie_polynomials
 from .optimise import OptimisationOptions, OptimisationReport, OptimisationResult, RegionReport
 from .properties import is_defined
 from .rules import (
@@ -95,13 +94,10 @@ def run_region(
     rules: Ruleset | UnstableCombinedRuleset = unary_rules
     if not preserve:
         rules = rules | constant_cleanup
-        for name, group in (
-            ("arithmetic", algebra),
-            ("indexed", indexed_rules),
-            ("herbie", herbie_arithmetic | herbie_polynomials),
-        ):
-            if name in options.rule_groups:
-                rules = rules | group
+        if "arithmetic" in options.rule_groups:
+            rules = rules | algebra
+        if "indexed" in options.rule_groups:
+            rules = rules | indexed_rules
     extraction_cost = cost_model or (loop_cost if options.cost == "loops" else None)
     start = perf_counter()
     region = encode(
