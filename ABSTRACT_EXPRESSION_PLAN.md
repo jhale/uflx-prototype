@@ -76,7 +76,7 @@ expression, and that `RealPart` and the other scalar classes forced arity 0.
 | `substitution.py` | `expressions(e)`, the operands of `e` that are expressions |
 | `passes/pullbacks.py` | `pointwise` maps `pb` over the expressions; `NOT_EXPRESSIONS` goes |
 | `passes/*.py` | `in_n1` to `in_n6` walk `expressions(e)` |
-| `test/test_hierarchy.py` | New tests, below |
+| `test/uflx/test_hierarchy.py` | New tests, below |
 
 ## Tests
 

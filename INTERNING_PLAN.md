@@ -87,7 +87,7 @@ The defaults of `Space` are filled in before the digest is computed, so
 | `static.py` | `by_identity` keyed on the node, or replaced by `functools.cache` with a copy of the dict that `free` returns |
 | `oracle.py` | `BUILT` and `VALUES` keyed on nodes in place of `id()` |
 | `test/testutil.py` | `contains` keyed on nodes |
-| `test/test_interning.py` | New tests, below |
+| `test/uflx/test_interning.py` | New tests, below |
 
 ## Tests
 

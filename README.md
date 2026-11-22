@@ -172,7 +172,7 @@ The core implements the evaluation passes in the UFLx language specification
 an independent numerical oracle.
 
 The repository has four packages in `src/`, and imports go only from the oracle
-and the compiler to the extension to the core, which `test/test_boundaries.py`
+and the compiler to the extension to the core, which `test/uflx/test_boundaries.py`
 checks:
 
 - `uflx`: the core, with only what the specification defines
@@ -446,14 +446,14 @@ cell-slot order. A bilinear kernel therefore fills all four coupling
 blocks. The solver remains responsible for element DOF transformations and for
 packing two conforming cells with their facet permutations.
 
-`test/test_ufcx.py` compares generated local tensors and descriptors with FFCx,
+`test/uflx_compiler/test_ufcx.py` compares generated local tensors and descriptors with FFCx,
 including higher-order elements, Piola maps, curved cells and every local facet
 of intervals, triangles, quadrilaterals, tetrahedra and hexahedra. Interior-facet
 comparisons cover every local-facet pair and every rotation/reflection combination.
 It also contains DOLFINx cell, exterior-facet and interior-facet assembly tests using the generated
 `ufcx_form` address directly. These tests
 skip when their optional dependencies are unavailable. With local FFCx and UFL
-checkouts on `PYTHONPATH`, run `pytest test/test_ufcx.py`; `UFCX_INCLUDE_DIR` can
+checkouts on `PYTHONPATH`, run `pytest test/uflx_compiler/test_ufcx.py`; `UFCX_INCLUDE_DIR` can
 supply the header directory separately. Keep the compiled shared library alive
 while DOLFINx uses the form's pointers.
 
@@ -677,13 +677,18 @@ for pull-backs, so it does not use the passes. The value of an
 evaluates the classes of `uflx_basix` too, and reads the values of an
 `IndexTable`, which the specification leaves to a library.
 
-The tests in `test/` check on random expressions that a pass keeps the value
+Run `pytest test` for the full suite or select a package, for example
+`pytest test/uflx_compiler`. The four folders under `test/` mirror the import
+packages. Tests that use the oracle to validate a transformation live with
+the package that implements the transformation.
+
+The core tests check on random expressions that a pass keeps the value
 and the static type, that its output is in its grammar, and that the grammar
 rejects its inputs. The construction rules of the argument spaces are checked in the
 tests, by `ill_typed` in `test/testutil.py`, on the input and the output of
 every pass, in addition to construction validation. `test_controls.py` breaks the passes on purpose and checks
-that the tests notice. Each random test also runs as a script, with the number
-of trials as its argument, and prints its counts.
+that the tests notice. Run a randomized test as a Python module from the
+repository root to set the trial count and print its results.
 
 ```
 pip install -e ".[test,lint]"
@@ -691,7 +696,7 @@ pytest                # on 6 workers, set in pyproject.toml
 ruff check . && ruff format --check .
 pyright
 coverage run -m pytest && coverage report
-python test/test_full.py 100
+python -m test.uflx.test_full 100
 ```
 
 ## Following the specification
@@ -754,7 +759,7 @@ Python argument types are now checked statically instead of repeatedly checked
 inside constructors and passes. Construction still enforces the primitive argument
 whitelist, finite floats, shapes, extents, domain compatibility and binder rules.
 The excluded packages must continue to supply values satisfying the annotated
-contracts. The negative typing fixture in `test/typecheck/arguments.py` verifies
+contracts. The negative typing fixture in `test/uflx/typecheck/arguments.py` verifies
 wrong argument types, rewrite callback results and non-exhaustive matches; pytest
 runs it separately when Pyright is installed.
 
@@ -763,7 +768,7 @@ Boolean, real and complex values. Function spaces and numerical operations use
 `NumericalScalarType`, which admits real and complex values. Casts are concentrated at the reflection, cache and graph
 reconstruction boundaries. Stored properties return typed dataclass fields without
 casts or Pyright suppressions. Computed attributes use ordinary properties with a
-small per-node cache decorator. `test/test_node_declarations.py` checks metadata
+small per-node cache decorator. `test/uflx/test_node_declarations.py` checks metadata
 names and the correspondence between private fields and public getters.
 
 Pyright checks exhaustiveness for finite unions. `AbstractExpression` remains
@@ -776,7 +781,7 @@ Use `add`, `multiply`, `divide`, `real_part` and `imaginary_part` (or their
 operator overloads) when constructing arithmetic. They handle tensor operands
 and reduce to scalar nodes for scalar operands. Direct construction of `Sum`,
 `Product`, `Division`, `RealPart` and `ImaginaryPart` is checked by
-`test/test_construction_boundaries.py`. Node classes remain available for
+`test/uflx/test_construction_boundaries.py`. Node classes remain available for
 pattern matching, type annotations and inspection.
 
 The only direct-construction exceptions are the `add`, `multiply` and `divide`
@@ -790,26 +795,26 @@ The AST check follows direct imports, relative imports and import aliases,
 including module aliases. It is a source convention check, not a Python
 interpreter or a shape proof: wildcard imports, dynamically retrieved
 constructors and constructor reassignment are outside its supported syntax.
-Run it with `pytest test/test_construction_boundaries.py`; it also runs with
+Run it with `pytest test/uflx/test_construction_boundaries.py`; it also runs with
 the ordinary package test suite.
 
 ### Source architecture checks
 
 The ordinary test suite also checks three source conventions:
 
-- `test/test_boundaries.py` resolves absolute and relative imports, including
+- `test/uflx/test_boundaries.py` resolves absolute and relative imports, including
   `from package import submodule`, local imports and imports under
   `TYPE_CHECKING`. It enforces the existing package dependency direction and
   prevents core implementation modules from importing the public submodules,
   `_draft`, or `_src/extensions`. Extension modules may depend on the core. It also keeps static queries,
   traversal, rewrite completion and substitution independent of passes and
   contracts, and prevents transformations from importing their lowering recipe.
-- `test/test_overloads.py` checks that expression operator methods return calls
+- `test/uflx/test_overloads.py` checks that expression operator methods return calls
   to their designated free functions with the correct operand order. Indexing
   preserves the `_members(entries)` conversion. Returning `NotImplemented` for
   unsupported operand types remains allowed. Numerical overload tests remain
   responsible for behaviour.
-- `test/test_signatures.py` checks each public submodule's imports against its literal
+- `test/uflx/test_signatures.py` checks each public submodule's imports against its literal
   `__all__` list, rejecting duplicate bindings, duplicate exports, wildcard
   imports and missing names. With the language specification available, its
   generated free-function and pass tables determine the names exported across the
@@ -835,5 +840,5 @@ Node fields and protocol methods retain their existing names because they
 form the extension/reconstruction interface. Nested functions and local
 variables are already confined to their enclosing function. Imported public
 classes and free functions keep their names; we do not add aliases merely
-to hide imports. `test/test_boundaries.py` checks cross-module private imports
+to hide imports. `test/uflx/test_boundaries.py` checks cross-module private imports
 and the dependency layers.

@@ -48,4 +48,4 @@ extracted code.
 
 When updating upstream, replace the two vendored files at a specific revision,
 update the generator's revision, regenerate, review the inclusion/exclusion report,
-and run `test/test_herbie_translation.py` alongside the optimisation tests.
+and run `test/uflx/test_herbie_translation.py` alongside the optimisation tests.

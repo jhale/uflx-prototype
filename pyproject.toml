@@ -19,8 +19,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-pythonpath = ["test"]
-addopts = "-n 6"
+pythonpath = ["."]
+addopts = "-n 6 --import-mode=importlib"
 
 [tool.coverage.run]
 branch = true
