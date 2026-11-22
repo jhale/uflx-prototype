@@ -21,7 +21,9 @@ TRIANGLES, INTERVALS = ((0, 1, 2), (0, 2, 3)), ((0, 1), (1, 2))
 # Triangles, and a submesh of intervals on the bottom and right of the boundary.
 T = grouped_topology((K,), (TRIANGLES,), ())
 M = grouped_topology((I,), (INTERVALS,), ())
-D, DM = vertex_mesh(T, VERTICES), vertex_mesh(M, VERTICES)
+D, parent_geometry = vertex_mesh(T, VERTICES)
+DM, submesh_geometry = vertex_mesh(M, VERTICES, label="submesh_x")
+GEOMETRY = parent_geometry | submesh_geometry
 S = grouped_topology((I,), (INTERVALS,), ((("mesh", T, 0), ("submesh", M, 0)),))
 E = side_domain(D, S)
 V, L = basix_space("V", T, P, 2), basix_space("L", M, P, 1, discontinuous=True)
@@ -47,7 +49,7 @@ def test_a_function_on_a_submesh_couples_to_a_function_on_the_mesh(integrand):
     u, lam = push_forward(function(V, "u"), D), push_forward(function(L, "lam"), DM)
     f = integral(integrand(u, lam), E)
     rng = np.random.default_rng(0)
-    given = {
+    given = GEOMETRY | {
         "coefficients:u": rng.normal(size=V.num_dofs),
         "coefficients:lam": rng.normal(size=L.num_dofs),
     }
@@ -59,12 +61,14 @@ def test_a_function_on_a_submesh_couples_to_a_function_on_the_mesh(integrand):
 
 def test_the_block_of_a_lagrange_multiplier_on_a_submesh():
     uT, lamT = function(V, "u"), function(L, "lam")
-    B = assemble(form(coupling(push_forward(uT, D), push_forward(lamT, DM)), (lamT, uT)), 3)({})
+    B = assemble(form(coupling(push_forward(uT, D), push_forward(lamT, DM)), (lamT, uT)), 3)(
+        GEOMETRY
+    )
     assert B.shape == (L.num_dofs, V.num_dofs)
     rng = np.random.default_rng(1)
     U, Lam = rng.normal(size=V.num_dofs), rng.normal(size=L.num_dofs)
     w, z = function(V, "w"), function(L, "z")
-    expected = Interpreter({w: U, z: Lam}).evaluate(
+    expected = Interpreter(GEOMETRY | {w: U, z: Lam}).evaluate(
         coupling(push_forward(w, D), push_forward(z, DM))
     )
     assert np.isclose(Lam @ B @ U, expected)

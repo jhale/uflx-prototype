@@ -18,8 +18,8 @@ from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, form_with_fixed_argument
+from ..uflx_basix.integrals import GEOMETRY, K
 from ..uflx_basix.integrals import D as MESH
-from ..uflx_basix.integrals import K
 
 VD = space("VD", domain=MESH)
 u, w, h = (function(VD, n) for n in "uwh")
@@ -79,7 +79,7 @@ def random_form(rnd, n, depth):
 
 
 def main(trials):
-    env = {u: num(1) + X[0] * X[1], w: X[0] - num(2) * X[1], h: num(0.5) + X[1]}
+    env = GEOMETRY | {u: num(1) + X[0] * X[1], w: X[0] - num(2) * X[1], h: num(0.5) + X[1]}
     args = [num(1) + X[0], X[1] * X[1]]
     bad = dict(value=0, grammar=0)
     for seed in range(trials):

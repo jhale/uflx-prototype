@@ -14,10 +14,10 @@ from uflx_compiler import assemble_bound
 
 from ..uflx_basix.legacy import Constant
 from ..uflx_basix.meshes import push_forward, side_domain, side_map
-from ..uflx_basix.test_legacy import LEFT, LOWER, D, T, demo
+from ..uflx_basix.test_legacy import GEOMETRY, LEFT, LOWER, D, T, demo
 
 RNG = np.random.default_rng(5)
-DATA = {
+DATA = GEOMETRY | {
     "coefficients:kappa": np.array(1.7),
     "coefficients:f": RNG.normal(size=4),
     "coefficients:('q', 0)": RNG.normal(size=4),
@@ -66,7 +66,11 @@ def assembled(f):
     bindings = {}
 
     def bind(node):
-        if isinstance(node, Function) and isinstance(node.space, BasixSpace):
+        if (
+            isinstance(node, Function)
+            and isinstance(node.space, BasixSpace)
+            and node is not D.coordinate_function
+        ):
             bindings[node] = conforming_dofmap(node.space)
         return True
 

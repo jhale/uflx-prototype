@@ -10,6 +10,7 @@ from uflx._src.algorithms.traversal import everywhere, memoized
 from uflx._src.meshes import cell_map
 from uflx._src.nodes import Coordinate, Division, Gradient, Integral, Inverse, Power, PullBack
 from uflx._src.nodes.structure import expression_operands
+from uflx.algorithms import replace
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, gradient, integral, reference_integral
 from uflx.forms import form, function
@@ -30,6 +31,7 @@ from uflx_compiler import (
     runtime_tables,
 )
 from uflx_compiler.inputs import arrays
+from uflx_compiler.quadrature import constant
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import contains
@@ -62,7 +64,9 @@ def functionals(D, u):
     [("triangles", 1), ("triangles", 2), ("mixed", 1), ("mixed", 2)],
 )
 def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
-    D = square(basix_cell(basix.CellType.triangle))[0] if mesh == "triangles" else mixed()[0]
+    D, _, _, geometry = (
+        square(basix_cell(basix.CellType.triangle)) if mesh == "triangles" else mixed()
+    )
     V = basix_space("V", D.topology, P, degree)
     u = push_forward(function(V, "u"), D)
     U = np.random.default_rng(degree).normal(size=V.num_dofs)
@@ -71,14 +75,14 @@ def test_compiled_functionals_agree_with_the_oracle(mesh, degree):
         # Quadrature and tabulation leave arithmetic on arrays, with no lazy node.
         lazy = (Integral, PullBack, Gradient, Coordinate)
         assert not contains(compiled, lambda n, lazy=lazy: isinstance(n, lazy))
-        env = {"coefficients:u": U}
+        env = geometry | {"coefficients:u": U}
         expected = Interpreter(env).evaluate(e)
         assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8), e
         assert np.isclose(evaluate(compiled, env, np, fold(compiled)), expected, rtol=1e-8), e
 
 
 def test_tensor_quadrature_over_mixed_cells_preserves_free_indices():
-    D = mixed()[0]
+    D, _, _, geometry = mixed()
     x, y = coordinate(D)[0], coordinate(D)[1]
     i = index("load")
     scale = tensor((num(1), num(3)))[i]
@@ -94,23 +98,25 @@ def test_tensor_quadrature_over_mixed_cells_preserves_free_indices():
 
     # Integrals of 1, x, y and xy over the unit square, for each load.
     expected = np.array([1, 3])[:, None, None] * np.array([[1, 0.5], [0.5, 0.25]])
-    np.testing.assert_allclose(evaluate(whole, {}), expected)
-    np.testing.assert_allclose(sum(evaluate(piece, {}) for piece in pieces), expected)
+    np.testing.assert_allclose(evaluate(whole, geometry), expected)
+    np.testing.assert_allclose(sum(evaluate(piece, geometry) for piece in pieces), expected)
 
 
 def test_the_same_graph_runs_on_jax():
-    D = mixed()[0]
+    D, _, _, geometry = mixed()
     V = basix_space("V", D.topology, P, 2)
     u = push_forward(function(V, "u"), D)
     U = np.random.default_rng(5).normal(size=V.num_dofs)
     compiled = compile_form(functionals(D, u)[3], 8)
     key = "coefficients:u"
-    f = jax.jit(lambda U: evaluate(compiled, {key: U}, jnp))
-    assert np.isclose(f(jnp.asarray(U)), evaluate(compiled, {key: U}))
+    f = jax.jit(lambda U: evaluate(compiled, geometry | {key: U}, jnp))
+    assert np.isclose(f(jnp.asarray(U)), evaluate(compiled, geometry | {key: U}))
     # The derivative in the coefficients is the residual vector, here by automatic differentiation.
     d = np.random.default_rng(6).normal(size=V.num_dofs)
     step = 1e-6
-    central = evaluate(compiled, {key: U + step * d}) - evaluate(compiled, {key: U - step * d})
+    central = evaluate(compiled, geometry | {key: U + step * d}) - evaluate(
+        compiled, geometry | {key: U - step * d}
+    )
     assert np.isclose(jax.grad(f)(jnp.asarray(U)) @ d, central / (2 * step), rtol=1e-6)
 
 
@@ -121,10 +127,14 @@ def instructions(compiled, key, n, folded=None):
 
 def test_folding_the_geometry_shrinks_the_kernel():
     # The geometry of a mesh with constant coordinates reads no kernel input, so it is folded.
-    D = mixed()[0]
+    D, _, _, geometry = mixed()
     V = basix_space("V", D.topology, P, 2)
     u = push_forward(function(V, "u"), D)
     compiled = compile_form(functionals(D, u)[3], 4)
+    # Specialise the coordinate coefficient to its known values before folding.
+    compiled = replace(
+        compiled, {coefficients(D.coordinate_function): constant(geometry["coefficients:x"])}
+    )
     key = "coefficients:u"
     folded = fold(compiled)
     assert compiled not in folded and folded
@@ -158,11 +168,11 @@ def facet_functionals(D, E, B, u):
 )
 @pytest.mark.parametrize("discontinuous", [False, True])
 def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
-    D, E, B = mesh()
+    D, E, B, geometry = mesh()
     V = basix_space("V", D.topology, P, 1, discontinuous)
     u = push_forward(function(V, "u"), D)
     U = np.random.default_rng(8).normal(size=V.num_dofs)
-    env = {"coefficients:u": U}
+    env = geometry | {"coefficients:u": U}
     for e in facet_functionals(D, E, B, u):
         compiled = compile_form(e, 4)
         lazy = (Integral, PullBack, Gradient, Coordinate)
@@ -175,7 +185,7 @@ def test_compiled_facet_integrals_agree_with_the_oracle(mesh, discontinuous):
 
 def test_a_function_at_points_known_only_at_assembly():
     # The cut cell example on a mesh: each cell has its own points, which the solver gives.
-    D = square(basix_cell(basix.CellType.triangle))[0]
+    D, _, _, geometry = square(basix_cell(basix.CellType.triangle))
     V = basix_space("V", D.topology, P, 2)
     u = push_forward(function(V, "u"), D)
     K = D[0].reference_cell
@@ -209,12 +219,14 @@ def test_a_function_at_points_known_only_at_assembly():
             X = rng.dirichlet(np.ones(3), size=(cells, n))[..., 1:]
             W = rng.random((cells, n))
             # The consumer passes the inputs that the kernel states, by label, to both.
-            assert kernel_inputs(compiled) == {
+            assert kernel_inputs(compiled) == (
+                {key: v.shape for key, v in geometry.items()} if f is not u else {}
+            ) | {
                 "points": (2, "q", 2),
                 "weights": (2, "q"),
                 "coefficients:u": (V.num_dofs,),
             }
-            given = {"q": n, "points": X, "weights": W, "coefficients:u": U}
+            given = geometry | {"q": n, "points": X, "weights": W, "coefficients:u": U}
             env = runtime_tables(compiled, given)
             expected = Interpreter(given).evaluate(e)
             assert np.isclose(evaluate(compiled, env), expected, rtol=1e-8)

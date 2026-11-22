@@ -22,7 +22,7 @@ from uflx_oracle.interpreter import Interpreter
 from ..testutil import assert_clean, check_types, contains, keeps_static_type
 from ..uflx_basix.integrals import DIAGONAL
 from ..uflx_basix.meshes import side_domain, side_map
-from ..uflx_basix.surface import FOLD, R3, M
+from ..uflx_basix.surface import FOLD, GEOMETRY, R3, M
 from .test_integrals import BOUNDARY
 
 I = reference_simplex(1)
@@ -64,7 +64,7 @@ EDGES = {M: sides(M), C: sides(C)}
 
 u = function(space("V", domain=M), "u")
 x = coordinate(M)
-ENV = {u: {0: num(1) + x[0] + num(2) * x[1] - x[2], 1: num(3) - x[0] * x[2] + x[1]}}
+ENV = GEOMETRY | {u: {0: num(1) + x[0] + num(2) * x[1] - x[2], 1: num(3) - x[0] * x[2] + x[1]}}
 
 
 def field(rnd, dom):

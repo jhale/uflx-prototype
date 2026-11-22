@@ -1,7 +1,7 @@
 import basix
 import numpy as np
 
-from uflx.algorithms import bottom_up, derived_index, derived_indices
+from uflx.algorithms import bottom_up, derived_indices
 from uflx.nodes import (
     CellMap,
     DomainMap,
@@ -16,8 +16,7 @@ from uflx.nodes import (
 )
 from uflx.tensors import index_sum, tensor
 from uflx_basix.basix_nodes import BasixBasis, BasixCell, BasixSpace
-from uflx_basix.basix_spaces import basix_space
-from uflx_basix.nodes import IndexTable, RuntimeArray, VertexCoordinates
+from uflx_basix.nodes import IndexTable, RuntimeArray
 from uflx_basix.runtime import runtime_array
 
 from .evaluation import evaluate
@@ -33,8 +32,6 @@ def tabulate(f):
         if isinstance(e, Function) and e.domain is None:
             return runtime_array(f"coefficients:{e.label}", e.value_shape)
         found = leaf(e)
-        if found and isinstance(found[0], VertexCoordinates):
-            return vertex_values(*found)
         return values(*found) if found else e
 
     return bottom_up(f, rewrite)
@@ -63,9 +60,7 @@ def read(x, points):
             return u, 0, order, points
         case Function(BasixSpace() as V) as u if isinstance(V.domain, BasixCell):
             return u, 0, order, points
-        case PullBack(VertexCoordinates() | BasixBasis() | Function(BasixSpace()) as u, C) if (
-            cell(C) is not None
-        ):
+        case PullBack(BasixBasis() | Function(BasixSpace()) as u, C) if cell(C) is not None:
             return u, cell(C), order, points
     return None
 
@@ -118,27 +113,6 @@ def arrayed(shape, entry, idx=()):
     if len(idx) == len(shape):
         return entry(idx)
     return tensor(tuple(arrayed(shape, entry, (*idx, m)) for m in range(shape[len(idx)])))
-
-
-def vertex_values(x, found_cell, order, points):
-    # The coordinates of the vertices of the cell times the shape functions of the vertices, which
-    # are the basis of degree 1 of Basix, in the order of the vertices.
-    T, j = x.topology, found_cell
-    # The shape functions are the basis of a space of degree 1 on T, which also labels a table
-    # at points known only at assembly.
-    V = basix_space("vertices", T, basix.ElementFamily.P, 1)
-    F = V.element(j)
-    a = derived_index("compiler.tabulation", x, j, points, "a")
-    # The element may order its dofs for sum factorisation, so each dof reads its own vertex.
-    vertex_of = {d: v for v, dofs in enumerate(F.entity_dofs[0]) for d in dofs}
-    rows = [T.cells[j][vertex_of[d]] for d in range(F.dim)]
-    cells = IndexTable(nested(np.asarray(rows)), len(x.vertices))
-    vertex = constant(x.vertices)[GatheredIndex(cells, (a,))]
-
-    def term(idx):
-        return index_sum(vertex[idx[0]] * table_read(V, j, F, points, idx[1:], a, 0), (a,))
-
-    return arrayed((len(x.vertices[0]), *(points.value_shape[0],) * order), term)
 
 
 def separable(points):

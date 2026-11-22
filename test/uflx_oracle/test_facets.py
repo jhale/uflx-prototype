@@ -20,7 +20,7 @@ from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type
-from ..uflx_basix.integrals import DIAGONAL, D
+from ..uflx_basix.integrals import DIAGONAL, GEOMETRY, D
 from ..uflx_basix.meshes import side_domain, side_map
 from .test_integrals import BOUNDARY
 
@@ -81,7 +81,7 @@ def integrand(rnd, E, sides):
 
 def main(trials):
     x = coordinate(D)
-    env = {
+    env = GEOMETRY | {
         u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]},
         w: num(2) + x[0] * x[1],
     }

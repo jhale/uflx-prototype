@@ -11,7 +11,7 @@ from uflx.passes import expand_integrals
 from uflx.tensors import component_tensor, index
 from uflx_oracle.interpreter import Interpreter
 
-from ..uflx_basix.test_pull_back_gradients import D, K, nodes
+from ..uflx_basix.test_pull_back_gradients import GEOMETRY, D, K, nodes
 
 X, k = coordinate(D), index("k")
 
@@ -41,7 +41,7 @@ def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
     f = integral(gradient(X[0] * X[0] * X[1], D)[0], D)
     out = core(f)
     assert in_core_normal_form(out) and not any(isinstance(n, Inverse) for n in nodes(out))
-    oracle = Interpreter()
+    oracle = Interpreter(GEOMETRY)
     assert np.isclose(oracle.evaluate(out), oracle.evaluate(f))
 
 
@@ -61,7 +61,7 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
         assert result.scalar_type == original.scalar_type
         assert result.argument_spaces == original.argument_spaces
         assert not any(isinstance(n, Inverse) for n in nodes(result))
-        oracle = Interpreter()
+        oracle = Interpreter(GEOMETRY)
         np.testing.assert_allclose(
             oracle.evaluate(result),
             oracle.evaluate(original, points={K: np.array([0.2, 0.3])}),

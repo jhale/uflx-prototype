@@ -16,7 +16,7 @@ from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle.interpreter import Interpreter
 
-from ..uflx_basix.meshes import grouped_topology, push_forward, side_map, square, vertex_mesh
+from ..uflx_basix.meshes import grouped_topology, push_forward, side_map, square
 from ..uflx_basix.test_coordinate_functions import VERTICES, K, P, T, coordinates, p1_mesh
 from .test_compiler import functionals, runtime_mesh
 
@@ -31,9 +31,9 @@ def nodes(e):
     return found
 
 
-def test_a_p1_coordinate_function_gives_the_values_of_the_explicit_mesh():
+def test_scalar_and_blocked_p1_coordinate_fields_agree():
     D, geometry = p1_mesh()
-    E = square(K)[0]
+    E, _, _, blocked_geometry = square(K)
     U = np.random.default_rng(0).normal(size=basix_space("V", T, P, 2).num_dofs)
     u, w = (
         push_forward(function(basix_space("V", T, P, 2), "u"), D),
@@ -41,7 +41,7 @@ def test_a_p1_coordinate_function_gives_the_values_of_the_explicit_mesh():
     )
     for f, g in zip(functionals(D, u), functionals(E, w), strict=True):
         compiled = compile_form(f, 4)
-        expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
+        expected = evaluate(compile_form(g, 4), blocked_geometry | {"coefficients:u": U})
         assert np.isclose(evaluate(compiled, labelled(geometry) | {"coefficients:u": U}), expected)
         assert np.isclose(Interpreter(geometry | {u.expression: U}).evaluate(f), expected)
 
@@ -144,17 +144,20 @@ def test_the_geometry_of_a_p1_coordinate_function_is_one_value_for_each_cell():
     assert dets and all(d.free_indices == () for d in dets)
 
 
-def test_a_mesh_from_the_coordinates_of_the_vertices_gives_the_values_of_the_explicit_mesh():
-    D, E = vertex_mesh(T, VERTICES), square(K)[0]
-    U = np.random.default_rng(4).normal(size=basix_space("V", T, P, 2).num_dofs)
-    u, w = (
-        push_forward(function(basix_space("V", T, P, 2), "u"), D),
-        push_forward(function(basix_space("V", E.topology, P, 2), "u"), E),
-    )
-    for f, g in zip(functionals(D, u), functionals(E, w), strict=True):
-        expected = evaluate(compile_form(g, 4), {"coefficients:u": U})
-        assert np.isclose(evaluate(compile_form(f, 4), {"coefficients:u": U}), expected)
-        assert np.isclose(Interpreter({u.expression: U}).evaluate(f), expected)
+def test_curved_geometry_changes_with_only_the_edge_dofs():
+    topology = grouped_topology((K,), (((0, 1, 2),),), ())
+    X = basix_space("geometry", topology, P, 2, shape=(2,))
+    x = function(X, "x")
+    domain = mesh(x, EuclideanSpace(2))
+    area = integral(num(1), domain)
+    compiled = compile_form(area, 4)
+    r, s = X.element(0).points.T
+    # x(r, s) = (r, s + a*r*s) fixes all vertices and has determinant 1 + a*r.
+    for a in (0.0, 1.0):
+        dofs = np.column_stack((r, s + a * r * s)).ravel()
+        expected = 0.5 + a / 6
+        assert np.isclose(Interpreter({x: dofs}).evaluate(area), expected)
+        assert np.isclose(evaluate(compiled, {"coefficients:x": dofs}), expected)
 
 
 def test_the_jump_of_a_function_on_a_topology_across_a_facet():

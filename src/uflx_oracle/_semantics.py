@@ -43,7 +43,7 @@ from uflx.nodes import (
     Tensor,
     Zero,
 )
-from uflx_basix.nodes import RuntimeArray, VertexCoordinates
+from uflx_basix.nodes import RuntimeArray
 
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors
@@ -219,8 +219,6 @@ def evaluate(node, bindings, site, arguments=()):
             return _spatial.conormal(side, conormals, site, value)
         case RuntimeArray():
             return jnp.asarray(lookup(bindings, node, node.label))
-        case VertexCoordinates(topology, vertices):
-            return elements.vertex_value(topology, vertices, site)
         case _ if elements.is_basix_basis(node):
             return elements.basis_value(node, site)
     raise TypeError(f"the reference interpreter has no evaluation rule for {type(node).__name__}")

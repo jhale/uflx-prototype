@@ -50,7 +50,7 @@ def test_mesh_integral_retains_integrand_indices_across_substitution():
 
     K = reference_simplex(1)
     T = grouped_topology((K,), (((0, 1), (2, 3)),), ())
-    D = vertex_mesh(T, [(0,), (1,), (0,), (1,)])
+    D, geometry = vertex_mesh(T, [(0,), (1,), (0,), (1,)])
     c = index("load-entry")
     r = function(space("load"), "r")
     load = table([2, 7])[c]
@@ -61,5 +61,7 @@ def test_mesh_integral_retains_integrand_indices_across_substitution():
     assert inserted.free_indices == first.free_indices == second.free_indices == ((c, 2),)
     for n, expected in enumerate((4, 14)):
         for form in (inserted, first, second):
-            assert np.isclose(Interpreter().evaluate(lower_spatial(form), indices={c: n}), expected)
+            assert np.isclose(
+                Interpreter(geometry).evaluate(lower_spatial(form), indices={c: n}), expected
+            )
     assert expand_integrals(inserted) is first

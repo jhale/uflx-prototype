@@ -18,7 +18,7 @@ from ..uflx_basix.meshes import push_forward, square
 
 @pytest.mark.parametrize("real_output", [False, True])
 def test_assembled_mixed_jacobian_with_complex_and_real_direction_blocks(real_output):
-    D = square(basix_cell(basix.CellType.triangle))[0]
+    D, _, _, geometry = square(basix_cell(basix.CellType.triangle))
     VC = basix_space("complex-state", D.topology, basix.ElementFamily.P, 1, scalar_type="complex")
     VR = basix_space("real-state", D.topology, basix.ElementFamily.P, 1, scalar_type="real")
     z, h = function(VC, "z"), function(VC, "h")
@@ -40,13 +40,15 @@ def test_assembled_mixed_jacobian_with_complex_and_real_direction_blocks(real_ou
     R = np.array([0.8, 0.5, -0.3, 0.6])
     K = np.array([-0.2, 0.4, 0.1, -0.1])
     bindings = {f: conforming_dofmap(f.space) for f in (z, h, r, k, test)}
-    data = {"coefficients:z": Z, "coefficients:r": R}
+    data = geometry | {"coefficients:z": Z, "coefficients:r": R}
     Jp, Jm, Jr = (assemble_bound(block, 6, bindings)(data) for block in blocks)
     residual_kernel = assemble_bound(residual, 6, bindings)
     step = 1e-6
     difference = (
-        residual_kernel({"coefficients:z": Z + step * H, "coefficients:r": R + step * K})
-        - residual_kernel({"coefficients:z": Z - step * H, "coefficients:r": R - step * K})
+        residual_kernel(geometry | {"coefficients:z": Z + step * H, "coefficients:r": R + step * K})
+        - residual_kernel(
+            geometry | {"coefficients:z": Z - step * H, "coefficients:r": R - step * K}
+        )
     ) / (2 * step)
     np.testing.assert_allclose(Jp @ H + Jm @ H.conj() + Jr @ K, difference, rtol=1e-7, atol=1e-9)
 

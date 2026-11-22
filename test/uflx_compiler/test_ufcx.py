@@ -361,12 +361,11 @@ def test_piola_elements_match_ffcx(tmp_path, ufcx_include, kind):
     assert np.allclose(evaluate(np.empty(0), np.empty(0), xyz), expected, atol=1e-12)
 
 
-def test_tensor_constants_and_vertex_geometry(tmp_path, ufcx_include):
-    from ..uflx_basix.meshes import vertex_mesh
-
+def test_tensor_constants_and_blocked_coordinate_field(tmp_path, ufcx_include):
     K = basix_cell(basix.CellType.triangle)
     T = grouped_topology((K,), (((0, 1, 2),),), ())
-    D = vertex_mesh(T, [(0, 0), (1, 0), (0, 1)])
+    X = basix_space("geometry", T, basix.ElementFamily.P, 1, shape=(2,))
+    D = mesh(function(X, "x"), EuclideanSpace(2))
     a = function(space("a", (2,), scalar_type="real"), "a")
     b = function(space("b", scalar_type="real"), "b")
     code = compile_ufcx(integral(a[0] + num(2) * a[1] + b, D), D, 2, constants=(a, b))
@@ -511,12 +510,11 @@ def test_exterior_facets_match_ffcx(tmp_path, ufcx_include, cell, degree, coordi
 
 
 @pytest.mark.parametrize("zero", [False, True])
-def test_exterior_vertex_geometry_and_zero(tmp_path, ufcx_include, zero):
-    from ..uflx_basix.meshes import vertex_mesh
-
+def test_exterior_coordinate_field_and_zero(tmp_path, ufcx_include, zero):
     K = basix_cell(basix.CellType.triangle)
     T = grouped_topology((K,), (((0, 1, 2),),), ())
-    D = vertex_mesh(T, [(0, 0), (1, 0), (0, 1)])
+    X = basix_space("geometry", T, basix.ElementFamily.P, 1, shape=(2,))
+    D = mesh(function(X, "x"), EuclideanSpace(2))
     boundary = boundary_mesh(D)
     code = compile_ufcx(integral(num(0 if zero else 1), boundary), D, 2)
     assert code.integral_type == "exterior_facet"
@@ -893,11 +891,12 @@ def explicit_pair(plus_slot=0):
     """Two independent cells; coincident geometry does not identify their fields."""
     from uflx_basix.inclusions import vertex_rows
 
-    from ..uflx_basix.meshes import side_domain, static_topology, tabulated_topology, vertex_mesh
+    from ..uflx_basix.meshes import side_domain, static_topology, tabulated_topology
 
     K, F = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
     T = static_topology((K, K), ((0, 1, 2), (3, 4, 5)), ())
-    D = vertex_mesh(T, [(0, 0), (1, 0), (0, 1)] * 2)
+    X = basix_space("geometry", T, basix.ElementFamily.P, 1, shape=(2,))
+    D = mesh(function(X, "x"), EuclideanSpace(2))
     points = vertex_rows(K, (1, 2))
     S = tabulated_topology(
         "explicit-pair",
@@ -925,11 +924,11 @@ def test_one_sided_kernel_preserves_declared_cell_reads(tmp_path, ufcx_include, 
     minus_read = expand_pull_backs(pull_back(pull_back(U, minus), cell_map(E, 0)))
     assert plus_read is not minus_read
     f = form(integral(pull_back(U, plus) * pull_back(W, plus), E), (v, u))
-    expected = assemble(f, 2)({})
+    xyz = np.array([[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]] * 2)
+    expected = assemble(f, 2)({"coefficients:x": xyz[:, :, :2].ravel()})
     code = compile_ufcx(f, D, 2)
     assert code.tensor_shape == expected.shape == (6, 6)
     evaluate, _ = build(code, tmp_path, ufcx_include)
-    xyz = np.array([[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]] * 2)
     actual = evaluate(np.empty(0), np.empty(0), xyz, (0, 0), (0, 0))
     np.testing.assert_allclose(actual, expected, atol=1e-12)
     unused = slice(3 * (1 - plus_slot), 3 * (2 - plus_slot))

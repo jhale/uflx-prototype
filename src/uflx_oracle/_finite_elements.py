@@ -113,30 +113,3 @@ def basis_value(node, site):
         return np.zeros(node.value_shape)
     basis = tabulate(space.element(node.cell_slot), site.points[space.domain])
     return basis.reshape(node.value_shape)
-
-
-@cache
-def vertex_element(cell_type):
-    return basix.create_element(
-        basix.ElementFamily.P, cell_type, 1, basix.LagrangeVariant.equispaced
-    )
-
-
-def vertex_value(topology, vertices, site):
-    slot = site.slot(topology)
-    cell = topology.cell_types[slot]
-    point = site.points[topology]
-    if is_basix_cell(cell) and cell.dimension:
-        weights = tabulate(vertex_element(cell.cell_type), point)[:, 0]
-    elif cell.num_vertices == cell.dimension + 1:
-        weights = jnp.concatenate((jnp.atleast_1d(1 - jnp.sum(point)), point))
-    else:
-        bits = np.array(
-            [[(v >> d) & 1 for d in range(cell.dimension)] for v in range(cell.num_vertices)]
-        )
-        weights = np.ones(cell.num_vertices)
-        for axis in range(cell.dimension):
-            x = point[axis]
-            factors = 1 - bits[:, axis] + (2 * bits[:, axis] - 1) * x
-            weights = weights * factors
-    return weights @ np.asarray(vertices)[list(topology.cells[slot])]

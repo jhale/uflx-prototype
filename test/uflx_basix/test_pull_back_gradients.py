@@ -11,7 +11,7 @@ from uflx_basix.basix_cells import basix_cell
 from .meshes import square
 
 K = basix_cell(basix.CellType.triangle)
-D = square(K)[0]
+D, _, _, GEOMETRY = square(K)
 
 
 def nodes(e):

@@ -67,11 +67,11 @@ def test_the_tabulated_facet_normals_are_the_cofactor_normals(n, cell):
 
 
 def facet_integrals(K):
-    D, E, B = square(K)
+    D, E, B, geometry = square(K)
     u = function(space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     x = coordinate(D)
-    env = {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
+    env = geometry | {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
     forms = [
         integral(pull_back(u, plus) * outward_conormal(plus)[0], E),
         integral(pull_back(u, plus) - pull_back(u, minus), E),
@@ -97,7 +97,7 @@ def test_a_mesh_of_basix_triangles_integrates_as_one_of_unit_simplices():
 
 def test_library_conormals_are_separate_from_the_inclusion():
     for K in (basix_cell(basix.CellType.triangle), reference_simplex(2)):
-        _, E, _ = square(K)
+        _, E, _, _ = square(K)
         A, m = side_data(E.topology, 0, "+")
         vector = value(m, A.parameter_domain, (0.5,))
         assert m.value_shape == (2,) and A.ambient_domain == K
@@ -105,11 +105,11 @@ def test_library_conormals_are_separate_from_the_inclusion():
 
 
 def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
-    D, E, B = quadrilaterals()
+    D, E, B, geometry = quadrilaterals()
     u = function(space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     x = coordinate(D)
-    env = {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
+    env = geometry | {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
     exact = [
         (integral(num(1), D), 1),
         (integral(outward_conormal(plus)[0], E), 1),
@@ -131,7 +131,7 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
 
 
 def test_a_mesh_of_triangles_and_a_quadrilateral():
-    D, E, B = mixed()
+    D, E, B, geometry = mixed()
     assert (
         D.topology is not None
         and len(D.topology.cell_types) == 3
@@ -141,7 +141,7 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     # A function that differs between the cells, keyed by the local cell slot.
     x = coordinate(D)
-    env = {
+    env = geometry | {
         u: {
             0: num(1) + x[0] + num(2) * x[1],
             1: num(2) - x[0],

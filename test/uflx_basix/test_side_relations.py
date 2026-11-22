@@ -8,10 +8,11 @@ from uflx._src.nodes import AbstractTopology, SideMap
 from uflx.arithmetic import num
 from uflx.calculus import coordinate
 from uflx.geometry import cell_map, conormal, domain_map, mesh, side_domain, side_map
-from uflx.nodes import EuclideanSpace
 from uflx.tensors import index, tensor
 from uflx_basix.basix_nodes import BasixCell
-from uflx_basix.nodes import StaticTopology, TabulatedTopology, VertexCoordinates
+from uflx_basix.nodes import StaticTopology, TabulatedTopology
+
+from .meshes import vertex_mesh
 
 
 def configuration():
@@ -22,10 +23,9 @@ def configuration():
     t = coordinate(F)[0]
     A0 = domain_map(F, tensor((num(1) - t, t)), K)
     A1 = domain_map(F, tensor((num(0), t)), K)
-    x = VertexCoordinates(T, ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)))
-    D = mesh(x, EuclideanSpace(2))
+    D, geometry = vertex_mesh(T, ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)))
     E = side_domain(D, S, (0, A0))
-    return K, F, T, S, D, E, A0, A1
+    return K, F, T, S, D, E, A0, A1, geometry
 
 
 def test_topology_requires_only_reference_cells():
@@ -40,7 +40,7 @@ def test_topology_requires_only_reference_cells():
 
 
 def test_entries_and_conormals_validate_their_reference_domains():
-    K, F, T, S, D, E, A0, _ = configuration()
+    K, F, T, S, D, E, A0, _, _ = configuration()
     with pytest.raises(ValueError, match="per source slot"):
         side_map(E, (D[0], A0), (D[1], A0))
     with pytest.raises(ValueError, match="inclusion target"):
@@ -60,7 +60,7 @@ def test_entries_and_conormals_validate_their_reference_domains():
 
 
 def test_reconstruction_and_fixed_relation_data():
-    K, F, _T, S, D, _, A0, _ = configuration()
+    K, F, _T, S, D, _, A0, _, _ = configuration()
     i = index("relation-data")
     factors = tensor((num(1), num(2)))[i]
     A = domain_map(F, factors * A0.parameterisation, K)
@@ -78,7 +78,7 @@ def test_reconstruction_and_fixed_relation_data():
 
 
 def test_side_factory_uses_cell_handles_and_requires_a_common_parent():
-    _, F, T, _, D, E, A0, A1 = configuration()
+    _, F, T, _, D, E, A0, A1, _ = configuration()
     left, right = D[0], D[1]
     source = TabulatedTopology("three-source-slots", (F, F, F))
     relation = side_map(source, (right, A1), (left, A0), (right, A1))

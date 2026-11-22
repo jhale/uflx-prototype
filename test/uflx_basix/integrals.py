@@ -14,7 +14,7 @@ DIAGONAL = grouped_topology((I,), (((0, 2),),), ((("+", SQUARE, 0), ("-", SQUARE
 c = index("load-entry")
 
 # The square as a mesh of the coordinates of its vertices, with the cell index c of SQUARE.
-D = vertex_mesh(SQUARE, [(0, 0), (1, 0), (1, 1), (0, 1)])
+D, GEOMETRY = vertex_mesh(SQUARE, [(0, 0), (1, 0), (1, 1), (0, 1)])
 
 V = space("V", domain=D)
 u = function(V, "u")

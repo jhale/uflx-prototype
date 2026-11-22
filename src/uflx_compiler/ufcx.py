@@ -22,8 +22,6 @@ from uflx.algorithms import (
 )
 from uflx.arithmetic import add, multiply
 from uflx.calculus import reference_integral
-from uflx.forms import function
-from uflx.geometry import mesh as make_mesh
 from uflx.nodes import (
     AbstractExpression,
     Form,
@@ -37,10 +35,9 @@ from uflx.nodes import (
     Zero,
 )
 from uflx.passes import apply_derivatives, expand_applications, lower
-from uflx.tensors import index_sum, tensor
+from uflx.tensors import index_sum
 from uflx_basix.basix_nodes import BasixSpace
-from uflx_basix.basix_spaces import basix_space
-from uflx_basix.nodes import IndexTable, VertexCoordinates
+from uflx_basix.nodes import IndexTable
 from uflx_basix.runtime import runtime_array
 
 from .algebra import _normalizer
@@ -119,8 +116,8 @@ def compile_ufcx(
     """Emit one UFCx cell, exterior-facet or interior-facet integral.
 
     Supports real scalar functionals and forms of rank one or two on one mesh
-    with one Basix cell type. Geometry is a vector Basix function, a tensor of
-    scalar Basix functions, or vertex coordinates (P1). Explicit sequences set input
+    with one Basix cell type. Geometry is a vector Basix function or a tensor of
+    scalar Basix functions of the coordinate element. Explicit sequences set input
     order; otherwise construction order is used. Cell and exterior-facet kernels
     require one parent cell slot; interior-facet kernels require two distinct
     parent slots. Explicit side-map entries select these slots. Facet kernels
@@ -139,7 +136,7 @@ def compile_ufcx(
         raise NotImplementedError("UFCx cell forms must be real scalars without free indices")
     if len(set(mesh.topology.cell_types)) != 1:
         raise NotImplementedError("UFCx cell kernels require one cell type")
-    f, mesh, geometry, coordinate_element = _coordinate_fields(f, mesh)
+    geometry, coordinate_element = _coordinate_fields(mesh)
 
     normalize = _normalizer()
     f = apply_derivatives(expand_applications(f))
@@ -318,28 +315,18 @@ def _integration_domain(f, mesh):
     raise NotImplementedError("facet geometry must be a side_domain of the supplied mesh")
 
 
-def _coordinate_fields(f, mesh):
-    if isinstance(mesh.coordinate_function, VertexCoordinates):
-        X = basix_space("ufcx_geometry", mesh.topology, basix.ElementFamily.P, 1)
-        geometry = tuple(
-            function(X, ("ufcx_geometry", k))
-            for k in range(mesh.ambient_coordinate_domain.dimension)
-        )
-        local_mesh = make_mesh(tensor(geometry), mesh.ambient_coordinate_domain)
-        f = replace(f, {mesh: local_mesh, mesh.coordinate_function: local_mesh.coordinate_function})
-        mesh = local_mesh
+def _coordinate_fields(mesh):
+    x = mesh.coordinate_function
+    if isinstance(x, Function) and isinstance(x.space, BasixSpace):
+        if x.space.block_shape != (mesh.ambient_domain.dimension,):
+            raise NotImplementedError("UFCx vector geometry requires a blocked scalar element")
+        geometry = (x,)
+    elif isinstance(x, Tensor):
+        geometry = x.entries
     else:
-        x = mesh.coordinate_function
-        if isinstance(x, Function) and isinstance(x.space, BasixSpace):
-            if x.space.block_shape != (mesh.ambient_domain.dimension,):
-                raise NotImplementedError("UFCx vector geometry requires a blocked scalar element")
-            geometry = (x,)
-        elif isinstance(x, Tensor):
-            geometry = x.entries
-        else:
-            raise NotImplementedError(
-                "UFCx geometry requires a vector Basix function or a tensor of scalar functions"
-            )
+        raise NotImplementedError(
+            "UFCx geometry requires a vector Basix function or a tensor of scalar functions"
+        )
     if not 1 <= mesh.ambient_domain.dimension <= 3 or any(
         not isinstance(x, Function) or x.domain != mesh.topology for x in geometry
     ):
@@ -350,7 +337,7 @@ def _coordinate_fields(f, mesh):
     if any(_element(x.space) != coordinate_element for x in geometry):
         raise ValueError("coordinate components must use the same element")
 
-    return f, mesh, geometry, coordinate_element
+    return geometry, coordinate_element
 
 
 def _local_expression(

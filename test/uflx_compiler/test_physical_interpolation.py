@@ -37,7 +37,7 @@ def test_physical_interpolation_matches_basix(family, reverse):
     if reverse:
         J = J[:, ::-1]
     detJ, Jinv = np.linalg.det(J), np.linalg.inv(J)
-    D = vertex_mesh(T, [origin, origin + J[:, 0], origin + J[:, 1]])
+    D, geometry = vertex_mesh(T, [origin, origin + J[:, 0], origin + J[:, 1]])
     C = cell_map(D, 0)
     V = basix_space("target", T, family, 1, shape=(2,) if family == basix.ElementFamily.P else ())
     U = basix_space("source", T, basix.ElementFamily.P, 2, shape=V.value_shape)
@@ -51,7 +51,7 @@ def test_physical_interpolation_matches_basix(family, reverse):
     rng = np.random.default_rng(17)
     coefficients = rng.normal(size=(source.dim, U.block_size))
     direction = rng.normal(size=coefficients.shape)
-    env = {"coefficients:u": coefficients.ravel(), "coefficients:h": direction.ravel()}
+    env = geometry | {"coefficients:u": coefficients.ravel(), "coefficients:h": direction.ravel()}
     sampling_points, matrix = (E.points, E.interpolation_matrix) if rule is None else rule
 
     def expected(coefficients, points):

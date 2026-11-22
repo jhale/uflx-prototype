@@ -4,19 +4,40 @@ import basix
 import numpy as np
 
 import uflx.geometry as geometry
+from uflx.forms import function
 from uflx.geometry import mesh
 from uflx.nodes import EuclideanSpace, Mesh
 from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_nodes import BasixCell
+from uflx_basix.basix_spaces import basix_space
 from uflx_basix.cells import reference_simplex
-from uflx_basix.nodes import VertexCoordinates
+from uflx_basix.spaces import space
 
 
-def vertex_mesh(T, vertices, Q=None):
-    # The mesh of T with the vertices at the given coordinates, mapped by degree 1 on each cell.
-    vertices = tuple(tuple(float(c) for c in v) for v in np.asarray(vertices, dtype=float))
-    return mesh(
-        VertexCoordinates(T, vertices), EuclideanSpace(len(vertices[0])) if Q is None else Q
-    )
+def vertex_mesh(T, vertices, *, label="x"):
+    """Build a first-order coordinate coefficient and its cell-local bindings."""
+    vertices = np.asarray(vertices, dtype=float)
+    shape = (vertices.shape[1],)
+    if isinstance(T.cell_types[0], BasixCell):
+        X = basix_space("geometry", T, basix.ElementFamily.P, 1, shape=shape)
+        x = function(X, label)
+        values = np.empty(X.num_dofs)
+        for j, row in enumerate(T.cells):
+            dofs = np.asarray(X.cell_dofs[j]).reshape(-1, shape[0])
+            for vertex, (dof,) in zip(row, X.element(j).entity_dofs[0], strict=True):
+                values[dofs[dof]] = vertices[vertex]
+        bindings = {f"coefficients:{label}": values}
+    else:
+        # ReferenceSimplex fixtures supply an affine field on each reference cell.
+        x = function(space("geometry", shape, T, scalar_type="real"), label)
+
+        def chart(row):
+            origin = vertices[row[0]]
+            edges = vertices[list(row[1:])] - origin
+            return lambda point: origin + point @ edges
+
+        bindings = {x: {j: chart(row) for j, row in enumerate(T.cells)}}
+    return mesh(x, EuclideanSpace(shape[0])), bindings
 
 
 def push_forward(f, domain, law=None):
@@ -118,13 +139,14 @@ def square(K):
         else reference_simplex(1)
     )
     T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
-    D = vertex_mesh(T, [(0, 0), (1, 0), (1, 1), (0, 1)])
+    D, bindings = vertex_mesh(T, [(0, 0), (1, 0), (1, 1), (0, 1)])
     diagonal = grouped_topology((I,), (((0, 2),),), ((("+", T, 0), ("-", T, 0)),))
     boundary = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (3, 0)),), ((("inside", T, 0),),))
     return (
         D,
         side_domain(D, diagonal),
         side_domain(D, boundary),
+        bindings,
     )
 
 
@@ -132,7 +154,7 @@ def quadrilaterals():
     # The unit square as two quadrilaterals split at x = 1/2, with bilinear cell maps.
     Q, I = basix_cell(basix.CellType.quadrilateral), basix_cell(basix.CellType.interval)
     T = grouped_topology((Q,), (((0, 1, 3, 4), (1, 2, 4, 5)),), ())
-    D = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
+    D, bindings = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
     interior = grouped_topology((I,), (((1, 4),),), ((("+", T, 0), ("-", T, 0)),))
     boundary = grouped_topology(
         (I,), (((0, 1), (1, 2), (2, 5), (5, 4), (4, 3), (3, 0)),), ((("inside", T, 0),),)
@@ -141,6 +163,7 @@ def quadrilaterals():
         D,
         side_domain(D, interior),
         side_domain(D, boundary),
+        bindings,
     )
 
 
@@ -151,7 +174,7 @@ def mixed():
         for t in (basix.CellType.triangle, basix.CellType.quadrilateral, basix.CellType.interval)
     )
     T = grouped_topology((Tri, Q), (((0, 1, 4), (0, 4, 3)), ((1, 2, 4, 5),)), ())
-    D = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
+    D, bindings = vertex_mesh(T, [(0, 0), (0.5, 0), (1, 0), (0, 1), (0.5, 1), (1, 1)])
     # A group of facets between two triangles, and one between a triangle and a quadrilateral.
     interior = grouped_topology(
         (I, I),
@@ -167,4 +190,5 @@ def mixed():
         D,
         side_domain(D, interior),
         side_domain(D, boundary),
+        bindings,
     )

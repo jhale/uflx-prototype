@@ -24,7 +24,7 @@ T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 BOUNDARY = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("inside", T, 0),),))
 LOWER = grouped_topology((K,), (((0, 1, 2),),), ((("inside", T, 0),),))
 LEFT = grouped_topology((I,), (((0, 3),),), ((("inside", T, 0),),))
-D = vertex_mesh(T, [(0, 0), (1, 0), (1.1, 0.9), (-0.1, 1)])
+D, GEOMETRY = vertex_mesh(T, [(0, 0), (1, 0), (1.1, 0.9), (-0.1, 1)])
 
 
 def demo():

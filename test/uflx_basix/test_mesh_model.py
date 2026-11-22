@@ -33,7 +33,7 @@ def test_mesh_rejects_free_coordinate_indices_but_keeps_symbolic_coordinates():
 
     K = reference_simplex(1)
     T = grouped_topology((K,), (((0, 1),),), ())
-    D = vertex_mesh(T, [(0,), (1,)])
+    D, _ = vertex_mesh(T, [(0,), (1,)])
     q = index("configuration")
     coordinates = table([2, 3])[q] * D.coordinate_function
     with pytest.raises(ValueError, match="no free indices"):

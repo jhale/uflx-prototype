@@ -20,8 +20,9 @@ from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type, table
-from ..uflx_basix.integrals import D, u
+from ..uflx_basix.integrals import GEOMETRY, D, u
 from ..uflx_basix.meshes import side_domain, side_map, tabulated_topology
+from ..uflx_basix.surface import GEOMETRY as SURFACE_GEOMETRY
 from ..uflx_basix.surface import M
 
 i, k = index("i"), index("k")
@@ -82,7 +83,11 @@ SQUARE_SIDE = topology_of_points(D, "square points", [in_square(x) for x in SQUA
 SURFACE_SIDE = topology_of_points(M, "surface points", SURFACE)
 w = function(space("W", domain=M), "w")
 x, y = coordinate(D), coordinate(M)
-ENV = {u: num(1) + x[0] + num(2) * x[0] * x[1], w: num(1) + y[0] * y[1] + y[2] * y[2]}
+ENV = (
+    GEOMETRY
+    | SURFACE_GEOMETRY
+    | {u: num(1) + x[0] + num(2) * x[0] * x[1], w: num(1) + y[0] * y[1] + y[2] * y[2]}
+)
 
 
 def integrand(rnd, Q, f):

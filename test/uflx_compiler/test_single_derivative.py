@@ -21,7 +21,7 @@ def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomo
 
     from ..uflx_basix.meshes import push_forward, square
 
-    D = square(basix_cell(basix.CellType.triangle))[0]
+    D, _, _, geometry = square(basix_cell(basix.CellType.triangle))
     V = basix_space(
         "complex-fe", D.topology, basix.ElementFamily.P, 1, scalar_type=ScalarType.complex
     )
@@ -40,15 +40,16 @@ def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomo
     minus = form(complex_derivative_parts(residual, uT, uT, wT)[1], (conjugate(wT),))
     U = np.array([0.4 + 0.1j, -0.2 + 0.3j, 0.6 - 0.2j, 0.1 - 0.4j])
     H = np.array([0.2 - 0.1j, 0.4 + 0.2j, -0.1j, 0.3 + 0.1j])
-    env = {"coefficients:u": U}
+    env = geometry | {"coefficients:u": U}
     mapping = conforming_dofmap(V)
     bindings = {uT: mapping, vT: mapping, wT: mapping}
     Jp, Jm = assemble_bound(plus, 5, bindings)(env), assemble_bound(minus, 5, bindings)(env)
     R = assemble_bound(residual, 5, bindings)
     step = 1e-6
-    difference = (R({"coefficients:u": U + step * H}) - R({"coefficients:u": U - step * H})) / (
-        2 * step
-    )
+    difference = (
+        R(geometry | {"coefficients:u": U + step * H})
+        - R(geometry | {"coefficients:u": U - step * H})
+    ) / (2 * step)
     np.testing.assert_allclose(Jp @ H + Jm @ H.conj(), difference, rtol=1e-7, atol=1e-9)
     if not nonholomorphic:
         np.testing.assert_allclose(Jm, 0, atol=1e-12)
@@ -67,7 +68,7 @@ def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphi
 
     from ..uflx_basix.meshes import push_forward, square
 
-    D = square(basix_cell(basix.CellType.triangle))[0]
+    D, _, _, geometry = square(basix_cell(basix.CellType.triangle))
     V = basix_space(
         "complex-action", D.topology, basix.ElementFamily.P, 1, scalar_type=ScalarType.complex
     )
@@ -92,7 +93,7 @@ def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphi
     Z = np.array([0.1j, 0.2 - 0.3j, 0.7 + 0.1j, 0.4])
     mapping = conforming_dofmap(V)
     U, H, Z = (mapping.gather(values) for values in (U, H, Z))
-    env = {"coefficients:u": U, "coefficients:h": H, "coefficients:z": Z}
+    env = geometry | {"coefficients:u": U, "coefficients:h": H, "coefficients:z": Z}
     step = 1e-6
     difference = (
         compiled_value(primal, env | {"coefficients:u": U + step * H})

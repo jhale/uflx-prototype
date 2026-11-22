@@ -97,7 +97,6 @@ def test_unbounded_euclidean_space_has_no_unit_simplex_quadrature():
 @pytest.mark.parametrize("ambient_dimension", [2, 3])
 def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
     from uflx.geometry import push_forward, transformation_law
-    from uflx_basix.nodes import VertexCoordinates
     from uflx_basix.topology import static_topology
 
     from ..uflx_basix.meshes import vertex_mesh
@@ -107,12 +106,12 @@ def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
     vertices = np.zeros((3, ambient_dimension))
     vertices[1:, 0] = 1
     vertices[2, 1] = height
-    mesh = vertex_mesh(topology, vertices)
-    oracle = Interpreter()
+    mesh, geometry = vertex_mesh(topology, vertices)
+    xi = function(space("reference coordinate", domain=topology, scalar_type="real"), "xi")
+    oracle = Interpreter(geometry | {xi: lambda p: p[0]})
     np.testing.assert_allclose(oracle.evaluate(integral(num(1), mesh)), height / 2, atol=0)
 
     # The first reference coordinate is x - y / height on the physical triangle.
-    xi = VertexCoordinates(topology, ((0.0,), (1.0,), (0.0,)))[0]
     field = push_forward(xi, mesh, transformation_law((), 0))
     point = 0.2 * vertices[1] + 0.3 * vertices[2]
     sample = dict(points={mesh: point})
@@ -127,16 +126,20 @@ def test_basix_vertex_field_reproduces_reference_coordinates(cell_name):
     import basix
 
     from uflx_basix.basix_cells import basix_cell
-    from uflx_basix.nodes import VertexCoordinates
     from uflx_basix.topology import static_topology
 
     cell_type = basix.CellType[cell_name]
     cell = basix_cell(cell_type)
     vertices = tuple(tuple(map(float, vertex)) for vertex in basix.geometry(cell_type))
     topology = static_topology((cell,), (tuple(range(len(vertices))),))
-    field = VertexCoordinates(topology, vertices)
+    from ..uflx_basix.meshes import vertex_mesh
+
+    domain, geometry = vertex_mesh(topology, vertices)
+    field = domain.coordinate_function
     point = [0.2, 0.1, 0.3]
-    np.testing.assert_allclose(Interpreter().evaluate(field, points={topology: point}), point)
+    np.testing.assert_allclose(
+        Interpreter(geometry).evaluate(field, points={topology: point}), point
+    )
 
 
 def test_core_interpretation_without_basix_compiler_or_lowering():
@@ -179,7 +182,7 @@ def test_basix_form_slot_accepts_an_applied_field():
 
 
 def test_applied_field_reads_the_cell_where_the_form_samples_it():
-    from ..uflx_basix.integrals import D
+    from ..uflx_basix.integrals import GEOMETRY, D
 
     V = space("piecewise", domain=D, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
@@ -189,17 +192,17 @@ def test_applied_field_reads_the_cell_where_the_form_samples_it():
     def sample(point):
         return interpreter.evaluate(coordinate(D)[0], points={D: point})
 
-    interpreter = Interpreter({u: {0: sample, 1: lambda point: sample(point) + 2}})
+    interpreter = Interpreter(GEOMETRY | {u: {0: sample, 1: lambda point: sample(point) + 2}})
     assert interpreter.evaluate(expression) == pytest.approx(1.5)
 
 
 def test_surface_gradient_uses_the_supplied_slot_on_a_shared_edge():
-    from ..uflx_basix.surface import M
+    from ..uflx_basix.surface import GEOMETRY, M
 
     # The two triangles meet at this point but have different tangent planes.
     points = {M: [0.5, 0.5, 0.25]}
     expr = gradient(coordinate(M)[2], M)
-    oracle = Interpreter()
+    oracle = Interpreter(GEOMETRY)
     with pytest.raises(ValueError, match="local cell slot"):
         oracle.evaluate(expr, points=points)
     for slot, expected in enumerate((np.array([0, 2, 1]) / 5, np.array([-2, 4, 5]) / 9)):

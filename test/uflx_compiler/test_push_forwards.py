@@ -38,12 +38,8 @@ def curved():
         values[list(rows)] = a + np.outer(points[:, 0], b - a) + np.outer(points[:, 1], d - a)
     middle = np.all(np.isclose(values, (0.55, 0.45)), axis=1)
     values[middle] += (0.06, -0.04)
-    geometry = {x0: values[:, 0], x1: values[:, 1]}
+    geometry = {"coefficients:x0": values[:, 0], "coefficients:x1": values[:, 1]}
     return mesh(tensor((x0, x1)), EuclideanSpace(2)), geometry
-
-
-def by_label(env):
-    return {f"coefficients:{f.label}": v for f, v in env.items()}
 
 
 def lowered(e):
@@ -66,7 +62,7 @@ def raviart_thomas_forms(D, v):
 
 def test_a_raviart_thomas_function_pushed_forward_agrees_with_the_oracle():
     fluxes = []
-    for D, geometry in ((vertex_mesh(T, VERTICES), {}), curved()):
+    for D, geometry in (vertex_mesh(T, VERTICES), curved()):
         vT = function(basix_space("R", T, RT, 1), "v")
         v = push_forward(vT, D)
         assert v.value_shape == (2,) and v.law == basix_space("R", T, RT, 1).law
@@ -74,7 +70,7 @@ def test_a_raviart_thomas_function_pushed_forward_agrees_with_the_oracle():
         forms = raviart_thomas_forms(D, v)
         values = []
         for f in forms:
-            values.append(evaluate(compile_form(f, 12), by_label(geometry) | {"coefficients:v": W}))
+            values.append(evaluate(compile_form(f, 12), geometry | {"coefficients:v": W}))
             # The oracle differentiates by differences, to about 1e-8.
             assert np.isclose(
                 values[-1], Interpreter(geometry | {vT: W}).evaluate(f), rtol=1e-6, atol=1e-6
@@ -99,11 +95,11 @@ def second_derivatives(e):
 
 def test_the_divergence_of_a_raviart_thomas_function_is_the_reference_divergence():
     i = index("i")
-    for D, geometry in ((vertex_mesh(T, VERTICES), {}), curved()):
+    for D, geometry in (vertex_mesh(T, VERTICES), curved()):
         vT = function(basix_space("R", T, RT, 1), "v")
         v = push_forward(vT, D)
         W = np.random.default_rng(2).normal(size=vT.space.num_dofs)
-        data = by_label(geometry) | {"coefficients:v": W}
+        data = geometry | {"coefficients:v": W}
         by_hand = index_sum(gradient(v, D)[i, i], (i,))
         for f, g in (
             (divergence(v, D), by_hand),
@@ -119,11 +115,11 @@ def test_the_divergence_of_a_raviart_thomas_function_is_the_reference_divergence
 
 
 def test_the_curl_of_a_nedelec_function_is_the_reference_curl():
-    for D, geometry in ((vertex_mesh(T, VERTICES), {}), curved()):
+    for D, geometry in (vertex_mesh(T, VERTICES), curved()):
         uT = function(basix_space("N", T, N1, 1), "u")
         u = push_forward(uT, D)
         W = np.random.default_rng(3).normal(size=uT.space.num_dofs)
-        data = by_label(geometry) | {"coefficients:u": W}
+        data = geometry | {"coefficients:u": W}
         g = gradient(u, D)
         f, by_hand = (
             integral(curl(u, D) * curl(u, D), D),
@@ -138,21 +134,21 @@ def test_the_curl_of_a_nedelec_function_is_the_reference_curl():
 def test_the_curl_of_a_nedelec_function_on_a_tetrahedron_is_the_reference_curl():
     K3 = basix_cell(basix.CellType.tetrahedron)
     T3 = grouped_topology((K3,), (((0, 1, 2, 3),),), ())
-    D = vertex_mesh(T3, [(0, 0, 0), (1, 0.1, 0), (0.2, 1, 0.1), (0.1, 0.2, 0.9)])
+    D, geometry = vertex_mesh(T3, [(0, 0, 0), (1, 0.1, 0), (0.2, 1, 0.1), (0.1, 0.2, 0.9)])
     uT = function(basix_space("N", T3, N1, 1), "u")
     u = push_forward(uT, D)
     W = np.random.default_rng(4).normal(size=uT.space.num_dofs)
     i, c, g = index("i"), curl(u, D), gradient(u, D)
     by_hand = tensor((g[2, 1] - g[1, 2], g[0, 2] - g[2, 0], g[1, 0] - g[0, 1]))
     f = integral(index_sum(c[i] * c[i], (i,)), D)
-    value = evaluate(compile_form(f, 4), {"coefficients:u": W})
+    value = evaluate(compile_form(f, 4), geometry | {"coefficients:u": W})
     expected = integral(index_sum(by_hand[i] * by_hand[i], (i,)), D)
-    assert np.isclose(value, evaluate(compile_form(expected, 4), {"coefficients:u": W}))
-    assert np.isclose(value, Interpreter({uT: W}).evaluate(f), rtol=1e-6)
+    assert np.isclose(value, evaluate(compile_form(expected, 4), geometry | {"coefficients:u": W}))
+    assert np.isclose(value, Interpreter(geometry | {uT: W}).evaluate(f), rtol=1e-6)
 
 
 def test_the_divergence_of_a_field_with_no_piola_map_is_the_trace_of_its_gradient():
     D, geometry = curved()
-    data = by_label(geometry)
+    data = geometry
     trace = evaluate(compile_form(integral(divergence(coordinate(D), D), D), 4), data)
     assert np.isclose(trace, 2 * evaluate(compile_form(integral(num(1), D), 4), data))

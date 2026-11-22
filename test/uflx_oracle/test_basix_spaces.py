@@ -52,12 +52,12 @@ def jump_squared(u, D, E):
 
 @pytest.mark.parametrize("degree", [1, 2])
 def test_an_interpolated_polynomial_integrates_exactly(degree):
-    D, _, _ = square(basix_cell(basix.CellType.triangle))
+    D, _, _, geometry = square(basix_cell(basix.CellType.triangle))
     V = basix_space("V", D.topology, P, degree)
     uT = function(V, "u")
     u = push_forward(uT, D)
     f = (lambda x: 1 + x[0] + 2 * x[1]) if degree == 1 else (lambda x: x[0] ** 2 + x[0] * x[1])
-    env = {uT: interpolate(V, f, SQUARE)}
+    env = geometry | {uT: interpolate(V, f, SQUARE)}
     expected = 2.5 if degree == 1 else 1 / 3 + 1 / 4
     assert np.isclose(value(integral(u, D), env), expected)
     assert np.isclose(value(integral(gradient(u, D)[1], D), env), 2 if degree == 1 else 0.5)
@@ -65,33 +65,33 @@ def test_an_interpolated_polynomial_integrates_exactly(degree):
 
 def test_library_gathering_makes_traces_continuous():
     # The library gathers shared DOFs into independent local coefficient slots.
-    D, E, _ = square(basix_cell(basix.CellType.triangle))
+    D, E, _, geometry = square(basix_cell(basix.CellType.triangle))
     rng = np.random.default_rng(3)
     for degree in (1, 2):
         V = basix_space("V", D.topology, P, degree)
         uT = function(V, "u")
         mapping = conforming_dofmap(V)
-        coefficients = {uT: mapping.gather(rng.normal(size=mapping.num_dofs))}
+        coefficients = geometry | {uT: mapping.gather(rng.normal(size=mapping.num_dofs))}
         assert np.isclose(
             value(jump_squared(push_forward(uT, D), D, E), coefficients), 0, atol=1e-10
         )
     W = basix_space("W", D.topology, P, 1, discontinuous=True)
     wT = function(W, "w")
     w = push_forward(wT, D)
-    assert value(jump_squared(w, D, E), {wT: rng.normal(size=W.num_dofs)}) > 1e-3
+    assert value(jump_squared(w, D, E), geometry | {wT: rng.normal(size=W.num_dofs)}) > 1e-3
     # A discontinuous space that interpolates a continuous function has no jump either.
-    env = {wT: interpolate(W, lambda x: 1 + x[0] - x[1], SQUARE)}
+    env = geometry | {wT: interpolate(W, lambda x: 1 + x[0] - x[1], SQUARE)}
     assert np.isclose(value(jump_squared(w, D, E), env), 0, atol=1e-10)
 
 
 def test_a_continuous_space_on_triangles_and_a_quadrilateral():
-    D, E, _ = mixed()
+    D, E, _, geometry = mixed()
     V = basix_space("V", D.topology, P, 2)
     uT = function(V, "u")
     u = push_forward(uT, D)
-    env = {uT: interpolate(V, lambda x: x[0] ** 2 + x[0] * x[1] - x[1], MIXED)}
+    env = geometry | {uT: interpolate(V, lambda x: x[0] ** 2 + x[0] * x[1] - x[1], MIXED)}
     assert np.isclose(value(integral(u, D), env), 1 / 3 + 1 / 4 - 1 / 2)
     rng = np.random.default_rng(4)
     mapping = conforming_dofmap(V)
-    random = {uT: mapping.gather(rng.normal(size=mapping.num_dofs))}
+    random = geometry | {uT: mapping.gather(rng.normal(size=mapping.num_dofs))}
     assert np.isclose(value(jump_squared(u, D, E), random), 0, atol=1e-10)

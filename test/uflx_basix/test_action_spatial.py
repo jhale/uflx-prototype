@@ -34,7 +34,7 @@ def test_side_pullback_transforms_output_before_deferral_and_keeps_tuple_family(
 
     from .meshes import side_map, square
 
-    D, E, _ = square(basix_cell(basix.CellType.triangle))
+    D, E, _, _ = square(basix_cell(basix.CellType.triangle))
     sm = side_map(D, E)
     assert isinstance(sm, SideMap)
     V = space("tuple-input", domain=D, scalar_type=ScalarType.real)

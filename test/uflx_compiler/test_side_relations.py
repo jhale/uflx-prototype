@@ -18,7 +18,7 @@ from ..uflx_basix.test_side_relations import configuration
 
 
 def test_orientation_changes_do_not_change_restriction_identity():
-    _, _, _, _, D, E, A0, _ = configuration()
+    _, _, _, _, D, E, A0, _, geometry = configuration()
     plus = side_map(E, (D[0], A0))
     aliases = {"+": plus, "air": plus}
     u = function(space("field", domain=D), "u")
@@ -29,13 +29,13 @@ def test_orientation_changes_do_not_change_restriction_identity():
     assert pull_back(u, aliases["+"]) is pull_back(u, aliases["air"])
     assert side_map(E, (D[0], A0)) is plus
     for component in range(2):
-        a = evaluate(compile_form(integral(outward[component], E), 2), {})
-        b = evaluate(compile_form(integral(inward[component], E), 2), {})
+        a = evaluate(compile_form(integral(outward[component], E), 2), geometry)
+        b = evaluate(compile_form(integral(inward[component], E), 2), geometry)
         np.testing.assert_allclose((a, b), (1.0, -1.0), atol=1e-12)
 
 
 def test_source_geometry_is_independent_of_the_evaluation_relation():
-    K, F, T, S, D, _, A0, _ = configuration()
+    K, F, T, S, D, _, A0, _, geometry = configuration()
     # Deliberately translate the source geometry: field evaluation still follows A0.
     y = function(space("source-coordinates", (2,), S, ScalarType.real), "y")
     E = mesh(y, EuclideanSpace(2))
@@ -43,13 +43,13 @@ def test_source_geometry_is_independent_of_the_evaluation_relation():
     trace = pull_back(coordinate(D), plus)
     local = expand_pull_backs(pull_back(trace, cell_map(E, 0)))
     point = domain_map(EuclideanSpace(0), tensor((num(0.25),)), F)
-    result = evaluate(compile_form(pull_back(local, point), 1), {})
+    result = evaluate(compile_form(pull_back(local, point), 1), geometry)
     np.testing.assert_allclose(result, (0.75, 0.25))
     assert plus.entries[0][1].ambient_domain is K and plus.parent_topology is T
 
 
 def test_nested_restrictions_select_repeated_slots_and_reverse_inclusions():
-    _, F, _, _, D, _, A0, A1 = configuration()
+    _, F, _, _, D, _, A0, A1, geometry = configuration()
     S = TabulatedTopology("two-edges", (F, F))
     P = TabulatedTopology("reordered-edges", (F, F, F))
     identity = domain_map(F, coordinate(F), F)
@@ -64,7 +64,7 @@ def test_nested_restrictions_select_repeated_slots_and_reverse_inclusions():
     expected = ((0.3, 0.7), (0.7, 0.3), (0.7, 0.3))
     for i, coordinates in enumerate(expected):
         local = pull_back(reordered, cell_map(P, i))
-        value = evaluate(compile_form(pull_back(local, point), 1), {})
+        value = evaluate(compile_form(pull_back(local, point), 1), geometry)
         np.testing.assert_allclose(value, coordinates, atol=1e-12)
     other = TabulatedTopology("other-two-edges", (F, F))
     wrong_parent = side_map(P, (other[1], reverse), (other[0], identity), (other[1], identity))

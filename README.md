@@ -213,8 +213,9 @@ from uflx_basix.assembly import DofMap
 # For two triangles with vertex rows (0,1,2) and (0,2,3).
 mapping = DofMap((0, 1, 2, 0, 2, 3), 4)
 local_values = mapping.gather(assembled_values)  # 4 -> 6 coefficients
-local_matrix = assemble(a, degree=2)({})  # 6 x 6
-matrix = assemble_bound(a, 2, {u: mapping, v: mapping})({})  # 4 x 4
+geometry = {"coefficients:x": packed_coordinate_dofs}
+local_matrix = assemble(a, degree=2)(geometry)  # 6 x 6
+matrix = assemble_bound(a, 2, {u: mapping, v: mapping})(geometry)  # 4 x 4
 ```
 
 `assemble_bound` bindings are keyed by symbolic functions; coefficient and
@@ -225,9 +226,19 @@ transformations. Other solvers provide their own connectivity and transformation
 The scatter operation uses NumPy. Local evaluation and `DofMap.gather`
 can also use JAX.
 
-Geometry data are subject to the same packing contract. Declaring a vector
-coordinate function does not make two cells' traces agree: the library supplies
-compatible coordinates and facet correspondence. Side names do not determine
+Geometry data follow the same packing contract. For a quadratic triangle mesh
+in two dimensions, each cell supplies six pairs of coordinates in the coordinate
+element's DOF order. The oracle reads them through the ordinary coefficient binding.
+
+```python
+X = basix_space("geometry", topology, basix.ElementFamily.P, 2, shape=(2,))
+x = function(X, "x")
+domain = mesh(x, EuclideanSpace(2))
+area = Interpreter({x: packed_coordinate_dofs}).evaluate(integral(num(1), domain))
+```
+
+The library supplies compatible coordinates and facet correspondence across
+cells with matching traces. Side names do not determine
 outward orientation. A physical region's shape does not determine its kernel's
 reference cell type; local expressions are instantiated on selected mesh cells.
 
@@ -355,8 +366,10 @@ the local configuration: one parent cell slot for cell and exterior-facet
 kernels, or two distinct parent cell slots for interior-facet kernels. Facet
 kernels require one integration slot; each explicit relation selects a parent
 slot. Unsupported configurations are rejected; zero and one-sided integrands
-retain the complete declared layout. Geometry is a vector Basix function, a tensor of scalar Basix coordinate
-functions (including curved geometry), or vertex coordinates interpreted as P1.
+retain the complete declared layout. Geometry is a vector Basix function or a
+tensor of scalar Basix coordinate functions. The coordinate element sets the
+geometry degree. Supply its cell-local coordinate DOFs, including the
+higher-order nodes for a curved mesh.
 Element families and degrees follow the spaces in `uflx_basix`, with the equispaced
 variant; custom variants are not yet exposed. Mixed arguments and complex inputs
 are rejected. Scalar and tensor constants are packed separately from coefficients.

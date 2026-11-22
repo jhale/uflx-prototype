@@ -20,7 +20,7 @@ from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, keeps_static_type
-from ..uflx_basix.integrals import SQUARE, D, I, K, c, u
+from ..uflx_basix.integrals import GEOMETRY, SQUARE, D, I, K, c, u
 from ..uflx_basix.meshes import grouped_topology, vertex_mesh
 
 R2 = EuclideanSpace(2)
@@ -47,11 +47,11 @@ T0, T1 = [(0, 0), (1, 0), (1, 1)], [(0, 0), (1, 1), (0, 1)]
 
 # Point fields get an explicit topology of independent zero-dimensional cells.
 POINTS = grouped_topology((reference_simplex(0),), (((0,), (1,), (2,)),), ())
-Dp = vertex_mesh(POINTS, [(0.2, 0.3), (0.5, 0.5), (0.9, 0.1)])
+Dp, point_geometry = vertex_mesh(POINTS, [(0.2, 0.3), (0.5, 0.5), (0.9, 0.1)])
 
 # Two independent triangle patches: no shared vertices or sides are required.
 PATCHES = grouped_topology((K,), (((0, 1, 2), (3, 4, 5)),), ())
-D2 = vertex_mesh(PATCHES, [*T0, *T1])
+D2, patch_geometry = vertex_mesh(PATCHES, [*T0, *T1])
 r = function(space("R"), "r")
 d = tensor((num(3), num(5)))
 
@@ -87,7 +87,12 @@ def integrand(rnd, dom, kind):
 
 def main(trials):
     x = coordinate(D)
-    env = {u: num(1) + x[0] + num(2) * x[0] * x[1], r: 0.7}
+    env = (
+        GEOMETRY
+        | point_geometry
+        | patch_geometry
+        | {u: num(1) + x[0] + num(2) * x[0] * x[1], r: 0.7}
+    )
     bad = dict(value=0, static=0, grammar=0)
     rejected = 0
     for seed in range(trials):

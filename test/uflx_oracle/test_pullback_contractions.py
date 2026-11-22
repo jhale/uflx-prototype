@@ -1,5 +1,6 @@
 """Shared transformation laws preserve canonical cell geometry and gradient values."""
 
+import jax.numpy as jnp
 import numpy as np
 import pytest
 
@@ -10,7 +11,6 @@ from uflx.calculus import coordinate, gradient
 from uflx.forms import function
 from uflx.geometry import cell_map, pull_back
 from uflx.passes import expand_pull_backs
-from uflx_basix.nodes import VertexCoordinates
 from uflx_basix.spaces import space
 from uflx_oracle.interpreter import Interpreter
 
@@ -19,7 +19,7 @@ from ..uflx_basix.test_pullback_contractions import geometry
 
 @pytest.mark.parametrize("vector", [False, True])
 def test_gradient_pullback_uses_covariant_law_for_scalar_and_vector_fields(vector):
-    T, x, _, D = geometry()
+    _, x, _, D = geometry()
     u = function(space("physical-field", value_shape=(2,) if vector else (), domain=D), "u")
     C = cell_map(D, 0)
     original = pull_back(gradient(u, D), C)
@@ -36,7 +36,7 @@ def test_gradient_pullback_uses_covariant_law_for_scalar_and_vector_fields(vecto
     assert actual.domain is original.domain
     # Straight curve (t, 2t) in R^2: the tangent projection of (1,0) is (1,2)/5.
     # Component two, for a vector field, has ambient gradient (0,1).
-    env = {x: VertexCoordinates(T, ((0.0, 0.0), (1.0, 2.0)))}
+    env = {x: lambda p: jnp.array([p[0], 2 * p[0]])}
     env[u] = coordinate(D) if vector else coordinate(D)[0]
     out = lower_spatial(actual)
     value = Interpreter(env).evaluate(out, points={C.reference_cell: [0.3]})

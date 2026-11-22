@@ -19,13 +19,15 @@ from ..uflx_basix.meshes import grouped_topology, push_forward, vertex_mesh
 def test_coincident_cells_keep_independent_finite_element_fields():
     K = basix_cell(basix.CellType.interval)
     T = grouped_topology((K,), (((0, 1), (2, 3)),), ())
-    D = vertex_mesh(T, [(0,), (1,), (0,), (1,)])
+    D, geometry = vertex_mesh(T, [(0,), (1,), (0,), (1,)])
     V = basix_space("independent", T, basix.ElementFamily.P, 1)
     u = push_forward(function(V, "u"), D)
     coefficients = np.empty(V.num_dofs)
     for row, value in zip(V.cell_dofs, (2, 7), strict=True):
         coefficients[list(row)] = value
-    result = compiled_value(compile_form(integral(u, D), 2), {"coefficients:u": coefficients})
+    result = compiled_value(
+        compile_form(integral(u, D), 2), geometry | {"coefficients:u": coefficients}
+    )
     assert np.isclose(result, 9)
     assert D.topology is T
 

@@ -86,27 +86,6 @@ class Space(AbstractFunctionSpace):
 
 
 @final
-class VertexCoordinates(AbstractExpression):
-    is_terminal = True
-    identifier = "toy.VertexCoordinates"
-    # The coordinate function of a mesh from the coordinates of its vertices, of degree 1 on each
-    # cell, which the toy evaluates with the shape functions of the vertices.
-    topology: AbstractTopology
-    vertices: tuple
-    free_indices = ()
-    argument_spaces = ()
-    scalar_type = ScalarType.real
-
-    @property
-    def value_shape(self):
-        return (len(self.vertices[0]),)
-
-    @property
-    def domain(self):
-        return self.topology
-
-
-@final
 class ReferenceSimplex(AbstractReferenceCell):
     identifier = "toy.ReferenceSimplex"
     # The unit simplex, with vertex 0 at the origin and vertex v the unit vector e_(v-1).

@@ -184,7 +184,9 @@ def test_blocked_coefficient_packing_on_cells_and_facets(tmp_path, kind, cell):
 @pytest.mark.parametrize("cell", [basix.CellType.triangle, basix.CellType.quadrilateral])
 @pytest.mark.parametrize("shape", [(2,), (2, 2)])
 def test_blocked_fields_in_array_compiler_and_oracle(cell, shape):
-    D = square(basix_cell(cell))[0] if cell == basix.CellType.triangle else quadrilaterals()[0]
+    D, _, _, geometry = (
+        square(basix_cell(cell)) if cell == basix.CellType.triangle else quadrilaterals()
+    )
     V = basix_space("blocked", D.topology, basix.ElementFamily.P, 2, shape=shape)
     scalar = basix_space("scalar", D.topology, basix.ElementFamily.P, 2)
     assert V.num_dofs == scalar.num_dofs * np.prod(shape)
@@ -193,7 +195,7 @@ def test_blocked_fields_in_array_compiler_and_oracle(cell, shape):
     u = function(V, "u")
     U = push_forward(u, D, V.law)
     f = integral(sum((U[idx] * U[idx] for idx in np.ndindex(shape)), num(0)), D)
-    env = {"coefficients:u": np.random.default_rng(7).normal(size=V.num_dofs)}
+    env = geometry | {"coefficients:u": np.random.default_rng(7).normal(size=V.num_dofs)}
     np.testing.assert_allclose(
         evaluate(compile_form(f, 6), env), Interpreter(env).evaluate(f), rtol=1e-8
     )
