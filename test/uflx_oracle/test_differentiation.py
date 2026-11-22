@@ -131,6 +131,22 @@ def test_predicate_can_read_an_opaque_value_while_differentiating_a_branch():
     assert oracle.evaluate(derivative, points={P: [-2]}) == -12
 
 
+def test_comparison_evaluates_the_spatial_derivative_in_its_operand():
+    P = EuclideanSpace(1)
+    x = coordinate(P)[0]
+    slope = gradient(x * x, P)[0]
+    field = conditional(less_than(slope, num(0)), x * x, x)
+    oracle = Interpreter()
+
+    def sample(point):
+        return oracle.evaluate(field, points={P: point})
+
+    assert sample(jnp.array([-1.0])) == 1
+    values, derivatives = jax.jit(jax.vmap(jax.value_and_grad(sample)))(jnp.array([[-1.0], [2.0]]))
+    np.testing.assert_allclose(values, [1, 2])
+    np.testing.assert_allclose(derivatives, [[-2], [1]])
+
+
 def test_basix_second_derivatives_come_from_basis_tabulation():
     import basix
 

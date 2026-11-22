@@ -14,24 +14,15 @@ from uflx_oracle.interpreter import Interpreter
 from ..uflx.spaces import space
 
 
-def test_calls_read_current_bindings_and_share_subexpressions_within_one_call():
+def test_evaluation_reads_current_bindings_and_form_arguments():
     V = space("coefficient", scalar_type="real")
     u = function(V, "u")
-    calls = 0
-
-    def coefficient():
-        nonlocal calls
-        calls += 1
-        return 3
-
-    env = {u: coefficient}
+    env = {u: lambda: 3}
     interpreter = Interpreter(env)
     expression = u + u
     assert interpreter.evaluate(expression) == 6
-    assert calls == 1
     v = function(V, "v")
     assert interpreter.evaluate(u + apply(form(v, (v,)), (u,))) == 6
-    assert calls == 2
     env[u] = 4
     assert interpreter.evaluate(expression) == 8
     assert interpreter.evaluate(form(expression, (u,)), arguments=(5,)) == 10

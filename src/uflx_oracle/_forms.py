@@ -6,11 +6,7 @@ import jax.numpy as jnp
 from uflx.nodes import AbstractExpression, Conjugate
 
 from . import _finite_elements as elements
-from ._context import Operand, call, sample
-
-
-class ExpressionBinding(Operand):
-    """A replacement expression evaluated at the caller's sampling location."""
+from ._context import BoundExpression, as_argument
 
 
 def members(entry):
@@ -22,91 +18,78 @@ def conjugated(value):
         return tuple(conjugated(v) for v in value)
     if isinstance(value, AbstractExpression):
         return Conjugate(value)
+    if isinstance(value, BoundExpression):
+
+        def read(site, slots):
+            return conjugated(value.read(site, tuple(conjugated(arg) for arg in slots)))
+
+        return BoundExpression(value.signature, read)
     if callable(value):
-
-        def field(site, *args):
-            arguments = tuple(conjugated(arg) for arg in args)
-            return conjugated(call(site, value, *arguments))
-
-        return Operand(field)
+        return lambda *args: conjugated(value(*(conjugated(arg) for arg in args)))
     return jnp.conj(value)
 
 
-def function_value(node, frame, arguments):
+def function_value(node, bindings, site, arguments, read):
     space = node.space
     domain = space.domain
     if elements.is_basix_space(space):
-        return elements.field_value(node, frame)
-    binding = frame.environment[node]
-    if isinstance(binding, dict):
-        binding = binding[frame.site.slot(domain)]
-    if isinstance(binding, AbstractExpression):
-        return frame.value(binding, arguments)
-
-    value = binding
+        return elements.field_value(node, bindings, site, read)
+    value = bindings[node]
+    if isinstance(value, dict):
+        value = value[site.slot(domain)]
+    if isinstance(value, AbstractExpression):
+        return read(value, arguments)
     if space.argument_spaces:
-        value = call(frame.site, binding, *arguments)
+        value = value(*(as_argument(arg, site) for arg in arguments))
         if isinstance(value, dict):
-            value = value[frame.site.slot(domain)]
+            value = value[site.slot(domain)]
     if callable(value) and domain is not None:
-        return sample(value, frame.site, domain)
-    if callable(value) and not space.argument_spaces:
-        value = call(frame.site, value)
+        value = value(site.points[domain])
+    elif callable(value) and not space.argument_spaces:
+        value = value()
     return jnp.asarray(value) if isinstance(value, (tuple, list)) else value
 
 
-def supplied(operand, signature, frame):
+def supplied(operand, signature, site, value):
     if isinstance(operand, tuple):
-        return tuple(supplied(m, s, frame) for m, s in zip(operand, signature, strict=True))
+        return tuple(supplied(m, s, site, value) for m, s in zip(operand, signature, strict=True))
 
-    def apply(site, *slots):
-        def read(at):
-            value = frame.value(operand, slots, at=at)
-            return (
-                jnp.asarray(value, dtype=complex) if signature.scalar_type == "complex" else value
-            )
+    def read(at, slots):
+        result = value(operand, slots, at=at)
+        return jnp.asarray(result, dtype=complex) if signature.scalar_type == "complex" else result
 
-        if signature.domain is not None:
-
-            def field(site, point):
-                return read(site.at({signature.domain: point}))
-
-            return Operand(field)
-        return read(site)
-
-    return Operand(apply) if operand.argument_spaces else apply(frame.site)
+    if signature.domain is None and not operand.argument_spaces:
+        return read(site, ())
+    return BoundExpression(signature, read)
 
 
-def form_value(body, declarations, frame, arguments):
-    count = len(body.argument_spaces)
+def form_bindings(declarations, arguments):
     bindings = {}
-    for entry, value in zip(declarations, arguments[count:], strict=True):
+    for entry, value in zip(declarations, arguments, strict=True):
         values = value if isinstance(entry, tuple) else (value,)
         for member, item in zip(members(entry), values, strict=True):
             if isinstance(member, Conjugate):
                 bindings[member.operand] = conjugated(item)
             else:
                 bindings[member] = item
-    return frame.bind(bindings).value(body, arguments[:count])
+    return bindings
 
 
-def directional(body, variables, point, direction, frame, arguments):
+def directional(node, arguments, read):
     def perturbed(epsilon):
-        def seed(point, direction):
+        def seed(variable, point, direction):
             def varied(site, slots):
-                return frame.value(point, slots, at=site) + epsilon * frame.value(
-                    direction, slots, at=site
-                )
+                return read(point, slots, at=site) + epsilon * read(direction, slots, at=site)
 
-            return ExpressionBinding(varied)
+            return BoundExpression(variable, varied)
 
         overrides = {
-            variable: seed(p, d)
+            variable: seed(variable, p, d)
             for variable, p, d in zip(
-                members(variables), members(point), members(direction), strict=True
+                members(node.variable), members(node.point), members(node.direction), strict=True
             )
         }
-        value = frame.bind(overrides).value(body, arguments)
+        value = read(node.expression, arguments, bind=overrides)
         # An integer literal denotes a real constant in a differentiable expression.
         return jnp.asarray(value, dtype=jnp.result_type(value, 0.0))
 

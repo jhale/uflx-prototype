@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import jax.numpy as jnp
 
-from ._context import call
+from ._context import as_argument
 from ._forms import supplied
 
 
@@ -16,12 +16,12 @@ class Pointwise:
     function: Callable
 
 
-def evaluate_external(node, frame):
-    binding = frame.environment[node.operation]
+def evaluate_external(node, binding, site, value):
     if isinstance(binding, Pointwise):
-        return jnp.asarray(binding.function(*(frame.value(x) for x in node.operands)))
+        return jnp.asarray(binding.function(*(value(x) for x in node.operands)))
 
-    result = call(frame.site, binding, *(supplied(x, x, frame) for x in node.operands))
+    operands = (supplied(x, x, site, value) for x in node.operands)
+    result = binding(*(as_argument(x, site) for x in operands))
     if callable(result) and node.domain is not None:
-        result = result(frame.site.points[node.domain])
+        result = result(site.points[node.domain])
     return jnp.asarray(result)

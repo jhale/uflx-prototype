@@ -9,7 +9,7 @@ from uflx.nodes import AbstractExpression
 
 from ._context import Sample
 from ._external import Pointwise as Pointwise
-from ._semantics import Frame
+from ._semantics import evaluate
 
 
 class Interpreter:
@@ -43,8 +43,8 @@ class Interpreter:
             {domain: jnp.asarray(point, dtype=float) for domain, point in (points or {}).items()},
             dict(cells or {}),
         )
-        frame = Frame(dict(self.environment) | dict(indices or {}), site)
-        value = frame.value(expression, arguments)
+        bindings = dict(self.environment) | dict(indices or {})
+        value = evaluate(expression, bindings, site, arguments)
         # Eager scalar results can be used as UFLx literals. A traced scalar stays in the graph.
         if (
             isinstance(value, jax.Array)

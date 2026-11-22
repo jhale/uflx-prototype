@@ -7,13 +7,14 @@ import jax.numpy as jnp
 
 from uflx.nodes import AbstractExtent, GatheredIndex, Index, IndexSum
 
+from ._context import lookup
 from ._forms import members
 
 
-def size(extent, frame):
+def size(extent, bindings):
     if isinstance(extent, tuple):
-        return tuple(size(n, frame) for n in extent)
-    return frame.input(extent, extent.label) if isinstance(extent, AbstractExtent) else extent
+        return tuple(size(n, bindings) for n in extent)
+    return lookup(bindings, extent, extent.label) if isinstance(extent, AbstractExtent) else extent
 
 
 def index_value(index, indices):
@@ -36,18 +37,17 @@ def flat(entries):
     return tuple(axis for entry in entries for axis in members(entry))
 
 
-def bound_tensor(node, frame, arguments):
+def bound_tensor(node, bindings, evaluate_at):
     operand = node.expression
     dimensions = dict(operand.free_indices)
-    extents = [size(dimensions[i], frame) for i in node.indices]
+    extents = [size(dimensions[i], bindings) for i in node.indices]
     ranges = [product(*map(range, n)) if isinstance(n, tuple) else range(n) for n in extents]
     dtype = {"boolean": bool, "complex": complex, "real": float}[node.scalar_type]
     summed = isinstance(node, IndexSum)
     total = dtype(0)
     entries = []
     for combo in product(*ranges):
-        bound = frame.bind_indices(dict(zip(node.indices, combo, strict=True)))
-        value = bound.value(operand, arguments)
+        value = evaluate_at(dict(zip(node.indices, combo, strict=True)))
         if summed:
             total = total + value
         else:

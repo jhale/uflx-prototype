@@ -3,9 +3,12 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-import jax.numpy as jnp
+from uflx.nodes import AbstractExpression, AbstractFunctionSpace, AbstractTopology, Mesh
 
-from uflx.nodes import AbstractTopology, Mesh
+
+def lookup(bindings, node, label):
+    """Library data may be supplied by node or by its runtime label."""
+    return bindings[node] if node in bindings else bindings[label]
 
 
 @dataclass(frozen=True, eq=False)
@@ -28,29 +31,24 @@ class Sample:
 
 
 @dataclass(frozen=True)
-class Operand:
-    """An interpreted operand with lexical bindings captured at its definition."""
+class BoundExpression:
+    """An operand with its lexical bindings captured in read(site, slots)."""
 
+    signature: AbstractExpression | AbstractFunctionSpace
     read: Callable
 
-    def __call__(self, site, *args):
-        return self.read(site, *args)
 
-
-def bound(value, site):
+def as_argument(value, site):
+    """Expose an interpreted operand to a numerical function at this site."""
     if isinstance(value, tuple):
-        return tuple(bound(v, site) for v in value)
-    if isinstance(value, Operand):
-        return lambda *args: bound(value(site, *args), site)
-    return value
+        return tuple(as_argument(item, site) for item in value)
+    if not isinstance(value, BoundExpression):
+        return value
 
+    def apply(*slots):
+        domain = value.signature.domain
+        if domain is None:
+            return value.read(site, slots)
+        return lambda point: value.read(site.at({domain: point}), slots)
 
-def call(site, fn, *args):
-    if isinstance(fn, Operand):
-        return fn(site, *args)
-    return fn(*(bound(arg, site) for arg in args))
-
-
-def sample(field, site, domain):
-    result = call(site, field, site.points[domain])
-    return jnp.asarray(result) if isinstance(result, (list, tuple)) else result
+    return apply if value.signature.argument_spaces else apply()

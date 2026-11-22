@@ -10,7 +10,7 @@ import numpy as np
 from uflx.nodes import AbstractExpression
 from uflx_basix.nodes import ReferenceSimplex
 
-from ._context import sample
+from ._context import lookup
 
 try:
     import basix
@@ -89,17 +89,17 @@ def tabulate(element, point):
     return _tabulator(element, (0,) * len(point))(point)
 
 
-def field_value(node, frame):
+def field_value(node, bindings, site, value):
     space = node.space
     topology = space.domain
-    coefficients = frame.input(node, f"coefficients:{node.label}")
+    coefficients = lookup(bindings, node, f"coefficients:{node.label}")
     if isinstance(coefficients, AbstractExpression):
-        return frame.value(coefficients)
+        return value(coefficients)
     if callable(coefficients):
         # A form slot may supply a field directly on the reference cell.
-        return sample(coefficients, frame.site, topology)
-    slot = frame.site.slot(topology)
-    basis = tabulate(space.element(slot), frame.site.points[topology])
+        return jnp.asarray(coefficients(site.points[topology]))
+    slot = site.slot(topology)
+    basis = tabulate(space.element(slot), site.points[topology])
 
     local = jnp.asarray(coefficients)[np.asarray(space.cell_dofs[slot])]
     if space.block_shape:
@@ -107,11 +107,11 @@ def field_value(node, frame):
     return (local @ basis).reshape(space.value_shape)
 
 
-def basis_value(node, frame):
+def basis_value(node, site):
     space = node.space
-    if frame.site.slot(space.domain) != node.cell_slot:
+    if site.slot(space.domain) != node.cell_slot:
         return np.zeros(node.value_shape)
-    basis = tabulate(space.element(node.cell_slot), frame.site.points[space.domain])
+    basis = tabulate(space.element(node.cell_slot), site.points[space.domain])
     return basis.reshape(node.value_shape)
 
 
@@ -122,10 +122,10 @@ def vertex_element(cell_type):
     )
 
 
-def vertex_value(topology, vertices, frame):
-    slot = frame.site.slot(topology)
+def vertex_value(topology, vertices, site):
+    slot = site.slot(topology)
     cell = topology.cell_types[slot]
-    point = frame.site.points[topology]
+    point = site.points[topology]
     if is_basix_cell(cell) and cell.dimension:
         weights = tabulate(vertex_element(cell.cell_type), point)[:, 0]
     elif cell.num_vertices == cell.dimension + 1:

@@ -1,7 +1,5 @@
 """Numerical semantics of the expression nodes, evaluated with lexical bindings."""
 
-from dataclasses import dataclass, field, replace
-
 import jax
 import jax.numpy as jnp
 
@@ -34,6 +32,7 @@ from uflx.nodes import (
     Inverse,
     LessThan,
     Logarithm,
+    Mesh,
     Power,
     Product,
     PullBack,
@@ -48,59 +47,25 @@ from uflx_basix.nodes import RuntimeArray, VertexCoordinates
 
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors
-from ._context import Sample
+from ._context import BoundExpression, lookup
 from ._external import evaluate_external
-from ._geometry import integrate
+from ._geometry import integrate, tangent_projector
 
 
-@dataclass(frozen=True, eq=False)
-class Frame:
-    """Evaluate expressions with fixed lexical bindings at one sampling location."""
+def evaluate(node, bindings, site, arguments=()):
+    """Evaluate a UFLx expression under lexical bindings at a local sample."""
 
-    environment: dict
-    site: Sample
-    _memo: dict = field(default_factory=dict, repr=False)
+    def value(expr, slots=(), *, at=site, bind=None):
+        local = bindings if bind is None else bindings | bind
+        return evaluate(expr, local, at, slots)
 
-    def value(self, node, arguments=(), *, at=None):
-        if at is not None and at is not self.site:
-            return replace(self, site=at, _memo={}).value(node, arguments)
-        if arguments:
-            return interpret(node, self, arguments)
-        key = node
-        if node.free_indices:
-            indices = tuple(self.environment.get(i) for i, _ in node.free_indices)
-            if any(hasattr(i, "shape") for i in jax.tree.leaves(indices)):
-                return interpret(node, self, ())
-            key = (node, indices)
-        if key not in self._memo:
-            self._memo[key] = interpret(node, self, ())
-        return self._memo[key]
+    def field(expr):
+        return lambda sample: value(expr, arguments, at=sample)
 
-    def bind(self, bindings):
-        return replace(self, environment=self.environment | bindings, _memo={})
+    binding = bindings.get(node)
+    if isinstance(binding, BoundExpression):
+        return binding.read(site, arguments)
 
-    def bind_indices(self, indices):
-        # The cache key already distinguishes a node's free index values.
-        return replace(self, environment=self.environment | indices)
-
-    def input(self, node, label):
-        """Library data may be supplied by node or by its runtime label."""
-        return self.environment[node] if node in self.environment else self.environment[label]
-
-
-class _PredicateFrame(Frame):
-    """Use primal operand values throughout a comparison, including external calls."""
-
-    def value(self, node, arguments=(), *, at=None):
-        return jax.lax.stop_gradient(super().value(node, arguments, at=at))
-
-
-def interpret(node, frame, arguments):
-    binding = frame.environment.get(node)
-    if isinstance(binding, _forms.ExpressionBinding):
-        return binding.read(frame.site, arguments)
-
-    value = frame.value
     match node:
         case Boolean(v) | Float(v):
             return v
@@ -110,25 +75,32 @@ def interpret(node, frame, arguments):
         case Complex(a, b):
             return complex(a.value, b.value)
         case LessThan(a, b):
-            points = {d: jax.lax.stop_gradient(p) for d, p in frame.site.points.items()}
-            local = _PredicateFrame(frame.environment, frame.site.at(points))
-            return jnp.real(local.value(a)) < jnp.real(local.value(b))
+            # Use the primal inputs for the comparison. A derivative written
+            # inside an operand still has its ordinary mathematical meaning.
+            points = {d: jax.lax.stop_gradient(p) for d, p in site.points.items()}
+            at = site.at(points)
+
+            def compare():
+                with jax.ensure_compile_time_eval():
+                    return jnp.real(value(a, at=at)) < jnp.real(value(b, at=at))
+
+            # Make captured coefficient values explicit so outer AD stops at the predicate.
+            predicate, inputs = jax.closure_convert(compare)
+            return predicate(*map(jax.lax.stop_gradient, inputs))
         case Conditional(predicate, left, right):
             condition = value(predicate)
             dtype = {"boolean": bool, "real": float, "complex": complex}[node.scalar_type]
 
             def branch(expr):
-                local = replace(frame, _memo={})
-                return jnp.asarray(local.value(expr, arguments), dtype=dtype)
+                return jnp.asarray(value(expr, arguments), dtype=dtype)
 
             if not isinstance(condition, jax.core.Tracer):
-                return jnp.asarray(value(left if condition else right, arguments), dtype=dtype)
-            # Branch-local frames keep intermediate tracers inside their own branch.
+                return branch(left if condition else right)
             return jax.lax.cond(condition, lambda: branch(left), lambda: branch(right))
         case Zero(shape, _, _, scalar_type):
             dtype = complex if scalar_type == "complex" else float
             return (
-                jnp.zeros(tuple(_tensors.size(n, frame) for n in shape), dtype=dtype)
+                jnp.zeros(tuple(_tensors.size(n, bindings) for n in shape), dtype=dtype)
                 if shape
                 else dtype(0)
             )
@@ -167,7 +139,7 @@ def interpret(node, frame, arguments):
         case Inverse(a):
             return _tensors.inverse(jnp.asarray(value(a)))
         case BroadcastTo(x, shape):
-            target = tuple(_tensors.size(n, frame) for n in shape)
+            target = tuple(_tensors.size(n, bindings) for n in shape)
             if 0 in target:
                 dtype = {"boolean": bool, "complex": complex, "real": float}[node.scalar_type]
                 return jnp.empty(target, dtype=dtype)
@@ -175,44 +147,63 @@ def interpret(node, frame, arguments):
         case Tensor(entries):
             return jnp.stack([value(entry, arguments) for entry in entries])
         case Indexed(x, indices):
-            key = _tensors.flat(_tensors.index_value(i, frame.environment) for i in indices)
+            key = _tensors.flat(_tensors.index_value(i, bindings) for i in indices)
             return jnp.asarray(value(x, arguments))[key]
         case ComponentTensor() | IndexSum():
-            return _tensors.bound_tensor(node, frame, arguments)
+            return _tensors.bound_tensor(
+                node, bindings, lambda indices: value(node.expression, arguments, bind=indices)
+            )
         case Function():
-            return _forms.function_value(node, frame, arguments)
+            return _forms.function_value(node, bindings, site, arguments, value)
         case Form(body, declarations):
-            return _forms.form_value(body, declarations, frame, arguments)
+            n = len(body.argument_spaces)
+            return value(
+                body, arguments[:n], bind=_forms.form_bindings(declarations, arguments[n:])
+            )
         case Apply(operator, operands):
             slots = tuple(
-                _forms.supplied(x, s, frame)
+                _forms.supplied(x, s, site, value)
                 for x, s in zip(operands, operator.argument_spaces, strict=True)
             )
             return value(operator, slots)
         case ExternalOperator():
-            return evaluate_external(node, frame)
-        case DirectionalDerivative(body, variables, point, direction):
-            return _forms.directional(body, variables, point, direction, frame, arguments)
+            return evaluate_external(node, bindings[node.operation], site, value)
+        case DirectionalDerivative():
+            return _forms.directional(node, arguments, value)
         case Coordinate(domain):
-            return jnp.asarray(frame.site.points[domain], dtype=float)
+            return jnp.asarray(site.points[domain], dtype=float)
         case Gradient(x, domain):
-            return _spatial.gradient(x, domain, frame, arguments)
+            point = jnp.asarray(site.points[domain])
+            if not point.size:
+                shape = tuple(_tensors.size(n, bindings) for n in x.value_shape)
+                return jnp.empty(
+                    (*shape, 0), dtype=complex if x.scalar_type == "complex" else float
+                )
+
+            def at_point(p):
+                result = value(x, arguments, at=site.at({domain: p}))
+                return jnp.asarray(result, dtype=jnp.result_type(result, 0.0))
+
+            g = jax.jacfwd(at_point)(point)
+            if isinstance(domain, Mesh) and domain.dimension < point.size:
+                g = g @ tangent_projector(domain, site, value)
+            return g
         case Divergence(x, domain):
-            return jnp.trace(_spatial.gradient(x, domain, frame, arguments), axis1=-2, axis2=-1)
+            return jnp.trace(value(Gradient(x, domain), arguments), axis1=-2, axis2=-1)
         case Curl(x, domain):
-            return _spatial.curl(x, domain, frame, arguments)
+            return _spatial.curl(value(Gradient(x, domain), arguments))
         case Integral(x, domain):
-            return integrate(domain, lambda site: value(x, arguments, at=site), frame)
+            return integrate(domain, field(x), site, value)
         case PullBack(x, mapping):
-            return _spatial.pull_back(x, mapping, frame, arguments)
+            return value(x, arguments, at=_spatial.pullback_site(mapping, site, value))
         case PushForward(x, mesh, law):
-            return _spatial.push_forward(x, mesh, law, frame, arguments)
+            return _spatial.push_forward(field(x), mesh, law, site, value)
         case Conormal(side, conormals):
-            return _spatial.conormal(side, conormals, frame)
+            return _spatial.conormal(side, conormals, site, value)
         case RuntimeArray():
-            return jnp.asarray(frame.input(node, node.label))
+            return jnp.asarray(lookup(bindings, node, node.label))
         case VertexCoordinates(topology, vertices):
-            return elements.vertex_value(topology, vertices, frame)
+            return elements.vertex_value(topology, vertices, site)
         case _ if elements.is_basix_basis(node):
-            return elements.basis_value(node, frame)
+            return elements.basis_value(node, site)
     raise TypeError(f"the reference interpreter has no evaluation rule for {type(node).__name__}")

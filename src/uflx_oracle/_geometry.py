@@ -9,10 +9,10 @@ from . import _finite_elements as elements
 from . import _tensors
 
 
-def chart_of(piece, frame):
+def chart_of(piece, site, value):
     def chart(point):
-        site = frame.site.at({piece.reference_cell: point})
-        return jnp.real(frame.value(piece.parameterisation, at=site))
+        at = site.at({piece.reference_cell: point})
+        return jnp.real(value(piece.parameterisation, at=at))
 
     return chart
 
@@ -45,34 +45,34 @@ def reference_point(chart, point, dim):
     return jax.lax.custom_root(correction, initial, iterate, tangent_solve)
 
 
-def tangent_projector(domain, frame):
-    chart = chart_of(domain[frame.site.slot(domain)], frame)
-    ref = reference_point(chart, frame.site.points[domain], domain.dimension)
+def tangent_projector(domain, site, value):
+    chart = chart_of(domain[site.slot(domain)], site, value)
+    ref = reference_point(chart, site.points[domain], domain.dimension)
     Q, _ = jnp.linalg.qr(jax.jacfwd(chart)(ref))
     return Q @ Q.T
 
 
-def side_reference(side, frame):
+def side_reference(side, site, value):
     source = side.source
-    slot = frame.site.slot(source)
+    slot = site.slot(source)
     parent_slot, inclusion = side.entries[slot]
-    point = frame.site.points[source]
+    point = site.points[source]
     if isinstance(source, Mesh):
-        chart = chart_of(source[slot], frame)
+        chart = chart_of(source[slot], site, value)
         point = reference_point(chart, point, source.dimension)
-    site = frame.site.at({inclusion.parameter_domain: point})
-    target = jnp.real(frame.value(inclusion.parameterisation, at=site))
+    at = site.at({inclusion.parameter_domain: point})
+    target = jnp.real(value(inclusion.parameterisation, at=at))
     return slot, parent_slot, inclusion, point, target
 
 
-def integrate(domain, fn, frame):
+def integrate(domain, fn, site, value):
     if isinstance(domain, AbstractCoordinateDomain):
         points, weights = elements.cell_quadrature(domain)
-        samples = jax.vmap(lambda p: fn(frame.site.at({domain: p})))(jnp.asarray(points))
+        samples = jax.vmap(lambda p: fn(site.at({domain: p})))(jnp.asarray(points))
         return jnp.tensordot(jnp.asarray(weights), samples, axes=1)
 
     def integrate_piece(slot, piece):
-        chart = chart_of(piece, frame)
+        chart = chart_of(piece, site, value)
 
         def mapped(site):
             ref = site.points[piece.reference_cell]
@@ -84,7 +84,7 @@ def integrate(domain, fn, frame):
             )
             return density * fn(sample)
 
-        return integrate(piece.reference_cell, mapped, frame)
+        return integrate(piece.reference_cell, mapped, site, value)
 
     total = 0
     for slot, piece in enumerate(domain):

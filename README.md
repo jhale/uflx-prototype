@@ -690,8 +690,9 @@ interpreter.evaluate(gradient(f, plane), points=point)  # [6.0, 1.0]
 
 Pass field data to `Interpreter(environment)`, keyed by function nodes. A field can
 be a numerical value, a UFLx expression, or a callable of the current coordinate.
-Basix fields accept local coefficient arrays. Runtime arrays and extents accept
-node or label keys.
+The oracle can read the same field more than once during evaluation, so callbacks
+should be pure. Basix fields accept local coefficient arrays. Runtime arrays and
+extents accept node or label keys.
 Use `arguments=(u_value, v_value)` for ordered form slots and `indices={i: k}`
 for free indices. A tuple-valued slot takes a tuple.
 
@@ -706,9 +707,11 @@ slot zero. On an interior facet, each side map selects its own parent slot so
 both traces can be evaluated at the same point. An external operator that receives a
 whole field can sample it as `field(point)` on the selected slot.
 
-The oracle walks the original UFLx graph using JAX operations. A spatial
-derivative differentiates a function of the point. A directional derivative
-differentiates a simultaneous variation of the named functions. Basix supplies
+The oracle walks the original UFLx graph using JAX operations. Each occurrence
+of a shared expression is evaluated separately, which can make fully expanded
+geometry expressions expensive to check. A spatial derivative differentiates a
+function of the point. A directional derivative differentiates a simultaneous
+variation of the named functions. Basix supplies
 exact basis derivatives at evaluation points. For example, an ordinary JAX
 transformation can differentiate an entire evaluation with respect to its inputs.
 
