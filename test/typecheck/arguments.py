@@ -18,8 +18,13 @@ from uflx import (
     side_map,
     tensor,
 )
-from uflx._src.algorithms.traversal import bottom_up
-from uflx._src.nodes import (
+from uflx._src.passes.contracts import (
+    core_normal_form,
+    derivatives_expanded,
+    reference_integration,
+)
+from uflx.algorithms import bottom_up
+from uflx.nodes import (
     AbstractDomain,
     AbstractExpression,
     AbstractTopology,
@@ -31,11 +36,6 @@ from uflx._src.nodes import (
     Gradient,
     Mesh,
     SideMap,
-)
-from uflx._src.passes.contracts import (
-    core_normal_form,
-    derivatives_expanded,
-    reference_integration,
 )
 
 

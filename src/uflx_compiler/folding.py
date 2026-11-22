@@ -1,7 +1,6 @@
 import numpy as np
 
-from uflx._src.algorithms.traversal import memoized
-from uflx._src.nodes.structure import expression_operands
+from uflx.algorithms import expression_operands, memoized
 
 from .evaluation import evaluate
 from .inputs import arrays

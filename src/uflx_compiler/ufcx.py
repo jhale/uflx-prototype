@@ -19,15 +19,22 @@ from uflx import (
     lower,
     multiply,
     reference_integral,
+    replace,
     tensor,
 )
 from uflx import (
     mesh as make_mesh,
 )
-from uflx._src.algorithms.names import derived_index, derived_indices
-from uflx._src.algorithms.substitution import substitute, substitute_values
-from uflx._src.algorithms.traversal import bottom_up, map_fields, memoized
-from uflx._src.nodes import (
+from uflx.algorithms import (
+    bottom_up,
+    derived_index,
+    derived_indices,
+    map_fields,
+    memoized,
+    operands,
+    substitute_values,
+)
+from uflx.nodes import (
     AbstractExpression,
     Form,
     Function,
@@ -39,7 +46,6 @@ from uflx._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx._src.nodes.structure import operands
 from uflx_basix.basix_nodes import BasixSpace
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.nodes import IndexTable, VertexCoordinates
@@ -217,7 +223,7 @@ def compile_ufcx(
         domain, mapping, reference_values, bindings = _facet_tables(
             tuple(_nodes(f)), mesh, domain, width
         )
-        f = substitute(f, mapping)
+        f = replace(f, mapping)
     factor_axes = {}
     if (
         sum_factorisation
@@ -328,9 +334,7 @@ def _coordinate_fields(f, mesh):
             for k in range(mesh.ambient_coordinate_domain.dimension)
         )
         local_mesh = make_mesh(tensor(geometry), mesh.ambient_coordinate_domain)
-        f = substitute(
-            f, {mesh: local_mesh, mesh.coordinate_function: local_mesh.coordinate_function}
-        )
+        f = replace(f, {mesh: local_mesh, mesh.coordinate_function: local_mesh.coordinate_function})
         mesh = local_mesh
     else:
         x = mesh.coordinate_function
@@ -389,7 +393,7 @@ def _local_expression(
         if found is None:
             return node
         u, cell, order, points = found
-        points = substitute(points, reference_values)
+        points = replace(points, reference_values)
         if not isinstance(u, Function) or cell not in range(width):
             raise NotImplementedError("expected a local Basix field read")
         E = _element(u.space)

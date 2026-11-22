@@ -6,12 +6,15 @@ from math import prod
 
 import numpy as np
 
-from uflx import add, divide, index_sum, multiply, num
-from uflx._src.algorithms.binding import alpha_equivalent
-from uflx._src.algorithms.rewriting import complete_indices
-from uflx._src.algorithms.substitution import substitute
-from uflx._src.algorithms.traversal import map_values, memoized
-from uflx._src.nodes import (
+from uflx import add, divide, index_sum, multiply, num, replace
+from uflx.algorithms import (
+    alpha_equivalent,
+    complete_indices,
+    expression_operands,
+    map_values,
+    memoized,
+)
+from uflx.nodes import (
     Division,
     Index,
     Indexed,
@@ -21,7 +24,6 @@ from uflx._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx._src.nodes.structure import expression_operands
 
 from .algebra import _normalizer
 from .evaluation import evaluate
@@ -71,9 +73,7 @@ def _factor_contraction(expression, rows, outer_indices, *, combine_geometry, co
                 ):
                     entries = (
                         simplify(
-                            substitute(
-                                node.expression, dict(zip(node.indices, values, strict=True))
-                            )
+                            replace(node.expression, dict(zip(node.indices, values, strict=True)))
                         )
                         for values in product(*(range(extents[i]) for i in node.indices))
                     )
@@ -285,7 +285,7 @@ def _preintegrate(
                 result = ()
                 for values in product(*(range(sizes[i]) for i in n.indices)):
                     entry = simplify(
-                        substitute(n.expression, dict(zip(n.indices, values, strict=True)))
+                        replace(n.expression, dict(zip(n.indices, values, strict=True)))
                     )
                     result += terms(entry)
                     if len(result) > max_terms:
@@ -375,7 +375,7 @@ def _transpose_reuse(blocks, rows, components):
         other = positions.get(component[::-1]) if component[0] > component[1] else None
         if other is not None and alpha_equivalent(
             canonical(expression),
-            canonical(substitute(representatives[other][1], {i: j, j: i})),
+            canonical(replace(representatives[other][1], {i: j, j: i})),
         ):
             references.append((other, True))
         else:
@@ -421,7 +421,7 @@ def _sparse_contractions(expression):
         for k, column in enumerate(columns):
             if not np.any(column):
                 continue
-            value = simplify(substitute(coefficient, {axis: k}))
+            value = simplify(replace(coefficient, {axis: k}))
             for position, (representative, combined) in enumerate(groups):
                 for sign in (1, -1):
                     if np.allclose(
@@ -446,7 +446,7 @@ def _sparse_contractions(expression):
             node,
             simplify(
                 _sum(
-                    multiply(coefficient, substitute(reference, {axis: k}))
+                    multiply(coefficient, replace(reference, {axis: k}))
                     for k, coefficient in groups
                 )
             ),

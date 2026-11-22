@@ -27,6 +27,7 @@ SCALAR_CONSTRUCTION = {
 }
 EXPORT_MODULES = {
     "uflx",
+    "uflx.nodes",
     "uflx._src.nodes",
     "uflx._src.nodes.arithmetic",
 }
@@ -105,6 +106,7 @@ def test_arithmetic_construction_boundaries():
     [
         "from uflx import Product; Product(a, b)",
         "from uflx._src.nodes import Product as P; P(a, b)",
+        "from uflx import nodes; nodes.Product(a, b)",
         "import uflx as u; u.Product(a, b)",
         "import uflx._src.nodes as n; n.Product(a, b)",
         "import uflx._src.nodes; uflx._src.nodes.Product(a, b)",

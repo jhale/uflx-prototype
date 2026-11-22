@@ -6,19 +6,18 @@ from uflx import (
     index_sum,
     tensor,
 )
-from uflx._src.algorithms.names import derived_index, derived_indices
-from uflx._src.algorithms.traversal import bottom_up
-from uflx._src.nodes import (
+from uflx.algorithms import bottom_up, derived_index, derived_indices
+from uflx.nodes import (
     CellMap,
     DomainMap,
     Function,
     GatheredIndex,
     Gradient,
     PullBack,
+    ScalarType,
     Tensor,
     Zero,
 )
-from uflx._src.nodes.scalar_types import ScalarType
 from uflx_basix.basix_nodes import BasixBasis, BasixCell, BasixSpace
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.nodes import IndexTable, RuntimeArray, VertexCoordinates

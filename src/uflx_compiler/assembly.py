@@ -1,10 +1,8 @@
 import numpy as np
 
-from uflx import add, component_tensor
-from uflx._src.algorithms.names import derived_indices
-from uflx._src.algorithms.substitution import substitute
-from uflx._src.nodes import Conjugate, Form, Zero
-from uflx._src.tensors import identity
+from uflx import add, component_tensor, identity, replace
+from uflx.algorithms import derived_indices
+from uflx.nodes import Conjugate, Form, Zero
 
 from .evaluation import evaluate
 from .folding import fold
@@ -33,7 +31,7 @@ def _local_tensor(form, degree):
         replacements[coefficients(v)] = component_tensor(identity(v.space.num_dofs)[J, k], (k,))
         rows.append(J)
         extents.append((J, v.space.num_dofs))
-    e = substitute(e, replacements)
+    e = replace(e, replacements)
     # Unused arguments still determine the tensor's axes, even for an identically zero form.
     e = add(e, Zero(e.value_shape, tuple(extents), e.argument_spaces, e.scalar_type))
     folded = fold(e)

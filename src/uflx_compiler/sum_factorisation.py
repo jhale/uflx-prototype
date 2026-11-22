@@ -7,11 +7,9 @@ from math import prod
 
 import numpy as np
 
-from uflx import add, broadcast_to, divide, index_sum, multiply, num, tensor
-from uflx._src.algorithms.names import derived_index
-from uflx._src.algorithms.substitution import substitute
-from uflx._src.algorithms.traversal import map_fields
-from uflx._src.nodes import (
+from uflx import add, broadcast_to, divide, index_sum, multiply, num, replace, tensor
+from uflx.algorithms import derived_index, expression_operands, map_fields
+from uflx.nodes import (
     AbstractExpression,
     BroadcastTo,
     Division,
@@ -22,7 +20,6 @@ from uflx._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx._src.nodes.structure import expression_operands
 from uflx_basix.nodes import RuntimeArray
 from uflx_basix.runtime import runtime_array
 
@@ -143,9 +140,7 @@ def action_kernel(
                     (
                         factor(
                             simplify(
-                                substitute(
-                                    node.expression, dict(zip(selected, values, strict=True))
-                                )
+                                replace(node.expression, dict(zip(selected, values, strict=True)))
                             )
                         )
                         for values in product(*(range(extents[i]) for i in selected))

@@ -5,16 +5,15 @@ from uflx import (
     EuclideanSpace,
     component_tensor,
     domain_map,
+    expand_pull_backs,
     index_sum,
     indexed,
     integral,
     pull_back,
     tensor,
 )
-from uflx._src.algorithms.names import derived_index, derived_indices
-from uflx._src.algorithms.traversal import bottom_up
-from uflx._src.nodes import Float, Integral, Zero
-from uflx._src.passes.pullbacks import expand_pull_backs
+from uflx.algorithms import bottom_up, derived_index, derived_indices
+from uflx.nodes import Float, Integral, Zero
 from uflx_basix.basix_nodes import BasixCell
 
 

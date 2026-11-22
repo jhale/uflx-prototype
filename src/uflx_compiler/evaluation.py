@@ -2,7 +2,7 @@ import string
 
 import numpy as np
 
-from uflx._src.nodes import (
+from uflx.nodes import (
     Absolute,
     AbstractExtent,
     BroadcastTo,

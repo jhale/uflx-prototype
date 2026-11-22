@@ -15,8 +15,8 @@ from uflx import (
 from uflx import (
     mesh as make_mesh,
 )
-from uflx._src.algorithms.names import derived_index
-from uflx._src.nodes import Conormal, SideMap
+from uflx.algorithms import derived_index
+from uflx.nodes import Conormal, SideMap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.inclusions import affine_map, reference_normal
 from uflx_basix.runtime import runtime_array

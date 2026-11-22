@@ -8,7 +8,7 @@ from typing import get_overloads
 import pytest
 
 import uflx
-from uflx._src import nodes
+from uflx import nodes
 
 SPEC = Path(
     os.environ.get("UFLX_SPEC_PATH", Path(__file__).parents[2] / "uflx" / "design" / "language.md")
@@ -35,8 +35,7 @@ def spec_signatures():
 @pytest.mark.skipif(not SPEC.exists(), reason="the uflx repository is not beside this one")
 def test_the_public_free_functions_take_the_parameters_of_the_specification():
     spec = spec_signatures()
-    # Classes intentionally exposed alongside the free functions, plus
-    # implementation conveniences without a generated free-function row.
+    # Additional public constructors, conveniences and namespaces.
     conveniences = {
         "Boolean",
         "EuclideanSpace",
@@ -45,17 +44,15 @@ def test_the_public_free_functions_take_the_parameters_of_the_specification():
         "Integer",
         "ScalarType",
         "Zero",
+        "algorithms",
+        "identity",
+        "nodes",
         "num",
         "replace",
         "reference_integral",
     }
     assert set(uflx.__all__) == set(spec) | conveniences
-    stand_ins = {"num", "replace", "reference_integral"}
-    for name in uflx.__all__:
-        if name in stand_ins:
-            continue
-        if inspect.isclass(getattr(uflx, name)):
-            continue
+    for name in spec:
         function = getattr(uflx, name)
         signatures = [inspect.signature(f) for f in get_overloads(function) or [function]]
         parameters = {
@@ -123,9 +120,10 @@ def facade_declarations(source):
     return set(exports)
 
 
-def test_facade_imports_match_its_declared_exports():
-    path = Path(uflx.__file__)
-    assert facade_declarations(path.read_text()) == set(uflx.__all__)
+@pytest.mark.parametrize("module", [uflx, uflx.algorithms, uflx.nodes])
+def test_facade_imports_match_its_declared_exports(module):
+    path = Path(module.__file__)
+    assert facade_declarations(path.read_text()) == set(module.__all__)
 
 
 @pytest.mark.parametrize(

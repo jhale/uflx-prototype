@@ -496,11 +496,12 @@ parameter types without changing interning or structural equality. Derivative
 points and directions remain outside the variable scope. `test_shared_binding.py`
 checks these laws across all four core binder kinds and mixed nesting.
 
-The alpha utilities live in `uflx/_src/algorithms/`:
+`uflx.algorithms.alpha_equivalent` compares expressions modulo bound names.
+The optimiser also uses an internal fingerprint to filter candidate matches.
 
 ```python
 from uflx._src.algorithms.alpha import AlphaHasher, alpha_hash
-from uflx._src.algorithms.binding import alpha_equivalent
+from uflx.algorithms import alpha_equivalent
 
 key = alpha_hash(expression)  # One expression, with a temporary cache.
 hasher = AlphaHasher()  # Reuse summaries across a compiler pass.
@@ -563,11 +564,8 @@ blocks. Apply `real_part` or `imaginary_part` to bodies before binding real test
 and direction functions to obtain real matrices. The mixed-block tests compare
 both representations with finite differences of assembled FE residuals.
 
-The core splits a public API from a private one, as JAX does with `jax._src`.
-
-The public API is `uflx/__init__.py`, which re-exports the
-free functions of the specification and declares them in `__all__`, with the
-literal classes, `EuclideanSpace`, scalar types and the convenience helper `num`.
+The `uflx` package exports the free functions of the specification, literal classes,
+`EuclideanSpace`, scalar types and the convenience constructors `num` and `identity`.
 `reference_integral(f, D, cell_slot)` gives one local cell’s reference integral.
 Mesh expansion adds these integrals over the fixed slots without introducing
 an array index or cell sum. UFCx compilation selects its local slot directly.
@@ -586,10 +584,37 @@ A user, and a test that builds expressions, imports only these, as in
 the operator overloads of the specification, which call these free functions
 and reject Python numbers.
 
-Everything else is in the private package `_src`, which only the Basix
-extension, compiler, oracle and white-box tests import. The extension uses
-`_src.nodes` for the base classes it extends. The free functions are in the
-modules of `_src`:
+### Writing a compiler pass
+
+Import node classes from `uflx.nodes` for pattern matching, annotations and
+extension base classes. Import graph operations from `uflx.algorithms`. For
+example, this pass folds integer sums after visiting their operands.
+
+```python
+from uflx import add, num
+from uflx.algorithms import bottom_up
+from uflx.nodes import Integer, Sum
+
+
+def fold_integer_sum(node):
+    match node:
+        case Sum(Integer(a), Integer(b)):
+            return num(a + b)
+    return node
+
+
+assert bottom_up(add(num(2), num(3)), fold_integer_sum) == num(5)
+```
+
+For a recursive pass, `memoized` shares results across visits, `map_values`
+rebuilds a node with its transformed value operands, and `complete_indices`
+restores free indices that a replacement dropped. Use `uflx.replace` to
+substitute through construction dependencies or `uflx.algorithms.substitute_values`
+to instantiate values while keeping geometry and identity metadata fixed.
+
+### Core implementation
+
+The private `_src` modules implement the public functions.
 
 - `literals.py`: `num`, which builds the literal of an `int` or a `float`, and a
   complex `Complex` literal, and `zero`
@@ -779,8 +804,8 @@ The ordinary test suite also checks three source conventions:
 - `test/test_signatures.py` checks explicit facade imports against the literal
   `__all__` list, rejecting duplicate bindings, duplicate exports, wildcard
   imports and missing names. With the language specification available, its
-  generated free-function and pass tables determine the exact public name set,
-  plus the explicitly listed public constructors and conveniences. Existing
+  generated free-function and pass tables determine the top-level names,
+  alongside the explicitly listed constructors, conveniences and submodules. Existing
   signature checks also verify parameter names and supported overloads.
 
 These checks inspect static source syntax; they do not follow dynamic imports
@@ -791,13 +816,12 @@ without the specification.
 
 ### Public and private names
 
-The package `__init__.py` defines the public free functions and convenience
-constructors. `_src/nodes/__init__.py` exposes the spec node classes used by
-extensions and passes. Those names retain the spelling in the specification.
+The public modules `uflx`, `uflx.nodes` and `uflx.algorithms` declare their
+exports in `__all__`. Node classes retain the spelling in the specification.
+The compiler and Basix extension use these public imports.
 
 Shared interfaces have ordinary names within `_src`. Module-local helpers begin
-with `_`. The private package boundary keeps these interfaces out of the public
-API; only the two facades use `__all__`. Strict Pyright checks cross-module access.
+with `_`. Strict Pyright checks cross-module access.
 
 Node fields and protocol methods retain their existing names because they
 form the extension/reconstruction interface. Nested functions and local

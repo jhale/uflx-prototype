@@ -1,9 +1,8 @@
 import numpy as np
 
-from uflx._src.algorithms.rewriting import complete_indices
-from uflx._src.algorithms.substitution import substitute_values
-from uflx._src.algorithms.traversal import map_fields, memoized
-from uflx._src.nodes import (
+from uflx import determinant
+from uflx.algorithms import complete_indices, map_fields, memoized, substitute_values
+from uflx.nodes import (
     BroadcastTo,
     ComponentTensor,
     Conjugate,
@@ -25,7 +24,6 @@ from uflx._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx._src.tensors import determinant
 
 
 def simplify(f):

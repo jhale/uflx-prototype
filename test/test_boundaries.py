@@ -55,11 +55,18 @@ def test_the_core_imports_neither_the_extension_nor_the_oracle():
     assert_imports_none_of(uflx_compiler, {"uflx_oracle"})
 
 
-def test_the_extension_reads_only_the_public_api_and_the_node_classes_of_the_core():
-    for path in files(uflx_basix):
+@pytest.mark.parametrize(
+    ("package", "allowed"),
+    [
+        (uflx_basix, {"uflx", "uflx.nodes"}),
+        (uflx_compiler, {"uflx", "uflx.algorithms", "uflx.nodes"}),
+    ],
+)
+def test_extension_and_compiler_use_public_core_modules(package, allowed):
+    for path in files(package):
         for m in imported(path):
             if m.partition(".")[0] == "uflx":
-                assert m in ("uflx", "uflx._src.nodes"), path
+                assert m in allowed, (path, m)
 
 
 def test_the_public_api_is_the_names_it_declares():
@@ -74,7 +81,7 @@ def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
         if relative.parts[0] != "_src" or "extensions" in relative.parts:
             continue
         for module in imported(path):
-            assert module != "uflx", (path, module)
+            assert module not in {"uflx", "uflx.algorithms", "uflx.nodes"}, (path, module)
             assert not module.startswith(
                 (
                     "uflx._draft",
