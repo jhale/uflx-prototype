@@ -685,8 +685,9 @@ interpreter.evaluate(gradient(f, plane), points=point)  # [6.0, 1.0]
 ```
 
 Pass field data to `Interpreter(environment)`, keyed by function nodes. A field can
-be a numerical value or a callable of the current coordinate. Basix fields accept
-local coefficient arrays, and runtime arrays and extents accept node or label keys.
+be a numerical value, a UFLx expression, or a callable of the current coordinate.
+Basix fields accept local coefficient arrays. Runtime arrays and extents accept
+node or label keys.
 Use `arguments=(u_value, v_value)` for ordered form slots, `indices={i: k}`
 for free indices, and `cells={domain: slot}` to select a local cell. A tuple-valued
 slot takes a tuple. Each call starts with a fresh evaluation frame. A form extends
@@ -695,21 +696,15 @@ point for each sample. The parent frame keeps its original bindings. The callbac
 interfaces `evaluate(expression, env)(arguments)` and `at(domain, point, callback)`
 use the same interpreter.
 
-Spatial and directional derivatives use forward-mode automatic differentiation.
-Each operand carries its numerical value and its tangent in the requested direction.
-Nested derivatives have distinct tags, so a Hessian or a mixed field/geometry derivative
-can be evaluated directly. Cell charts use the same rules, and Basix supplies basis
-derivatives by tabulation. Integrals use quadrature on unit simplices, Basix cells and
-the point in zero dimensions.
+The oracle evaluates spatial and directional derivatives with explicit rules for
+UFLx nodes. Basix supplies basis derivatives by tabulation. To define a
+differentiable field in UFLx, bind its function node to an expression such as
+`x[0] ** num(2)`. An ordinary Python field receives numerical coordinates and
+can be sampled wherever the calculation needs its value.
 
-A field callable written using supported arithmetic can accept the interpreter's
-value-and-tangent inputs directly. For an opaque binding, supply a callable object
-with a `jvp(point, direction)` method returning its Jacobian applied to the direction.
-Only evaluation at a varying point needs that method. Higher derivatives also
-differentiate the action.
-
-An `ExternalOperator` can instead identify the library function and its derivative
-action. For a pointwise scalar operation `law` with output on the operand's domain,
+To differentiate through an opaque library function, represent it as an
+`ExternalOperator` and bind its declared derivative action. For a pointwise
+scalar operation `law` with output on the operand's domain,
 the library can bind ordinary numerical functions.
 
 ```python

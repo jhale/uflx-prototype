@@ -3,8 +3,10 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+import numpy as np
+
 from . import _dual as ad
-from ._context import call_at
+from ._context import call, parts, sample, tags
 from ._forms import supplied
 
 
@@ -15,20 +17,6 @@ class Pointwise:
     function: Callable
 
 
-def parts(operand, tag):
-    if callable(operand):
-
-        def component(index):
-            def read(*args):
-                return parts(operand(*args), tag)[index]
-
-            read._derivative_tags = lambda: ad.tags(operand) - {tag}
-            return read
-
-        return component(0), component(1)
-    return ad.split(operand, tag)
-
-
 def evaluate_external(node, frame):
     operation = node.operation
     if isinstance(frame.environment[operation], Pointwise):
@@ -37,7 +25,7 @@ def evaluate_external(node, frame):
         inputs = tuple(supplied(operand, operand, frame) for operand in node.operands)
 
     def evaluate(operation, inputs):
-        active = set().union(*(ad.tags(operand) for operand in inputs))
+        active = tags(inputs)
         if active:
             tag = max(active)
             values, directions = zip(*(parts(operand, tag) for operand in inputs), strict=True)
@@ -52,9 +40,9 @@ def evaluate_external(node, frame):
 
         binding = frame.environment[operation]
         fn = binding.function if isinstance(binding, Pointwise) else binding
-        result = call_at(frame.points, fn, *inputs)
+        result = call(frame.points, fn, *inputs)
         if node.domain is not None and callable(result):
-            return call_at(frame.points, ad.call_field, result, frame.points[node.domain])
-        return ad.normalize(result)
+            return sample(result, frame.points, frame.points[node.domain])
+        return np.asarray(result) if isinstance(result, (list, tuple)) else result
 
     return evaluate(operation, inputs)

@@ -6,7 +6,7 @@ from uflx.nodes import AbstractExpression
 
 from . import _dual as ad
 from ._context import at as at
-from ._context import call_at, callback_points
+from ._context import call, callback_points
 from ._external import Pointwise as Pointwise
 from ._forms import ExpressionBinding
 from ._semantics import Frame
@@ -15,9 +15,10 @@ from ._semantics import Frame
 class Interpreter:
     """A numerical reference interpreter with field and operation bindings.
 
-    Bind functions to numbers, arrays or callables of a point. Bind operator-valued
-    functions to callables of their slots. Runtime arrays, coefficients and extents
-    also accept their library labels. Each call reads the current environment.
+    Bind fields to numbers, arrays, UFLx expressions or numerical point callbacks.
+    Use an ExternalOperator with a derivative action for a differentiable library function.
+    Bind operator-valued functions to callables of their slots. Runtime arrays,
+    coefficients and extents also accept their library labels.
     """
 
     def __init__(self, environment: Mapping | None = None):
@@ -50,7 +51,7 @@ def evaluate(e, env, ienv=None, over=None):
 
     def replacement(value):
         def read(frame, arguments):
-            return call_at(frame.points, value, *arguments) if callable(value) else value
+            return call(frame.points, value, *arguments) if callable(value) else value
 
         return ExpressionBinding(read)
 

@@ -31,7 +31,7 @@ def simplex_quadrature(dimension):
 def chart_of(piece, frame):
     def chart(point):
         local = frame.at({piece.reference_cell: point})
-        return np.real(ad.asarray(local.value(piece.parameterisation)))
+        return ad.linear(np.real, local.value(piece.parameterisation))
 
     return chart
 
@@ -41,8 +41,9 @@ def reference_point(chart, point, dim):
     ref = np.full(dim, 1 / (dim + 1))
     if dim:
         for _ in range(30):
-            correction = np.linalg.pinv(ad.jacobian(chart, ref)) @ (chart(ref) - np.real(point))
-            ref = ref - correction
+            residual = ad.subtract(chart(ref), ad.linear(np.real, point))
+            correction = ad.matmul(ad.pinv(ad.jacobian(chart, ref)), residual)
+            ref = ad.subtract(ref, correction)
             if converged(correction):
                 break
     return ref
@@ -63,9 +64,9 @@ def locate(domain, point, frame):
         inside = (
             elements.inside_cell(cell, ad.primal(ref))
             if elements.is_basix_cell(cell)
-            else np.all(ref > -1e-9) and np.sum(ref) < 1 + 1e-9
+            else np.all(ad.primal(ref) > -1e-9) and np.sum(ad.primal(ref)) < 1 + 1e-9
         )
-        if inside and np.linalg.norm(ad.primal(chart(ref) - np.real(point))) < 1e-9:
+        if inside and np.linalg.norm(ad.primal(chart(ref)) - np.real(ad.primal(point))) < 1e-9:
             return slot
     raise ValueError(f"no cell of {domain} contains {point}")
 
@@ -77,7 +78,7 @@ def tangent_projector(domain, frame):
         slot = locate(domain, point, frame)
     chart = chart_of(domain[slot], frame)
     tangent = ad.jacobian(chart, reference_point(chart, point, domain.dimension))
-    return tangent @ np.linalg.pinv(tangent)
+    return ad.matmul(tangent, ad.pinv(tangent))
 
 
 def side_reference(side, frame):
@@ -90,7 +91,7 @@ def side_reference(side, frame):
         chart = chart_of(source[slot], frame)
         point = reference_point(chart, point, source.dimension)
     local = frame.at({inclusion.parameter_domain: point})
-    target = np.real(ad.asarray(local.value(inclusion.parameterisation)))
+    target = ad.linear(np.real, local.value(inclusion.parameterisation))
     return slot, parent_slot, inclusion, point, target
 
 
@@ -102,7 +103,10 @@ def integrate(domain, fn, frame):
             rule = simplex_quadrature(domain.dimension)
         else:
             raise NotImplementedError(f"no reference quadrature for {domain}")
-        return sum(weight * fn(frame.at({domain: np.asarray(point)})) for point, weight in rule)
+        total = 0
+        for point, weight in rule:
+            total = ad.add(total, ad.multiply(weight, fn(frame.at({domain: np.asarray(point)}))))
+        return total
 
     def integrate_piece(slot, piece):
         chart = chart_of(piece, frame)
@@ -111,23 +115,37 @@ def integrate(domain, fn, frame):
             ref = local.points[piece.reference_cell]
             physical = chart(ref)
             J = ad.jacobian(chart, ref)
-            density = np.sqrt(abs(np.linalg.det(J.T @ J))) if len(ref) else 1.0
-            return density * fn(
-                local.at(
-                    {("piece", domain): slot, domain: physical, domain.ambient_domain: physical}
-                )
+            density = volume_factor(J) if len(ref) else 1.0
+            sample = local.at(
+                {("piece", domain): slot, domain: physical, domain.ambient_domain: physical}
             )
+            return ad.multiply(density, fn(sample))
 
         return integrate(piece.reference_cell, mapped, frame)
 
-    return sum(integrate_piece(slot, piece) for slot, piece in enumerate(domain))
+    total = 0
+    for slot, piece in enumerate(domain):
+        total = ad.add(total, integrate_piece(slot, piece))
+    return total
+
+
+def volume_factor(J):
+    gram = ad.matmul(ad.linear(np.transpose, J), J)
+    return ad.sqrt(ad.absolute(ad.determinant(gram)))
 
 
 def transformed(value, law, J):
-    inverse = np.linalg.pinv(J)
+    inverse = ad.pinv(J)
     value = ad.asarray(value)
-    for axis, variance in enumerate(law.variances, start=value.ndim - len(law.variances)):
-        matrix = inverse.T if variance == "covariant" else J
-        value = np.moveaxis(np.tensordot(value, matrix, axes=([axis], [1])), -1, axis)
-    scale = np.linalg.det(J) if J.shape[0] == J.shape[1] else np.sqrt(np.linalg.det(J.T @ J))
-    return value / scale**law.weight
+    for axis, variance in enumerate(
+        law.variances, start=np.ndim(ad.primal(value)) - len(law.variances)
+    ):
+        matrix = ad.linear(np.transpose, inverse) if variance == "covariant" else J
+        value = ad.bilinear(
+            lambda v, m: np.moveaxis(np.tensordot(v, m, axes=([axis], [1])), -1, axis),
+            value,
+            matrix,
+        )
+    m, n = np.shape(ad.primal(J))
+    scale = ad.determinant(J) if m == n else volume_factor(J)
+    return ad.divide(value, ad.power(scale, law.weight))

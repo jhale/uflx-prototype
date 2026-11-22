@@ -30,7 +30,7 @@ from ..uflx_basix.integrals import K
 
 X = coordinate(K)
 u = function(space("V", domain=K), "u")
-ENV = {u: lambda x: 1 + x[0] * x[0] + 0.5j * x[1]}
+ENV = {u: num(1) + X[0] * X[0] + num(0.5j) * X[1]}
 i, j = index("i"), index("j")
 
 

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from uflx._src.extensions.external_operators import AbstractOperation, OutputType, external_operator
-from uflx.arithmetic import conjugate, num
+from uflx.arithmetic import conditional, conjugate, less_than, num
 from uflx.calculus import coordinate, directional_derivative, gradient
 from uflx.forms import function
 from uflx.nodes import EuclideanSpace
@@ -31,7 +31,7 @@ def test_nested_spatial_and_directional_seeds():
     P = EuclideanSpace(1)
     u = function(space("field", domain=P, scalar_type="real"), "u")
     x = coordinate(P)[0]
-    interpreter = Interpreter({u: lambda p: p[0] ** 3})
+    interpreter = Interpreter({u: x ** num(3)})
     d = directional_derivative(u * u, u, u, x)
     for expr in (gradient(d, P), directional_derivative(gradient(u * u, P), u, u, x)):
         np.testing.assert_allclose(interpreter.evaluate(expr, points={P: [2]}), [64])
@@ -63,13 +63,23 @@ class SineAction(AbstractOperation):
     def output_type(self, operands):
         return OutputType((), "real", operands[0].domain)
 
+    def derivative_action(self):
+        return SineSecondAction()
+
+
+class SineSecondAction(AbstractOperation):
+    identifier = "test.oracle.SineSecondAction"
+
+    def output_type(self, operands):
+        return OutputType((), "real", operands[0].domain)
+
 
 def test_pointwise_external_uses_declared_action_for_spatial_and_field_derivatives():
     P = EuclideanSpace(1)
     x = coordinate(P)[0]
     u = function(space("field", domain=P, scalar_type="real"), "u")
     response = external_operator(Sine(), (u * u,))
-    env = {u: lambda p: p[0], Sine(): Pointwise(math.sin)}
+    env = {u: x, Sine(): Pointwise(math.sin)}
     point = {P: [2]}
     assert Interpreter(env).evaluate(response, points=point) == pytest.approx(math.sin(4))
     with pytest.raises(TypeError, match="derivative action"):
@@ -81,6 +91,22 @@ def test_pointwise_external_uses_declared_action_for_spatial_and_field_derivativ
     )
     d = directional_derivative(response, u, x, num(3))
     assert interpreter.evaluate(d, points=point) == pytest.approx(12 * math.cos(4))
+
+
+def test_nested_external_derivative_calls_the_declared_second_action():
+    P = EuclideanSpace(1)
+    x = coordinate(P)[0]
+    response = external_operator(Sine(), (x * x,))
+    bindings = {
+        Sine(): Pointwise(math.sin),
+        SineAction(): Pointwise(lambda a, da: math.cos(a) * da),
+        SineSecondAction(): Pointwise(
+            lambda a, da, h, dh: -math.sin(a) * h * da + math.cos(a) * dh
+        ),
+    }
+    hessian = gradient(gradient(response, P), P)
+    result = Interpreter(bindings).evaluate(hessian, points={P: [2]})
+    np.testing.assert_allclose(result, [[2 * math.cos(4) - 16 * math.sin(4)]])
 
 
 def test_whole_field_external_action_receives_fields_and_ordered_directions():
@@ -104,23 +130,40 @@ def test_whole_field_external_action_receives_fields_and_ordered_directions():
     assert Interpreter(env).evaluate(directional_derivative(expr, v, num(0), num(1))) == 0
 
 
-def test_opaque_field_can_supply_a_jvp_only_when_needed():
-    class Field:
-        def __call__(self, point):
-            return math.sin(point[0])
-
-        def jvp(self, point, direction):
-            return math.cos(point[0]) * direction[0]
-
+def test_python_field_is_only_called_with_a_numerical_point():
     P = EuclideanSpace(1)
     u = function(space("opaque", domain=P, scalar_type="real"), "u")
-    assert Interpreter({u: Field()}).evaluate(gradient(u, P), points={P: [0.25]})[
-        0
-    ] == pytest.approx(math.cos(0.25))
-    opaque = lambda x: math.sin(x[0])
-    assert Interpreter({u: opaque}).evaluate(u, points={P: [0.25]}) == math.sin(0.25)
-    with pytest.raises(TypeError, match=r"jvp|derivative action"):
-        Interpreter({u: opaque}).evaluate(gradient(u, P), points={P: [0.25]})
+    calls = []
+
+    def field(point):
+        assert isinstance(point, np.ndarray) and point.dtype != object
+        calls.append(point.copy())
+        return point[0] ** 2
+
+    interpreter = Interpreter({u: field})
+    assert interpreter.evaluate(u, points={P: [3]}) == 9
+    with pytest.raises(TypeError, match=r"ExternalOperator.*derivative action"):
+        interpreter.evaluate(gradient(u, P), points={P: [3]})
+    assert len(calls) == 1
+
+    # Varying the field at a fixed point only needs its numerical value.
+    derivative = directional_derivative(u * u, u, u, num(2))
+    assert interpreter.evaluate(derivative, points={P: [3]}) == 36
+
+
+def test_predicate_can_read_an_opaque_value_while_differentiating_a_branch():
+    P = EuclideanSpace(1)
+    x = coordinate(P)[0]
+    u = function(space("predicate", domain=P, scalar_type="real"), "u")
+    field = conditional(less_than(u, num(0)), x * x, x)
+    oracle = Interpreter({u: lambda point: float(point[0])})
+    assert oracle.evaluate(gradient(field, P), points={P: [-2]})[0] == -4
+
+    response = external_operator(Sine(), (u,))
+    field = conditional(less_than(response, num(0)), u * u, u)
+    derivative = directional_derivative(field, u, x, num(3))
+    oracle = Interpreter({Sine(): Pointwise(math.sin)})
+    assert oracle.evaluate(derivative, points={P: [-2]}) == -12
 
 
 def test_basix_second_derivatives_come_from_basis_tabulation():

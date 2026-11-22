@@ -48,6 +48,7 @@ from uflx_basix.nodes import RuntimeArray, VertexCoordinates
 from . import _dual as ad
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors
+from ._context import Operand
 from ._external import evaluate_external
 from ._geometry import integrate
 
@@ -73,6 +74,25 @@ class Frame:
     def at(self, bindings):
         return Frame(self.environment, self.indices, self.points | bindings)
 
+    def for_comparison(self):
+        # A predicate reads values at the current point, including the point of a
+        # directional derivative. Neither its operands nor its outcome need tangents.
+        if not any(
+            isinstance(v, (ad.Dual, Operand)) for v in self.environment.values()
+        ) and not any(isinstance(p, ad.Dual) for p in self.points.values()):
+            return self
+
+        def value_only(binding):
+            if isinstance(binding, Operand):
+                return type(binding)(lambda *args: value_only(binding(*args)))
+            return ad.primal(binding)
+
+        return Frame(
+            {node: value_only(v) for node, v in self.environment.items()},
+            self.indices,
+            {domain: ad.primal(p) for domain, p in self.points.items()},
+        )
+
     def bind_arguments(self, bindings):
         return Frame(self.environment | bindings, self.indices, self.points)
 
@@ -96,7 +116,8 @@ def interpret(node, frame, arguments):
         case Complex(a, b):
             return complex(a.value, b.value)
         case LessThan(a, b):
-            return np.real(value(a)) < np.real(value(b))
+            local = frame.for_comparison()
+            return np.real(local.value(a)) < np.real(local.value(b))
         case Conditional(predicate, left, right):
             result = value(left if value(predicate) else right, arguments)
             return ad.asarray(result, dtype=complex) if node.scalar_type == "complex" else result
@@ -108,51 +129,48 @@ def interpret(node, frame, arguments):
                 else dtype(0)
             )
         case Sum(a, b):
-            return value(a, arguments) + value(b, arguments)
+            return ad.add(value(a, arguments), value(b, arguments))
         case Product(a, b):
             n = len(a.argument_spaces)
-            return value(a, arguments[:n]) * value(b, arguments[n:])
+            return ad.multiply(value(a, arguments[:n]), value(b, arguments[n:]))
         case Division(a, b):
-            return value(a, arguments) / value(b)
+            return ad.divide(value(a, arguments), value(b))
         case Conjugate(a):
-            return np.conj(value(a, tuple(_forms.conjugated(v) for v in arguments)))
+            return ad.linear(np.conj, value(a, tuple(_forms.conjugated(v) for v in arguments)))
         case RealPart(a):
-            return np.real(value(a, arguments))
+            return ad.linear(np.real, value(a, arguments))
         case ImaginaryPart(a):
-            return np.imag(value(a, arguments))
+            return ad.linear(np.imag, value(a, arguments))
         case Absolute(a):
-            return np.abs(value(a, arguments))
+            return ad.absolute(value(a, arguments))
         case SquareRoot(a) | Logarithm(a) | Power(a, _):
 
             def cast(v):
                 if node.scalar_type == "complex":
                     return ad.asarray(v, dtype=complex)
-                return ad.asarray(np.real(v), dtype=float)
+                return ad.asarray(ad.linear(np.real, v), dtype=float)
 
             base = cast(value(a, arguments))
             if isinstance(node, Power):
-                return np.power(base, cast(value(node.exponent)))
-            return np.sqrt(base) if isinstance(node, SquareRoot) else np.log(base)
+                return ad.power(base, cast(value(node.exponent)))
+            return ad.sqrt(base) if isinstance(node, SquareRoot) else ad.logarithm(base)
         case Determinant(a):
-            return np.linalg.det(value(a))
+            return ad.determinant(value(a))
         case Inverse(a):
             matrix = ad.asarray(value(a))
-            return (
-                np.linalg.inv(matrix)
-                if matrix.shape[0] == matrix.shape[1]
-                else np.linalg.pinv(matrix)
-            )
+            rows, columns = np.shape(ad.primal(matrix))
+            return ad.inverse(matrix) if rows == columns else ad.pinv(matrix)
         case BroadcastTo(x, shape):
             target = tuple(_tensors.size(n, frame) for n in shape)
             if 0 in target:
                 dtype = {"boolean": bool, "complex": complex, "real": float}[node.scalar_type]
                 return np.empty(target, dtype=dtype)
-            return np.broadcast_to(value(x, arguments), target)
+            return ad.linear(lambda a: np.broadcast_to(a, target), value(x, arguments))
         case Tensor(entries):
             return ad.stack([value(entry, arguments) for entry in entries])
         case Indexed(x, indices):
             key = _tensors.flat(_tensors.index_value(i, frame.indices) for i in indices)
-            return ad.asarray(value(x, arguments))[key]
+            return ad.entry(ad.asarray(value(x, arguments)), key)
         case ComponentTensor() | IndexSum():
             return _tensors.bound_tensor(node, frame, arguments)
         case Function():
@@ -174,7 +192,10 @@ def interpret(node, frame, arguments):
         case Gradient(x, domain):
             return _spatial.gradient(x, domain, frame, arguments)
         case Divergence(x, domain):
-            return np.trace(_spatial.gradient(x, domain, frame, arguments), axis1=-2, axis2=-1)
+            return ad.linear(
+                lambda g: np.trace(g, axis1=-2, axis2=-1),
+                _spatial.gradient(x, domain, frame, arguments),
+            )
         case Curl(x, domain):
             return _spatial.curl(x, domain, frame, arguments)
         case Integral(x, domain):

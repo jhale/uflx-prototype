@@ -81,7 +81,8 @@ def topology_of_points(Q, label, located):
 SQUARE_SIDE = topology_of_points(D, "square points", [in_square(x) for x in SQUARE])
 SURFACE_SIDE = topology_of_points(M, "surface points", SURFACE)
 w = function(space("W", domain=M), "w")
-ENV = {u: lambda x: 1 + x[0] + 2 * x[0] * x[1], w: lambda x: 1 + x[0] * x[1] + x[2] * x[2]}
+x, y = coordinate(D), coordinate(M)
+ENV = {u: num(1) + x[0] + num(2) * x[0] * x[1], w: num(1) + y[0] * y[1] + y[2] * y[2]}
 
 
 def integrand(rnd, Q, f):

@@ -17,7 +17,7 @@ from ._tensors import size
 
 def gradient(operand, domain, frame, arguments):
     point = ad.asarray(frame.points[domain])
-    if point.size == 0:
+    if np.size(ad.primal(point)) == 0:
         shape = tuple(size(n, frame) for n in operand.value_shape)
         return np.empty((*shape, 0), dtype=complex if operand.scalar_type == "complex" else float)
 
@@ -25,16 +25,20 @@ def gradient(operand, domain, frame, arguments):
         return ad.asarray(frame.at({domain: p}).value(operand, arguments))
 
     result = ad.jacobian(field, point)
-    if isinstance(domain, Mesh) and domain.dimension < point.size:
-        result = result @ tangent_projector(domain, frame)
+    if isinstance(domain, Mesh) and domain.dimension < np.size(ad.primal(point)):
+        result = ad.matmul(result, tangent_projector(domain, frame))
     return result
 
 
 def curl(operand, domain, frame, arguments):
     g = gradient(operand, domain, frame, arguments)
-    if g.shape[-1] == 2:
-        return g[1, 0] - g[0, 1]
-    return ad.stack([g[2, 1] - g[1, 2], g[0, 2] - g[2, 0], g[1, 0] - g[0, 1]])
+
+    def antisymmetric(a):
+        if a.shape[-1] == 2:
+            return a[1, 0] - a[0, 1]
+        return np.array([a[2, 1] - a[1, 2], a[0, 2] - a[2, 0], a[1, 0] - a[0, 1]])
+
+    return ad.linear(antisymmetric, g)
 
 
 def pull_back(operand, mapping, frame, arguments):
@@ -50,7 +54,7 @@ def pull_back(operand, mapping, frame, arguments):
             mapping.parent: frame.points[mapping.reference_cell],
         }
     else:
-        point = np.real(ad.asarray(frame.value(mapping.parameterisation)))
+        point = ad.linear(np.real, frame.value(mapping.parameterisation))
         if isinstance(mapping, CellMap):
             bindings = {("piece", mapping.parent): mapping.cell_slot, mapping.parent: point}
         else:
@@ -71,6 +75,6 @@ def conormal(side, conormals, frame):
     slot, parent_slot, inclusion, ref, target = side_reference(side, frame)
     J = ad.jacobian(chart_of(side.parent[parent_slot], frame), target)
     local = frame.at({inclusion.parameter_domain: ref})
-    normal = np.real(ad.asarray(local.value(conormals[slot])))
-    vector = np.linalg.pinv(J).T @ normal
-    return vector / np.linalg.norm(vector)
+    normal = ad.linear(np.real, local.value(conormals[slot]))
+    vector = ad.matmul(ad.linear(np.transpose, ad.pinv(J)), normal)
+    return ad.divide(vector, ad.norm(vector))

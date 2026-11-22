@@ -86,7 +86,8 @@ def integrand(rnd, dom, kind):
 
 
 def main(trials):
-    env = {u: lambda x: 1 + x[0] + 2 * x[0] * x[1], r: 0.7}
+    x = coordinate(D)
+    env = {u: num(1) + x[0] + num(2) * x[0] * x[1], r: 0.7}
     bad = dict(value=0, static=0, grammar=0)
     rejected = 0
     for seed in range(trials):

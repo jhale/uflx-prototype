@@ -79,8 +79,8 @@ def random_form(rnd, n, depth):
 
 
 def main(trials):
-    env = {u: lambda x: 1 + x[0] * x[1], w: lambda x: x[0] - 2 * x[1], h: lambda x: 0.5 + x[1]}
-    args = [lambda x: 1 + x[0], lambda x: x[1] * x[1]]
+    env = {u: num(1) + X[0] * X[1], w: X[0] - num(2) * X[1], h: num(0.5) + X[1]}
+    args = [num(1) + X[0], X[1] * X[1]]
     bad = dict(value=0, grammar=0)
     for seed in range(trials):
         rnd = random.Random(seed)

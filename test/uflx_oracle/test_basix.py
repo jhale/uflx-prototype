@@ -63,7 +63,8 @@ def facet_integrals(K):
     D, E, B = square(K)
     u = function(space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
-    env = {u: {0: lambda x: 1 + x[0] + 2 * x[1], 1: lambda x: 3 - x[0] * x[1]}}
+    x = coordinate(D)
+    env = {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
     forms = [
         integral(pull_back(u, plus) * outward_conormal(plus)[0], E),
         integral(pull_back(u, plus) - pull_back(u, minus), E),
@@ -99,14 +100,14 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
     D, E, B = quadrilaterals()
     u = function(space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
-    env = {u: {0: lambda x: 1 + x[0] + 2 * x[1], 1: lambda x: 3 - x[0] * x[1]}}
-    Z = coordinate(D)
+    x = coordinate(D)
+    env = {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
     exact = [
         (integral(num(1), D), 1),
         (integral(outward_conormal(plus)[0], E), 1),
         (integral(outward_conormal(minus)[0], E), -1),
-        (integral(outward_conormal(inside)[0] * pull_back(Z[0], inside), B), 1),
-        (integral(outward_conormal(inside)[1] * pull_back(Z[1], inside), B), 1),
+        (integral(outward_conormal(inside)[0] * pull_back(x[0], inside), B), 1),
+        (integral(outward_conormal(inside)[1] * pull_back(x[1], inside), B), 1),
         (integral(pull_back(u, plus) - pull_back(u, minus), E), -0.25),
         (integral(pull_back(gradient(u, D)[0], inside) * outward_conormal(inside)[0], B), None),
     ]
@@ -130,20 +131,20 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
     u = function(space("V", domain=D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     # A function that differs between the cells, keyed by the local cell slot.
+    x = coordinate(D)
     env = {
         u: {
-            0: lambda x: 1 + x[0] + 2 * x[1],
-            1: lambda x: 2 - x[0],
-            2: lambda x: 3 - x[0] * x[1],
+            0: num(1) + x[0] + num(2) * x[1],
+            1: num(2) - x[0],
+            2: num(3) - x[0] * x[1],
         }
     }
-    Z = coordinate(D)
     exact = [
         (integral(num(1), D), 1),
         (integral(outward_conormal(plus)[0], E), 0),
         (integral(outward_conormal(plus)[1], E), 0.5),
-        (integral(outward_conormal(inside)[0] * pull_back(Z[0], inside), B), 1),
-        (integral(outward_conormal(inside)[1] * pull_back(Z[1], inside), B), 1),
+        (integral(outward_conormal(inside)[0] * pull_back(x[0], inside), B), 1),
+        (integral(outward_conormal(inside)[1] * pull_back(x[1], inside), B), 1),
         (integral(u * u, D), None),
         (integral(pull_back(u, plus) - pull_back(u, minus), E), None),
         (integral(pull_back(gradient(u, D)[0], inside) * outward_conormal(inside)[0], B), None),

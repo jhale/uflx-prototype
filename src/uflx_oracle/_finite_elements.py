@@ -4,8 +4,10 @@ from functools import cache
 
 import numpy as np
 
+from uflx.nodes import AbstractExpression
+
 from . import _dual as ad
-from ._context import call_at
+from ._context import sample
 
 try:
     import basix
@@ -57,7 +59,10 @@ def tabulate(element, point, orders=None):
         tangent = np.zeros_like(ad.primal(base))
         for axis in range(len(orders)):
             partial = (*orders[:axis], orders[axis] + 1, *orders[axis + 1 :])
-            tangent = tangent + tabulate(element, point.value, partial) * point.tangent[axis]
+            tangent = ad.add(
+                tangent,
+                ad.multiply(tabulate(element, point.value, partial), ad.entry(point.tangent, axis)),
+            )
         return ad.Dual(point.tag, base, tangent)
     table = element.tabulate(sum(orders), np.asarray([point], dtype=float))
     return table[basix.index(*orders) if orders else 0, 0]
@@ -69,15 +74,20 @@ def field_value(node, frame):
     topology = space.domain
     slot = points.get(("piece", topology), 0)
     coefficients = frame.input(node, f"coefficients:{node.label}")
+    if isinstance(coefficients, AbstractExpression):
+        return frame.value(coefficients)
     if callable(coefficients):
         # A form slot may supply a field directly on the reference cell.
-        return call_at(points, ad.call_field, coefficients, points[topology])
+        return sample(coefficients, points, points[topology])
     basis = tabulate(space.element(slot), points[topology])
-    local = ad.asarray(coefficients)[list(space.cell_dofs[slot])]
-    value = (
-        local.reshape(-1, space.block_size).T @ basis[:, 0] if space.block_shape else local @ basis
-    )
-    return value.reshape(space.value_shape)
+
+    def reconstruct(dofs, basis):
+        local = np.asarray(dofs)[list(space.cell_dofs[slot])]
+        if space.block_shape:
+            return (local.reshape(-1, space.block_size).T @ basis[:, 0]).reshape(space.value_shape)
+        return (local @ basis).reshape(space.value_shape)
+
+    return ad.bilinear(reconstruct, coefficients, basis)
 
 
 def basis_value(node, points):
@@ -85,7 +95,7 @@ def basis_value(node, points):
     if points.get(("piece", space.domain), 0) != node.cell_slot:
         return np.zeros(node.value_shape)
     basis = tabulate(space.element(node.cell_slot), points[space.domain])
-    return basis.reshape(node.value_shape)
+    return ad.linear(lambda a: a.reshape(node.value_shape), basis)
 
 
 @cache
@@ -100,15 +110,21 @@ def vertex_value(topology, vertices, points):
     cell = topology.cell_types[slot]
     point = points[topology]
     if is_basix_cell(cell) and cell.dimension:
-        weights = tabulate(vertex_element(cell.cell_type), point)[:, 0]
+        weights = ad.entry(tabulate(vertex_element(cell.cell_type), point), (slice(None), 0))
     elif cell.num_vertices == cell.dimension + 1:
-        weights = ad.stack([1 - np.sum(point), *(point[i] for i in range(cell.dimension))])
+        weights = ad.stack(
+            [
+                ad.subtract(1, ad.linear(np.sum, point)),
+                *(ad.entry(point, i) for i in range(cell.dimension)),
+            ]
+        )
     else:
         bits = np.array(
             [[(v >> d) & 1 for d in range(cell.dimension)] for v in range(cell.num_vertices)]
         )
         weights = np.ones(cell.num_vertices)
         for axis in range(cell.dimension):
-            x = point[axis]
-            weights = weights * ((1 - bits[:, axis]) * (1 - x) + bits[:, axis] * x)
-    return weights @ np.asarray(vertices)[list(topology.cells[slot])]
+            x = ad.entry(point, axis)
+            factors = ad.add(1 - bits[:, axis], ad.multiply(2 * bits[:, axis] - 1, x))
+            weights = ad.multiply(weights, factors)
+    return ad.matmul(weights, np.asarray(vertices)[list(topology.cells[slot])])

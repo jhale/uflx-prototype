@@ -80,9 +80,10 @@ def integrand(rnd, E, sides):
 
 
 def main(trials):
+    x = coordinate(D)
     env = {
-        u: {0: lambda x: 1 + x[0] + 2 * x[1], 1: lambda x: 3 - x[0] * x[1]},
-        w: lambda x: 2 + x[0] * x[1],
+        u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]},
+        w: num(2) + x[0] * x[1],
     }
     bad = dict(value=0, static=0, grammar=0)
     lazy, rejected = 0, 0
