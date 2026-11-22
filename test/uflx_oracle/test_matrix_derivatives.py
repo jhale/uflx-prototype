@@ -1,5 +1,6 @@
 """Fixed matrix sizes and polynomial determinant derivatives at singular points."""
 
+import jax
 import numpy as np
 import pytest
 
@@ -69,3 +70,46 @@ def test_determinant_derivative_matches_finite_difference():
     np.testing.assert_allclose(
         Interpreter({A: point, H: direction}).evaluate(derivative), expected, rtol=1e-8
     )
+
+
+@pytest.mark.parametrize(
+    ("point", "cofactors"),
+    [
+        (np.empty((0, 0)), np.empty((0, 0))),
+        ([[0.0]], [[1.0]]),
+        ([[0.0, 0.0], [0.0, 3.0]], [[3.0, 0.0], [0.0, 0.0]]),
+        ([[1.0, 2.0], [3.0, 4.0]], [[4.0, -3.0], [-2.0, 1.0]]),
+        ([[1 + 2j, 2], [3j, -4j]], [[-4j, -3j], [-2, 1 + 2j]]),
+    ],
+    ids=["empty", "singleton", "singular", "nonsingular", "complex"],
+)
+def test_determinant_jvp_and_gradient(point, cofactors):
+    point = np.asarray(point)
+    complex_input = np.iscomplexobj(point)
+    A = function(
+        space("matrix", point.shape, scalar_type="complex" if complex_input else "real"), "A"
+    )
+    expr = determinant(A)
+
+    def evaluate(matrix):
+        return Interpreter({A: matrix}).evaluate(expr)
+
+    direction = np.arange(2, 2 + point.size, dtype=point.dtype).reshape(point.shape)
+    grad = jax.jit(jax.grad(evaluate, holomorphic=complex_input))(point)
+    _, tangent = jax.jvp(evaluate, (point,), (direction,))
+    np.testing.assert_allclose(tangent, np.sum(cofactors * direction))
+    np.testing.assert_allclose(grad, cofactors)
+
+
+def test_determinant_gradient_derivative_at_a_singular_minor():
+    A = function(space("matrix", (3, 3), scalar_type="real"), "A")
+    expr = determinant(A)
+
+    def evaluate(matrix):
+        return Interpreter({A: matrix}).evaluate(expr)
+
+    # At diag(2t, 3, 0) the only nonzero cofactor is the final diagonal entry, 6t.
+    point = np.diag([0.0, 3.0, 0.0])
+    direction = np.diag([2.0, 0.0, 0.0])
+    _, mixed = jax.jvp(jax.grad(evaluate), (point,), (direction,))
+    np.testing.assert_allclose(mixed, np.diag([0.0, 0.0, 6.0]))

@@ -66,7 +66,15 @@ def determinant(matrix):
 
 @determinant.defjvp
 def _determinant_jvp(primals, tangents):
-    # The determinant is multilinear in its rows, including at singular matrices.
     (matrix,), (direction,) = primals, tangents
-    tangent = sum(determinant(matrix.at[i].set(direction[i])) for i in range(len(matrix)))
-    return determinant(matrix), jnp.asarray(tangent, dtype=matrix.dtype)
+    value = determinant(matrix)
+    tangent = jnp.zeros_like(value)
+    # Cofactors depend only on the primal, so JAX can transpose this linear map.
+    for i in range(len(matrix)):
+        rows = jnp.delete(matrix, i, axis=0)
+        for j in range(len(matrix)):
+            minor = jnp.delete(rows, j, axis=1)
+            minor_det = minor[0, 0] if minor.shape == (1, 1) else determinant(minor)
+            cofactor = (-1) ** (i + j) * minor_det
+            tangent = tangent + cofactor * direction[i, j]
+    return value, tangent
