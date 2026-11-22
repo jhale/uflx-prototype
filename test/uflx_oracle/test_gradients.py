@@ -3,7 +3,6 @@ import sys
 
 import numpy as np
 
-import uflx_oracle as oracle
 from uflx._src.nodes import Conormal, Function, Gradient, PullBack
 from uflx._src.passes import gradients
 from uflx._src.passes.contracts import in_core_normal_form
@@ -24,7 +23,7 @@ from uflx.forms import function
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
 from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type
 from ..uflx_basix.integrals import K
@@ -93,16 +92,7 @@ def needs_pass(n):
 
 def main(trials):
     # Third derivatives by nested finite differences need a larger step than the default.
-    step, oracle.H = oracle.H, 1e-3
-    oracle.VALUES.clear()
-    try:
-        return run(trials)
-    finally:
-        oracle.H = step
-        oracle.VALUES.clear()
-
-
-def run(trials):
+    interpreter = Interpreter(ENV, spatial_step=1e-3)
     bad = dict(value=0, static=0, grammar=0, lazy=0, rejected=0)
     for seed in range(trials):
         rnd = random.Random(seed)
@@ -116,7 +106,7 @@ def run(trials):
         if not keeps_static_type(e, out):
             bad["static"] += 1
         bad["grammar"] += not in_core_normal_form(out)
-        before, after = evaluate(e, ENV)(()), evaluate(out, ENV)(())
+        before, after = interpreter.evaluate(e), interpreter.evaluate(out)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-5):
             bad["value"] += 1
             if bad["value"] <= 3:

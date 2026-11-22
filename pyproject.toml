@@ -5,11 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "uflx-spec-interpreter"
 version = "0.1.0"
-description = "A toy implementation of the evaluation passes of the UFLx language specification"
+description = "A numerical reference interpreter, symbolic transformations and form compiler for UFLx"
 requires-python = ">=3.11"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
+oracle = ["fenics-basix"]
 optimisation = ["egglog==14.0.0; python_version >= '3.12'"]
 test = ["pytest", "pytest-xdist", "coverage", "fenics-basix", "jax"]
 lint = ["ruff", "pyright"]

@@ -161,7 +161,7 @@ reference-domain integrals and explicit index sums for other integration familie
 
 The core implements the evaluation passes in the UFLx language specification
 (`design/language.md` in the uflx repository). The tests check the passes against
-an independent numerical oracle.
+an independent numerical reference interpreter.
 
 The repository has four packages in `src/`, and imports go only from the oracle
 and the compiler to the extension to the core, which `test/uflx/test_boundaries.py`
@@ -177,7 +177,7 @@ checks:
   from Basix, and `BasixSpace` supplies finite elements with independent
   cell-local coefficients. `uflx_basix.assembly` supplies explicit library DOF maps
   for gathering coefficients and scattering local tensors
-- `uflx_oracle`: the oracle that the tests compare the passes against
+- `uflx_oracle`: the numerical reference interpreter used to check passes and compiled results
 - `uflx_compiler`: a form compiler after the core normal form, with a quadrature
   pass that rewrites an integral over a Basix cell as a weighted sum over the
   points of a rule of Basix, a tabulation pass that rewrites a function of a
@@ -662,12 +662,46 @@ The private modules of `_src`:
 - `rules/`: mathematical rules grouped as in the specification; passes select and
   compose them.
 
-`uflx_oracle` evaluates an expression from the definitions of its nodes, with
-finite differences for derivatives, quadrature for integrals and numeric maps
-for pull-backs, so it does not use the passes. The value of an
-`AbstractExtent` is bound in the environment, as a solver gives it to a kernel. The oracle
-evaluates the classes of `uflx_basix` too, and reads the values of an
-`IndexTable`, which the specification leaves to a library.
+### Numerical reference interpreter
+
+`uflx_oracle.interpreter.Interpreter` evaluates the original expression tree.
+Use it to obtain a value for a field, apply a form to numerical arguments, or
+check a lowering or compilation result. Core expressions require NumPy.
+Install `pip install -e ".[oracle]"` for Basix elements, coefficient tables and quadrature.
+
+```python
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, gradient
+from uflx.nodes import EuclideanSpace
+from uflx_oracle.interpreter import Interpreter
+
+plane = EuclideanSpace(2)
+x = coordinate(plane)
+f = x[0] ** num(2) + x[1]
+interpreter = Interpreter()
+point = {plane: [3.0, 4.0]}
+interpreter.evaluate(f, points=point)                  # 13.0
+interpreter.evaluate(gradient(f, plane), points=point)  # approximately [6.0, 1.0]
+```
+
+Pass field data to `Interpreter(environment)`, keyed by function nodes. A field can
+be a numerical value or a callable of the current coordinate. Basix fields accept
+local coefficient arrays, and runtime arrays and extents accept node or label keys.
+Use `arguments=(u_value, v_value)` for ordered form slots, `indices={i: k}`
+for free indices, and `cells={domain: slot}` to select a local cell. A tuple-valued
+slot takes a tuple. Each call reads the current bindings and shares intermediate
+values within that evaluation. Existing `evaluate(expression, env)(arguments)`
+and `at(domain, point, callback)` calls use the same interpreter.
+
+Arithmetic and form binding follow node definitions directly. The interpreter samples
+spatial and directional derivatives with central differences and integrates using
+numerical quadrature. Set `spatial_step` and `derivative_step` on the interpreter
+when comparing derivatives at a particular scale. Nested derivatives can amplify
+roundoff. Quadrature covers unit simplices, Basix cells and the point in zero
+dimensions. Mesh integration sums local cells using their numerical charts. An
+external operation needs a callable in the environment keyed by its operation node.
+
+### Running the tests
 
 Run `pytest test` for the full suite or select a package, for example
 `pytest test/uflx_compiler`. Each test belongs to the lowest layer that can run its assertions and fixtures.

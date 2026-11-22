@@ -9,7 +9,6 @@ from ..nodes import AbstractExpression, Base
 from ..nodes.caching import cached
 from ..nodes.scalar_types import ExpressionScalarType
 from ..nodes.static import free_indices
-from ..passes.derivatives import expand_derivatives_with
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
@@ -91,4 +90,6 @@ def _tangent(
 
 def apply_external_derivatives(f: AbstractExpression) -> AbstractExpression:
     """Apply EO01 together with the core directional derivative rules."""
+    from ..passes.derivatives import expand_derivatives_with
+
     return expand_derivatives_with(f, _tangent)
