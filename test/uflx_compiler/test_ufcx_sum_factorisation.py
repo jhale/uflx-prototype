@@ -22,7 +22,7 @@ from uflx_compiler import compile_ufcx
 from uflx_compiler.quadrature import constant
 from uflx_compiler.sum_factorisation import action_kernel
 
-from ..testutil import grouped_topology
+from ..uflx_basix.meshes import grouped_topology
 from . import test_ufcx
 from .test_ufcx import build, model
 

@@ -8,7 +8,8 @@ from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.forms import form, function, rebind
 from uflx.tensors import component_tensor, index, index_sum, tensor
-from uflx_basix.spaces import space
+
+from .spaces import space
 
 V = space("shared-binding", scalar_type="real")
 u, v, w, a = (function(V, name) for name in ("u", "v", "w", "a"))

@@ -678,11 +678,19 @@ evaluates the classes of `uflx_basix` too, and reads the values of an
 `IndexTable`, which the specification leaves to a library.
 
 Run `pytest test` for the full suite or select a package, for example
-`pytest test/uflx_compiler`. The four folders under `test/` mirror the import
-packages. Tests that use the oracle to validate a transformation live with
-the package that implements the transformation.
+`pytest test/uflx_compiler`. Each test belongs to the lowest layer that can run its assertions and fixtures.
 
-The core tests check on random expressions that a pass keeps the value
+| Test folder | What it can use |
+| --- | --- |
+| `test/uflx/` | Core language and passes, with an abstract field space for symbolic tests |
+| `test/uflx_basix/` | Core and Basix, including concrete elements, meshes and DOF maps |
+| `test/uflx_oracle/` | Both lower layers and oracle evaluation |
+| `test/uflx_compiler/` | All four packages, including the oracle for checking compiled results |
+
+Shared fixtures follow the same import order. The compiler package itself stays
+independent of the oracle.
+
+The oracle tests check on random expressions that a pass keeps the value
 and the static type, that its output is in its grammar, and that the grammar
 rejects its inputs. The construction rules of the argument spaces are checked in the
 tests, by `ill_typed` in `test/testutil.py`, on the input and the output of
@@ -696,7 +704,7 @@ pytest                # on 6 workers, set in pyproject.toml
 ruff check . && ruff format --check .
 pyright
 coverage run -m pytest && coverage report
-python -m test.uflx.test_full 100
+python -m test.uflx_oracle.test_full 100
 ```
 
 ## Following the specification

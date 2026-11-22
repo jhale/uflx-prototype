@@ -10,7 +10,8 @@ from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx.tensors import component_tensor, index, tensor
-from uflx_basix.spaces import space
+
+from .spaces import space
 
 
 def test_derivative_restores_unused_point_indices_before_rebuilding_parent():

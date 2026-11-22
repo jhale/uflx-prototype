@@ -16,7 +16,8 @@ from uflx.forms import apply, dual_space, form, function, partial, rebind
 from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_applications
-from uflx_basix.spaces import space
+
+from .spaces import space
 
 V = space("binding-probe", scalar_type="real")
 u, v, w, p = (function(V, name) for name in ("u", "v", "w", "p"))

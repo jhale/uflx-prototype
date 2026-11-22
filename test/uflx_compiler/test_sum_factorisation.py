@@ -12,8 +12,8 @@ from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import compile_form, evaluate, fold, tabulation
 from uflx_oracle import evaluate as oracle
 
-from ..testutil import contains, grouped_topology, push_forward, vertex_mesh
-from ..uflx_basix.test_basix import quadrilaterals
+from ..testutil import contains
+from ..uflx_basix.meshes import grouped_topology, push_forward, quadrilaterals, vertex_mesh
 from .test_compiler import functionals
 
 jax.config.update("jax_enable_x64", True)

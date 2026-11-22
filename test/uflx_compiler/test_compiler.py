@@ -8,15 +8,7 @@ import pytest
 
 from uflx._src.algorithms.traversal import everywhere, memoized
 from uflx._src.meshes import cell_map
-from uflx._src.nodes import (
-    Coordinate,
-    Division,
-    Gradient,
-    Integral,
-    Inverse,
-    Power,
-    PullBack,
-)
+from uflx._src.nodes import Coordinate, Division, Gradient, Integral, Inverse, Power, PullBack
 from uflx._src.nodes.structure import expression_operands
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, gradient, integral, reference_integral
@@ -40,8 +32,15 @@ from uflx_compiler import (
 from uflx_compiler.inputs import arrays
 from uflx_oracle import evaluate as oracle
 
-from ..testutil import contains, grouped_topology, push_forward, side_map
-from ..uflx_basix.test_basix import mixed, quadrilaterals, square
+from ..testutil import contains
+from ..uflx_basix.meshes import (
+    grouped_topology,
+    mixed,
+    push_forward,
+    quadrilaterals,
+    side_map,
+    square,
+)
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P

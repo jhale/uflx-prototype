@@ -11,14 +11,12 @@ import uflx._src.algorithms._alpha_dependencies as sets
 import uflx._src.algorithms.alpha as alpha
 from uflx._src.algorithms.alpha import AlphaHasher, alpha_hash
 from uflx._src.algorithms.binding import alpha_equivalent
-from uflx._src.algorithms.substitution import rename_bound
 from uflx.arithmetic import conjugate, num
 from uflx.calculus import directional_derivative
 from uflx.forms import form, function, rebind
 from uflx.tensors import component_tensor, index, index_sum, tensor
-from uflx_basix.spaces import space
 
-from .test_alpha_equivalence import geometry
+from .spaces import space
 
 
 def assert_same(left, right):
@@ -67,15 +65,6 @@ def test_shadowing_grouping_conjugation_and_free_identity():
     for a, b in pairs:
         assert not alpha_equivalent(a, b)
         assert alpha_hash(a) != alpha_hash(b)
-
-
-def test_outer_dependent_metadata():
-    x, y, c = geometry()
-    original = form(c, (x,))
-    renamed = rename_bound(original, {x: y})
-    assert_same(original, renamed)
-    assert not alpha_equivalent(original.expression, renamed.expression)
-    assert alpha_hash(original.expression) != alpha_hash(renamed.expression)
 
 
 @pytest.mark.parametrize("labels", [(1, 1.0), (0.0, -0.0)])
@@ -174,7 +163,7 @@ def test_cross_process_determinism():
     code = """
 from uflx._src.algorithms.alpha import alpha_hash
 from uflx.forms import form, function
-from uflx_basix.spaces import space
+from test.uflx.spaces import space
 v = function(space('hash', scalar_type='real'), 'v')
 print(alpha_hash(form(v * v, (v,))))
 """
@@ -226,14 +215,6 @@ def test_rebind_index_fingerprints(constructor):
     a = tensor((num(2), num(3)))
     original = constructor(a[i], (i,))
     assert_same(original, rebind(original, {i: j}))
-
-
-def test_rebind_geometry_fingerprints():
-    x, y, c = geometry()
-    original = form(c, (x,))
-    renamed = rebind(original, {x: y})
-    assert_same(original, renamed)
-    assert alpha_hash(original.expression) != alpha_hash(renamed.expression)
 
 
 def test_rebind_changed_opaque_label_preserves_free_identity():

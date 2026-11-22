@@ -1,21 +1,12 @@
-# Negative controls: each breaks the passes on purpose, and the tests must notice.
-import pytest
+"""Negative controls deliberately break a pass and check that its tests detect the error."""
 
 from uflx._src.algorithms import form_binding, substitution
-from uflx._src.algorithms.rewriting import zero_like
 from uflx._src.passes import applications
-from uflx._src.rules import differentiation
 from uflx.arithmetic import multiply, num
 from uflx.forms import apply, form, function
 from uflx.nodes import ScalarType
-from uflx_basix.spaces import space
 
-from . import test_pipeline, test_random
-
-
-def test_without_freshening_values_change(monkeypatch):
-    monkeypatch.setattr(substitution, "_rename", lambda node, name, avoid: name)
-    assert test_random.main(2000)["value"] > 0
+from .spaces import space
 
 
 def test_sequential_substitution_captures(monkeypatch):
@@ -34,13 +25,3 @@ def test_sequential_substitution_captures(monkeypatch):
 
     monkeypatch.setattr(form_binding, "substitute", sequential)
     assert applications.expand_applications(e) == multiply(num(2), num(2))
-
-
-def test_a_zero_without_argument_spaces_is_ill_typed(monkeypatch):
-    # The values do not change, so only the check of the argument spaces notices.
-    def without_spaces(f, spaces, *others):
-        return zero_like(f, (), *others)
-
-    monkeypatch.setattr(differentiation, "zero_like", without_spaces)
-    with pytest.raises(ValueError):
-        test_pipeline.main(1000)

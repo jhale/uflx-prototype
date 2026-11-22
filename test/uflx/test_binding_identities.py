@@ -13,7 +13,8 @@ from uflx.forms import form, function, partial
 from uflx.geometry import domain_map, jacobian
 from uflx.nodes import EuclideanSpace, ScalarType, Zero
 from uflx.tensors import index, index_sum, matrix_product, transpose
-from uflx_basix.spaces import space
+
+from .spaces import space
 
 P = EuclideanSpace(2)
 V = space("identity-matrix", value_shape=(2, 2), domain=P)

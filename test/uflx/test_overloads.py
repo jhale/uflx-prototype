@@ -7,14 +7,12 @@ import pytest
 
 import uflx
 from uflx._src.nodes import ComponentTensor, Indexed, Integer, Power, Product, Sum
-from uflx.arithmetic import imaginary_part, num, real_part
+from uflx.arithmetic import num
 from uflx.tensors import index, tensor
-from uflx_oracle import evaluate
 
 RNG = np.random.default_rng(1)
 A, B = RNG.normal(size=(2, 3)), RNG.normal(size=(3, 3))
 x, y = RNG.normal(size=3), RNG.normal(size=3)
-Z = RNG.normal(size=(2, 2)) + 1j * RNG.normal(size=(2, 2))
 
 
 def array(values):
@@ -24,35 +22,7 @@ def array(values):
     return tensor(tuple(array(v) for v in values))
 
 
-def value(e):
-    return np.asarray(evaluate(e, {}, None)(()))
-
-
 a = num(1.5)
-
-
-@pytest.mark.parametrize(
-    ("build", "expected"),
-    [
-        (lambda: array(A)[1], A[1]),
-        (lambda: array(A)[1, 2], A[1, 2]),
-        (lambda: array(A) + array(A), A + A),
-        (lambda: array(A) - array(A) * a, A - A * 1.5),
-        (lambda: a * array(A), 1.5 * A),
-        (lambda: array(A) / a, A / 1.5),
-        (lambda: -array(x), -x),
-        (lambda: array(x) @ array(y), x @ y),
-        (lambda: array(A) @ array(x), A @ x),
-        (lambda: array(x) @ array(B), x @ B),
-        (lambda: array(A) @ array(B), A @ B),
-        (lambda: real_part(array(Z)), Z.real),
-        (lambda: imaginary_part(array(Z)), Z.imag),
-    ],
-)
-def test_overloads_agree_with_numpy(build, expected):
-    e = build()
-    assert e.value_shape == np.shape(expected)
-    assert np.allclose(value(e), expected)
 
 
 def test_an_overload_is_one_free_function_and_never_regroups():

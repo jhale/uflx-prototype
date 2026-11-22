@@ -10,25 +10,10 @@ from typing import ClassVar
 import pytest
 
 from uflx._src.algorithms.traversal import map_fields, rebuild
-from uflx._src.meshes import cell_map
-from uflx._src.nodes import (
-    Base,
-    Complex,
-    Float,
-    Function,
-    Index,
-    Indexed,
-    Integer,
-    Sum,
-    Tensor,
-)
+from uflx._src.nodes import Base, Complex, Float, Function, Index, Indexed, Integer, Sum, Tensor
 from uflx._src.nodes.base import _digest_of
-from uflx.geometry import density, jacobian
-from uflx.tensors import inverse
-from uflx_basix.spaces import space
 
-from ..testutil import contains
-from .test_surface import M
+from .spaces import space
 
 V = space("V")
 
@@ -67,7 +52,7 @@ def test_unused_nodes_are_freed():
 
 def test_hash_is_the_same_in_every_process():
     code = (
-        "from uflx_basix.spaces import space\n"
+        "from test.uflx.spaces import space\n"
         "from uflx._src.nodes import "
         "Float, Function, Indexed, Integer, Sum, Tensor\n"
         "u = Function(space('V'), ('label', 'with', 'strings'))\n"
@@ -100,13 +85,6 @@ def test_a_class_with_no_identifier_raises():
 
     with pytest.raises(TypeError):
         Anonymous(1)
-
-
-def test_density_and_inverse_jacobian_share_the_jacobian():
-    m = cell_map(M, 0)
-    J = jacobian(m)
-    assert contains(density(m), lambda n: n is J)
-    assert contains(inverse(jacobian(m)), lambda n: n is J)
 
 
 def test_indexed_expressions_are_interned():

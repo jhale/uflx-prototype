@@ -6,17 +6,13 @@ from pathlib import Path
 
 import pytest
 
-import uflx
-import uflx_basix
-import uflx_compiler
-
 SOURCE = Path(__file__).resolve().parents[2] / "src"
 PUBLIC_MODULES = {
     f"uflx.{path.stem}" for path in (SOURCE / "uflx").glob("*.py") if not path.stem.startswith("_")
 }
 
 
-def imports_in(source, module, is_package=False):
+def imports_in(source, module, is_package=False, root=SOURCE):
     """Resolve static imports, including local and TYPE_CHECKING imports."""
     package = module if is_package else module.rpartition(".")[0]
     for node in ast.walk(ast.parse(source)):
@@ -30,20 +26,20 @@ def imports_in(source, module, is_package=False):
             )
             for name in node.names:
                 candidate = f"{origin}.{name.name}"
-                path = SOURCE.joinpath(*candidate.split("."))
+                path = root.joinpath(*candidate.split("."))
                 # `from package import submodule` imports the submodule, while
                 # a function or class import belongs to its declaring module.
                 yield candidate if path.is_dir() or path.with_suffix(".py").is_file() else origin
 
 
-def imported(path):
-    relative = path.relative_to(SOURCE).with_suffix("")
+def imported(path, root=SOURCE):
+    relative = path.relative_to(root).with_suffix("")
     parts = relative.parts[:-1] if path.name == "__init__.py" else relative.parts
-    yield from imports_in(path.read_text(), ".".join(parts), path.name == "__init__.py")
+    yield from imports_in(path.read_text(), ".".join(parts), path.name == "__init__.py", root)
 
 
 def files(package):
-    return Path(package.__file__).parent.rglob("*.py")
+    return (SOURCE / package).rglob("*.py")
 
 
 def assert_imports_none_of(package, forbidden):
@@ -54,16 +50,16 @@ def assert_imports_none_of(package, forbidden):
 def test_the_core_imports_neither_the_extension_nor_the_oracle():
     # Imports go from the oracle and the compiler to the Basix extension to the core, never back,
     # and the compiler never reads the oracle.
-    assert_imports_none_of(uflx, {"uflx_basix", "uflx_oracle", "uflx_compiler"})
-    assert_imports_none_of(uflx_basix, {"uflx_oracle", "uflx_compiler"})
-    assert_imports_none_of(uflx_compiler, {"uflx_oracle"})
+    assert_imports_none_of("uflx", {"uflx_basix", "uflx_oracle", "uflx_compiler"})
+    assert_imports_none_of("uflx_basix", {"uflx_oracle", "uflx_compiler"})
+    assert_imports_none_of("uflx_compiler", {"uflx_oracle"})
 
 
 @pytest.mark.parametrize(
     ("package", "allowed"),
     [
-        (uflx_basix, PUBLIC_MODULES - {"uflx.algorithms"}),
-        (uflx_compiler, PUBLIC_MODULES),
+        ("uflx_basix", PUBLIC_MODULES - {"uflx.algorithms"}),
+        ("uflx_compiler", PUBLIC_MODULES),
     ],
 )
 def test_extension_and_compiler_use_public_core_modules(package, allowed):
@@ -71,6 +67,21 @@ def test_extension_and_compiler_use_public_core_modules(package, allowed):
         for m in imported(path):
             if m.partition(".")[0] == "uflx":
                 assert m in allowed, (path, m)
+
+
+def test_suite_imports_follow_package_order():
+    root = SOURCE.parent
+    layers = ("uflx", "uflx_basix", "uflx_oracle", "uflx_compiler")
+    for path in (root / "test").rglob("*.py"):
+        folder = path.relative_to(root / "test").parts[0]
+        # Helpers directly under test/ are available to every suite.
+        level = layers.index(folder) if folder in layers else 0
+        forbidden = set(layers[level + 1 :])
+        if level == 0:
+            forbidden.add("basix")
+        for module in imported(path, root):
+            package = module.removeprefix("test.").partition(".")[0]
+            assert package not in forbidden, (path.relative_to(root), module)
 
 
 def test_importing_the_package_root_does_not_load_or_reexport_the_language():
@@ -84,7 +95,7 @@ assert not any(not name.startswith('_') for name in vars(uflx))
 
 
 def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
-    for path in files(uflx):
+    for path in files("uflx"):
         relative = path.relative_to(SOURCE / "uflx")
         if relative.parts[0] != "_src" or "extensions" in relative.parts:
             continue

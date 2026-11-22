@@ -17,8 +17,7 @@ from uflx_basix.spaces import space
 from uflx_compiler import compile_form, compile_ufcx, evaluate
 from uflx_oracle import evaluate as oracle
 
-from ..testutil import side_map
-from ..uflx_basix.test_basix import quadrilaterals, square
+from ..uflx_basix.meshes import quadrilaterals, side_map, square
 from .test_ufcx import boundary_mesh, build, interior_mesh, model, paired_geometry
 
 
@@ -196,14 +195,6 @@ def test_blocked_fields_in_array_compiler_and_oracle(cell, shape):
     f = integral(sum((U[idx] * U[idx] for idx in np.ndindex(shape)), num(0)), D)
     env = {"coefficients:u": np.random.default_rng(7).normal(size=V.num_dofs)}
     np.testing.assert_allclose(evaluate(compile_form(f, 6), env), oracle(f, env)(()), rtol=1e-8)
-
-
-def test_invalid_block_shapes():
-    _, D, _, _ = model(basix.CellType.triangle, 1, 1, "mass")
-    with pytest.raises(ValueError, match="positive"):
-        basix_space("bad", D.topology, basix.ElementFamily.P, 1, shape=(0,))
-    with pytest.raises(ValueError, match="scalar base"):
-        basix_space("bad", D.topology, basix.ElementFamily.RT, 1, shape=(2,))
 
 
 @pytest.mark.parametrize("rank", [0, 1, 2])

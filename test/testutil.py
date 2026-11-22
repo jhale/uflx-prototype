@@ -1,6 +1,3 @@
-import numpy as np
-
-import uflx.geometry as geometry
 from uflx._src.nodes import (
     AbstractExpression,
     Apply,
@@ -16,7 +13,6 @@ from uflx._src.nodes import (
     Indexed,
     IndexSum,
     Integral,
-    Mesh,
     Product,
     PullBack,
     Sum,
@@ -25,10 +21,8 @@ from uflx._src.nodes import (
 from uflx._src.nodes.structure import expression_operands, nodes_in
 from uflx.arithmetic import num
 from uflx.forms import apply, form, function
-from uflx.geometry import mesh
-from uflx.nodes import EuclideanSpace, ScalarType
+from uflx.nodes import ScalarType
 from uflx.tensors import tensor
-from uflx_basix.nodes import VertexCoordinates
 
 
 def contains(e, predicate):
@@ -181,102 +175,3 @@ def table(rows):
         return tensor(tuple(build(y) for y in x)) if isinstance(x, (list, tuple)) else num(x)
 
     return build(rows)
-
-
-def vertex_mesh(T, vertices, Q=None):
-    # The mesh of T with the vertices at the given coordinates, mapped by degree 1 on each cell.
-    vertices = tuple(tuple(float(c) for c in v) for v in np.asarray(vertices, dtype=float))
-    return mesh(
-        VertexCoordinates(T, vertices), EuclideanSpace(len(vertices[0])) if Q is None else Q
-    )
-
-
-def push_forward(f, domain, law=None):
-    """Use the toy function space's law when an example omits it."""
-    return geometry.push_forward(f, domain, f.space.law if law is None else law)
-
-
-# Named selections belong to these legacy test fixtures, not to topology nodes.
-# Production examples construct relations directly with uflx_basix.sides.
-_fixture_sides = {}
-
-
-def side_map(domain, source, selection=None):
-    T = domain.topology if isinstance(domain, Mesh) else domain
-    S = source.topology if isinstance(source, Mesh) else source
-    named = _fixture_sides.get(source, _fixture_sides[S])
-    selected = selection if selection is not None else next(iter(named))
-    relation = named[selected]
-    if relation.parent != T:
-        raise ValueError("fixture side has a different parent")
-    return geometry.side_map(source, *((domain[j], A) for j, A in relation.entries))
-
-
-def side_domain(domain, topology, selection=None):
-    relation = side_map(domain.topology, topology, selection)
-    result = mesh(geometry.pull_back(domain.coordinate_function, relation), domain.ambient_domain)
-    _fixture_sides[result] = dict(_fixture_sides[topology])
-    return result
-
-
-def side_data(source, slot, name):
-    from uflx_basix.sides import outward_conormals
-
-    relation = _fixture_sides[source][name]
-    return relation.entries[slot][1], outward_conormals(relation)[slot]
-
-
-def static_topology(cell_types, cells, sides=()):
-    from uflx_basix.sides import static_side_map
-    from uflx_basix.topology import static_topology as construct
-
-    source = construct(cell_types, cells)
-    if sides:
-        _fixture_sides[source] = {
-            name: static_side_map(
-                parent,
-                source,
-                *(next(j for n, T, j in entries if n == name and T == parent) for entries in sides),
-            )
-            for name, parent, _ in sides[0]
-        }
-    return source
-
-
-def tabulated_topology(label, cell_types, sides, positions):
-    from uflx_basix.sides import tabulated_side_map
-    from uflx_basix.topology import tabulated_topology as construct
-
-    source = construct(label, cell_types)
-    _fixture_sides[source] = {
-        name: tabulated_side_map(
-            parent,
-            source,
-            *(
-                next(
-                    (j, row[k]) for k, (n, T, j) in enumerate(entries) if n == name and T == parent
-                )
-                for entries, row in zip(sides, positions, strict=True)
-            ),
-        )
-        for name, parent, _ in sides[0]
-    }
-    return source
-
-
-def grouped_topology(cell_types, cells, sides):
-    """Build fixed local slots from vertex groups used by whole-mesh test fixtures."""
-    types, rows, declarations = [], [], []
-    for group, (K, group_cells) in enumerate(zip(cell_types, cells, strict=True)):
-        for vertices in group_cells:
-            types.append(K)
-            rows.append(tuple(vertices))
-            chosen = []
-            for name, parent, _ in sides[group] if sides else ():
-                candidates = [
-                    j for j, cell in enumerate(parent.cells) if set(vertices) <= set(cell)
-                ]
-                rank = sum(U is parent for _, U, _ in chosen)
-                chosen.append((name, parent, candidates[min(rank, len(candidates) - 1)]))
-            declarations.append(tuple(chosen))
-    return static_topology(types, rows, tuple(declarations) if sides else ())

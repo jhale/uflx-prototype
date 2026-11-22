@@ -10,7 +10,7 @@ completion and traversal. Substitution keeps its separate binding-aware walk.
 
 Paths below are relative to `src/uflx/_src/`.
 
-| Rules | Implementation | Main tests in `test/uflx/` |
+| Rules | Implementation | Main test modules under `test/` |
 | --- | --- | --- |
 | ST01 | `rules/structural.py::structural_fields`, `commute` | `test_actions.py`, `test_tensor_derivatives.py`, `test_broadcast.py`, `test_rule_groups.py` |
 | ST02 | `passes/applications.py::_expand` | `test_actions.py`, `test_mixed.py` |
@@ -40,7 +40,7 @@ Paths below are relative to `src/uflx/_src/`.
 The remaining groups use the following locations. Substitution stays in its
 existing module because it needs a different walk from expression rewriting.
 
-| Rules | Implementation | Main tests in `test/uflx/` |
+| Rules | Implementation | Main test modules under `test/` |
 | --- | --- | --- |
 | SH01 | Mathematical admissibility is a precondition; oracle comparisons check defined examples | `test_random.py`, `test_full.py` |
 | SH02–SH07 | `algorithms/rewriting.py::complete_indices`, `promote`, `zero_like` | `test_index_completion.py`, `test_rule_groups.py` |

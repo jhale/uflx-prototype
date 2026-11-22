@@ -1,40 +1,21 @@
 import basix
 import numpy as np
 
-from uflx._src.nodes import Conjugate, Integer, Product, Sum
+from uflx._src.nodes import Integer, Product, Sum
 from uflx.arithmetic import conjugate
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import pull_back
 from uflx.tensors import index, index_sum
 from uflx_basix.assembly import conforming_dofmap
-from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.sides import outward_conormal
 from uflx_compiler import assemble_bound
 
-from ..testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
-from .legacy import (
-    Coefficient,
-    Constant,
-    FacetNormal,
-    FunctionSpace,
-    Measure,
-    Mesh,
-    TestFunction,
-    TrialFunction,
-    VectorFunctionSpace,
-    div,
-    grad,
-    inner,
-)
+from ..uflx_basix.legacy import Constant
+from ..uflx_basix.meshes import push_forward, side_domain, side_map
+from ..uflx_basix.test_legacy import LEFT, LOWER, D, T, demo
 
-K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
-T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
-BOUNDARY = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("inside", T, 0),),))
-LOWER = grouped_topology((K,), (((0, 1, 2),),), ((("inside", T, 0),),))
-LEFT = grouped_topology((I,), (((0, 3),),), ((("inside", T, 0),),))
-D = vertex_mesh(T, [(0, 0), (1, 0), (1.1, 0.9), (-0.1, 1)])
 RNG = np.random.default_rng(5)
 DATA = {
     "coefficients:kappa": np.array(1.7),
@@ -42,22 +23,6 @@ DATA = {
     "coefficients:('q', 0)": RNG.normal(size=4),
     "coefficients:('q', 1)": RNG.normal(size=4),
 }
-
-
-def demo():
-    # The user script of EXAMPLES.md, unchanged.
-    mesh = Mesh(D, BOUNDARY)
-    V = FunctionSpace(mesh, "Lagrange", 1)
-    W = VectorFunctionSpace(mesh, "Lagrange", 1)
-    u, v = TrialFunction(V), TestFunction(V)
-    f, q = Coefficient(V, "f"), Coefficient(W, "q")
-    kappa = Constant("kappa")
-    n = FacetNormal(mesh)
-    dx = Measure("dx", domain=mesh, subdomain_data={1: LOWER})
-    ds = Measure("ds", domain=mesh, subdomain_data={1: LEFT})
-    a = kappa * inner(grad(u), grad(v)) * dx
-    L = inner(f, v) * dx(1) - inner(div(q), v) * dx + inner(inner(q, n), v) * ds(1)
-    return a, L
 
 
 def core():
@@ -114,9 +79,3 @@ def test_the_classic_poisson_script_gives_the_forms_of_the_core():
         assert np.allclose(assembled(layer), assembled(by_hand))
     # The rows of a stiffness matrix sum to zero, because the constants are in its kernel.
     assert np.allclose(assembled(demo()[0]).sum(axis=1), 0)
-
-
-def test_the_arguments_of_a_classic_form_are_the_functions_on_the_topology():
-    a, _ = demo()
-    v, u = a.arguments
-    assert isinstance(v, Conjugate) and v.operand.domain == T and u.domain == T

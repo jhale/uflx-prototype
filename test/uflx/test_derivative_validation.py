@@ -9,7 +9,8 @@ from uflx.forms import apply, dual_space, form, function
 from uflx.nodes import EuclideanSpace
 from uflx.passes import apply_derivatives
 from uflx.tensors import index, tensor
-from uflx_basix.spaces import space
+
+from .spaces import space
 
 
 @pytest.fixture

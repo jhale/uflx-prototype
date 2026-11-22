@@ -4,35 +4,16 @@ from __future__ import annotations
 
 from collections import namedtuple
 
-import numpy as np
 import pytest
 
-from uflx._src.nodes import Base, Determinant, Function, Index, Indexed
-from uflx._src.nodes.structure import expression_operands
+from uflx._src.nodes import Base, Function, Index, Indexed
 from uflx.algorithms import replace
-from uflx.arithmetic import conjugate
-from uflx.calculus import coordinate, directional_derivative, gradient, integral
-from uflx.forms import apply, conjugate_space, dual_space, form, function
-from uflx.geometry import cell_map, mesh
-from uflx.nodes import Complex, EuclideanSpace, Float, Integer, ScalarType, Zero
-from uflx.passes import lower
-from uflx.tensors import (
-    component,
-    component_tensor,
-    determinant,
-    gathered_index,
-    index,
-    index_sum,
-    indexed,
-    tensor,
-)
-from uflx_basix.cells import reference_simplex
-from uflx_basix.indices import index_table
-from uflx_basix.runtime import runtime_array, runtime_extent
-from uflx_basix.spaces import space
-from uflx_oracle import evaluate
+from uflx.calculus import coordinate, gradient, integral
+from uflx.forms import conjugate_space, dual_space, form, function
+from uflx.nodes import EuclideanSpace, Float, Integer, ScalarType
+from uflx.tensors import component, component_tensor, index_sum, indexed, tensor
 
-from ..testutil import grouped_topology
+from .spaces import space
 
 
 class Payload(Base):
@@ -61,14 +42,6 @@ def test_constructor_arguments_are_positional_and_typed():
         tensor([Integer(1)])
 
 
-def test_complex_is_a_terminal_and_stays_complex():
-    z = Complex(Integer(2), Float(-3.0))
-    assert expression_operands(z) == []
-    assert z.scalar_type is ScalarType.complex
-    assert evaluate(z, {})(()) == 2 - 3j
-    assert lower(Complex(Integer(1), Integer(0))).scalar_type is ScalarType.complex
-
-
 def test_empty_index_factories_and_nonempty_nodes():
     f = Integer(2)
     assert indexed(f, ()) is component_tensor(f, ()) is index_sum(f, ()) is f
@@ -84,29 +57,6 @@ def test_empty_index_factories_and_nonempty_nodes():
         indexed(A, [0])
 
 
-def test_gathered_indices_follow_direct_indices_in_static_order():
-    i, j = index("i"), index("j")
-    g = gathered_index(index_table((0, 1), 2), (i,))
-    A = runtime_array("A", (2, 3))
-    assert indexed(A, (g, j)).free_indices == ((j, 3), (i, 2))
-    with pytest.raises(ValueError):
-        indexed(A, (j, j))
-    with pytest.raises(IndexError):
-        indexed(A, (2, 0))
-
-
-def test_determinants_require_fixed_dimensions_and_accept_empty_shapes():
-    n = runtime_extent("n")
-    with pytest.raises(ValueError, match="fixed integers"):
-        determinant(runtime_array("A", (n, n)))
-    assert isinstance(determinant(runtime_array("A", (2, 2))), Determinant)
-    d = determinant(Zero((0, 0), (), (), ScalarType.real))
-    assert lower(d) is d
-    assert evaluate(d, {})(()) == 1
-    with pytest.raises(ValueError):
-        determinant(runtime_array("rectangular", (2, 3)))
-
-
 def test_calculus_domain_is_the_result_domain():
     P = EuclideanSpace(2)
     X = coordinate(P)
@@ -117,21 +67,6 @@ def test_calculus_domain_is_the_result_domain():
         gradient(X, EuclideanSpace(3))
     with pytest.raises(ValueError):
         X[0] + coordinate(EuclideanSpace(3))[0]
-
-
-def test_mesh_cells_retain_selection_after_geometry_substitution():
-    T = grouped_topology((reference_simplex(1),), (((0, 1), (2, 3)),), ())
-    V = space("coordinates", (1,), T, ScalarType.real)
-    x, y = function(V, "x"), function(V, "y")
-    D, E = mesh(x, EuclideanSpace(1)), mesh(y, EuclideanSpace(1))
-    C = cell_map(D, 1)
-    assert C.cell_slot == 1 and C.free_indices == ()
-    assert C.parameterisation.map is cell_map(T, 1)
-    assert replace(C, {x: y}) is cell_map(E, 1)
-    with pytest.raises(ValueError):
-        cell_map(D, -1)
-    with pytest.raises(ValueError):
-        cell_map(D, 2)
 
 
 def test_space_factories_and_substitution_keep_canonical_forms():
@@ -145,23 +80,6 @@ def test_space_factories_and_substitution_keep_canonical_forms():
     assert replace(u, {V: R}) is function(R, "u")
 
 
-def test_action_conjugation_and_real_to_complex_embedding():
-    V = space("V")
-    u = function(V, "u")
-    e = apply(conjugate(form(u, (u,))), (Complex(Integer(2), Integer(3)),))
-    assert evaluate(lower(e), {})(()) == 2 + 3j
-    f = apply(form(u ** Float(0.5), (u,)), (Integer(-1),))
-    assert lower(f).scalar_type is ScalarType.complex
-    assert np.isclose(evaluate(lower(f), {})(()), 1j)
-
-
-def test_derivative_substitutes_the_point_but_leaves_the_direction_alone():
-    V = space("R", scalar_type=ScalarType.real)
-    u = function(V, "u")
-    e = directional_derivative(u * u, u, Integer(3), u)
-    assert np.isclose(evaluate(lower(e), {u: 2})(()), 12)
-
-
 def test_replacement_is_simultaneous_and_dictionary_order_independent():
     V = space("R", scalar_type=ScalarType.real)
     u, v, w = (function(V, name) for name in ("u", "v", "w"))
@@ -172,32 +90,3 @@ def test_replacement_is_simultaneous_and_dictionary_order_independent():
     b = replace(e, {w: Integer(1), u: v})
     assert a is b
     assert isinstance(a.arguments[0], Function) and a.arguments[0] is not v
-
-
-@pytest.mark.parametrize("symbolic", [False, True])
-def test_empty_sum_does_not_read_the_summand(symbolic):
-    from uflx_compiler import evaluate as compiled_value
-
-    n = runtime_extent("empty") if symbolic else 0
-    i = index("empty-index")
-    f = runtime_array("unavailable", (n,))
-    total = index_sum(Integer(2) * f[i], (i,))
-    env = {"empty": 0, n: 0} if symbolic else {}
-    assert evaluate(total, env)(()) == 0
-    assert compiled_value(total, env) == 0
-
-
-def test_substituting_into_a_zero_selects_its_family_indices():
-    i, j = index("zero-i"), index("zero-j")
-    z = Zero((), ((i, 2),), (), ScalarType.real)
-    assert replace(z, {i: 0}).free_indices == ()
-    assert replace(z, {i: j}).free_indices == ((j, 2),)
-    g = gathered_index(index_table((1, 0, 1), 2), (j,))
-    assert replace(z, {i: g}).free_indices == ((j, 3),)
-
-
-def test_zero_dimensional_coordinate_gradient_has_empty_shape():
-    e = gradient(coordinate(EuclideanSpace(0)), EuclideanSpace(0))
-    out = lower(e)
-    assert out.value_shape == (0, 0)
-    assert evaluate(out, {})(()).shape == (0, 0)

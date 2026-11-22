@@ -29,7 +29,7 @@ from uflx_basix.runtime import runtime_array
 from uflx_compiler import compile_form, evaluate
 from uflx_compiler.c_code import c_kernel
 
-from ..testutil import grouped_topology, push_forward
+from ..uflx_basix.meshes import grouped_topology, push_forward
 
 P, RT = basix.ElementFamily.P, basix.ElementFamily.RT
 T = grouped_topology((basix_cell(basix.CellType.triangle),), (((0, 1, 2),),), ())

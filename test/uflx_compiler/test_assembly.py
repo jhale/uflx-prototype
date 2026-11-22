@@ -14,8 +14,7 @@ from uflx_basix.sides import outward_conormal
 from uflx_compiler import assemble, assemble_bound, compile_form, evaluate, fold
 from uflx_oracle import evaluate as oracle
 
-from ..testutil import push_forward, side_map
-from ..uflx_basix.test_basix import mixed, square
+from ..uflx_basix.meshes import mixed, push_forward, side_map, square
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P

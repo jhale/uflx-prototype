@@ -10,7 +10,7 @@ from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import assemble, compile_form, evaluate, runtime_tables
 from uflx_oracle import evaluate as oracle
 
-from ..testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
+from ..uflx_basix.meshes import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
 P = basix.ElementFamily.P
 K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)

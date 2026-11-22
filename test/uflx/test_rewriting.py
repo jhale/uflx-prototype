@@ -11,7 +11,8 @@ from uflx.forms import function
 from uflx.nodes import EuclideanSpace
 from uflx.passes import apply_gradients
 from uflx.tensors import tensor
-from uflx_basix.spaces import space
+
+from .spaces import space
 
 
 def test_replacement_operands_are_processed_and_shared_nodes_reused():
