@@ -155,3 +155,18 @@ def test_basix_form_slot_accepts_an_applied_field():
     interpreter = Interpreter()
     assert interpreter.evaluate(apply(identity, (field,)), points=point) == pytest.approx(0.2)
     assert interpreter.evaluate(identity, (lambda x: x[1],), points=point) == pytest.approx(0.3)
+
+
+def test_applied_field_reads_the_cell_where_the_form_samples_it():
+    from ..uflx_basix.integrals import D
+
+    V = space("piecewise", domain=D, scalar_type="real")
+    u, v = function(V, "u"), function(V, "v")
+    expression = apply(form(integral(v, D), (v,)), (u,))
+
+    # The unit square consists of two triangles of area 1/2.
+    def sample(point):
+        return evaluate(coordinate(D)[0], {})(())
+
+    interpreter = Interpreter({u: {0: sample, 1: lambda point: sample(point) + 2}})
+    assert interpreter.evaluate(expression) == pytest.approx(1.5)

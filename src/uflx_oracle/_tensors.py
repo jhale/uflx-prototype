@@ -6,6 +6,7 @@ import numpy as np
 
 from uflx.nodes import AbstractExtent, GatheredIndex, Index, IndexSum
 
+from . import _dual as ad
 from ._forms import members
 
 
@@ -37,12 +38,17 @@ def bound_tensor(node, frame, arguments):
     ranges = [product(*map(range, n)) if isinstance(n, tuple) else range(n) for n in extents]
     dtype = {"boolean": bool, "complex": complex, "real": float}[node.scalar_type]
     summed = isinstance(node, IndexSum)
-    result = dtype(0) if summed else np.empty(flat(extents), dtype=dtype)
+    total = dtype(0)
+    entries = []
     for combo in product(*ranges):
         bound = frame.bind_indices(dict(zip(node.indices, combo, strict=True)))
         value = bound.value(operand, arguments)
         if summed:
-            result += value
+            total = total + value
         else:
-            result[flat(combo)] = value if node.scalar_type != "real" else np.real(value)
-    return result
+            entries.append(np.real(value) if node.scalar_type == "real" else value)
+    if summed:
+        return total
+    if not entries:
+        return np.empty(flat(extents), dtype=dtype)
+    return ad.asarray(ad.stack(entries), dtype=dtype).reshape(flat(extents))

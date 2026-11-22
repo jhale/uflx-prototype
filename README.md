@@ -681,7 +681,7 @@ f = x[0] ** num(2) + x[1]
 interpreter = Interpreter()
 point = {plane: [3.0, 4.0]}
 interpreter.evaluate(f, points=point)                  # 13.0
-interpreter.evaluate(gradient(f, plane), points=point)  # approximately [6.0, 1.0]
+interpreter.evaluate(gradient(f, plane), points=point)  # [6.0, 1.0]
 ```
 
 Pass field data to `Interpreter(environment)`, keyed by function nodes. A field can
@@ -689,17 +689,47 @@ be a numerical value or a callable of the current coordinate. Basix fields accep
 local coefficient arrays, and runtime arrays and extents accept node or label keys.
 Use `arguments=(u_value, v_value)` for ordered form slots, `indices={i: k}`
 for free indices, and `cells={domain: slot}` to select a local cell. A tuple-valued
-slot takes a tuple. Each call reads the current bindings and shares intermediate
-values within that evaluation. Existing `evaluate(expression, env)(arguments)`
-and `at(domain, point, callback)` calls use the same interpreter.
+slot takes a tuple. Each call starts with a fresh evaluation frame. A form extends
+the function bindings, an index sum assigns indices, and quadrature supplies a
+point for each sample. The parent frame keeps its original bindings. The callback
+interfaces `evaluate(expression, env)(arguments)` and `at(domain, point, callback)`
+use the same interpreter.
 
-Arithmetic and form binding follow node definitions directly. The interpreter samples
-spatial and directional derivatives with central differences and integrates using
-numerical quadrature. Set `spatial_step` and `derivative_step` on the interpreter
-when comparing derivatives at a particular scale. Nested derivatives can amplify
-roundoff. Quadrature covers unit simplices, Basix cells and the point in zero
-dimensions. Mesh integration sums local cells using their numerical charts. An
-external operation needs a callable in the environment keyed by its operation node.
+Spatial and directional derivatives use forward-mode automatic differentiation.
+Each operand carries its numerical value and its tangent in the requested direction.
+Nested derivatives have distinct tags, so a Hessian or a mixed field/geometry derivative
+can be evaluated directly. Cell charts use the same rules, and Basix supplies basis
+derivatives by tabulation. Integrals use quadrature on unit simplices, Basix cells and
+the point in zero dimensions.
+
+A field callable written using supported arithmetic can accept the interpreter's
+value-and-tangent inputs directly. For an opaque binding, supply a callable object
+with a `jvp(point, direction)` method returning its Jacobian applied to the direction.
+Only evaluation at a varying point needs that method. Higher derivatives also
+differentiate the action.
+
+An `ExternalOperator` can instead identify the library function and its derivative
+action. For a pointwise scalar operation `law` with output on the operand's domain,
+the library can bind ordinary numerical functions.
+
+```python
+import math
+from uflx._src.extensions.external_operators import external_operator
+from uflx_oracle.interpreter import Interpreter, Pointwise
+
+response = external_operator(law, (x[0],))
+interpreter = Interpreter({
+    law: Pointwise(math.sin),
+    law.derivative_action(): Pointwise(lambda x, dx: math.cos(x) * dx),
+})
+interpreter.evaluate(gradient(response, plane), points=point)  # [cos(3), 0]
+```
+
+`Pointwise` passes the operand values at the current point. Ordinary external
+bindings can still consume whole fields, for example to sample an operand at
+several points. In both cases the derivative action receives all operand values,
+followed by their directions in the same order. Repeated operands keep their slots.
+An independent operation or an unselected conditional branch needs no derivative action.
 
 ### Running the tests
 

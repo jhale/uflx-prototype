@@ -91,8 +91,7 @@ def needs_pass(n):
 
 
 def main(trials):
-    # Third derivatives by nested finite differences need a larger step than the default.
-    interpreter = Interpreter(ENV, spatial_step=1e-3)
+    interpreter = Interpreter(ENV)
     bad = dict(value=0, static=0, grammar=0, lazy=0, rejected=0)
     for seed in range(trials):
         rnd = random.Random(seed)

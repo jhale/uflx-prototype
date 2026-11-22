@@ -1,5 +1,7 @@
 """Numerical semantics of the expression nodes, evaluated with lexical bindings."""
 
+from dataclasses import dataclass, field
+
 import numpy as np
 
 from uflx._src.extensions.external_operators import ExternalOperator
@@ -43,12 +45,50 @@ from uflx.nodes import (
 )
 from uflx_basix.nodes import RuntimeArray, VertexCoordinates
 
+from . import _dual as ad
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors
+from ._external import evaluate_external
 from ._geometry import integrate
 
 
+@dataclass(frozen=True, eq=False)
+class Frame:
+    """Evaluate with fixed function bindings, index assignments and spatial points."""
+
+    environment: dict
+    indices: dict
+    points: dict
+    _memo: dict = field(default_factory=dict, repr=False)
+
+    def value(self, node, arguments=()):
+        if arguments:
+            return interpret(node, self, arguments)
+        # Only the node's free indices can affect its value at this point.
+        key = (node, tuple(self.indices.get(i) for i, _ in node.free_indices))
+        if key not in self._memo:
+            self._memo[key] = interpret(node, self, ())
+        return self._memo[key]
+
+    def at(self, bindings):
+        return Frame(self.environment, self.indices, self.points | bindings)
+
+    def bind_arguments(self, bindings):
+        return Frame(self.environment | bindings, self.indices, self.points)
+
+    def bind_indices(self, indices):
+        return Frame(self.environment, self.indices | indices, self.points, self._memo)
+
+    def input(self, node, label):
+        """Library data may be supplied by node or by its runtime label."""
+        return self.environment[node] if node in self.environment else self.environment[label]
+
+
 def interpret(node, frame, arguments):
+    binding = frame.environment.get(node)
+    if isinstance(binding, _forms.ExpressionBinding):
+        return binding.read(frame, arguments)
+
     value = frame.value
     match node:
         case Boolean(v) | Integer(v) | Float(v):
@@ -59,7 +99,7 @@ def interpret(node, frame, arguments):
             return np.real(value(a)) < np.real(value(b))
         case Conditional(predicate, left, right):
             result = value(left if value(predicate) else right, arguments)
-            return np.asarray(result, dtype=complex) if node.scalar_type == "complex" else result
+            return ad.asarray(result, dtype=complex) if node.scalar_type == "complex" else result
         case Zero(shape, _, _, scalar_type):
             dtype = complex if scalar_type == "complex" else float
             return (
@@ -83,7 +123,12 @@ def interpret(node, frame, arguments):
         case Absolute(a):
             return np.abs(value(a, arguments))
         case SquareRoot(a) | Logarithm(a) | Power(a, _):
-            cast = complex if node.scalar_type == "complex" else lambda v: float(np.real(v))
+
+            def cast(v):
+                if node.scalar_type == "complex":
+                    return ad.asarray(v, dtype=complex)
+                return ad.asarray(np.real(v), dtype=float)
+
             base = cast(value(a, arguments))
             if isinstance(node, Power):
                 return np.power(base, cast(value(node.exponent)))
@@ -91,7 +136,7 @@ def interpret(node, frame, arguments):
         case Determinant(a):
             return np.linalg.det(value(a))
         case Inverse(a):
-            matrix = np.asarray(value(a))
+            matrix = ad.asarray(value(a))
             return (
                 np.linalg.inv(matrix)
                 if matrix.shape[0] == matrix.shape[1]
@@ -104,10 +149,10 @@ def interpret(node, frame, arguments):
                 return np.empty(target, dtype=dtype)
             return np.broadcast_to(value(x, arguments), target)
         case Tensor(entries):
-            return np.array([value(entry, arguments) for entry in entries])
+            return ad.stack([value(entry, arguments) for entry in entries])
         case Indexed(x, indices):
             key = _tensors.flat(_tensors.index_value(i, frame.indices) for i in indices)
-            return np.asarray(value(x, arguments))[key]
+            return ad.asarray(value(x, arguments))[key]
         case ComponentTensor() | IndexSum():
             return _tensors.bound_tensor(node, frame, arguments)
         case Function():
@@ -120,18 +165,12 @@ def interpret(node, frame, arguments):
                 for x, s in zip(operands, operator.argument_spaces, strict=True)
             )
             return value(operator, slots)
-        case ExternalOperator(operation, operands):
-            inputs = tuple(_forms.supplied(m, m, frame) for m in operands)
-            result = frame.environment[operation](*inputs)
-            return (
-                result(frame.context.points[node.domain])
-                if node.domain is not None and callable(result)
-                else result
-            )
+        case ExternalOperator():
+            return evaluate_external(node, frame)
         case DirectionalDerivative(body, variables, point, direction):
             return _forms.directional(body, variables, point, direction, frame, arguments)
         case Coordinate(domain):
-            return np.asarray(frame.context.points[domain], dtype=float)
+            return ad.asarray(frame.points[domain], dtype=float)
         case Gradient(x, domain):
             return _spatial.gradient(x, domain, frame, arguments)
         case Divergence(x, domain):
@@ -139,7 +178,7 @@ def interpret(node, frame, arguments):
         case Curl(x, domain):
             return _spatial.curl(x, domain, frame, arguments)
         case Integral(x, domain):
-            return integrate(domain, lambda: value(x, arguments), frame)
+            return integrate(domain, lambda local: local.value(x, arguments), frame)
         case PullBack(x, mapping):
             return _spatial.pull_back(x, mapping, frame, arguments)
         case PushForward(x, mesh, law):
@@ -149,7 +188,7 @@ def interpret(node, frame, arguments):
         case RuntimeArray():
             return frame.input(node, node.label)
         case VertexCoordinates(topology, vertices):
-            return elements.vertex_value(topology, vertices, frame.context.points)
+            return elements.vertex_value(topology, vertices, frame.points)
         case _ if elements.is_basix_basis(node):
-            return elements.basis_value(node, frame.context.points)
+            return elements.basis_value(node, frame.points)
     raise TypeError(f"the reference interpreter has no evaluation rule for {type(node).__name__}")

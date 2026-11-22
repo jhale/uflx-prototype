@@ -1,10 +1,34 @@
 """Lexical form slots, supplied fields and simultaneous directional derivatives."""
 
+from collections.abc import Callable
+from dataclasses import dataclass
+
 import numpy as np
 
-from uflx.nodes import Conjugate
+from uflx._src.algorithms.substitution import occurs_in_values
+from uflx.nodes import AbstractExpression, Conjugate
 
+from . import _dual as ad
 from . import _finite_elements as elements
+from ._context import call_at, callback_points
+
+
+@dataclass(frozen=True)
+class ExpressionBinding:
+    """A replacement expression evaluated at its use site."""
+
+    read: Callable
+
+
+def variation_tags(operand, environment):
+    """Find active variations of a whole field before a library samples it."""
+    tags = set()
+    for node, binding in environment.items():
+        value = binding.read if isinstance(binding, ExpressionBinding) else binding
+        if isinstance(node, AbstractExpression) and (active := ad.tags(value)):
+            if occurs_in_values(node, operand):
+                tags.update(active)
+    return tags
 
 
 def members(entry):
@@ -15,7 +39,12 @@ def conjugated(value):
     if isinstance(value, tuple):
         return tuple(conjugated(v) for v in value)
     if callable(value):
-        return lambda *args: conjugated(value(*(conjugated(arg) for arg in args)))
+
+        def field(*args):
+            return conjugated(value(*(conjugated(arg) for arg in args)))
+
+        field._derivative_tags = lambda: ad.tags(value)
+        return field
     return np.conj(value)
 
 
@@ -25,13 +54,19 @@ def function_value(node, frame, arguments):
         return elements.field_value(node, frame)
     value = frame.environment[node]
     if space.argument_spaces:
-        value = value(*arguments)
+        value = call_at(frame.points, value, *arguments)
     if space.domain is not None:
-        points = frame.context.points
+        points = frame.points
         if isinstance(value, dict):
             value = value[points.get(("piece", space.domain), 0)]
-        return value(points[space.domain]) if callable(value) else value
-    return value() if callable(value) and not space.argument_spaces else value
+        return (
+            call_at(points, ad.call_field, value, points[space.domain])
+            if callable(value)
+            else ad.normalize(value)
+        )
+    return ad.normalize(
+        call_at(frame.points, value) if callable(value) and not space.argument_spaces else value
+    )
 
 
 def supplied(operand, signature, frame):
@@ -39,14 +74,20 @@ def supplied(operand, signature, frame):
         return tuple(supplied(m, s, frame) for m, s in zip(operand, signature, strict=True))
 
     def apply(*slots):
-        def read():
-            value = frame.value(operand, slots)
-            return np.asarray(value, dtype=complex) if signature.scalar_type == "complex" else value
+        def read(local):
+            value = local.value(operand, slots)
+            return ad.asarray(value, dtype=complex) if signature.scalar_type == "complex" else value
 
         if signature.domain is not None:
-            return lambda point: frame.context.at({signature.domain: point}, read)
-        return read()
 
+            def field(point):
+                return read(frame.at(callback_points.get() | {signature.domain: point}))
+
+            field._derivative_tags = lambda: variation_tags(operand, frame.environment)
+            return field
+        return read(frame.at(callback_points.get()) if slots else frame)
+
+    apply._derivative_tags = lambda: variation_tags(operand, frame.environment)
     return apply if operand.argument_spaces else apply()
 
 
@@ -64,17 +105,25 @@ def form_value(body, declarations, frame, arguments):
 
 
 def directional(body, variables, point, direction, frame, arguments):
-    step = frame.context.derivative_step
+    tag = ad.fresh_tag()
 
-    def displaced(delta):
-        overrides = {
-            variable: (
-                lambda *slots, p=p, d=d: frame.value(p, slots) + delta * frame.value(d, slots)
-            )
-            for variable, p, d in zip(
-                members(variables), members(point), members(direction), strict=True
-            )
-        }
-        return frame.perturb(overrides).value(body, arguments)
+    def seed(point, direction):
+        def varied(caller, slots):
+            local = frame.at(caller.points)
+            return ad.pair(tag, local.value(point, slots), local.value(direction, slots))
 
-    return (displaced(step) - displaced(-step)) / (2 * step)
+        varied._derivative_tags = lambda: (
+            {tag}
+            | variation_tags(point, frame.environment)
+            | variation_tags(direction, frame.environment)
+        )
+        return ExpressionBinding(varied)
+
+    overrides = {
+        variable: seed(p, d)
+        for variable, p, d in zip(
+            members(variables), members(point), members(direction), strict=True
+        )
+    }
+    result = frame.bind_arguments(overrides).value(body, arguments)
+    return ad.split(result, tag)[1]
