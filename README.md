@@ -170,7 +170,7 @@ extension imports the core. `test/uflx/test_boundaries.py` checks this order.
 - `uflx_basix` attaches Basix reference cells, finite elements and basis values
   to UFLx expressions. Its two operations use reference-cell data.
   `interpolate(f, V)` uses the element’s sampling points and interpolation matrix.
-  `apply_quadrature` turns selected reference integrals into weighted sums.
+  `apply_quadrature` turns one reference integral into a weighted sum.
 - `uflx_oracle` evaluates the resulting expressions numerically.
 
 ### Interpolation on a reference cell
@@ -196,29 +196,49 @@ transformation required by the element. Interpolation supports value sampling.
 
 ### Choosing quadrature per integral
 
-`apply_quadrature(reference, select=choose)` calls `choose` once for each distinct
-Basix reference-cell integral in the input expression. Return an integer degree
-to use the usual Basix rule for that cell, a pair of reference points and
-weights to supply a rule, or `None` to leave the integral for a later pass.
-
-For example, suppose `mass`, `stiffness`, and `load` are three lowered integrals
-on one reference triangle. A dictionary selects two by their node identity,
-even though all three have the same integration domain.
+`apply_quadrature(integral, points, weights)` samples one integral on a Basix
+reference cell. Get a rule from the cell or supply your own arrays. Here
+`mass` is an integral on the reference triangle `K`.
 
 ```python
 from uflx_basix.quadrature import apply_quadrature
 
-points = [[1 / 6, 1 / 6], [2 / 3, 1 / 6], [1 / 6, 2 / 3]]
-weights = [1 / 6, 1 / 6, 1 / 6]
-rules = {mass: (points, weights), stiffness: 4}
-partial = apply_quadrature(mass + stiffness + load, select=rules.get)
-finished = apply_quadrature(partial, select={load: 2}.get)
+points, weights = K.quadrature(2)
+sampled_mass = apply_quadrature(mass, points, weights)
 ```
 
-The pass builds the weighted sums and expands their pullbacks. The resulting
-UFLx expression can be evaluated in the oracle.
-To apply a common degree to the whole expression, use
-`apply_quadrature(reference, degree=2)`.
+To sample particular integrals in a larger expression, use their nodes as keys.
+Here `load` stays available for a later choice of rule.
+
+```python
+from uflx.algorithms import substitute_values
+
+partial = substitute_values(
+    mass + stiffness + load,
+    {mass: sampled_mass, stiffness: apply_quadrature(stiffness, *K.quadrature(4))},
+)
+```
+
+For a common degree across a form, use the core traversal. It visits nested
+integrals from the inside out.
+
+```python
+from uflx.algorithms import bottom_up
+from uflx.nodes import Integral
+from uflx_basix.nodes import BasixCell
+
+
+def sample(node):
+    if isinstance(node, Integral) and isinstance(node.integration_domain, BasixCell):
+        return apply_quadrature(node, *node.integration_domain.quadrature(2))
+    return node
+
+
+sampled_form = bottom_up(reference_form, sample)
+```
+
+The oracle can evaluate the weighted sum directly. Use
+`uflx.passes.expand_pull_backs` to expand its point evaluations.
 
 ### Local coefficients and library assembly
 

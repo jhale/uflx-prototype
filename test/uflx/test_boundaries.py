@@ -54,7 +54,7 @@ def test_the_core_imports_neither_the_extension_nor_the_oracle():
 
 def test_extension_uses_public_core_modules():
     for path in files("uflx_basix"):
-        # Quadrature uses the public core traversal to visit reference integrals.
+        # Quadrature names the bound sampling and component indices through the public API.
         modules = (
             PUBLIC_MODULES if path.name == "quadrature.py" else PUBLIC_MODULES - {"uflx.algorithms"}
         )
