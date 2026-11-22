@@ -73,6 +73,34 @@ def test_family_of_pullbacks_and_lazy_conditionals():
     missing = RuntimeArray("unused", ())
     selected = conditional(less_than(a[i], num(10)), a[i], missing)
     np.testing.assert_array_equal(oracle.evaluate(selected), [-1.0, 2.0, 3.0])
+    field = conditional(less_than(x, num(10)), x, missing)
+    np.testing.assert_array_equal(oracle.evaluate(pull_back(field, points)), [-1.0, 2.0, 3.0])
+    u = function(space("field", domain=line, scalar_type="real"), "u")
+    indirect = Interpreter({a: [-1.0, 2.0, 3.0], u: field})
+    np.testing.assert_array_equal(indirect.evaluate(pull_back(u, points)), [-1.0, 2.0, 3.0])
+
+
+def test_indexed_pullback_preserves_shared_axes_under_jit_and_ad():
+    i, j, k = map(index, "ijk")
+    line = EuclideanSpace(1)
+    a, b = RuntimeArray("a", (2, 3)), RuntimeArray("b", (4, 3))
+    points = domain_map(EuclideanSpace(0), tensor((a[i, j],)), line)
+    x = coordinate(line)[0]
+    field = tensor((b[k, j] * x, b[k, j] + x))
+    expr = pull_back(field, points)
+    locations, weights = jnp.arange(6.0).reshape(2, 3), jnp.arange(12.0).reshape(4, 3)
+
+    def sample(locations):
+        return Interpreter({a: locations, b: weights}).evaluate(expr)
+
+    # Field axes (k, j), then the additional map axis i, then the two components.
+    w, p = weights[:, :, None], locations.T[None, :, :]
+    expected = jnp.stack((w * p, w + p), axis=-1)
+    np.testing.assert_allclose(jax.jit(sample)(locations), expected)
+    derivative = jax.grad(lambda a: sample(a).sum())(locations)
+    np.testing.assert_allclose(derivative, jnp.broadcast_to((weights + 1).sum(axis=0), (2, 3)))
+    partial = Interpreter({a: locations, b: weights}).evaluate(expr, indices={j: 1})
+    np.testing.assert_allclose(partial, expected[:, 1])
 
 
 def test_real_contraction_of_integer_storage():

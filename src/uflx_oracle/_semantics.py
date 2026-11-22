@@ -4,8 +4,10 @@ import jax
 import jax.numpy as jnp
 
 from uflx._src.extensions.external_operators import ExternalOperator
+from uflx.algorithms import operands as node_operands
 from uflx.nodes import (
     Absolute,
+    AbstractExpression,
     Apply,
     Boolean,
     BroadcastTo,
@@ -52,6 +54,17 @@ from ._external import evaluate_external
 from ._geometry import integrate, tangent_projector
 
 
+def needs_eager_samples(node, bindings):
+    """A mapped predicate would trace both branches, including an unused binding."""
+    if isinstance(node, (Conditional, Form)) or isinstance(bindings.get(node), BoundExpression):
+        return True
+    if isinstance(node, Function):
+        field = bindings.get(node, bindings.get(f"coefficients:{node.label}"))
+        # A supplied expression or per-cell field may introduce its own conditional.
+        return isinstance(field, (AbstractExpression, dict))
+    return any(needs_eager_samples(child, bindings) for child in node_operands(node))
+
+
 def evaluate(node, bindings, site, arguments=()):
     """Evaluate a UFLx expression under lexical bindings at a local sample."""
 
@@ -76,9 +89,9 @@ def evaluate(node, bindings, site, arguments=()):
     if isinstance(binding, BoundExpression):
         return binding.read(site, arguments)
 
-    def pointwise():
+    def pointwise(*, batch=False):
         return _tensors.pointwise(
-            node, bindings, lambda indices: value(node, arguments, bind=indices)
+            node, bindings, lambda indices: value(node, arguments, bind=indices), batch=batch
         )
 
     match node:
@@ -211,7 +224,7 @@ def evaluate(node, bindings, site, arguments=()):
             return integrate(domain, field(x), site, value)
         case PullBack(x, mapping):
             if _tensors.axes(mapping, bindings):
-                return pointwise()
+                return pointwise(batch=not needs_eager_samples(node, bindings))
             return value(x, arguments, at=_spatial.pullback_site(mapping, site, value))
         case PushForward(x, mesh, law):
             return _spatial.push_forward(field(x), mesh, law, site, value)

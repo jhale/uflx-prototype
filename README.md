@@ -725,10 +725,14 @@ whole field can sample it as `field(point)` on the selected slot.
 The oracle walks the original UFLx graph using JAX operations. For example,
 `index_sum(A[i, j] * b[j], (j,))` evaluates to the array given by
 `jnp.einsum("ij,j->i", A_values, b_values)`. A spatial derivative differentiates
-a function of the point. A directional derivative differentiates a simultaneous
-variation of the named functions. Basix supplies
-exact basis derivatives at evaluation points. For example, an ordinary JAX
-transformation can differentiate an entire evaluation with respect to its inputs.
+a function of the point. For a Basix field, the oracle contracts the table of
+exact basis derivatives with the reference direction. A directional derivative
+of a UFLx expression varies the named functions simultaneously.
+
+For a family of indexed pullbacks, the oracle can use `jax.vmap` to sample the
+field across its free indices. Eager conditionals select their branch separately
+at each sample. JAX can also differentiate an entire evaluation with respect to
+its inputs.
 
 ```python
 import jax

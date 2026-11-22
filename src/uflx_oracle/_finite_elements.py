@@ -1,7 +1,8 @@
 """Numerical data supplied by the Basix extension."""
 
 from functools import cache
-from math import prod
+from itertools import product
+from math import comb, prod
 
 import jax
 import jax.numpy as jnp
@@ -52,41 +53,46 @@ def cell_quadrature(cell):
 
 
 @cache
-def _tabulator(element, orders):
-    """Basix provides exact derivative tables even at traced evaluation points."""
+def _tabulator(element, dimension, order):
+    """Tabulate all partial derivatives through the given order at a reference point."""
+    rows = comb(dimension + order, order)
+    table_shape = (rows, element.dim, element.value_size)
 
     def host(point):
         points = np.asarray(point, dtype=element.dtype)
         batch = points.shape[:-1]
-        table = element.tabulate(sum(orders), points.reshape(prod(batch), len(orders)))
-        values = table[basix.index(*orders) if orders else 0]
-        return values.reshape(*batch, element.dim, element.value_size).astype(
-            point.dtype, copy=False
-        )
+        table = element.tabulate(order, points.reshape(prod(batch), dimension))
+        return table.swapaxes(0, 1).reshape(*batch, *table_shape).astype(point.dtype, copy=False)
 
     @jax.custom_jvp
     def tabulate(point):
         if not isinstance(point, jax.core.Tracer):
             return jnp.asarray(host(point))
-        shape = jax.ShapeDtypeStruct((element.dim, element.value_size), point.dtype)
+        shape = jax.ShapeDtypeStruct(table_shape, point.dtype)
         return jax.pure_callback(host, shape, point, vmap_method="broadcast_all")
 
     @tabulate.defjvp
     def derivative(primals, tangents):
         (point,), (direction,) = primals, tangents
-        value = tabulate(point)
-        tangent = jnp.zeros_like(value)
-        for axis in range(len(orders)):
-            partial = (*orders[:axis], orders[axis] + 1, *orders[axis + 1 :])
-            tangent = tangent + _tabulator(element, partial)(point) * direction[axis]
-        return value, tangent
+        if not dimension:
+            value = tabulate(point)
+            return value, jnp.zeros_like(value)
+        # Each row of the current table has one partial per reference direction
+        # in the next table. Basix numbers the rows by derivative multi-index.
+        partials = np.empty((rows, dimension), dtype=int)
+        unit = np.eye(dimension, dtype=int)
+        for counts in product(range(order + 1), repeat=dimension):
+            if sum(counts) <= order:
+                partials[basix.index(*counts)] = [basix.index(*p) for p in counts + unit]
+        higher = _tabulator(element, dimension, order + 1)(point)
+        return higher[:rows], jnp.einsum("rdij,d->rij", higher[partials], direction)
 
     return tabulate
 
 
 def tabulate(element, point):
     point = jnp.asarray(point, dtype=float)
-    return _tabulator(element, (0,) * len(point))(point)
+    return _tabulator(element, len(point), 0)(point)[0]
 
 
 def field_value(node, bindings, site, value):

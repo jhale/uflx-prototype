@@ -71,6 +71,28 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
     np.testing.assert_allclose(hessians, [[2.0], [2.0]])
 
 
+def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
+    import basix
+
+    from uflx_basix.basix_cells import basix_cell
+    from uflx_basix.basix_spaces import basix_space
+
+    cell = basix_cell(basix.CellType.tetrahedron)
+    V = basix_space("cubic", cell, basix.ElementFamily.P, 3)
+    u = function(V, "u")
+    r, s, t = V.element(0).points.T
+    oracle = Interpreter({u: r * s * t + r * r * s})
+    dr_ds = gradient(gradient(u, cell), cell)[0, 1]
+
+    def sample(point):
+        return oracle.evaluate(dr_ds, points={cell: point})
+
+    points = jnp.array([[0.2, 0.3, 0.1], [0.4, 0.1, 0.25]])
+    mixed, derivatives = jax.jit(jax.vmap(jax.value_and_grad(sample)))(points)
+    np.testing.assert_allclose(mixed, 2 * points[:, 0] + points[:, 2], atol=1e-12)
+    np.testing.assert_allclose(derivatives, [[2, 0, 1], [2, 0, 1]], atol=1e-12)
+
+
 @pytest.mark.parametrize("reference_precision", [False], indirect=True)
 def test_external_jax_custom_jvp_transposes_under_jit(reference_precision):
     a = function(space("scale", scalar_type="real"), "a")

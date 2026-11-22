@@ -100,15 +100,19 @@ def bind_indices(node, bindings, arguments, evaluate):
     return jnp.sum(data, axis=tuple(order.index(i) for i in bound))
 
 
-def pointwise(node, bindings, evaluate):
-    """Give a field callback, coordinate map or conditional one index assignment at a time."""
+def pointwise(node, bindings, evaluate, *, batch=False):
+    """Evaluate one scalar-index rule over the Cartesian product of its free axes."""
     order = axes(node, bindings)
     result_shape = shape(node, bindings)
-    entries = [
-        evaluate(dict(zip(order, key, strict=True)))
-        for key in np.ndindex(result_shape[: len(order)])
-    ]
-    return jnp.stack(entries).reshape(result_shape)
+    extents = result_shape[: len(order)]
+
+    def entry(key):
+        return evaluate(dict(zip(order, key, strict=True)))
+
+    if batch:
+        keys = jnp.indices(extents).reshape(len(order), -1).T
+        return jax.vmap(entry)(keys).reshape(result_shape)
+    return jnp.stack([entry(key) for key in np.ndindex(extents)]).reshape(result_shape)
 
 
 def solve(matrix, rhs):
