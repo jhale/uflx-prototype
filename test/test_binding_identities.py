@@ -2,7 +2,7 @@
 
 import pytest
 
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     ScalarType,
     Zero,
@@ -22,11 +22,11 @@ from uflx_spec_interpreter import (
     replace,
     transpose,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import substitute, substitute_values
-from uflx_spec_interpreter._src.geometry import _metric
-from uflx_spec_interpreter._src.nodes import Function, Index
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_toy.spaces import space
+from uflx._src.algorithms.substitution import substitute, substitute_values
+from uflx._src.geometry import _metric
+from uflx._src.nodes import Function, Index
+from uflx._src.passes.lowering import lower_spatial
+from uflx_basix.spaces import space
 
 P = EuclideanSpace(2)
 V = space("identity-matrix", value_shape=(2, 2), domain=P)

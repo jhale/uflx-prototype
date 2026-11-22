@@ -3,9 +3,7 @@
 import numpy as np
 import pytest
 
-from uflx_compiler import evaluate
-from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     Zero,
     apply,
@@ -30,10 +28,12 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
-from uflx_spec_interpreter._src.nodes import BroadcastTo
-from uflx_toy.runtime import runtime_array, runtime_extent
-from uflx_toy.spaces import space
+from uflx._src.algorithms.rewriting import complete_indices
+from uflx._src.nodes import BroadcastTo
+from uflx_basix.runtime import runtime_array, runtime_extent
+from uflx_basix.spaces import space
+from uflx_compiler import evaluate
+from uflx_oracle import evaluate as oracle
 
 
 @pytest.mark.parametrize(

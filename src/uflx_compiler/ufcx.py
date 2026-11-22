@@ -10,7 +10,7 @@ from math import prod
 import basix
 import numpy as np
 
-from uflx_spec_interpreter import (
+from uflx import (
     add,
     apply_derivatives,
     expand_applications,
@@ -21,13 +21,13 @@ from uflx_spec_interpreter import (
     reference_integral,
     tensor,
 )
-from uflx_spec_interpreter import (
+from uflx import (
     mesh as make_mesh,
 )
-from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
-from uflx_spec_interpreter._src.algorithms.substitution import substitute, substitute_values
-from uflx_spec_interpreter._src.algorithms.traversal import bottom_up, map_fields, memoized
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.algorithms.names import derived_index, derived_indices
+from uflx._src.algorithms.substitution import substitute, substitute_values
+from uflx._src.algorithms.traversal import bottom_up, map_fields, memoized
+from uflx._src.nodes import (
     AbstractExpression,
     Form,
     Function,
@@ -39,11 +39,11 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.nodes.structure import operands
-from uflx_toy.basix_nodes import BasixSpace
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.nodes import IndexTable, VertexCoordinates
-from uflx_toy.runtime import runtime_array
+from uflx._src.nodes.structure import operands
+from uflx_basix.basix_nodes import BasixSpace
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.nodes import IndexTable, VertexCoordinates
+from uflx_basix.runtime import runtime_array
 
 from .algebra import _normalizer
 from .c_code import c_kernel

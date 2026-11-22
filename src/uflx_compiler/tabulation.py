@@ -1,14 +1,14 @@
 import basix
 import numpy as np
 
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     index_sum,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.names import derived_index, derived_indices
-from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.algorithms.names import derived_index, derived_indices
+from uflx._src.algorithms.traversal import bottom_up
+from uflx._src.nodes import (
     CellMap,
     DomainMap,
     Function,
@@ -18,11 +18,11 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_toy.basix_nodes import BasixBasis, BasixCell, BasixSpace
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.nodes import IndexTable, RuntimeArray, VertexCoordinates
-from uflx_toy.runtime import runtime_array
+from uflx._src.nodes.scalar_types import ScalarType
+from uflx_basix.basix_nodes import BasixBasis, BasixCell, BasixSpace
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.nodes import IndexTable, RuntimeArray, VertexCoordinates
+from uflx_basix.runtime import runtime_array
 
 from .evaluation import evaluate
 from .inputs import Basis, runtime_arrays

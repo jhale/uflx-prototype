@@ -4,8 +4,7 @@ import sys
 import numpy as np
 from testutil import assert_clean, check_types, contains, form_with_fixed_argument, pairing
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     add,
     conjugate,
     directional_derivative,
@@ -19,10 +18,11 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import Apply
-from uflx_spec_interpreter._src.passes import applications
-from uflx_spec_interpreter._src.passes.applications import applications_expanded
-from uflx_toy.spaces import space
+from uflx._src.nodes import Apply
+from uflx._src.passes import applications
+from uflx._src.passes.applications import applications_expanded
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 V = space("V")
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")

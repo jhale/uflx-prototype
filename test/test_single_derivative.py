@@ -3,8 +3,7 @@
 import numpy as np
 import pytest
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     ScalarType,
     apply,
     apply_derivatives,
@@ -16,10 +15,11 @@ from uflx_spec_interpreter import (
     num,
     partial,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
-from uflx_spec_interpreter._src.nodes import DirectionalDerivative, Form
-from uflx_toy.spaces import space
+from uflx._src.algorithms.substitution import substitute
+from uflx._src.extensions.complex_differentiation import complex_derivative_parts
+from uflx._src.nodes import DirectionalDerivative, Form
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 
 def lower(e):
@@ -129,11 +129,11 @@ def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomo
     from test_basix import square
     from testutil import push_forward
 
+    from uflx import gradient, integral
+    from uflx_basix.assembly import conforming_dofmap
+    from uflx_basix.basix_cells import basix_cell
+    from uflx_basix.basix_spaces import basix_space
     from uflx_compiler import assemble_bound
-    from uflx_spec_interpreter import gradient, integral
-    from uflx_toy.assembly import conforming_dofmap
-    from uflx_toy.basix_cells import basix_cell
-    from uflx_toy.basix_spaces import basix_space
 
     D = square(basix_cell(basix.CellType.triangle))[0]
     V = basix_space(
@@ -174,12 +174,12 @@ def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphi
     from test_basix import square
     from testutil import push_forward
 
+    from uflx import gradient, integral
+    from uflx_basix.assembly import conforming_dofmap
+    from uflx_basix.basix_cells import basix_cell
+    from uflx_basix.basix_spaces import basix_space
     from uflx_compiler import compile_form
     from uflx_compiler import evaluate as compiled_value
-    from uflx_spec_interpreter import gradient, integral
-    from uflx_toy.assembly import conforming_dofmap
-    from uflx_toy.basix_cells import basix_cell
-    from uflx_toy.basix_spaces import basix_space
 
     D = square(basix_cell(basix.CellType.triangle))[0]
     V = basix_space(

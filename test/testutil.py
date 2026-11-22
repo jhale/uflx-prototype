@@ -1,7 +1,7 @@
 import numpy as np
 
-import uflx_spec_interpreter
-from uflx_spec_interpreter import (
+import uflx
+from uflx import (
     EuclideanSpace,
     ScalarType,
     apply,
@@ -11,7 +11,7 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.nodes import (
     AbstractExpression,
     Apply,
     ComponentTensor,
@@ -32,8 +32,8 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.nodes.structure import expression_operands, nodes_in
-from uflx_toy.nodes import VertexCoordinates
+from uflx._src.nodes.structure import expression_operands, nodes_in
+from uflx_basix.nodes import VertexCoordinates
 
 
 def contains(e, predicate):
@@ -198,11 +198,11 @@ def vertex_mesh(T, vertices, Q=None):
 
 def push_forward(f, domain, law=None):
     """Use the toy function space's law when an example omits it."""
-    return uflx_spec_interpreter.push_forward(f, domain, f.space.law if law is None else law)
+    return uflx.push_forward(f, domain, f.space.law if law is None else law)
 
 
 # Named selections belong to these legacy test fixtures, not to topology nodes.
-# Production examples construct relations directly with uflx_toy.sides.
+# Production examples construct relations directly with uflx_basix.sides.
 _fixture_sides = {}
 
 
@@ -214,28 +214,26 @@ def side_map(domain, source, selection=None):
     relation = named[selected]
     if relation.parent != T:
         raise ValueError("fixture side has a different parent")
-    return uflx_spec_interpreter.side_map(source, *((domain[j], A) for j, A in relation.entries))
+    return uflx.side_map(source, *((domain[j], A) for j, A in relation.entries))
 
 
 def side_domain(domain, topology, selection=None):
     relation = side_map(domain.topology, topology, selection)
-    result = mesh(
-        uflx_spec_interpreter.pull_back(domain.coordinate_function, relation), domain.ambient_domain
-    )
+    result = mesh(uflx.pull_back(domain.coordinate_function, relation), domain.ambient_domain)
     _fixture_sides[result] = dict(_fixture_sides[topology])
     return result
 
 
 def side_data(source, slot, name):
-    from uflx_toy.sides import outward_conormals
+    from uflx_basix.sides import outward_conormals
 
     relation = _fixture_sides[source][name]
     return relation.entries[slot][1], outward_conormals(relation)[slot]
 
 
 def static_topology(cell_types, cells, sides=()):
-    from uflx_toy.sides import static_side_map
-    from uflx_toy.topology import static_topology as construct
+    from uflx_basix.sides import static_side_map
+    from uflx_basix.topology import static_topology as construct
 
     source = construct(cell_types, cells)
     if sides:
@@ -251,8 +249,8 @@ def static_topology(cell_types, cells, sides=()):
 
 
 def tabulated_topology(label, cell_types, sides, positions):
-    from uflx_toy.sides import tabulated_side_map
-    from uflx_toy.topology import tabulated_topology as construct
+    from uflx_basix.sides import tabulated_side_map
+    from uflx_basix.topology import tabulated_topology as construct
 
     source = construct(label, cell_types)
     _fixture_sides[source] = {

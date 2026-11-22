@@ -1,9 +1,9 @@
 import numpy as np
 
-from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
-from uflx_spec_interpreter._src.algorithms.substitution import substitute_values
-from uflx_spec_interpreter._src.algorithms.traversal import map_fields, memoized
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.algorithms.rewriting import complete_indices
+from uflx._src.algorithms.substitution import substitute_values
+from uflx._src.algorithms.traversal import map_fields, memoized
+from uflx._src.nodes import (
     BroadcastTo,
     ComponentTensor,
     Conjugate,
@@ -25,7 +25,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.tensors import determinant
+from uflx._src.tensors import determinant
 
 
 def simplify(f):
@@ -133,7 +133,7 @@ def instantiated(x, mapping):
     def fold(walk, e):
         e = map_fields(e, walk, (*e.value_fields, *e.index_fields))
         if isinstance(e, GatheredIndex) and all(type(i) is int for i in e.indices):
-            from uflx_toy.nodes import IndexTable
+            from uflx_basix.nodes import IndexTable
 
             if isinstance(e.table, IndexTable):
                 return int(np.asarray(e.table.values)[e.indices])

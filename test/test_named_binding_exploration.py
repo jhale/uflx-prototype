@@ -2,7 +2,7 @@
 
 import pytest
 
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     apply,
     conjugate,
@@ -18,15 +18,15 @@ from uflx_spec_interpreter import (
     pull_back,
     rebind,
 )
-from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
-from uflx_spec_interpreter._src.algorithms.substitution import (
+from uflx._src.algorithms.binding import alpha_equivalent
+from uflx._src.algorithms.substitution import (
     occurs,
     occurs_in_metadata,
     occurs_in_values,
     substitute,
 )
-from uflx_spec_interpreter._src.nodes import Apply
-from uflx_toy.spaces import space
+from uflx._src.nodes import Apply
+from uflx_basix.spaces import space
 
 V = space("binding-probe", scalar_type="real")
 u, v, w, p = (function(V, name) for name in ("u", "v", "w", "p"))

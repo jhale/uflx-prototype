@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from uflx_spec_interpreter._src import nodes
+from uflx._src import nodes
 
 
 def declaration_errors(source):

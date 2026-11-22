@@ -1,6 +1,6 @@
 """Diagnostic contracts are read-only checks, independent of lowering recipes."""
 
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     ScalarType,
     apply_derivatives,
@@ -11,15 +11,15 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import DirectionalDerivative
-from uflx_spec_interpreter._src.passes.contracts import (
+from uflx._src.nodes import DirectionalDerivative
+from uflx._src.passes.contracts import (
     core_normal_form,
     derivatives_expanded,
     in_core_normal_form,
     reference_integration,
 )
-from uflx_toy.runtime import runtime_array
-from uflx_toy.spaces import space
+from uflx_basix.runtime import runtime_array
+from uflx_basix.spaces import space
 
 
 def test_reports_shared_nodes_once_and_does_not_lower():
@@ -63,8 +63,8 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
     import basix
     from test_basix import square
 
-    from uflx_spec_interpreter._src.meshes import mesh
-    from uflx_toy.basix_cells import basix_cell
+    from uflx._src.meshes import mesh
+    from uflx_basix.basix_cells import basix_cell
 
     D = square(basix_cell(basix.CellType.triangle))[0]
     q = function(

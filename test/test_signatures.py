@@ -7,8 +7,8 @@ from typing import get_overloads
 
 import pytest
 
-import uflx_spec_interpreter
-from uflx_spec_interpreter._src import nodes
+import uflx
+from uflx._src import nodes
 
 SPEC = Path(
     os.environ.get("UFLX_SPEC_PATH", Path(__file__).parents[2] / "uflx" / "design" / "language.md")
@@ -49,14 +49,14 @@ def test_the_public_free_functions_take_the_parameters_of_the_specification():
         "replace",
         "reference_integral",
     }
-    assert set(uflx_spec_interpreter.__all__) == set(spec) | conveniences
+    assert set(uflx.__all__) == set(spec) | conveniences
     stand_ins = {"num", "replace", "reference_integral"}
-    for name in uflx_spec_interpreter.__all__:
+    for name in uflx.__all__:
         if name in stand_ins:
             continue
-        if inspect.isclass(getattr(uflx_spec_interpreter, name)):
+        if inspect.isclass(getattr(uflx, name)):
             continue
-        function = getattr(uflx_spec_interpreter, name)
+        function = getattr(uflx, name)
         signatures = [inspect.signature(f) for f in get_overloads(function) or [function]]
         parameters = {
             tuple(
@@ -124,8 +124,8 @@ def facade_declarations(source):
 
 
 def test_facade_imports_match_its_declared_exports():
-    path = Path(uflx_spec_interpreter.__file__)
-    assert facade_declarations(path.read_text()) == set(uflx_spec_interpreter.__all__)
+    path = Path(uflx.__file__)
+    assert facade_declarations(path.read_text()) == set(uflx.__all__)
 
 
 @pytest.mark.parametrize(

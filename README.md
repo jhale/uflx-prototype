@@ -1,5 +1,10 @@
 # UFLx spec interpreter
 
+The `uflx-spec-interpreter` distribution provides four Python packages. Import
+language operations from `uflx`, use `uflx_basix` for concrete cells, spaces and
+DOF maps, compile forms with `uflx_compiler`, and evaluate expressions directly
+with `uflx_oracle`.
+
 `lower(f)` runs the standard core recipe and checks its core-normal-form output.
 Individual transformations remain available. The [rule map](RULES.md) tracks the
 mathematical groups and their implementations. Internal checks in `_src/passes/contracts.py`
@@ -31,7 +36,7 @@ pip install -e ".[optimisation]"
 It is invoked explicitly and is not yet wired into the compiler pipeline:
 
 ```python
-from uflx_spec_interpreter._src.optimisation import OptimisationOptions, optimise
+from uflx._src.optimisation import OptimisationOptions, optimise
 
 result = optimise(
     expression,
@@ -151,22 +156,23 @@ free indices. Mesh integrals retain free integrand indices and add one contribut
 reference-domain integrals and explicit index sums for other integration families.
 
 
-A toy implementation of the evaluation passes in the UFLx language specification
-(`design/language.md` in the uflx repository), tested against an independent oracle.
+The core implements the evaluation passes in the UFLx language specification
+(`design/language.md` in the uflx repository). The tests check the passes against
+an independent numerical oracle.
 
 The repository has four packages in `src/`, and imports go only from the oracle
 and the compiler to the extension to the core, which `test/test_boundaries.py`
 checks:
 
-- `uflx_spec_interpreter`: the core, with only what the specification defines
-- `uflx_toy`: a language extension, with the classes that the specification
+- `uflx`: the core, with only what the specification defines
+- `uflx_basix`: a language extension, with the classes that the specification
   leaves to a library or to an extension, `IndexTable`, `RuntimeExtent`,
   `RuntimeArray`, the space `Space`, the reference cell `ReferenceSimplex`, and the
   topologies `StaticTopology` and `TabulatedTopology`. `sides.py` constructs explicit
   relations from vertex correspondences or reference positions and supplies
   separately chosen outward conormals. `BasixCell` supplies reference geometry
   from Basix, and `BasixSpace` supplies finite elements with independent
-  cell-local coefficients. `uflx_toy.assembly` supplies explicit library DOF maps
+  cell-local coefficients. `uflx_basix.assembly` supplies explicit library DOF maps
   for gathering coefficients and scattering local tensors
 - `uflx_oracle`: the oracle that the tests compare the passes against
 - `uflx_compiler`: a form compiler after the core normal form, with a quadrature
@@ -199,7 +205,7 @@ values when gathering and accumulate contributions when scattering:
 
 ```python
 from uflx_compiler import assemble, assemble_bound
-from uflx_toy.assembly import DofMap
+from uflx_basix.assembly import DofMap
 
 # For two triangles with vertex rows (0,1,2) and (0,2,3).
 mapping = DofMap((0, 1, 2, 0, 2, 3), 4)
@@ -210,10 +216,10 @@ matrix = assemble_bound(a, 2, {u: mapping, v: mapping})({})  # 4 x 4
 
 `assemble_bound` bindings are keyed by symbolic functions; coefficient and
 coordinate functions may be bound as well as arguments. Unbound functions keep
-the local layout. `conforming_dofmap(V)` is a toy policy that derives such a map
+the local layout. `conforming_dofmap(V)` derives such a map
 from vertex labels and Basix entity DOFs for elements requiring no DOF
 transformations. Other solvers provide their own connectivity and transformations.
-The toy scatter operation uses NumPy; local evaluation and `DofMap.gather`
+The scatter operation uses NumPy. Local evaluation and `DofMap.gather`
 can also use JAX.
 
 Geometry data are subject to the same packing contract. Declaring a vector
@@ -348,7 +354,7 @@ kernels require one integration slot; each explicit relation selects a parent
 slot. Unsupported configurations are rejected; zero and one-sided integrands
 retain the complete declared layout. Geometry is a vector Basix function, a tensor of scalar Basix coordinate
 functions (including curved geometry), or vertex coordinates interpreted as P1.
-Element families and degrees follow the toy Basix spaces, with the equispaced
+Element families and degrees follow the spaces in `uflx_basix`, with the equispaced
 variant; custom variants are not yet exposed. Mixed arguments and complex inputs
 are rejected. Scalar and tensor constants are packed separately from coefficients.
 Blocked vector and tensor spaces use `basix_space(..., shape=(d,))` or
@@ -460,7 +466,7 @@ Quadrature and tabulation follow the checked core boundary. Geometry derivatives
 Full application constructs a lazy node. Partial application and rebinding transform explicit binders.
 
 ```python
-from uflx_spec_interpreter import apply, partial, rebind
+from uflx import apply, partial, rebind
 
 F = form(u * v, (u, v))
 partial(F, {u: w})  # form(w * v, (v,))
@@ -490,11 +496,11 @@ parameter types without changing interning or structural equality. Derivative
 points and directions remain outside the variable scope. `test_shared_binding.py`
 checks these laws across all four core binder kinds and mixed nesting.
 
-The alpha utilities live in `uflx_spec_interpreter/_src/algorithms/`:
+The alpha utilities live in `uflx/_src/algorithms/`:
 
 ```python
-from uflx_spec_interpreter._src.algorithms.alpha import AlphaHasher, alpha_hash
-from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
+from uflx._src.algorithms.alpha import AlphaHasher, alpha_hash
+from uflx._src.algorithms.binding import alpha_equivalent
 
 key = alpha_hash(expression)  # One expression, with a temporary cache.
 hasher = AlphaHasher()  # Reuse summaries across a compiler pass.
@@ -559,7 +565,7 @@ both representations with finite differences of assembled FE residuals.
 
 The core splits a public API from a private one, as JAX does with `jax._src`.
 
-The public API is `uflx_spec_interpreter/__init__.py`, which re-exports the
+The public API is `uflx/__init__.py`, which re-exports the
 free functions of the specification and declares them in `__all__`, with the
 literal classes, `EuclideanSpace`, scalar types and the convenience helper `num`.
 `reference_integral(f, D, cell_slot)` gives one local cell’s reference integral.
@@ -576,13 +582,13 @@ The optional `side_domain(D, S, *entries)` helper derives source geometry; a
 source mesh can also be constructed independently. Cell bindings and neighbour
 lookup belong to the calling finite element package.
 A user, and a test that builds expressions, imports only these, as in
-`from uflx_spec_interpreter import add, index`. `AbstractExpression` also has
+`from uflx import add, index`. `AbstractExpression` also has
 the operator overloads of the specification, which call these free functions
 and reject Python numbers.
 
-Everything else is in the private package `_src`, which only the toy
-extension, compiler, oracle and white-box tests import. The toy imports only
-`_src.nodes`, for the base classes it extends. The free functions are in the
+Everything else is in the private package `_src`, which only the Basix
+extension, compiler, oracle and white-box tests import. The extension uses
+`_src.nodes` for the base classes it extends. The free functions are in the
 modules of `_src`:
 
 - `literals.py`: `num`, which builds the literal of an `int` or a `float`, and a
@@ -635,7 +641,7 @@ The private modules of `_src`:
 finite differences for derivatives, quadrature for integrals and numeric maps
 for pull-backs, so it does not use the passes. The value of an
 `AbstractExtent` is bound in the environment, as a solver gives it to a kernel. The oracle
-evaluates the classes of `uflx_toy` too, and reads the values of an
+evaluates the classes of `uflx_basix` too, and reads the values of an
 `IndexTable`, which the specification leaves to a library.
 
 The tests in `test/` check on random expressions that a pass keeps the value
@@ -673,7 +679,7 @@ Node classes check their own construction rules, using shared structural helpers
 in `_src/nodes/validation.py`. These checks do not prove mathematical hypotheses
 or form linearity. Downstream libraries remain responsible for their own leaf
 contracts. `ScalarType.real` and `ScalarType.complex` are plain string constants, so they
-satisfy the construction-argument whitelist. The toy's factories encode external enum values
+satisfy the construction-argument whitelist. The factories in `uflx_basix` encode external enum values
 and optional domains using permitted graph arguments.
 
 `replace` traverses construction dependencies and preserves lexical binding;
@@ -690,7 +696,7 @@ This remains a small interpreter, not a production implementation. Some derived
 properties are computed lazily and cached rather than eagerly during construction;
 the existing pass functions implement their rule tables directly rather than
 exposing a general extension-table dispatcher. Library topology contracts and
-numerical capabilities are tested through the supplied toy implementations.
+numerical capabilities are tested through the implementations in `uflx_basix`.
 
 Each node declares `value_fields` for evaluation and `index_fields` for value
 instantiation. Construction dependencies include every annotated argument, including
@@ -703,13 +709,13 @@ inserts directions unchanged. `apply_derivatives` does not collect scalar algebr
 The compiler explicitly requests the optional `uflx_compiler/algebra.py` normalizer.
 Both that optimizer and compiler simplification complete each rewritten child's
 static type before rebuilding its parent. Compiler index instantiation uses the
-core's capture-avoiding value substitution, followed by folding known toy tables.
+core's capture-avoiding value substitution, followed by folding known index tables.
 
 ## Static type checking
 
 Install the `lint` extra and run `pyright` from the repository root. The strict
-configuration includes only `src/uflx_spec_interpreter`; the compiler, oracle,
-toy library and tests are excluded. No diagnostic categories are disabled.
+configuration includes only `src/uflx`; the compiler, oracle,
+Basix extension and tests are excluded. No diagnostic categories are disabled.
 
 Python argument types are now checked statically instead of repeatedly checked
 inside constructors and passes. Construction still enforces the primitive argument

@@ -5,10 +5,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import uflx_spec_interpreter
+import uflx
+from uflx import imaginary_part, index, num, real_part, tensor
+from uflx._src.nodes import ComponentTensor, Indexed, Integer, Power, Product, Sum
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import imaginary_part, index, num, real_part, tensor
-from uflx_spec_interpreter._src.nodes import ComponentTensor, Indexed, Integer, Power, Product, Sum
 
 RNG = np.random.default_rng(1)
 A, B = RNG.normal(size=(2, 3)), RNG.normal(size=(3, 3))
@@ -111,7 +111,7 @@ def delegates_to(method, factory, arguments):
             origin = (
                 resolve_name(
                     "." * node.level + (node.module or ""),
-                    "uflx_spec_interpreter._src.nodes",
+                    "uflx._src.nodes",
                 )
                 if node.level
                 else node.module
@@ -129,7 +129,7 @@ def delegates_to(method, factory, arguments):
     call = returns[0]
     if not isinstance(call.func, ast.Name):
         return False
-    if imports.get(call.func.id) != f"uflx_spec_interpreter._src.{factory}":
+    if imports.get(call.func.id) != f"uflx._src.{factory}":
         return False
     expected = ast.parse(f"delegate({arguments})", mode="eval").body
     return not call.keywords and [ast.dump(a) for a in call.args] == [
@@ -138,7 +138,7 @@ def delegates_to(method, factory, arguments):
 
 
 def test_operator_methods_delegate_to_the_expected_factories():
-    path = Path(uflx_spec_interpreter.__file__).parent / "_src/nodes/expressions.py"
+    path = Path(uflx.__file__).parent / "_src/nodes/expressions.py"
     tree = ast.parse(path.read_text())
     expression = next(
         n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "AbstractExpression"

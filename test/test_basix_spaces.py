@@ -4,14 +4,14 @@ import pytest
 from test_basix import mixed, square
 from testutil import push_forward, side_map
 
+from uflx import expand_arithmetic, function, gradient, integral, pull_back
+from uflx._src.passes import integrals
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx._src.passes.lowering import lower_spatial
+from uflx_basix.assembly import conforming_dofmap
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
 from uflx_oracle import evaluate
-from uflx_spec_interpreter import expand_arithmetic, function, gradient, integral, pull_back
-from uflx_spec_interpreter._src.passes import integrals
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_toy.assembly import conforming_dofmap
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
 
 P = basix.ElementFamily.P
 # The vertex coordinates of the square of test_basix and of its mixed mesh.

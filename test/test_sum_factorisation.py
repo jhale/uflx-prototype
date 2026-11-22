@@ -6,13 +6,13 @@ from test_basix import quadrilaterals
 from test_compiler import functionals
 from testutil import contains, grouped_topology, push_forward, vertex_mesh
 
+from uflx import function, gradient, integral
+from uflx._src.nodes import GatheredIndex
+from uflx_basix.assembly import conforming_dofmap
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import compile_form, evaluate, fold, tabulation
 from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import function, gradient, integral
-from uflx_spec_interpreter._src.nodes import GatheredIndex
-from uflx_toy.assembly import conforming_dofmap
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P

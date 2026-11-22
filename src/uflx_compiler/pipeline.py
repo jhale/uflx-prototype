@@ -1,4 +1,4 @@
-from uflx_spec_interpreter import apply_derivatives, expand_applications, lower
+from uflx import apply_derivatives, expand_applications, lower
 
 from .algebra import _normalizer
 from .quadrature import apply_quadrature

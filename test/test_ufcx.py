@@ -11,8 +11,7 @@ import numpy as np
 import pytest
 from testutil import grouped_topology
 
-from uflx_compiler import compile_ufcx
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     form,
     function,
@@ -23,10 +22,11 @@ from uflx_spec_interpreter import (
     push_forward,
     tensor,
 )
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.sides import outward_conormal
-from uflx_toy.spaces import space
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.sides import outward_conormal
+from uflx_basix.spaces import space
+from uflx_compiler import compile_ufcx
 
 
 @pytest.fixture
@@ -234,7 +234,7 @@ def test_no_inputs_and_zero_forms(tmp_path, ufcx_include, zero):
 
 
 def test_unsupported_integrals_and_input_lists():
-    from uflx_spec_interpreter import replace
+    from uflx import replace
 
     f, mesh, fields, constants = model(basix.CellType.triangle, 1, 1, "mass")
     with pytest.raises(ValueError, match="exactly once"):
@@ -242,7 +242,7 @@ def test_unsupported_integrals_and_input_lists():
     with pytest.raises(ValueError, match="C identifier"):
         compile_ufcx(f, mesh, 2, name="bad-name")
     z = function(space("complex", scalar_type="complex"), "z")
-    from uflx_spec_interpreter import real_part
+    from uflx import real_part
 
     with pytest.raises(NotImplementedError, match="real-valued inputs"):
         compile_ufcx(replace(f, {constants[0]: real_part(z)}), mesh, 2)
@@ -263,7 +263,7 @@ def test_dolfinx_assembles_generated_form(tmp_path, ufcx_include, integral_type)
     if integral_type == "exterior_facet":
         from testutil import side_map
 
-        from uflx_spec_interpreter import pull_back
+        from uflx import pull_back
 
         boundary = boundary_mesh(mesh)
         trace = pull_back(f.expression.expression, side_map(mesh, boundary, "inside"))
@@ -271,7 +271,7 @@ def test_dolfinx_assembles_generated_form(tmp_path, ufcx_include, integral_type)
     elif integral_type == "interior_facet":
         from testutil import side_map
 
-        from uflx_spec_interpreter import pull_back
+        from uflx import pull_back
 
         boundary = interior_mesh(mesh)
         plus, minus = side_map(mesh, boundary, "+"), side_map(mesh, boundary, "-")
@@ -331,7 +331,7 @@ def test_piola_elements_match_ffcx(tmp_path, ufcx_include, kind):
     jit = pytest.importorskip("ffcx.codegeneration.jit")
     import basix.ufl
 
-    from uflx_spec_interpreter import divergence
+    from uflx import divergence
 
     _, D = simple_form()
     V = basix_space("RT", D.topology, basix.ElementFamily.RT, 1)
@@ -416,7 +416,7 @@ def boundary_mesh(D):
 def boundary_model(cell, degree, coordinate_degree, kind):
     from testutil import side_map
 
-    from uflx_spec_interpreter import pull_back
+    from uflx import pull_back
 
     _, D, (a, b), (c,) = model(cell, degree, coordinate_degree, "mass")
     dim = D.dimension
@@ -541,7 +541,7 @@ def test_cell_and_facet_integrals_require_separate_compilation():
 def interior_mesh(D):
     from testutil import side_domain, tabulated_topology
 
-    from uflx_toy.inclusions import vertex_rows
+    from uflx_basix.inclusions import vertex_rows
 
     assert len(D.topology.cell_types) == 2
     K = D.topology.cell_types[0]
@@ -560,7 +560,7 @@ def interior_mesh(D):
 def interior_model(cell, degree, coordinate_degree, kind):
     from testutil import side_map
 
-    from uflx_spec_interpreter import pull_back
+    from uflx import pull_back
 
     _, D, (a, b), (c,) = model(cell, degree, coordinate_degree, "mass", cells=2)
     boundary = interior_mesh(D)
@@ -778,7 +778,7 @@ def test_interior_normals_are_opposite(tmp_path, ufcx_include, cell, degree):
 def test_zero_interior_form_keeps_both_argument_blocks(tmp_path, ufcx_include):
     from testutil import side_map
 
-    from uflx_spec_interpreter import pull_back
+    from uflx import pull_back
 
     f, D = simple_form(zero=True, cells=2)
     boundary = interior_mesh(D)
@@ -797,7 +797,7 @@ def test_interior_piola_normal_jumps(tmp_path, ufcx_include):
     import basix.ufl
     from testutil import side_map
 
-    from uflx_spec_interpreter import pull_back
+    from uflx import pull_back
 
     _, D = simple_form(cells=2)
     interface = interior_mesh(D)
@@ -895,7 +895,7 @@ def explicit_pair(plus_slot=0):
     """Two independent cells; coincident geometry does not identify their fields."""
     from testutil import side_domain, static_topology, tabulated_topology, vertex_mesh
 
-    from uflx_toy.inclusions import vertex_rows
+    from uflx_basix.inclusions import vertex_rows
 
     K, F = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
     T = static_topology((K, K), ((0, 1, 2), (3, 4, 5)), ())
@@ -914,8 +914,8 @@ def explicit_pair(plus_slot=0):
 def test_one_sided_kernel_preserves_declared_cell_reads(tmp_path, ufcx_include, plus_slot):
     from testutil import side_map
 
+    from uflx import cell_map, expand_pull_backs, pull_back
     from uflx_compiler import assemble
-    from uflx_spec_interpreter import cell_map, expand_pull_backs, pull_back
 
     D, E = explicit_pair(plus_slot)
     V = basix_space("DG", D.topology, basix.ElementFamily.P, 1, discontinuous=True)
@@ -941,7 +941,7 @@ def test_one_sided_kernel_preserves_declared_cell_reads(tmp_path, ufcx_include, 
 def test_two_names_for_one_relation_do_not_manufacture_a_second_cell():
     from testutil import side_domain, tabulated_topology
 
-    from uflx_toy.inclusions import vertex_rows
+    from uflx_basix.inclusions import vertex_rows
 
     _, D = simple_form()
     K = D.topology.cell_types[0]
@@ -961,7 +961,7 @@ def test_two_names_for_one_relation_do_not_manufacture_a_second_cell():
 def test_a_single_relation_keeps_both_declared_parent_cells():
     from testutil import side_domain, tabulated_topology
 
-    from uflx_toy.inclusions import vertex_rows
+    from uflx_basix.inclusions import vertex_rows
 
     D, _ = explicit_pair()
     K = D.topology.cell_types[0]
@@ -983,7 +983,7 @@ def test_a_single_relation_keeps_both_declared_parent_cells():
 def test_facet_kernel_cannot_drop_integration_slots():
     from testutil import side_domain, tabulated_topology
 
-    from uflx_toy.inclusions import vertex_rows
+    from uflx_basix.inclusions import vertex_rows
 
     _, D = simple_form()
     K = D.topology.cell_types[0]
@@ -1001,7 +1001,7 @@ def test_facet_kernel_cannot_drop_integration_slots():
 @pytest.mark.parametrize("kind", ["cell", "exterior", "interior"])
 @pytest.mark.parametrize("coordinate_degree", [1, 2])
 def test_vector_geometry_matches_scalar_components(tmp_path, ufcx_include, kind, coordinate_degree):
-    from uflx_spec_interpreter._src.algorithms.substitution import substitute
+    from uflx._src.algorithms.substitution import substitute
 
     make = {"cell": model, "exterior": boundary_model, "interior": interior_model}[kind]
     integrand = {"cell": "stiffness", "exterior": "normal_derivative", "interior": "flux"}[kind]
@@ -1040,8 +1040,8 @@ def test_vector_geometry_matches_scalar_components(tmp_path, ufcx_include, kind,
 def test_runtime_facets_preserve_explicit_normal_orientation(tmp_path, ufcx_include, interior):
     from testutil import side_map
 
-    from uflx_spec_interpreter import conormal
-    from uflx_toy.sides import outward_conormals
+    from uflx import conormal
+    from uflx_basix.sides import outward_conormals
 
     _, D, _, _ = model(basix.CellType.triangle, 1, 1, "mass", cells=2 if interior else 1)
     E = interior_mesh(D) if interior else boundary_mesh(D)
@@ -1064,8 +1064,8 @@ def test_runtime_facets_preserve_explicit_normal_orientation(tmp_path, ufcx_incl
 
 
 def test_runtime_facet_binding_rejects_a_cut_inclusion():
-    from uflx_spec_interpreter import coordinate, domain_map, side_domain
-    from uflx_toy.topology import tabulated_topology
+    from uflx import coordinate, domain_map, side_domain
+    from uflx_basix.topology import tabulated_topology
 
     _, D = simple_form()
     K = D.topology.cell_types[0]

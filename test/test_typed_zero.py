@@ -3,11 +3,7 @@
 import numpy as np
 import pytest
 
-from uflx_compiler.algebra import _normalizer
-from uflx_compiler.evaluation import evaluate as evaluate_array
-from uflx_compiler.simplification import instantiated, simplify
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     Integer,
     ScalarType,
     apply,
@@ -18,9 +14,13 @@ from uflx_spec_interpreter import (
     index,
     num,
 )
-from uflx_spec_interpreter._src.literals import zero
-from uflx_spec_interpreter._src.nodes import Complex, Product, Sum, Zero
-from uflx_toy.spaces import space
+from uflx._src.literals import zero
+from uflx._src.nodes import Complex, Product, Sum, Zero
+from uflx_basix.spaces import space
+from uflx_compiler.algebra import _normalizer
+from uflx_compiler.evaluation import evaluate as evaluate_array
+from uflx_compiler.simplification import instantiated, simplify
+from uflx_oracle import evaluate
 
 
 @pytest.mark.parametrize("scalar_type", (ScalarType.real, ScalarType.complex))

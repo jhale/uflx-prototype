@@ -6,8 +6,7 @@ from test_integrals import K
 from testutil import assert_clean, check_types, contains, keeps_static_type
 
 import uflx_oracle as oracle
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     absolute,
     add,
     component_tensor,
@@ -30,10 +29,11 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import Conormal, Function, Gradient, PullBack
-from uflx_spec_interpreter._src.passes import gradients
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_toy.spaces import space
+from uflx._src.nodes import Conormal, Function, Gradient, PullBack
+from uflx._src.passes import gradients
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 X = coordinate(K)
 u = function(space("V", domain=K), "u")

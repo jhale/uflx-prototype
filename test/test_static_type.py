@@ -2,7 +2,7 @@ from test_integrals import D, K
 from test_integrals import u as on_D
 from testutil import keeps_static_type
 
-from uflx_spec_interpreter import (
+from uflx import (
     Integer,
     ScalarType,
     directional_derivative,
@@ -11,10 +11,10 @@ from uflx_spec_interpreter import (
     multiply,
     num,
 )
-from uflx_spec_interpreter._src.nodes import Complex
-from uflx_spec_interpreter._src.passes.derivatives import apply_derivatives
-from uflx_spec_interpreter._src.passes.gradients import apply_gradients
-from uflx_toy.spaces import space
+from uflx._src.nodes import Complex
+from uflx._src.passes.derivatives import apply_derivatives
+from uflx._src.passes.gradients import apply_gradients
+from uflx_basix.spaces import space
 
 V = space("V")
 u, h = function(V, "u"), function(V, "h")

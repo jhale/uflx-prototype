@@ -2,8 +2,7 @@ import basix
 import numpy as np
 from testutil import grouped_topology, push_forward, side_domain
 
-from uflx_compiler import assemble, compile_form, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     coordinate,
     directional_derivative,
@@ -17,9 +16,10 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_toy.assembly import conforming_dofmap
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
+from uflx_basix.assembly import conforming_dofmap
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_compiler import assemble, compile_form, evaluate
 
 P, RT = basix.ElementFamily.P, basix.ElementFamily.RT
 K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)

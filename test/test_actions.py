@@ -1,8 +1,7 @@
 import numpy as np
 from testutil import ill_typed
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     add,
     apply,
     component_tensor,
@@ -18,9 +17,10 @@ from uflx_spec_interpreter import (
     partial,
     tensor,
 )
-from uflx_spec_interpreter._src.passes import applications
-from uflx_spec_interpreter._src.passes.applications import applications_expanded
-from uflx_toy.spaces import space
+from uflx._src.passes import applications
+from uflx._src.passes.applications import applications_expanded
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 rng = np.random.default_rng(1)
 V, Vd = space("V"), dual_space(space("V"))

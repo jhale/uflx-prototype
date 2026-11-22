@@ -2,8 +2,7 @@ import numpy as np
 import pytest
 from testutil import ill_typed, keeps_static_type
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     ScalarType,
     absolute,
     conjugate,
@@ -13,11 +12,12 @@ from uflx_spec_interpreter import (
     multiply,
     num,
 )
-from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
-from uflx_spec_interpreter._src.nodes import Conjugate
-from uflx_spec_interpreter._src.nodes.forms import entry_function
-from uflx_spec_interpreter._src.passes import applications, derivatives
-from uflx_toy.spaces import space
+from uflx._src.extensions.complex_differentiation import complex_derivative_parts
+from uflx._src.nodes import Conjugate
+from uflx._src.nodes.forms import entry_function
+from uflx._src.passes import applications, derivatives
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 # Derivatives in two unknowns at once, as for a mixed problem.
 C, R = space("C"), space("R", scalar_type=ScalarType.real)

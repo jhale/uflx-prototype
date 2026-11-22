@@ -3,11 +3,11 @@ import numpy as np
 import pytest
 from testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
+from uflx import form, function, gradient, integral, pull_back
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import assemble, compile_form, evaluate, runtime_tables
 from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import form, function, gradient, integral, pull_back
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
 
 P = basix.ElementFamily.P
 K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)

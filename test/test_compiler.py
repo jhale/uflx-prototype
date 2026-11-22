@@ -8,18 +8,7 @@ import pytest
 from test_basix import mixed, quadrilaterals, square
 from testutil import contains, grouped_topology, push_forward, side_map
 
-from uflx_compiler import (
-    assemble,
-    coefficients,
-    compile_form,
-    evaluate,
-    fold,
-    kernel_inputs,
-    runtime_tables,
-)
-from uflx_compiler.inputs import arrays
-from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     coordinate,
     domain_map,
@@ -35,9 +24,9 @@ from uflx_spec_interpreter import (
     reference_integral,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import everywhere, memoized
-from uflx_spec_interpreter._src.meshes import cell_map
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.algorithms.traversal import everywhere, memoized
+from uflx._src.meshes import cell_map
+from uflx._src.nodes import (
     Coordinate,
     Division,
     Gradient,
@@ -46,11 +35,22 @@ from uflx_spec_interpreter._src.nodes import (
     Power,
     PullBack,
 )
-from uflx_spec_interpreter._src.nodes.structure import expression_operands
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.runtime import runtime_array, runtime_extent
-from uflx_toy.sides import outward_conormal
+from uflx._src.nodes.structure import expression_operands
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.runtime import runtime_array, runtime_extent
+from uflx_basix.sides import outward_conormal
+from uflx_compiler import (
+    assemble,
+    coefficients,
+    compile_form,
+    evaluate,
+    fold,
+    kernel_inputs,
+    runtime_tables,
+)
+from uflx_compiler.inputs import arrays
+from uflx_oracle import evaluate as oracle
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P

@@ -16,8 +16,8 @@ class NoEgglog(importlib.abc.MetaPathFinder):
             raise ModuleNotFoundError("blocked for optional-dependency test", name="egglog")
 
 sys.meta_path.insert(0, NoEgglog())
-from uflx_spec_interpreter import num
-from uflx_spec_interpreter._src.optimisation import OptimisationOptions, optimise
+from uflx import num
+from uflx._src.optimisation import OptimisationOptions, optimise
 assert not any(name.startswith("egglog") for name in sys.modules)
 assert OptimisationOptions().iterations == 3
 try:

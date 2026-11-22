@@ -3,12 +3,12 @@ import pytest
 import test_pipeline
 import test_random
 
-from uflx_spec_interpreter import ScalarType, apply, form, function, multiply, num
-from uflx_spec_interpreter._src.algorithms import form_binding, substitution
-from uflx_spec_interpreter._src.algorithms.rewriting import zero_like
-from uflx_spec_interpreter._src.passes import applications
-from uflx_spec_interpreter._src.rules import differentiation
-from uflx_toy.spaces import space
+from uflx import ScalarType, apply, form, function, multiply, num
+from uflx._src.algorithms import form_binding, substitution
+from uflx._src.algorithms.rewriting import zero_like
+from uflx._src.passes import applications
+from uflx._src.rules import differentiation
+from uflx_basix.spaces import space
 
 
 def test_without_freshening_values_change(monkeypatch):

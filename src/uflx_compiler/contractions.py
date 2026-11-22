@@ -6,12 +6,12 @@ from math import prod
 
 import numpy as np
 
-from uflx_spec_interpreter import add, divide, index_sum, multiply, num
-from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
-from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.algorithms.traversal import map_values, memoized
-from uflx_spec_interpreter._src.nodes import (
+from uflx import add, divide, index_sum, multiply, num
+from uflx._src.algorithms.binding import alpha_equivalent
+from uflx._src.algorithms.rewriting import complete_indices
+from uflx._src.algorithms.substitution import substitute
+from uflx._src.algorithms.traversal import map_values, memoized
+from uflx._src.nodes import (
     Division,
     Index,
     Indexed,
@@ -21,7 +21,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.nodes.structure import expression_operands
+from uflx._src.nodes.structure import expression_operands
 
 from .algebra import _normalizer
 from .evaluation import evaluate

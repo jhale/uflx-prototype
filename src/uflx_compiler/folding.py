@@ -1,7 +1,7 @@
 import numpy as np
 
-from uflx_spec_interpreter._src.algorithms.traversal import memoized
-from uflx_spec_interpreter._src.nodes.structure import expression_operands
+from uflx._src.algorithms.traversal import memoized
+from uflx._src.nodes.structure import expression_operands
 
 from .evaluation import evaluate
 from .inputs import arrays

@@ -8,8 +8,7 @@ import numpy as np
 import pytest
 from testutil import grouped_topology
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     Complex,
     EuclideanSpace,
     Float,
@@ -39,12 +38,13 @@ from uflx_spec_interpreter import (
     replace,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import Base, Determinant, Function, Index, Indexed
-from uflx_spec_interpreter._src.nodes.structure import expression_operands
-from uflx_toy.cells import reference_simplex
-from uflx_toy.indices import index_table
-from uflx_toy.runtime import runtime_array, runtime_extent
-from uflx_toy.spaces import space
+from uflx._src.nodes import Base, Determinant, Function, Index, Indexed
+from uflx._src.nodes.structure import expression_operands
+from uflx_basix.cells import reference_simplex
+from uflx_basix.indices import index_table
+from uflx_basix.runtime import runtime_array, runtime_extent
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 
 class Payload(Base):

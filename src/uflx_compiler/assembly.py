@@ -1,10 +1,10 @@
 import numpy as np
 
-from uflx_spec_interpreter import add, component_tensor
-from uflx_spec_interpreter._src.algorithms.names import derived_indices
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.nodes import Conjugate, Form, Zero
-from uflx_spec_interpreter._src.tensors import identity
+from uflx import add, component_tensor
+from uflx._src.algorithms.names import derived_indices
+from uflx._src.algorithms.substitution import substitute
+from uflx._src.nodes import Conjugate, Form, Zero
+from uflx._src.tensors import identity
 
 from .evaluation import evaluate
 from .folding import fold

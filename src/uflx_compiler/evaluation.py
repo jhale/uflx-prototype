@@ -2,7 +2,7 @@ import string
 
 import numpy as np
 
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.nodes import (
     Absolute,
     AbstractExtent,
     BroadcastTo,
@@ -29,7 +29,7 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_toy.nodes import RuntimeArray
+from uflx_basix.nodes import RuntimeArray
 
 
 def evaluate(e, env, xp=np, folded=None):

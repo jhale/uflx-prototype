@@ -4,8 +4,7 @@ import numpy as np
 import pytest
 from testutil import grouped_topology
 
-from uflx_oracle import at, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     ScalarType,
     cell_map,
@@ -16,12 +15,13 @@ from uflx_spec_interpreter import (
     mesh,
     pull_back,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.nodes import CellMap, Gradient, TransformationLaw
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_spec_interpreter._src.rules.coordinates import transformed
-from uflx_toy.cells import reference_simplex
-from uflx_toy.spaces import space
+from uflx._src.algorithms.substitution import substitute
+from uflx._src.nodes import CellMap, Gradient, TransformationLaw
+from uflx._src.passes.lowering import lower_spatial
+from uflx._src.rules.coordinates import transformed
+from uflx_basix.cells import reference_simplex
+from uflx_basix.spaces import space
+from uflx_oracle import at, evaluate
 
 
 def geometry():

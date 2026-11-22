@@ -8,9 +8,7 @@ import numpy as np
 import pytest
 from testutil import grouped_topology, push_forward
 
-from uflx_compiler import compile_form, evaluate
-from uflx_compiler.c_code import c_kernel
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     broadcast_to,
     component_tensor,
@@ -29,10 +27,12 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.indices import index_table
-from uflx_toy.runtime import runtime_array
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.indices import index_table
+from uflx_basix.runtime import runtime_array
+from uflx_compiler import compile_form, evaluate
+from uflx_compiler.c_code import c_kernel
 
 P, RT = basix.ElementFamily.P, basix.ElementFamily.RT
 T = grouped_topology((basix_cell(basix.CellType.triangle),), (((0, 1, 2),),), ())
@@ -817,9 +817,9 @@ def test_action_factors_geometry_before_test_basis_loop(tmp_path):
 
 @pytest.mark.parametrize("perturbation", [0.0, 2e-15, 1e-8])
 def test_sparse_table_contractions_preserve_values_and_distinct_columns(perturbation):
+    from uflx._src.nodes import IndexSum
     from uflx_compiler.contractions import _sparse_contractions
     from uflx_compiler.quadrature import constant
-    from uflx_spec_interpreter._src.nodes import IndexSum
 
     q, k = index("q"), index("k")
     column = np.array([1.0, 2.0, -3.0])
@@ -1071,9 +1071,9 @@ def test_action_factoring_through_division(tmp_path, dependent_denominator):
 
 @pytest.mark.skipif(shutil.which("cc") is None, reason="no C compiler")
 def test_division_factoring_keeps_reference_sums_factored(tmp_path):
+    from uflx._src.algorithms.traversal import everywhere
     from uflx_compiler.contractions import _factor_contraction
     from uflx_compiler.quadrature import constant
-    from uflx_spec_interpreter._src.algorithms.traversal import everywhere
 
     q, c, i, j = (index(name) for name in ("q", "c", "i", "j"))
     rng = np.random.default_rng(933)
@@ -1116,9 +1116,9 @@ def test_division_factoring_keeps_reference_sums_factored(tmp_path):
 
 @pytest.mark.parametrize("transpose", [False, True])
 def test_division_factoring_preserves_unexpanded_contractions(transpose):
+    from uflx._src.algorithms.traversal import everywhere
     from uflx_compiler.contractions import _factor_contraction
     from uflx_compiler.quadrature import constant
-    from uflx_spec_interpreter._src.algorithms.traversal import everywhere
 
     q, c, i, j = (index(name) for name in ("q", "c", "i", "j"))
     rng = np.random.default_rng(935)

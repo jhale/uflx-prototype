@@ -1,7 +1,6 @@
 import numpy as np
 
-from uflx_oracle import at, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     component_tensor,
     coordinate,
     domain_map,
@@ -10,8 +9,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_toy.cells import reference_simplex
-from uflx_toy.inclusions import affine_map, centroid, reference_normal
+from uflx_basix.cells import reference_simplex
+from uflx_basix.inclusions import affine_map, centroid, reference_normal
+from uflx_oracle import at, evaluate
 
 # The affine maps and normals of the library of the toy, which side tables are built from.
 

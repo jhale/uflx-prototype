@@ -12,8 +12,7 @@ from testutil import (
     pairing,
 )
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     ScalarType,
     absolute,
     add,
@@ -39,12 +38,13 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.literals import zero
-from uflx_spec_interpreter._src.nodes import Apply, DirectionalDerivative
-from uflx_spec_interpreter._src.passes import applications, derivatives
-from uflx_spec_interpreter._src.passes.applications import applications_expanded
-from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
-from uflx_toy.spaces import space
+from uflx._src.literals import zero
+from uflx._src.nodes import Apply, DirectionalDerivative
+from uflx._src.passes import applications, derivatives
+from uflx._src.passes.applications import applications_expanded
+from uflx._src.passes.derivatives import _derivatives_complete
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 V, Vd = space("V"), dual_space(space("V"))
 W, Wd = space("W", value_shape=(2,)), dual_space(space("W", value_shape=(2,)))

@@ -4,8 +4,7 @@ import basix
 import numpy as np
 import pytest
 
-from uflx_compiler import compile_form, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     component_tensor,
     coordinate,
@@ -17,10 +16,11 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.interpolation import interpolate
-from uflx_toy.spaces import space
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.interpolation import interpolate
+from uflx_basix.spaces import space
+from uflx_compiler import compile_form, evaluate
 
 
 def sample(f, point, cell):

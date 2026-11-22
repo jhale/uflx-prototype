@@ -2,11 +2,11 @@
 
 import pytest
 
-from uflx_spec_interpreter import EuclideanSpace, apply_gradients, function, gradient, num, tensor
-from uflx_spec_interpreter._src.algorithms.rewriting import rewrite
-from uflx_spec_interpreter._src.algorithms.traversal import rebuild
-from uflx_spec_interpreter._src.passes import lowering, spatial
-from uflx_toy.spaces import space
+from uflx import EuclideanSpace, apply_gradients, function, gradient, num, tensor
+from uflx._src.algorithms.rewriting import rewrite
+from uflx._src.algorithms.traversal import rebuild
+from uflx._src.passes import lowering, spatial
+from uflx_basix.spaces import space
 
 
 def test_replacement_operands_are_processed_and_shared_nodes_reused():

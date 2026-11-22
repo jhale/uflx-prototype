@@ -7,11 +7,11 @@ from math import prod
 
 import numpy as np
 
-from uflx_spec_interpreter import add, broadcast_to, divide, index_sum, multiply, num, tensor
-from uflx_spec_interpreter._src.algorithms.names import derived_index
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.algorithms.traversal import map_fields
-from uflx_spec_interpreter._src.nodes import (
+from uflx import add, broadcast_to, divide, index_sum, multiply, num, tensor
+from uflx._src.algorithms.names import derived_index
+from uflx._src.algorithms.substitution import substitute
+from uflx._src.algorithms.traversal import map_fields
+from uflx._src.nodes import (
     AbstractExpression,
     BroadcastTo,
     Division,
@@ -22,9 +22,9 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.nodes.structure import expression_operands
-from uflx_toy.nodes import RuntimeArray
-from uflx_toy.runtime import runtime_array
+from uflx._src.nodes.structure import expression_operands
+from uflx_basix.nodes import RuntimeArray
+from uflx_basix.runtime import runtime_array
 
 from .c_code import c_kernel
 from .evaluation import evaluate

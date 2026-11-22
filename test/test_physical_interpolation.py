@@ -7,8 +7,7 @@ from test_interpolation import sample
 from test_nested_quadrature import edge_sampling_rule
 from testutil import vertex_mesh
 
-from uflx_compiler import compile_form, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     cell_map,
     directional_derivative,
     function,
@@ -17,10 +16,11 @@ from uflx_spec_interpreter import (
     pull_back,
     push_forward,
 )
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.interpolation import interpolate
-from uflx_toy.topology import static_topology
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.interpolation import interpolate
+from uflx_basix.topology import static_topology
+from uflx_compiler import compile_form, evaluate
 
 
 @pytest.mark.parametrize("reverse", [False, True])

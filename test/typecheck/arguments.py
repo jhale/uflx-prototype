@@ -2,7 +2,7 @@
 
 from typing import Literal, assert_type
 
-from uflx_spec_interpreter import (
+from uflx import (
     Boolean,
     Complex,
     EuclideanSpace,
@@ -18,8 +18,8 @@ from uflx_spec_interpreter import (
     side_map,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.algorithms.traversal import bottom_up
+from uflx._src.nodes import (
     AbstractDomain,
     AbstractExpression,
     AbstractTopology,
@@ -32,7 +32,7 @@ from uflx_spec_interpreter._src.nodes import (
     Mesh,
     SideMap,
 )
-from uflx_spec_interpreter._src.passes.contracts import (
+from uflx._src.passes.contracts import (
     core_normal_form,
     derivatives_expanded,
     reference_integration,

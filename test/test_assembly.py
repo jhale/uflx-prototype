@@ -5,9 +5,7 @@ import numpy as np
 from test_basix import mixed, square
 from testutil import push_forward, side_map
 
-from uflx_compiler import assemble, assemble_bound, compile_form, evaluate, fold
-from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
+from uflx import (
     directional_derivative,
     form,
     function,
@@ -16,10 +14,12 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_toy.assembly import conforming_dofmap
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.sides import outward_conormal
+from uflx_basix.assembly import conforming_dofmap
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.sides import outward_conormal
+from uflx_compiler import assemble, assemble_bound, compile_form, evaluate, fold
+from uflx_oracle import evaluate as oracle
 
 jax.config.update("jax_enable_x64", True)
 P = basix.ElementFamily.P
@@ -99,7 +99,7 @@ def test_bound_directional_derivatives_assemble_to_the_energy_derivatives():
 
 
 def test_zero_form_uses_argument_spaces_for_rectangular_complex_tensor():
-    from uflx_spec_interpreter import ScalarType
+    from uflx import ScalarType
 
     D = square(basix_cell(basix.CellType.triangle))[0]
     V = basix_space("rows", D.topology, P, 1, True, ScalarType.complex)

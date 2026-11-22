@@ -4,8 +4,7 @@ import numpy as np
 import pytest
 from testutil import grouped_topology, push_forward
 
-from uflx_oracle import at, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     ScalarType,
     apply_gradients,
@@ -19,13 +18,14 @@ from uflx_spec_interpreter import (
     tensor,
     transformation_law,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import everywhere
-from uflx_spec_interpreter._src.meshes import cell_map
-from uflx_spec_interpreter._src.nodes import Curl, Divergence, Gradient, PullBack, PushForward
-from uflx_spec_interpreter._src.passes.contracts import _allowed_in_core_normal_form
-from uflx_spec_interpreter._src.rules.coordinates import piola_law
-from uflx_toy.cells import reference_simplex
-from uflx_toy.spaces import space
+from uflx._src.algorithms.traversal import everywhere
+from uflx._src.meshes import cell_map
+from uflx._src.nodes import Curl, Divergence, Gradient, PullBack, PushForward
+from uflx._src.passes.contracts import _allowed_in_core_normal_form
+from uflx._src.rules.coordinates import piola_law
+from uflx_basix.cells import reference_simplex
+from uflx_basix.spaces import space
+from uflx_oracle import at, evaluate
 
 
 def mapped(k, n, variance, weight):

@@ -3,9 +3,7 @@
 import numpy as np
 import pytest
 
-from uflx_compiler import evaluate
-from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     Zero,
     apply_derivatives,
@@ -21,8 +19,10 @@ from uflx_spec_interpreter import (
     power,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
-from uflx_toy.spaces import space
+from uflx._src.algorithms.rewriting import complete_indices
+from uflx_basix.spaces import space
+from uflx_compiler import evaluate
+from uflx_oracle import evaluate as oracle
 
 
 @pytest.mark.parametrize(

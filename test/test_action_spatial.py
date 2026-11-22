@@ -5,8 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from uflx_oracle import at, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     ScalarType,
     apply,
@@ -24,13 +23,14 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import AbstractDomain, AbstractFunctionSpace, Apply, SideMap
-from uflx_spec_interpreter._src.passes.applications import applications_expanded
-from uflx_spec_interpreter._src.passes.contracts import core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
-from uflx_toy.cells import reference_simplex
-from uflx_toy.spaces import space
+from uflx._src.nodes import AbstractDomain, AbstractFunctionSpace, Apply, SideMap
+from uflx._src.passes.applications import applications_expanded
+from uflx._src.passes.contracts import core_normal_form
+from uflx._src.passes.lowering import lower_spatial
+from uflx._src.passes.pullbacks import pull_backs_expanded
+from uflx_basix.cells import reference_simplex
+from uflx_basix.spaces import space
+from uflx_oracle import at, evaluate
 
 
 class OperatorSpace(AbstractFunctionSpace):
@@ -110,7 +110,7 @@ def test_side_pullback_transforms_output_before_deferral_and_keeps_tuple_family(
     from test_basix import square
     from testutil import side_map
 
-    from uflx_toy.basix_cells import basix_cell
+    from uflx_basix.basix_cells import basix_cell
 
     D, E, _ = square(basix_cell(basix.CellType.triangle))
     sm = side_map(D, E)

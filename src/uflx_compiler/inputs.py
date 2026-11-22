@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import final
 
-from uflx_spec_interpreter._src.algorithms.traversal import memoized
-from uflx_spec_interpreter._src.nodes import AbstractExtent, Base
-from uflx_spec_interpreter._src.nodes.structure import expression_operands
-from uflx_toy.nodes import RuntimeArray
+from uflx._src.algorithms.traversal import memoized
+from uflx._src.nodes import AbstractExtent, Base
+from uflx._src.nodes.structure import expression_operands
+from uflx_basix.nodes import RuntimeArray
 
 
 @final

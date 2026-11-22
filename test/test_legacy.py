@@ -16,8 +16,7 @@ from legacy import (
 )
 from testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
-from uflx_compiler import assemble_bound
-from uflx_spec_interpreter import (
+from uflx import (
     conjugate,
     form,
     function,
@@ -27,11 +26,12 @@ from uflx_spec_interpreter import (
     integral,
     pull_back,
 )
-from uflx_spec_interpreter._src.nodes import Conjugate, Integer, Product, Sum
-from uflx_toy.assembly import conforming_dofmap
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.sides import outward_conormal
+from uflx._src.nodes import Conjugate, Integer, Product, Sum
+from uflx_basix.assembly import conforming_dofmap
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.sides import outward_conormal
+from uflx_compiler import assemble_bound
 
 K, I = basix_cell(basix.CellType.triangle), basix_cell(basix.CellType.interval)
 T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
@@ -98,9 +98,9 @@ def assembled(f):
     if isinstance(f, Product) and isinstance(f.construction_arguments[0], Integer):
         c, g = f.construction_arguments
         return c.value * assembled(g)
-    from uflx_spec_interpreter._src.algorithms.traversal import everywhere
-    from uflx_spec_interpreter._src.nodes import Function
-    from uflx_toy.basix_nodes import BasixSpace
+    from uflx._src.algorithms.traversal import everywhere
+    from uflx._src.nodes import Function
+    from uflx_basix.basix_nodes import BasixSpace
 
     bindings = {}
 

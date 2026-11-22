@@ -2,9 +2,7 @@ import basix
 import numpy as np
 from testutil import grouped_topology, push_forward, vertex_mesh
 
-from uflx_compiler import compile_form, evaluate
-from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     coordinate,
     curl,
@@ -19,11 +17,13 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import everywhere
-from uflx_spec_interpreter._src.nodes import Gradient, PushForward
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
+from uflx._src.algorithms.traversal import everywhere
+from uflx._src.nodes import Gradient, PushForward
+from uflx._src.passes.lowering import lower_spatial
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_compiler import compile_form, evaluate
+from uflx_oracle import evaluate as oracle
 
 P, RT, N1 = basix.ElementFamily.P, basix.ElementFamily.RT, basix.ElementFamily.N1E
 K = basix_cell(basix.CellType.triangle)

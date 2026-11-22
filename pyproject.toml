@@ -24,7 +24,7 @@ addopts = "-n 6"
 
 [tool.coverage.run]
 branch = true
-source = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle", "uflx_compiler"]
+source = ["uflx", "uflx_basix", "uflx_oracle", "uflx_compiler"]
 
 [tool.coverage.report]
 show_missing = true
@@ -39,11 +39,11 @@ select = ["E", "W", "F", "I", "RUF", "UP", "ICN", "NPY", "FLY", "LOG", "ISC"]
 ignore = ["E731", "E741"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["uflx_spec_interpreter", "uflx_toy", "uflx_oracle", "uflx_compiler"]
+known-first-party = ["uflx", "uflx_basix", "uflx_oracle", "uflx_compiler"]
 
 [tool.pyright]
-include = ["src/uflx_spec_interpreter"]
-exclude = ["src/uflx_compiler", "src/uflx_oracle", "src/uflx_toy", "test"]
+include = ["src/uflx"]
+exclude = ["src/uflx_compiler", "src/uflx_oracle", "src/uflx_basix", "test"]
 typeCheckingMode = "strict"
 pythonVersion = "3.11"
 reportUnnecessaryTypeIgnoreComment = "error"

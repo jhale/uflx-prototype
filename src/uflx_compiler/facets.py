@@ -3,7 +3,7 @@
 import basix
 import numpy as np
 
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     conormal,
     domain_map,
@@ -12,15 +12,15 @@ from uflx_spec_interpreter import (
     pull_back,
     side_map,
 )
-from uflx_spec_interpreter import (
+from uflx import (
     mesh as make_mesh,
 )
-from uflx_spec_interpreter._src.algorithms.names import derived_index
-from uflx_spec_interpreter._src.nodes import Conormal, SideMap
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.inclusions import affine_map, reference_normal
-from uflx_toy.runtime import runtime_array
-from uflx_toy.sides import outward_conormals
+from uflx._src.algorithms.names import derived_index
+from uflx._src.nodes import Conormal, SideMap
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.inclusions import affine_map, reference_normal
+from uflx_basix.runtime import runtime_array
+from uflx_basix.sides import outward_conormals
 
 from .algebra import _normalizer
 from .evaluation import evaluate

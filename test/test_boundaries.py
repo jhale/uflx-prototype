@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
+import uflx
+import uflx_basix
 import uflx_compiler
 import uflx_oracle
-import uflx_spec_interpreter
-import uflx_toy
 
 SOURCE = Path(__file__).resolve().parents[1] / "src"
 
@@ -48,37 +48,37 @@ def assert_imports_none_of(package, forbidden):
 
 
 def test_the_core_imports_neither_the_extension_nor_the_oracle():
-    # Imports go from the oracle and the compiler to the toy extension to the core, never back,
+    # Imports go from the oracle and the compiler to the Basix extension to the core, never back,
     # and the compiler never reads the oracle.
-    assert_imports_none_of(uflx_spec_interpreter, {"uflx_toy", "uflx_oracle", "uflx_compiler"})
-    assert_imports_none_of(uflx_toy, {"uflx_oracle", "uflx_compiler"})
+    assert_imports_none_of(uflx, {"uflx_basix", "uflx_oracle", "uflx_compiler"})
+    assert_imports_none_of(uflx_basix, {"uflx_oracle", "uflx_compiler"})
     assert_imports_none_of(uflx_compiler, {"uflx_oracle"})
 
 
 def test_the_extension_reads_only_the_public_api_and_the_node_classes_of_the_core():
-    for path in files(uflx_toy):
+    for path in files(uflx_basix):
         for m in imported(path):
-            if m.startswith("uflx_spec_interpreter"):
-                assert m in ("uflx_spec_interpreter", "uflx_spec_interpreter._src.nodes"), path
+            if m.partition(".")[0] == "uflx":
+                assert m in ("uflx", "uflx._src.nodes"), path
 
 
 def test_the_public_api_is_the_names_it_declares():
-    public = {n for n in dir(uflx_spec_interpreter) if not n.startswith("_")}
-    assert public == set(uflx_spec_interpreter.__all__)
+    public = {n for n in dir(uflx) if not n.startswith("_")}
+    assert public == set(uflx.__all__)
     assert uflx_oracle.evaluate
 
 
 def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
-    for path in files(uflx_spec_interpreter):
-        relative = path.relative_to(SOURCE / "uflx_spec_interpreter")
+    for path in files(uflx):
+        relative = path.relative_to(SOURCE / "uflx")
         if relative.parts[0] != "_src" or "extensions" in relative.parts:
             continue
         for module in imported(path):
-            assert module != "uflx_spec_interpreter", (path, module)
+            assert module != "uflx", (path, module)
             assert not module.startswith(
                 (
-                    "uflx_spec_interpreter._draft",
-                    "uflx_spec_interpreter._src.extensions",
+                    "uflx._draft",
+                    "uflx._src.extensions",
                 )
             ), (path, module)
 
@@ -86,43 +86,43 @@ def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
 @pytest.mark.parametrize(
     ("source", "module", "is_package", "expected"),
     [
-        ("import uflx_oracle as oracle", "uflx_spec_interpreter.example", False, "uflx_oracle"),
+        ("import uflx_oracle as oracle", "uflx.example", False, "uflx_oracle"),
         (
-            "from uflx_spec_interpreter import _src",
-            "uflx_toy.example",
+            "from uflx import _src",
+            "uflx_basix.example",
             False,
-            "uflx_spec_interpreter._src",
+            "uflx._src",
         ),
         (
             "from . import _src",
-            "uflx_spec_interpreter.example",
+            "uflx.example",
             False,
-            "uflx_spec_interpreter._src",
+            "uflx._src",
         ),
         (
             "from .. import _src",
-            "uflx_spec_interpreter._src.example",
+            "uflx._src.example",
             False,
-            "uflx_spec_interpreter._src",
+            "uflx._src",
         ),
         (
             "from ._src import nodes",
-            "uflx_spec_interpreter",
+            "uflx",
             True,
-            "uflx_spec_interpreter._src.nodes",
+            "uflx._src.nodes",
         ),
-        ("from . import function", "uflx_spec_interpreter.example", False, "uflx_spec_interpreter"),
+        ("from . import function", "uflx.example", False, "uflx"),
         (
             "if TYPE_CHECKING:\n    from ..extensions import external_operators",
-            "uflx_spec_interpreter._src.nodes.example",
+            "uflx._src.nodes.example",
             False,
-            "uflx_spec_interpreter._src.extensions.external_operators",
+            "uflx._src.extensions.external_operators",
         ),
         (
-            "def f():\n    from uflx_spec_interpreter._src import arithmetic as a",
-            "uflx_toy.example",
+            "def f():\n    from uflx._src import arithmetic as a",
+            "uflx_basix.example",
             False,
-            "uflx_spec_interpreter._src.arithmetic",
+            "uflx._src.arithmetic",
         ),
     ],
 )
@@ -144,7 +144,7 @@ def test_private_helpers_stay_in_their_module():
             if not isinstance(node, ast.ImportFrom):
                 continue
             origin = resolve_name("." * node.level + (node.module or ""), package)
-            if not origin.startswith("uflx_spec_interpreter._src"):
+            if not origin.startswith("uflx._src"):
                 continue
             violations.extend(
                 f"{path.relative_to(SOURCE)}:{node.lineno}: private import {name.name}"
@@ -193,7 +193,7 @@ def test_private_helpers_stay_in_their_module():
 )
 def test_core_dependency_layers(module, forbidden):
     """Queries and transformations must not depend on their callers or recipes."""
-    prefix = "uflx_spec_interpreter._src."
+    prefix = "uflx._src."
     path = SOURCE.joinpath(*(prefix + module).split(".")).with_suffix(".py")
     for dependency in imported(path):
         assert not any(

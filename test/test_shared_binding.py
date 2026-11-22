@@ -2,7 +2,7 @@
 
 import pytest
 
-from uflx_spec_interpreter import (
+from uflx import (
     component_tensor,
     directional_derivative,
     form,
@@ -13,9 +13,9 @@ from uflx_spec_interpreter import (
     rebind,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent, binding_signature
-from uflx_spec_interpreter._src.algorithms.substitution import occurs, rename_bound, substitute
-from uflx_toy.spaces import space
+from uflx._src.algorithms.binding import alpha_equivalent, binding_signature
+from uflx._src.algorithms.substitution import occurs, rename_bound, substitute
+from uflx_basix.spaces import space
 
 V = space("shared-binding", scalar_type="real")
 u, v, w, a = (function(V, name) for name in ("u", "v", "w", "a"))

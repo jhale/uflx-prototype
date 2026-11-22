@@ -3,10 +3,10 @@ from test_integrals import DIAGONAL, SQUARE, D, K
 from test_integrals import I as interval
 from testutil import grouped_topology, side_data, side_domain, side_map
 
+from uflx import function, pull_back
+from uflx._src.nodes import SideMap
+from uflx_basix.spaces import space
 from uflx_oracle import at, evaluate
-from uflx_spec_interpreter import function, pull_back
-from uflx_spec_interpreter._src.nodes import SideMap
-from uflx_toy.spaces import space
 
 
 def test_the_side_data_of_the_diagonal_of_the_example():

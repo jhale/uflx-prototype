@@ -11,10 +11,10 @@ import pytest
 from test_surface import M
 from testutil import contains
 
-from uflx_spec_interpreter import density, inverse, jacobian
-from uflx_spec_interpreter._src.algorithms.traversal import map_fields, rebuild
-from uflx_spec_interpreter._src.meshes import cell_map
-from uflx_spec_interpreter._src.nodes import (
+from uflx import density, inverse, jacobian
+from uflx._src.algorithms.traversal import map_fields, rebuild
+from uflx._src.meshes import cell_map
+from uflx._src.nodes import (
     Base,
     Complex,
     Float,
@@ -25,8 +25,8 @@ from uflx_spec_interpreter._src.nodes import (
     Sum,
     Tensor,
 )
-from uflx_spec_interpreter._src.nodes.base import _digest_of
-from uflx_toy.spaces import space
+from uflx._src.nodes.base import _digest_of
+from uflx_basix.spaces import space
 
 V = space("V")
 
@@ -65,8 +65,8 @@ def test_unused_nodes_are_freed():
 
 def test_hash_is_the_same_in_every_process():
     code = (
-        "from uflx_toy.spaces import space\n"
-        "from uflx_spec_interpreter._src.nodes import "
+        "from uflx_basix.spaces import space\n"
+        "from uflx._src.nodes import "
         "Float, Function, Indexed, Integer, Sum, Tensor\n"
         "u = Function(space('V'), ('label', 'with', 'strings'))\n"
         "print(hash(Sum(Indexed(Tensor((u, Float(2.5))), (1,)), u)))\n"
@@ -142,7 +142,7 @@ def test_cache_hits_do_not_initialize_or_validate_again():
 def test_private_dataclass_storage_is_frozen():
     from dataclasses import FrozenInstanceError
 
-    from uflx_spec_interpreter import EuclideanSpace
+    from uflx import EuclideanSpace
 
     domain = EuclideanSpace(3)
     with pytest.raises(FrozenInstanceError):

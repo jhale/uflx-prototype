@@ -198,7 +198,7 @@ def main():
     vendor = ROOT / "third_party/herbie"
     code, report = generate((vendor / "rules.rkt").read_text(), (vendor / "LICENSE.md").read_text())
     outputs = {
-        ROOT / "src/uflx_spec_interpreter/_src/optimisation/herbie.py": code,
+        ROOT / "src/uflx/_src/optimisation/herbie.py": code,
         vendor / "translation.json": json.dumps(report, indent=2) + "\n",
     }
     for path, content in outputs.items():

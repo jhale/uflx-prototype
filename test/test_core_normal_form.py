@@ -1,6 +1,6 @@
 from test_integrals import D, K, u
 
-from uflx_spec_interpreter import (
+from uflx import (
     add,
     apply,
     conjugate,
@@ -15,10 +15,10 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.meshes import cell_map
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_toy.runtime import runtime_array
-from uflx_toy.spaces import space
+from uflx._src.meshes import cell_map
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx_basix.runtime import runtime_array
+from uflx_basix.spaces import space
 
 V = space("V")
 v, w = function(V, "v"), function(V, "w")

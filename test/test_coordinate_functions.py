@@ -4,9 +4,7 @@ from test_basix import square
 from test_compiler import functionals, runtime_mesh
 from testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
-from uflx_compiler import compile_form, evaluate
-from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     cell_map,
     expand_integrals,
@@ -17,14 +15,16 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import everywhere
-from uflx_spec_interpreter._src.meshes import is_cell
-from uflx_spec_interpreter._src.nodes import CellMap, Division, Gradient, PullBack
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_toy.assembly import conforming_dofmap
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
+from uflx._src.algorithms.traversal import everywhere
+from uflx._src.meshes import is_cell
+from uflx._src.nodes import CellMap, Division, Gradient, PullBack
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx._src.passes.lowering import lower_spatial
+from uflx_basix.assembly import conforming_dofmap
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_compiler import compile_form, evaluate
+from uflx_oracle import evaluate as oracle
 
 P = basix.ElementFamily.P
 K = basix_cell(basix.CellType.triangle)

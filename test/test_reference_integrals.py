@@ -6,8 +6,7 @@ from test_facets import E_bnd, E_int, sides_int
 from test_integrals import D, K
 from testutil import grouped_topology, vertex_mesh
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     coordinate,
     expand_integrals,
     index,
@@ -18,9 +17,10 @@ from uflx_spec_interpreter import (
     reference_integral,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.nodes import IndexSum, Integral
-from uflx_toy.sides import outward_conormal
+from uflx._src.algorithms.substitution import substitute
+from uflx._src.nodes import IndexSum, Integral
+from uflx_basix.sides import outward_conormal
+from uflx_oracle import evaluate
 
 
 @pytest.mark.parametrize("domain", [D, E_bnd, E_int])

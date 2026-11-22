@@ -2,8 +2,7 @@
 
 import numpy as np
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     apply,
     apply_derivatives,
     conjugate,
@@ -15,10 +14,11 @@ from uflx_spec_interpreter import (
     lower,
     num,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import everywhere
-from uflx_spec_interpreter._src.nodes import Apply, DirectionalDerivative
-from uflx_spec_interpreter._src.passes.contracts import core_normal_form, derivatives_expanded
-from uflx_toy.spaces import space
+from uflx._src.algorithms.traversal import everywhere
+from uflx._src.nodes import Apply, DirectionalDerivative
+from uflx._src.passes.contracts import core_normal_form, derivatives_expanded
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 
 def test_actions_exposed_by_binding_are_finished():

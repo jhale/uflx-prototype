@@ -2,8 +2,7 @@ import basix
 import numpy as np
 from test_basix import square
 
-from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     component_tensor,
     coordinate,
@@ -15,11 +14,12 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import everywhere
-from uflx_spec_interpreter._src.nodes import Inverse
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_toy.basix_cells import basix_cell
+from uflx._src.algorithms.traversal import everywhere
+from uflx._src.nodes import Inverse
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx._src.passes.lowering import lower_spatial
+from uflx_basix.basix_cells import basix_cell
+from uflx_oracle import evaluate as oracle
 
 K = basix_cell(basix.CellType.triangle)
 D = square(K)[0]
@@ -61,15 +61,15 @@ def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
 
 
 def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
-    from uflx_oracle import at
-    from uflx_spec_interpreter import (
+    from uflx import (
         cell_map,
         expand_pull_backs,
         push_forward,
         tensor,
         transformation_law,
     )
-    from uflx_spec_interpreter._src.nodes import Zero
+    from uflx._src.nodes import Zero
+    from uflx_oracle import at
 
     for constant in (num(0), num(3), num(2j), tensor((num(1), num(2)))):
         mapped = push_forward(constant, D, transformation_law((), 0))
@@ -89,8 +89,8 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
 
 
 def test_constant_gradient_preserves_embedding_shape():
-    from uflx_spec_interpreter import cell_map, expand_pull_backs, mesh, tensor
-    from uflx_spec_interpreter._src.nodes import Zero
+    from uflx import cell_map, expand_pull_backs, mesh, tensor
+    from uflx._src.nodes import Zero
 
     embedded = mesh(
         tensor((D.coordinate_function[0], D.coordinate_function[1], num(0))), EuclideanSpace(3)
@@ -104,14 +104,14 @@ def test_constant_gradient_preserves_embedding_shape():
 
 
 def test_reference_constant_with_piola_mapping_is_not_a_physical_constant():
-    from uflx_spec_interpreter import (
+    from uflx import (
         cell_map,
         expand_pull_backs,
         push_forward,
         tensor,
         transformation_law,
     )
-    from uflx_spec_interpreter._src.nodes import Zero
+    from uflx._src.nodes import Zero
 
     mapped = push_forward(tensor((num(1), num(2))), D, transformation_law(("covariant",), 0))
     result = expand_pull_backs(pull_back(gradient(mapped, D), cell_map(D, 0)))

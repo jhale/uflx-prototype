@@ -7,9 +7,7 @@ from functools import cached_property
 import numpy as np
 import pytest
 
-from uflx_compiler.algebra import _normalizer
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     Integer,
     apply,
     apply_derivatives,
@@ -22,9 +20,9 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import bottom_up
-from uflx_spec_interpreter._src.extensions.complex_differentiation import complex_derivative_parts
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.algorithms.traversal import bottom_up
+from uflx._src.extensions.complex_differentiation import complex_derivative_parts
+from uflx._src.nodes import (
     AbstractExpression,
     Apply,
     Complex,
@@ -32,10 +30,12 @@ from uflx_spec_interpreter._src.nodes import (
     Product,
     Zero,
 )
-from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_spec_interpreter._src.nodes.structure import operands
-from uflx_spec_interpreter._src.passes import derivatives
-from uflx_toy.spaces import space
+from uflx._src.nodes.scalar_types import ScalarType
+from uflx._src.nodes.structure import operands
+from uflx._src.passes import derivatives
+from uflx_basix.spaces import space
+from uflx_compiler.algebra import _normalizer
+from uflx_oracle import evaluate
 
 
 def nodes(e):
@@ -148,7 +148,7 @@ class LibraryJVP(AbstractExpression):
 def test_library_rule_can_expose_direction_without_exposing_its_algorithm(
     monkeypatch, expose_direction
 ):
-    from uflx_spec_interpreter._src.rules import differentiation
+    from uflx._src.rules import differentiation
 
     original = differentiation.derivative_of_node
 
@@ -202,7 +202,7 @@ def test_zero_action_keeps_family_indices_and_argument_shape(shape):
 
 
 def test_complex_coefficients_have_a_stable_collected_representation():
-    from uflx_spec_interpreter._src.nodes import Complex
+    from uflx._src.nodes import Complex
 
     u = function(space("complex-coefficients"), "u")
     i = Complex(Integer(0), Integer(1))

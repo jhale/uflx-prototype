@@ -2,7 +2,7 @@
 
 import pytest
 
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     apply,
     apply_derivatives,
@@ -15,8 +15,8 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import ConjugateSpace
-from uflx_toy.spaces import space
+from uflx._src.nodes import ConjugateSpace
+from uflx_basix.spaces import space
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ def test_explicit_binding_adds_slots_after_existing_slots(variables):
 
 
 def test_only_one_derivative_primitive_is_exported():
-    import uflx_spec_interpreter as api
+    import uflx as api
 
     assert "directional_derivative" in api.__all__
     assert "gateaux_derivative" not in api.__all__

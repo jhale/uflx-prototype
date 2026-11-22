@@ -30,7 +30,7 @@ def test_generated_files_match_pinned_source():
     code, report = translator["generate"](
         (vendor / "rules.rkt").read_text(), (vendor / "LICENSE.md").read_text()
     )
-    assert code == (ROOT / "src/uflx_spec_interpreter/_src/optimisation/herbie.py").read_text()
+    assert code == (ROOT / "src/uflx/_src/optimisation/herbie.py").read_text()
     assert report == json.loads((vendor / "translation.json").read_text())
     assert len(report["rules"]) == 479
     assert sum(r["status"] == "translated" for r in report["rules"]) == 75
@@ -93,9 +93,9 @@ def test_restricted_domains_are_not_silently_translated(expression):
 
 def test_translated_rules_collect_signed_terms_and_guard_cancellation():
     egglog = pytest.importorskip("egglog")
-    from uflx_spec_interpreter._src.optimisation.herbie import herbie_arithmetic, herbie_polynomials
-    from uflx_spec_interpreter._src.optimisation.language import Scalar
-    from uflx_spec_interpreter._src.optimisation.rules import constant_cleanup, defined
+    from uflx._src.optimisation.herbie import herbie_arithmetic, herbie_polynomials
+    from uflx._src.optimisation.language import Scalar
+    from uflx._src.optimisation.rules import constant_cleanup, defined
 
     n = lambda i: Scalar.number(egglog.BigRat(i, 1))
     x = Scalar.atom(0)
@@ -118,10 +118,10 @@ def test_translated_rules_collect_signed_terms_and_guard_cancellation():
 
 def test_herbie_group_is_opt_in_and_respects_floating_point_policy():
     pytest.importorskip("egglog")
+    from uflx import num
+    from uflx._src.optimisation import OptimisationOptions, optimise
+    from uflx_basix.runtime import runtime_array
     from uflx_compiler.evaluation import evaluate
-    from uflx_spec_interpreter import num
-    from uflx_spec_interpreter._src.optimisation import OptimisationOptions, optimise
-    from uflx_toy.runtime import runtime_array
 
     x = runtime_array("herbie-x", ())
     expression = num(3) * x + num(-2) * x

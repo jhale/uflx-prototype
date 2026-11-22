@@ -2,7 +2,7 @@
 
 import pytest
 
-from uflx_spec_interpreter import (
+from uflx import (
     apply_derivatives,
     component_tensor,
     directional_derivative,
@@ -11,10 +11,10 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
-from uflx_spec_interpreter._src.nodes import Zero
-from uflx_spec_interpreter._src.nodes.scalar_types import ScalarType
-from uflx_toy.spaces import space
+from uflx._src.algorithms.rewriting import complete_indices
+from uflx._src.nodes import Zero
+from uflx._src.nodes.scalar_types import ScalarType
+from uflx_basix.spaces import space
 
 
 def test_derivative_restores_unused_point_indices_before_rebuilding_parent():

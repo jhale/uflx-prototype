@@ -3,7 +3,7 @@
 import basix
 from testutil import push_forward, side_domain, side_map
 
-from uflx_spec_interpreter import (
+from uflx import (
     ScalarType,
     conjugate,
     divergence,
@@ -16,10 +16,10 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, Function
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.sides import outward_conormal
-from uflx_toy.spaces import space
+from uflx._src.nodes import AbstractExpression, Base, Function
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.sides import outward_conormal
+from uflx_basix.spaces import space
 
 
 class Mesh:

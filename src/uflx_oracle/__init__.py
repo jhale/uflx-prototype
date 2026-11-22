@@ -3,10 +3,10 @@ import itertools
 import basix
 import numpy as np
 
-from uflx_spec_interpreter._src.calculus import rotation_of_gradient, trace_of_gradient
-from uflx_spec_interpreter._src.extensions.external_operators import ExternalOperator
-from uflx_spec_interpreter._src.meshes import is_cell
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.calculus import rotation_of_gradient, trace_of_gradient
+from uflx._src.extensions.external_operators import ExternalOperator
+from uflx._src.meshes import is_cell
+from uflx._src.nodes import (
     Absolute,
     AbstractCoordinateDomain,
     AbstractExtent,
@@ -52,10 +52,10 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.nodes.arguments import argument_members
-from uflx_toy.basix_nodes import BasixBasis, BasixCell, BasixSpace
-from uflx_toy.meshes import shape_functions
-from uflx_toy.nodes import RuntimeArray, VertexCoordinates
+from uflx._src.nodes.arguments import argument_members
+from uflx_basix.basix_nodes import BasixBasis, BasixCell, BasixSpace
+from uflx_basix.meshes import shape_functions
+from uflx_basix.nodes import RuntimeArray, VertexCoordinates
 
 EPS = 1e-4
 H = 1e-5

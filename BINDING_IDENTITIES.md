@@ -3,7 +3,7 @@
 Generated names are structural data. Their purpose, dependencies, order and tuple
 nesting determine identity and therefore interning, sharing and cache reuse.
 Refactoring their construction must preserve these data, not merely numerical
-results. The internal helpers live in `src/uflx_spec_interpreter/_src/names.py`.
+results. The internal helpers live in `src/uflx/_src/names.py`.
 
 ## Derived identities
 

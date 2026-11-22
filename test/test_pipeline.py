@@ -5,8 +5,7 @@ import sys
 import numpy as np
 from testutil import assert_clean, check_types, form_with_fixed_argument
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     absolute,
     add,
     apply,
@@ -28,10 +27,11 @@ from uflx_spec_interpreter import (
     square_root,
     tensor,
 )
-from uflx_spec_interpreter._src.passes import applications, derivatives
-from uflx_spec_interpreter._src.passes.applications import applications_expanded
-from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
-from uflx_toy.spaces import space
+from uflx._src.passes import applications, derivatives
+from uflx._src.passes.applications import applications_expanded
+from uflx._src.passes.derivatives import _derivatives_complete
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 V, Vd = space("V"), dual_space(space("V"))
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")

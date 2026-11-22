@@ -8,9 +8,9 @@ import sys
 import pytest
 from test_alpha_equivalence import geometry
 
-import uflx_spec_interpreter._src.algorithms._alpha_dependencies as sets
-import uflx_spec_interpreter._src.algorithms.alpha as alpha
-from uflx_spec_interpreter import (
+import uflx._src.algorithms._alpha_dependencies as sets
+import uflx._src.algorithms.alpha as alpha
+from uflx import (
     component_tensor,
     conjugate,
     directional_derivative,
@@ -22,10 +22,10 @@ from uflx_spec_interpreter import (
     rebind,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.alpha import AlphaHasher, alpha_hash
-from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
-from uflx_spec_interpreter._src.algorithms.substitution import rename_bound
-from uflx_toy.spaces import space
+from uflx._src.algorithms.alpha import AlphaHasher, alpha_hash
+from uflx._src.algorithms.binding import alpha_equivalent
+from uflx._src.algorithms.substitution import rename_bound
+from uflx_basix.spaces import space
 
 
 def assert_same(left, right):
@@ -179,9 +179,9 @@ def test_dependency_and_irrelevant_scope_scaling(monkeypatch):
 
 def test_cross_process_determinism():
     code = """
-from uflx_spec_interpreter._src.algorithms.alpha import alpha_hash
-from uflx_spec_interpreter import form, function
-from uflx_toy.spaces import space
+from uflx._src.algorithms.alpha import alpha_hash
+from uflx import form, function
+from uflx_basix.spaces import space
 v = function(space('hash', scalar_type='real'), 'v')
 print(alpha_hash(form(v * v, (v,))))
 """

@@ -18,7 +18,7 @@ at runtime. It reads literal top-level `define-rules` blocks, respecting `;` lin
 comments and `#;` datum comments. It does not translate dynamically constructed
 array-lowering or sound-operation-removal rules.
 
-The output is `src/uflx_spec_interpreter/_src/optimisation/herbie.py`.
+The output is `src/uflx/_src/optimisation/herbie.py`.
 `translation.json` records the source SHA-256, revision, and disposition of every
 active rule in the literal catalogue. Of 479 rules, 75 are translated (59 arithmetic,
 16 polynomial). The remainder have explicit exclusion reasons.

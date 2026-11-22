@@ -2,11 +2,11 @@
 
 import pytest
 
-from uflx_spec_interpreter import form, function, index
-from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
-from uflx_spec_interpreter._src.algorithms.traversal import rebuild
-from uflx_spec_interpreter._src.nodes.base import _encode, construction_equal
-from uflx_toy.spaces import space
+from uflx import form, function, index
+from uflx._src.algorithms.binding import alpha_equivalent
+from uflx._src.algorithms.traversal import rebuild
+from uflx._src.nodes.base import _encode, construction_equal
+from uflx_basix.spaces import space
 
 
 @pytest.mark.parametrize(

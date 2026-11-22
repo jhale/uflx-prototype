@@ -6,8 +6,7 @@ from test_integrals import D as MESH
 from test_integrals import K
 from testutil import assert_clean, check_types, form_with_fixed_argument
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     add,
     conjugate,
     coordinate,
@@ -25,13 +24,14 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.meshes import cell_map
-from uflx_spec_interpreter._src.nodes import Function
-from uflx_spec_interpreter._src.passes import applications, derivatives, integrals
-from uflx_spec_interpreter._src.passes.applications import applications_expanded
-from uflx_spec_interpreter._src.passes.derivatives import _derivatives_complete
-from uflx_spec_interpreter._src.passes.integrals import integrals_expanded
-from uflx_toy.spaces import space
+from uflx._src.meshes import cell_map
+from uflx._src.nodes import Function
+from uflx._src.passes import applications, derivatives, integrals
+from uflx._src.passes.applications import applications_expanded
+from uflx._src.passes.derivatives import _derivatives_complete
+from uflx._src.passes.integrals import integrals_expanded
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 VD = space("VD", domain=MESH)
 u, w, h = (function(VD, n) for n in "uwh")

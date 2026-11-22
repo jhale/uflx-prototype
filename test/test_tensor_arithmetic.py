@@ -3,8 +3,7 @@
 import numpy as np
 import pytest
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     apply,
     apply_derivatives,
     directional_derivative,
@@ -16,11 +15,12 @@ from uflx_spec_interpreter import (
     lower,
     num,
 )
-from uflx_spec_interpreter._src.algorithms.traversal import everywhere
-from uflx_spec_interpreter._src.nodes import Division, Product, Sum
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_toy.runtime import runtime_array, runtime_extent
-from uflx_toy.spaces import space
+from uflx._src.algorithms.traversal import everywhere
+from uflx._src.nodes import Division, Product, Sum
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx_basix.runtime import runtime_array, runtime_extent
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 
 @pytest.mark.parametrize("shape", [(3,), (2, 3), (0,)])

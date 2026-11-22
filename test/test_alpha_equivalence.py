@@ -5,10 +5,10 @@ import sys
 import pytest
 from testutil import grouped_topology
 
-from uflx_spec_interpreter import EuclideanSpace, form, function, index, integral, mesh, num, rebind
-from uflx_spec_interpreter._src.algorithms.binding import alpha_equivalent
-from uflx_toy.cells import reference_simplex
-from uflx_toy.spaces import space
+from uflx import EuclideanSpace, form, function, index, integral, mesh, num, rebind
+from uflx._src.algorithms.binding import alpha_equivalent
+from uflx_basix.cells import reference_simplex
+from uflx_basix.spaces import space
 
 
 def geometry():

@@ -7,8 +7,8 @@ Both use the documented replacement hash primitives, not Haskell Hashable.
 
 import random
 
-import uflx_spec_interpreter._src.algorithms._alpha_summary as summaries
-from uflx_spec_interpreter._src.algorithms._alpha_summary import (
+import uflx._src.algorithms._alpha_summary as summaries
+from uflx._src.algorithms._alpha_summary import (
     MASK,
     alter,
     application,

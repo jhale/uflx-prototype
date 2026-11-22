@@ -4,10 +4,7 @@ import basix
 import numpy as np
 from testutil import grouped_topology, push_forward, table, vertex_mesh
 
-from uflx_compiler import compile_form
-from uflx_compiler import evaluate as compiled_value
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     ScalarType,
     coordinate,
@@ -24,14 +21,17 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.meshes import cell_map
-from uflx_spec_interpreter._src.nodes import Mesh
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.cells import reference_simplex
-from uflx_toy.spaces import space
+from uflx._src.algorithms.substitution import substitute
+from uflx._src.meshes import cell_map
+from uflx._src.nodes import Mesh
+from uflx._src.passes.lowering import lower_spatial
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.cells import reference_simplex
+from uflx_basix.spaces import space
+from uflx_compiler import compile_form
+from uflx_compiler import evaluate as compiled_value
+from uflx_oracle import evaluate
 
 
 def test_integrate_members_then_sum_only_the_selected_index():
@@ -134,7 +134,7 @@ def test_mesh_rejects_free_coordinate_indices_but_keeps_symbolic_coordinates():
 
 
 def test_mesh_integral_retains_integrand_indices_across_substitution():
-    from uflx_spec_interpreter._src.passes.integrals import expand_integrals
+    from uflx._src.passes.integrals import expand_integrals
 
     K = reference_simplex(1)
     T = grouped_topology((K,), (((0, 1), (2, 3)),), ())

@@ -8,7 +8,7 @@ rules, runs traversal and performs cleanup. A rule returns `None` when it does
 not match. Returning the input retains it; a replacement goes through type
 completion and traversal. Substitution keeps its separate binding-aware walk.
 
-Paths below are relative to `src/uflx_spec_interpreter/_src/`.
+Paths below are relative to `src/uflx/_src/`.
 
 | Rules | Implementation | Main tests in `test/` |
 | --- | --- | --- |

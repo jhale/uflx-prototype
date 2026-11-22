@@ -1,12 +1,11 @@
 import pytest
 from test_integrals import D, c
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import ScalarType, conjugate_space, dual_space
-from uflx_spec_interpreter._src import nodes
-from uflx_spec_interpreter._src.algorithms.traversal import rebuild
-from uflx_spec_interpreter._src.meshes import cell_map
-from uflx_spec_interpreter._src.nodes import (
+from uflx import ScalarType, conjugate_space, dual_space
+from uflx._src import nodes
+from uflx._src.algorithms.traversal import rebuild
+from uflx._src.meshes import cell_map
+from uflx._src.nodes import (
     AbstractExpression,
     Base,
     CellMap,
@@ -21,10 +20,11 @@ from uflx_spec_interpreter._src.nodes import (
     PullBack,
     RealPart,
 )
-from uflx_spec_interpreter._src.passes import pullbacks
-from uflx_toy.cells import reference_simplex
-from uflx_toy.nodes import IndexTable
-from uflx_toy.spaces import space
+from uflx._src.passes import pullbacks
+from uflx_basix.cells import reference_simplex
+from uflx_basix.nodes import IndexTable
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 EXPRESSIONS = (
     "Integer Float Complex Zero Sum Product Division Power Absolute Conjugate RealPart "

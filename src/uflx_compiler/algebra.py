@@ -10,10 +10,10 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from fractions import Fraction
 
-from uflx_spec_interpreter._src.algorithms.rewriting import complete_indices
-from uflx_spec_interpreter._src.algorithms.traversal import map_values, memoized
-from uflx_spec_interpreter._src.arithmetic import add, divide, multiply
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.algorithms.rewriting import complete_indices
+from uflx._src.algorithms.traversal import map_values, memoized
+from uflx._src.arithmetic import add, divide, multiply
+from uflx._src.nodes import (
     AbstractExpression,
     Apply,
     Complex,

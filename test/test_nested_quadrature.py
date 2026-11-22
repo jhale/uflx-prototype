@@ -3,8 +3,7 @@
 import basix
 import numpy as np
 
-from uflx_compiler import compile_form, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     cell_map,
     directional_derivative,
@@ -15,10 +14,11 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.interpolation import interpolate
-from uflx_toy.topology import static_topology
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.interpolation import interpolate
+from uflx_basix.topology import static_topology
+from uflx_compiler import compile_form, evaluate
 
 
 def dot(a, b):

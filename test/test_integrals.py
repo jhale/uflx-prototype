@@ -5,8 +5,7 @@ import sys
 import numpy as np
 from testutil import assert_clean, check_types, grouped_topology, keeps_static_type, vertex_mesh
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     add,
     component_tensor,
@@ -21,13 +20,14 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.passes import integrals
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_spec_interpreter._src.passes.integrals import integrals_expanded
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
-from uflx_toy.cells import reference_simplex
-from uflx_toy.spaces import space
+from uflx._src.passes import integrals
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx._src.passes.integrals import integrals_expanded
+from uflx._src.passes.lowering import lower_spatial
+from uflx._src.passes.pullbacks import pull_backs_expanded
+from uflx_basix.cells import reference_simplex
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 R2 = EuclideanSpace(2)
 K = reference_simplex(2)

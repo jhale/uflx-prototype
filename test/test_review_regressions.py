@@ -5,11 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from uflx_compiler.algebra import _normalizer
-from uflx_compiler.evaluation import evaluate
-from uflx_compiler.simplification import instantiated, simplify
-from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import (
+from uflx import (
     Complex,
     Float,
     Integer,
@@ -26,9 +22,13 @@ from uflx_spec_interpreter import (
     num,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import AbstractExpression, Base, IndexSum
-from uflx_spec_interpreter._src.nodes.structure import expression_operands, operands
-from uflx_toy.spaces import space
+from uflx._src.nodes import AbstractExpression, Base, IndexSum
+from uflx._src.nodes.structure import expression_operands, operands
+from uflx_basix.spaces import space
+from uflx_compiler.algebra import _normalizer
+from uflx_compiler.evaluation import evaluate
+from uflx_compiler.simplification import instantiated, simplify
+from uflx_oracle import evaluate as oracle
 
 
 @pytest.mark.parametrize("rewrite", [lower, _normalizer(), simplify])

@@ -2,8 +2,7 @@ import numpy as np
 import pytest
 from testutil import contains
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     coordinate,
     domain_map,
@@ -13,17 +12,18 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.nodes import PullBack
-from uflx_spec_interpreter._src.passes import (
+from uflx._src.nodes import PullBack
+from uflx._src.passes import (
     applications,
     derivatives,
     gradients,
     integrals,
     pullbacks,
 )
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_toy.cells import reference_simplex
-from uflx_toy.runtime import runtime_array, runtime_extent
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx_basix.cells import reference_simplex
+from uflx_basix.runtime import runtime_array, runtime_extent
+from uflx_oracle import evaluate
 
 i = index("i")
 q, r = runtime_extent("q"), runtime_extent("r")

@@ -12,8 +12,7 @@ from testutil import (
     side_map,
 )
 
-from uflx_oracle import evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     EuclideanSpace,
     add,
     component_tensor,
@@ -31,7 +30,7 @@ from uflx_spec_interpreter import (
     pull_back,
     tensor,
 )
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.nodes import (
     CellMap,
     Conormal,
     Coordinate,
@@ -39,14 +38,15 @@ from uflx_spec_interpreter._src.nodes import (
     Gradient,
     PullBack,
 )
-from uflx_spec_interpreter._src.passes import integrals
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_spec_interpreter._src.passes.pullbacks import pull_backs_expanded
-from uflx_toy.cells import reference_simplex
-from uflx_toy.nodes import VertexCoordinates
-from uflx_toy.sides import outward_conormal
-from uflx_toy.spaces import space
+from uflx._src.passes import integrals
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx._src.passes.lowering import lower_spatial
+from uflx._src.passes.pullbacks import pull_backs_expanded
+from uflx_basix.cells import reference_simplex
+from uflx_basix.nodes import VertexCoordinates
+from uflx_basix.sides import outward_conormal
+from uflx_basix.spaces import space
+from uflx_oracle import evaluate
 
 R3 = EuclideanSpace(3)
 I = reference_simplex(1)

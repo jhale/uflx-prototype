@@ -8,8 +8,8 @@ from math import prod
 
 import numpy as np
 
-from uflx_spec_interpreter._src.algorithms.substitution import substitute
-from uflx_spec_interpreter._src.nodes import (
+from uflx._src.algorithms.substitution import substitute
+from uflx._src.nodes import (
     Absolute,
     BroadcastTo,
     ComponentTensor,
@@ -32,8 +32,8 @@ from uflx_spec_interpreter._src.nodes import (
     Tensor,
     Zero,
 )
-from uflx_spec_interpreter._src.nodes.structure import expression_operands
-from uflx_toy.nodes import RuntimeArray
+from uflx._src.nodes.structure import expression_operands
+from uflx_basix.nodes import RuntimeArray
 
 from .contractions import _factor_contraction, _preintegrate, _sparse_contractions, _transpose_reuse
 from .folding import fold

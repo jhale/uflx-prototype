@@ -3,8 +3,7 @@ import numpy as np
 import pytest
 from testutil import grouped_topology, side_data, side_domain, side_map, table, vertex_mesh
 
-from uflx_oracle import at, evaluate
-from uflx_spec_interpreter import (
+from uflx import (
     coordinate,
     domain_map,
     expand_arithmetic,
@@ -14,14 +13,15 @@ from uflx_spec_interpreter import (
     num,
     pull_back,
 )
-from uflx_spec_interpreter._src.passes import integrals
-from uflx_spec_interpreter._src.passes.contracts import in_core_normal_form
-from uflx_spec_interpreter._src.passes.lowering import lower_spatial
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.cells import reference_simplex
-from uflx_toy.inclusions import affine_map, reference_normal
-from uflx_toy.sides import outward_conormal
-from uflx_toy.spaces import space
+from uflx._src.passes import integrals
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx._src.passes.lowering import lower_spatial
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.cells import reference_simplex
+from uflx_basix.inclusions import affine_map, reference_normal
+from uflx_basix.sides import outward_conormal
+from uflx_basix.spaces import space
+from uflx_oracle import at, evaluate
 
 
 def value(e, P=None, X=()):

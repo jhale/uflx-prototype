@@ -26,9 +26,9 @@ SCALAR_CONSTRUCTION = {
     ("_src/arithmetic.py", "divide", "Division"),
 }
 EXPORT_MODULES = {
-    "uflx_spec_interpreter",
-    "uflx_spec_interpreter._src.nodes",
-    "uflx_spec_interpreter._src.nodes.arithmetic",
+    "uflx",
+    "uflx._src.nodes",
+    "uflx._src.nodes.arithmetic",
 }
 
 
@@ -84,12 +84,12 @@ def construction_calls(source, module):
 
 
 def test_arithmetic_construction_boundaries():
-    root = Path(__file__).resolve().parents[1] / "src" / "uflx_spec_interpreter"
+    root = Path(__file__).resolve().parents[1] / "src" / "uflx"
     violations = []
     exceptions_used = set()
     for path in sorted(root.rglob("*.py")):
         relative = path.relative_to(root).as_posix()
-        module = "uflx_spec_interpreter." + ".".join(path.relative_to(root).with_suffix("").parts)
+        module = "uflx." + ".".join(path.relative_to(root).with_suffix("").parts)
         for function, node, line in construction_calls(path.read_text(), module):
             key = (relative, function, node)
             if key in SCALAR_CONSTRUCTION:
@@ -103,11 +103,11 @@ def test_arithmetic_construction_boundaries():
 @pytest.mark.parametrize(
     "source",
     [
-        "from uflx_spec_interpreter import Product; Product(a, b)",
-        "from uflx_spec_interpreter._src.nodes import Product as P; P(a, b)",
-        "import uflx_spec_interpreter as u; u.Product(a, b)",
-        "import uflx_spec_interpreter._src.nodes as n; n.Product(a, b)",
-        "import uflx_spec_interpreter._src.nodes; uflx_spec_interpreter._src.nodes.Product(a, b)",
+        "from uflx import Product; Product(a, b)",
+        "from uflx._src.nodes import Product as P; P(a, b)",
+        "import uflx as u; u.Product(a, b)",
+        "import uflx._src.nodes as n; n.Product(a, b)",
+        "import uflx._src.nodes; uflx._src.nodes.Product(a, b)",
         "from ..nodes import Product; Product(a, b)",
         "from .. import nodes as n; n.Product(a, b)",
         "from ..nodes.arithmetic import Product as P; P(a, b)",
@@ -115,38 +115,36 @@ def test_arithmetic_construction_boundaries():
     ],
 )
 def test_constructor_import_spellings(source):
-    calls = construction_calls(source, "uflx_spec_interpreter._src.passes.example")
+    calls = construction_calls(source, "uflx._src.passes.example")
     assert len(calls) == 1
     assert calls[0][1] == "Product"
 
 
 def test_patterns_and_free_functions_are_allowed():
     source = """
-from uflx_spec_interpreter import Product, multiply
+from uflx import Product, multiply
 match expression:
     case Product(a, b):
         result = multiply(a, b)
 assert isinstance(result, Product)
 """
-    assert construction_calls(source, "uflx_spec_interpreter._src.example") == []
+    assert construction_calls(source, "uflx._src.example") == []
 
 
 def test_local_import_alias_does_not_leak():
     source = """
-from uflx_spec_interpreter import multiply as operation
+from uflx import multiply as operation
 def f():
-    from uflx_spec_interpreter import Product as operation
+    from uflx import Product as operation
     return operation(a, b)
 def g():
     return operation(a, b)
 """
-    calls = construction_calls(source, "uflx_spec_interpreter._src.example")
+    calls = construction_calls(source, "uflx._src.example")
     assert [(function, node) for function, node, _ in calls] == [("f", "Product")]
 
 
 @pytest.mark.parametrize("node", FACTORIES)
 def test_each_tensor_aware_operation_is_checked(node):
-    source = f"from uflx_spec_interpreter import {node}; {node}(operand)"
-    assert construction_calls(source, "uflx_spec_interpreter._src.example") == [
-        ("<module>", node, 1)
-    ]
+    source = f"from uflx import {node}; {node}(operand)"
+    assert construction_calls(source, "uflx._src.example") == [("<module>", node, 1)]

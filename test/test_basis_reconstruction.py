@@ -5,14 +5,14 @@ import numpy as np
 import pytest
 from test_interpolation import sample
 
+from uflx import EuclideanSpace, cell_map, function, mesh, pull_back, push_forward
+from uflx._src.nodes import PushForward
+from uflx_basix.basix_cells import basix_cell
+from uflx_basix.basix_spaces import basix_space
+from uflx_basix.interpolation import interpolate
+from uflx_basix.topology import static_topology
 from uflx_compiler import compile_form, evaluate
 from uflx_oracle import evaluate as oracle
-from uflx_spec_interpreter import EuclideanSpace, cell_map, function, mesh, pull_back, push_forward
-from uflx_spec_interpreter._src.nodes import PushForward
-from uflx_toy.basix_cells import basix_cell
-from uflx_toy.basix_spaces import basix_space
-from uflx_toy.interpolation import interpolate
-from uflx_toy.topology import static_topology
 
 
 @pytest.mark.parametrize("curvature", [0.0, 0.3])
