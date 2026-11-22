@@ -6,19 +6,12 @@ from test_facets import E_bnd, E_int, sides_int
 from test_integrals import D, K
 from testutil import grouped_topology, vertex_mesh
 
-from uflx import (
-    coordinate,
-    expand_integrals,
-    index,
-    indexed,
-    integral,
-    lower,
-    num,
-    reference_integral,
-    tensor,
-)
 from uflx._src.algorithms.substitution import substitute
 from uflx._src.nodes import IndexSum, Integral
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, integral, reference_integral
+from uflx.passes import expand_integrals, lower
+from uflx.tensors import index, indexed, tensor
 from uflx_basix.sides import outward_conormal
 from uflx_oracle import evaluate
 

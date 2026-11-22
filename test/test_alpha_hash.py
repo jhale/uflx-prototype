@@ -10,21 +10,13 @@ from test_alpha_equivalence import geometry
 
 import uflx._src.algorithms._alpha_dependencies as sets
 import uflx._src.algorithms.alpha as alpha
-from uflx import (
-    component_tensor,
-    conjugate,
-    directional_derivative,
-    form,
-    function,
-    index,
-    index_sum,
-    num,
-    rebind,
-    tensor,
-)
 from uflx._src.algorithms.alpha import AlphaHasher, alpha_hash
 from uflx._src.algorithms.binding import alpha_equivalent
 from uflx._src.algorithms.substitution import rename_bound
+from uflx.arithmetic import conjugate, num
+from uflx.calculus import directional_derivative
+from uflx.forms import form, function, rebind
+from uflx.tensors import component_tensor, index, index_sum, tensor
 from uflx_basix.spaces import space
 
 
@@ -180,7 +172,7 @@ def test_dependency_and_irrelevant_scope_scaling(monkeypatch):
 def test_cross_process_determinism():
     code = """
 from uflx._src.algorithms.alpha import alpha_hash
-from uflx import form, function
+from uflx.forms import form, function
 from uflx_basix.spaces import space
 v = function(space('hash', scalar_type='real'), 'v')
 print(alpha_hash(form(v * v, (v,))))

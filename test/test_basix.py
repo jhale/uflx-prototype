@@ -3,19 +3,14 @@ import numpy as np
 import pytest
 from testutil import grouped_topology, side_data, side_domain, side_map, table, vertex_mesh
 
-from uflx import (
-    coordinate,
-    domain_map,
-    expand_arithmetic,
-    function,
-    gradient,
-    integral,
-    num,
-    pull_back,
-)
 from uflx._src.passes import integrals
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx._src.passes.lowering import lower_spatial
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, gradient, integral
+from uflx.forms import function
+from uflx.geometry import domain_map, pull_back
+from uflx.passes import expand_arithmetic
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.cells import reference_simplex
 from uflx_basix.inclusions import affine_map, reference_normal

@@ -4,21 +4,15 @@ import numpy as np
 import pytest
 from testutil import grouped_topology
 
-from uflx import (
-    EuclideanSpace,
-    ScalarType,
-    cell_map,
-    expand_pull_backs,
-    function,
-    gradient,
-    jacobian,
-    mesh,
-    pull_back,
-)
 from uflx._src.algorithms.substitution import substitute
 from uflx._src.nodes import CellMap, Gradient, TransformationLaw
 from uflx._src.passes.lowering import lower_spatial
 from uflx._src.rules.coordinates import transformed
+from uflx.calculus import gradient
+from uflx.forms import function
+from uflx.geometry import cell_map, jacobian, mesh, pull_back
+from uflx.nodes import EuclideanSpace, ScalarType
+from uflx.passes import expand_pull_backs
 from uflx_basix.cells import reference_simplex
 from uflx_basix.spaces import space
 from uflx_oracle import at, evaluate

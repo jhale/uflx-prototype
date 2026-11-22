@@ -2,16 +2,6 @@ import numpy as np
 import pytest
 from testutil import contains
 
-from uflx import (
-    EuclideanSpace,
-    coordinate,
-    domain_map,
-    index,
-    index_sum,
-    integral,
-    num,
-    pull_back,
-)
 from uflx._src.nodes import PullBack
 from uflx._src.passes import (
     applications,
@@ -21,6 +11,11 @@ from uflx._src.passes import (
     pullbacks,
 )
 from uflx._src.passes.contracts import in_core_normal_form
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, integral
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import EuclideanSpace
+from uflx.tensors import index, index_sum
 from uflx_basix.cells import reference_simplex
 from uflx_basix.runtime import runtime_array, runtime_extent
 from uflx_oracle import evaluate

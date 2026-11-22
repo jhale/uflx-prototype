@@ -4,23 +4,13 @@ import sys
 import numpy as np
 from testutil import assert_clean, check_types, contains, form_with_fixed_argument, pairing
 
-from uflx import (
-    add,
-    conjugate,
-    directional_derivative,
-    divide,
-    form,
-    function,
-    index,
-    index_sum,
-    indexed,
-    multiply,
-    num,
-    tensor,
-)
 from uflx._src.nodes import Apply
 from uflx._src.passes import applications
 from uflx._src.passes.applications import applications_expanded
+from uflx.arithmetic import add, conjugate, divide, multiply, num
+from uflx.calculus import directional_derivative
+from uflx.forms import form, function
+from uflx.tensors import index, index_sum, indexed, tensor
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

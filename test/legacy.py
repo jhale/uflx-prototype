@@ -3,20 +3,13 @@
 import basix
 from testutil import push_forward, side_domain, side_map
 
-from uflx import (
-    ScalarType,
-    conjugate,
-    divergence,
-    form,
-    function,
-    gradient,
-    index,
-    index_sum,
-    integral,
-    pull_back,
-    tensor,
-)
 from uflx._src.nodes import AbstractExpression, Base, Function
+from uflx.arithmetic import conjugate
+from uflx.calculus import divergence, gradient, integral
+from uflx.forms import form, function
+from uflx.geometry import pull_back
+from uflx.nodes import ScalarType
+from uflx.tensors import index, index_sum, tensor
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.sides import outward_conormal
 from uflx_basix.spaces import space

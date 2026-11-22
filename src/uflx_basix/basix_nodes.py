@@ -8,7 +8,6 @@ import basix
 import numpy as np
 from basix.finite_element import tp_dof_ordering
 
-from uflx import tensor
 from uflx.nodes import (
     AbstractExpression,
     AbstractFunctionSpace,
@@ -19,6 +18,7 @@ from uflx.nodes import (
     TransformationLaw,
     Zero,
 )
+from uflx.tensors import tensor
 
 
 @final

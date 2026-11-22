@@ -1,7 +1,6 @@
 import pytest
 from test_integrals import D, c
 
-from uflx import ScalarType, conjugate_space, dual_space
 from uflx._src import nodes
 from uflx._src.algorithms.traversal import rebuild
 from uflx._src.meshes import cell_map
@@ -21,6 +20,8 @@ from uflx._src.nodes import (
     RealPart,
 )
 from uflx._src.passes import pullbacks
+from uflx.forms import conjugate_space, dual_space
+from uflx.nodes import ScalarType
 from uflx_basix.cells import reference_simplex
 from uflx_basix.nodes import IndexTable
 from uflx_basix.spaces import space

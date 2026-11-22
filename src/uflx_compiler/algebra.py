@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from fractions import Fraction
 
-from uflx import add, divide, multiply
 from uflx.algorithms import complete_indices, map_values, memoized
+from uflx.arithmetic import add, divide, multiply
 from uflx.nodes import (
     AbstractExpression,
     Apply,

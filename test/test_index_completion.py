@@ -2,18 +2,14 @@
 
 import pytest
 
-from uflx import (
-    apply_derivatives,
-    component_tensor,
-    directional_derivative,
-    function,
-    index,
-    num,
-    tensor,
-)
 from uflx._src.algorithms.rewriting import complete_indices
 from uflx._src.nodes import Zero
 from uflx._src.nodes.scalar_types import ScalarType
+from uflx.arithmetic import num
+from uflx.calculus import directional_derivative
+from uflx.forms import function
+from uflx.passes import apply_derivatives
+from uflx.tensors import component_tensor, index, tensor
 from uflx_basix.spaces import space
 
 

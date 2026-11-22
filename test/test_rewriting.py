@@ -2,10 +2,15 @@
 
 import pytest
 
-from uflx import EuclideanSpace, apply_gradients, function, gradient, num, tensor
 from uflx._src.algorithms.rewriting import rewrite
 from uflx._src.algorithms.traversal import rebuild
 from uflx._src.passes import lowering, spatial
+from uflx.arithmetic import num
+from uflx.calculus import gradient
+from uflx.forms import function
+from uflx.nodes import EuclideanSpace
+from uflx.passes import apply_gradients
+from uflx.tensors import tensor
 from uflx_basix.spaces import space
 
 

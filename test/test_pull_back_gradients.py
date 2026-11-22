@@ -2,22 +2,16 @@ import basix
 import numpy as np
 from test_basix import square
 
-from uflx import (
-    EuclideanSpace,
-    component_tensor,
-    coordinate,
-    domain_map,
-    expand_integrals,
-    gradient,
-    index,
-    integral,
-    num,
-    pull_back,
-)
 from uflx._src.algorithms.traversal import everywhere
 from uflx._src.nodes import Inverse
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx._src.passes.lowering import lower_spatial
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, gradient, integral
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import EuclideanSpace
+from uflx.passes import expand_integrals
+from uflx.tensors import component_tensor, index
 from uflx_basix.basix_cells import basix_cell
 from uflx_oracle import evaluate as oracle
 
@@ -61,14 +55,10 @@ def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
 
 
 def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
-    from uflx import (
-        cell_map,
-        expand_pull_backs,
-        push_forward,
-        tensor,
-        transformation_law,
-    )
     from uflx._src.nodes import Zero
+    from uflx.geometry import cell_map, push_forward, transformation_law
+    from uflx.passes import expand_pull_backs
+    from uflx.tensors import tensor
     from uflx_oracle import at
 
     for constant in (num(0), num(3), num(2j), tensor((num(1), num(2)))):
@@ -89,8 +79,10 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
 
 
 def test_constant_gradient_preserves_embedding_shape():
-    from uflx import cell_map, expand_pull_backs, mesh, tensor
     from uflx._src.nodes import Zero
+    from uflx.geometry import cell_map, mesh
+    from uflx.passes import expand_pull_backs
+    from uflx.tensors import tensor
 
     embedded = mesh(
         tensor((D.coordinate_function[0], D.coordinate_function[1], num(0))), EuclideanSpace(3)
@@ -104,14 +96,10 @@ def test_constant_gradient_preserves_embedding_shape():
 
 
 def test_reference_constant_with_piola_mapping_is_not_a_physical_constant():
-    from uflx import (
-        cell_map,
-        expand_pull_backs,
-        push_forward,
-        tensor,
-        transformation_law,
-    )
     from uflx._src.nodes import Zero
+    from uflx.geometry import cell_map, push_forward, transformation_law
+    from uflx.passes import expand_pull_backs
+    from uflx.tensors import tensor
 
     mapped = push_forward(tensor((num(1), num(2))), D, transformation_law(("covariant",), 0))
     result = expand_pull_backs(pull_back(gradient(mapped, D), cell_map(D, 0)))

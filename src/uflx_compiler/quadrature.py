@@ -1,19 +1,12 @@
 import basix
 import numpy as np
 
-from uflx import (
-    EuclideanSpace,
-    component_tensor,
-    domain_map,
-    expand_pull_backs,
-    index_sum,
-    indexed,
-    integral,
-    pull_back,
-    tensor,
-)
 from uflx.algorithms import bottom_up, derived_index, derived_indices
-from uflx.nodes import Float, Integral, Zero
+from uflx.calculus import integral
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import EuclideanSpace, Float, Integral, Zero
+from uflx.passes import expand_pull_backs
+from uflx.tensors import component_tensor, index_sum, indexed, tensor
 from uflx_basix.basix_nodes import BasixCell
 
 

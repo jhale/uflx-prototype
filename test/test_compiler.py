@@ -8,22 +8,6 @@ import pytest
 from test_basix import mixed, quadrilaterals, square
 from testutil import contains, grouped_topology, push_forward, side_map
 
-from uflx import (
-    EuclideanSpace,
-    coordinate,
-    domain_map,
-    form,
-    function,
-    gradient,
-    index,
-    index_sum,
-    integral,
-    mesh,
-    num,
-    pull_back,
-    reference_integral,
-    tensor,
-)
 from uflx._src.algorithms.traversal import everywhere, memoized
 from uflx._src.meshes import cell_map
 from uflx._src.nodes import (
@@ -36,6 +20,12 @@ from uflx._src.nodes import (
     PullBack,
 )
 from uflx._src.nodes.structure import expression_operands
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, gradient, integral, reference_integral
+from uflx.forms import form, function
+from uflx.geometry import domain_map, mesh, pull_back
+from uflx.nodes import EuclideanSpace
+from uflx.tensors import index, index_sum, tensor
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.runtime import runtime_array, runtime_extent

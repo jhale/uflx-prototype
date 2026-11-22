@@ -5,8 +5,13 @@ import sys
 import pytest
 from testutil import grouped_topology
 
-from uflx import EuclideanSpace, form, function, index, integral, mesh, num, rebind
 from uflx._src.algorithms.binding import alpha_equivalent
+from uflx.arithmetic import num
+from uflx.calculus import integral
+from uflx.forms import form, function, rebind
+from uflx.geometry import mesh
+from uflx.nodes import EuclideanSpace
+from uflx.tensors import index
 from uflx_basix.cells import reference_simplex
 from uflx_basix.spaces import space
 

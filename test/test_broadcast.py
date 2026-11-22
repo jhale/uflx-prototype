@@ -3,33 +3,22 @@
 import numpy as np
 import pytest
 
-from uflx import (
-    EuclideanSpace,
-    Zero,
-    apply,
-    apply_derivatives,
-    apply_gradients,
-    broadcast_to,
-    component_tensor,
-    coordinate,
-    directional_derivative,
-    domain_map,
-    expand_applications,
-    expand_pull_backs,
-    form,
-    function,
-    gradient,
-    index,
-    index_sum,
-    lower,
-    num,
-    pull_back,
-    replace,
-    square_root,
-    tensor,
-)
 from uflx._src.algorithms.rewriting import complete_indices
 from uflx._src.nodes import BroadcastTo
+from uflx.algorithms import replace
+from uflx.arithmetic import num, square_root
+from uflx.calculus import coordinate, directional_derivative, gradient
+from uflx.forms import apply, form, function
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import EuclideanSpace, Zero
+from uflx.passes import (
+    apply_derivatives,
+    apply_gradients,
+    expand_applications,
+    expand_pull_backs,
+    lower,
+)
+from uflx.tensors import broadcast_to, component_tensor, index, index_sum, tensor
 from uflx_basix.runtime import runtime_array, runtime_extent
 from uflx_basix.spaces import space
 from uflx_compiler import evaluate

@@ -5,8 +5,10 @@ import numpy as np
 import pytest
 from test_interpolation import sample
 
-from uflx import EuclideanSpace, cell_map, function, mesh, pull_back, push_forward
 from uflx._src.nodes import PushForward
+from uflx.forms import function
+from uflx.geometry import cell_map, mesh, pull_back, push_forward
+from uflx.nodes import EuclideanSpace
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.interpolation import interpolate

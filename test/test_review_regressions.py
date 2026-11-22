@@ -5,25 +5,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from uflx import (
-    Complex,
-    Float,
-    Integer,
-    ScalarType,
-    Zero,
-    apply_derivatives,
-    component_tensor,
-    conjugate,
-    directional_derivative,
-    function,
-    index,
-    index_sum,
-    lower,
-    num,
-    tensor,
-)
 from uflx._src.nodes import AbstractExpression, Base, IndexSum
 from uflx._src.nodes.structure import expression_operands, operands
+from uflx.arithmetic import conjugate, num
+from uflx.calculus import directional_derivative
+from uflx.forms import function
+from uflx.nodes import Complex, Float, Integer, ScalarType, Zero
+from uflx.passes import apply_derivatives, lower
+from uflx.tensors import component_tensor, index, index_sum, tensor
 from uflx_basix.spaces import space
 from uflx_compiler.algebra import _normalizer
 from uflx_compiler.evaluation import evaluate

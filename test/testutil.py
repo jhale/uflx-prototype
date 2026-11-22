@@ -1,16 +1,6 @@
 import numpy as np
 
-import uflx
-from uflx import (
-    EuclideanSpace,
-    ScalarType,
-    apply,
-    form,
-    function,
-    mesh,
-    num,
-    tensor,
-)
+import uflx.geometry as geometry
 from uflx._src.nodes import (
     AbstractExpression,
     Apply,
@@ -33,6 +23,11 @@ from uflx._src.nodes import (
     Tensor,
 )
 from uflx._src.nodes.structure import expression_operands, nodes_in
+from uflx.arithmetic import num
+from uflx.forms import apply, form, function
+from uflx.geometry import mesh
+from uflx.nodes import EuclideanSpace, ScalarType
+from uflx.tensors import tensor
 from uflx_basix.nodes import VertexCoordinates
 
 
@@ -198,7 +193,7 @@ def vertex_mesh(T, vertices, Q=None):
 
 def push_forward(f, domain, law=None):
     """Use the toy function space's law when an example omits it."""
-    return uflx.push_forward(f, domain, f.space.law if law is None else law)
+    return geometry.push_forward(f, domain, f.space.law if law is None else law)
 
 
 # Named selections belong to these legacy test fixtures, not to topology nodes.
@@ -214,12 +209,12 @@ def side_map(domain, source, selection=None):
     relation = named[selected]
     if relation.parent != T:
         raise ValueError("fixture side has a different parent")
-    return uflx.side_map(source, *((domain[j], A) for j, A in relation.entries))
+    return geometry.side_map(source, *((domain[j], A) for j, A in relation.entries))
 
 
 def side_domain(domain, topology, selection=None):
     relation = side_map(domain.topology, topology, selection)
-    result = mesh(uflx.pull_back(domain.coordinate_function, relation), domain.ambient_domain)
+    result = mesh(geometry.pull_back(domain.coordinate_function, relation), domain.ambient_domain)
     _fixture_sides[result] = dict(_fixture_sides[topology])
     return result
 

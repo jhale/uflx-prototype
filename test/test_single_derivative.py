@@ -3,21 +3,14 @@
 import numpy as np
 import pytest
 
-from uflx import (
-    ScalarType,
-    apply,
-    apply_derivatives,
-    conjugate,
-    directional_derivative,
-    expand_applications,
-    form,
-    function,
-    num,
-    partial,
-)
 from uflx._src.algorithms.substitution import substitute
 from uflx._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx._src.nodes import DirectionalDerivative, Form
+from uflx.arithmetic import conjugate, num
+from uflx.calculus import directional_derivative
+from uflx.forms import apply, form, function, partial
+from uflx.nodes import ScalarType
+from uflx.passes import apply_derivatives, expand_applications
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 
@@ -129,7 +122,7 @@ def test_complex_finite_element_jacobian_matches_a_residual_difference(nonholomo
     from test_basix import square
     from testutil import push_forward
 
-    from uflx import gradient, integral
+    from uflx.calculus import gradient, integral
     from uflx_basix.assembly import conforming_dofmap
     from uflx_basix.basix_cells import basix_cell
     from uflx_basix.basix_spaces import basix_space
@@ -174,7 +167,7 @@ def test_applied_complex_fe_differential_matches_finite_difference(nonholomorphi
     from test_basix import square
     from testutil import push_forward
 
-    from uflx import gradient, integral
+    from uflx.calculus import gradient, integral
     from uflx_basix.assembly import conforming_dofmap
     from uflx_basix.basix_cells import basix_cell
     from uflx_basix.basix_spaces import basix_space

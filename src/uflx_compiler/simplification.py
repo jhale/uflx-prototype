@@ -1,6 +1,5 @@
 import numpy as np
 
-from uflx import determinant
 from uflx.algorithms import complete_indices, map_fields, memoized, substitute_values
 from uflx.nodes import (
     BroadcastTo,
@@ -24,6 +23,7 @@ from uflx.nodes import (
     Tensor,
     Zero,
 )
+from uflx.tensors import determinant
 
 
 def simplify(f):

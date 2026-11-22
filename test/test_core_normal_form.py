@@ -1,22 +1,11 @@
 from test_integrals import D, K, u
 
-from uflx import (
-    add,
-    apply,
-    conjugate,
-    coordinate,
-    directional_derivative,
-    dual_space,
-    form,
-    function,
-    gradient,
-    integral,
-    multiply,
-    num,
-    pull_back,
-)
 from uflx._src.meshes import cell_map
 from uflx._src.passes.contracts import in_core_normal_form
+from uflx.arithmetic import add, conjugate, multiply, num
+from uflx.calculus import coordinate, directional_derivative, gradient, integral
+from uflx.forms import apply, dual_space, form, function
+from uflx.geometry import pull_back
 from uflx_basix.runtime import runtime_array
 from uflx_basix.spaces import space
 

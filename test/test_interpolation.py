@@ -4,18 +4,12 @@ import basix
 import numpy as np
 import pytest
 
-from uflx import (
-    EuclideanSpace,
-    component_tensor,
-    coordinate,
-    domain_map,
-    function,
-    index,
-    integral,
-    num,
-    pull_back,
-    tensor,
-)
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, integral
+from uflx.forms import function
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import EuclideanSpace
+from uflx.tensors import component_tensor, index, tensor
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.interpolation import interpolate

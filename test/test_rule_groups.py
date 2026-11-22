@@ -3,23 +3,13 @@
 import numpy as np
 import pytest
 
-from uflx import (
-    EuclideanSpace,
-    Zero,
-    apply_derivatives,
-    apply_gradients,
-    component_tensor,
-    coordinate,
-    directional_derivative,
-    function,
-    gradient,
-    index,
-    index_sum,
-    num,
-    power,
-    tensor,
-)
 from uflx._src.algorithms.rewriting import complete_indices
+from uflx.arithmetic import num, power
+from uflx.calculus import coordinate, directional_derivative, gradient
+from uflx.forms import function
+from uflx.nodes import EuclideanSpace, Zero
+from uflx.passes import apply_derivatives, apply_gradients
+from uflx.tensors import component_tensor, index, index_sum, tensor
 from uflx_basix.spaces import space
 from uflx_compiler import evaluate
 from uflx_oracle import evaluate as oracle

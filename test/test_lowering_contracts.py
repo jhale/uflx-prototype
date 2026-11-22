@@ -1,16 +1,5 @@
 """Diagnostic contracts are read-only checks, independent of lowering recipes."""
 
-from uflx import (
-    EuclideanSpace,
-    ScalarType,
-    apply_derivatives,
-    directional_derivative,
-    function,
-    gradient,
-    integral,
-    num,
-    tensor,
-)
 from uflx._src.nodes import DirectionalDerivative
 from uflx._src.passes.contracts import (
     core_normal_form,
@@ -18,6 +7,12 @@ from uflx._src.passes.contracts import (
     in_core_normal_form,
     reference_integration,
 )
+from uflx.arithmetic import num
+from uflx.calculus import directional_derivative, gradient, integral
+from uflx.forms import function
+from uflx.nodes import EuclideanSpace, ScalarType
+from uflx.passes import apply_derivatives
+from uflx.tensors import tensor
 from uflx_basix.runtime import runtime_array
 from uflx_basix.spaces import space
 

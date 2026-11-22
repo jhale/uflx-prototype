@@ -3,11 +3,13 @@ import pytest
 import test_pipeline
 import test_random
 
-from uflx import ScalarType, apply, form, function, multiply, num
 from uflx._src.algorithms import form_binding, substitution
 from uflx._src.algorithms.rewriting import zero_like
 from uflx._src.passes import applications
 from uflx._src.rules import differentiation
+from uflx.arithmetic import multiply, num
+from uflx.forms import apply, form, function
+from uflx.nodes import ScalarType
 from uflx_basix.spaces import space
 
 

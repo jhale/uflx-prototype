@@ -2,22 +2,6 @@
 
 import pytest
 
-from uflx import (
-    EuclideanSpace,
-    apply,
-    conjugate,
-    directional_derivative,
-    domain_map,
-    dual_space,
-    expand_applications,
-    form,
-    function,
-    integral,
-    num,
-    partial,
-    pull_back,
-    rebind,
-)
 from uflx._src.algorithms.binding import alpha_equivalent
 from uflx._src.algorithms.substitution import (
     occurs,
@@ -26,6 +10,12 @@ from uflx._src.algorithms.substitution import (
     substitute,
 )
 from uflx._src.nodes import Apply
+from uflx.arithmetic import conjugate, num
+from uflx.calculus import directional_derivative, integral
+from uflx.forms import apply, dual_space, form, function, partial, rebind
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import EuclideanSpace
+from uflx.passes import expand_applications
 from uflx_basix.spaces import space
 
 V = space("binding-probe", scalar_type="real")

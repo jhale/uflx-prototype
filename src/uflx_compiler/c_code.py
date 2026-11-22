@@ -8,8 +8,8 @@ from math import prod
 
 import numpy as np
 
-from uflx import replace as substitute
 from uflx.algorithms import expression_operands
+from uflx.algorithms import replace as substitute
 from uflx.nodes import (
     Absolute,
     BroadcastTo,

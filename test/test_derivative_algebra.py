@@ -7,19 +7,6 @@ from functools import cached_property
 import numpy as np
 import pytest
 
-from uflx import (
-    Integer,
-    apply,
-    apply_derivatives,
-    conjugate,
-    dual_space,
-    expand_applications,
-    form,
-    function,
-    index,
-    num,
-    tensor,
-)
 from uflx._src.algorithms.traversal import bottom_up
 from uflx._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx._src.nodes import (
@@ -33,6 +20,11 @@ from uflx._src.nodes import (
 from uflx._src.nodes.scalar_types import ScalarType
 from uflx._src.nodes.structure import operands
 from uflx._src.passes import derivatives
+from uflx.arithmetic import conjugate, num
+from uflx.forms import apply, dual_space, form, function
+from uflx.nodes import Integer
+from uflx.passes import apply_derivatives, expand_applications
+from uflx.tensors import index, tensor
 from uflx_basix.spaces import space
 from uflx_compiler.algebra import _normalizer
 from uflx_oracle import evaluate

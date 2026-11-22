@@ -10,7 +10,10 @@ from test_basix import quadrilaterals, square
 from test_ufcx import boundary_mesh, build, interior_mesh, model, paired_geometry
 from testutil import side_map
 
-from uflx import form, function, gradient, integral, num, pull_back, push_forward
+from uflx.arithmetic import num
+from uflx.calculus import gradient, integral
+from uflx.forms import form, function
+from uflx.geometry import pull_back, push_forward
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.spaces import space

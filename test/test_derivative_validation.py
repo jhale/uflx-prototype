@@ -2,20 +2,13 @@
 
 import pytest
 
-from uflx import (
-    EuclideanSpace,
-    apply,
-    apply_derivatives,
-    conjugate,
-    directional_derivative,
-    dual_space,
-    form,
-    function,
-    index,
-    num,
-    tensor,
-)
 from uflx._src.nodes import ConjugateSpace
+from uflx.arithmetic import conjugate, num
+from uflx.calculus import directional_derivative
+from uflx.forms import apply, dual_space, form, function
+from uflx.nodes import EuclideanSpace
+from uflx.passes import apply_derivatives
+from uflx.tensors import index, tensor
 from uflx_basix.spaces import space
 
 
@@ -124,11 +117,11 @@ def test_explicit_binding_adds_slots_after_existing_slots(variables):
 
 
 def test_only_one_derivative_primitive_is_exported():
-    import uflx as api
+    import uflx.calculus as calculus
 
-    assert "directional_derivative" in api.__all__
-    assert "gateaux_derivative" not in api.__all__
-    assert not hasattr(api, "gateaux_derivative")
+    assert "directional_derivative" in calculus.__all__
+    assert "gateaux_derivative" not in calculus.__all__
+    assert not hasattr(calculus, "gateaux_derivative")
 
 
 def test_different_slots_may_have_different_scalar_types(variables):

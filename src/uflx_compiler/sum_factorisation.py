@@ -7,8 +7,8 @@ from math import prod
 
 import numpy as np
 
-from uflx import add, broadcast_to, divide, index_sum, multiply, num, replace, tensor
-from uflx.algorithms import derived_index, expression_operands, map_fields
+from uflx.algorithms import derived_index, expression_operands, map_fields, replace
+from uflx.arithmetic import add, divide, multiply, num
 from uflx.nodes import (
     AbstractExpression,
     BroadcastTo,
@@ -20,6 +20,7 @@ from uflx.nodes import (
     Sum,
     Tensor,
 )
+from uflx.tensors import broadcast_to, index_sum, tensor
 from uflx_basix.nodes import RuntimeArray
 from uflx_basix.runtime import runtime_array
 

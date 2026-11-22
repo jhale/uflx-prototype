@@ -2,21 +2,13 @@
 
 import numpy as np
 
-from uflx import (
-    apply,
-    apply_derivatives,
-    conjugate,
-    directional_derivative,
-    dual_space,
-    expand_applications,
-    form,
-    function,
-    lower,
-    num,
-)
 from uflx._src.algorithms.traversal import everywhere
 from uflx._src.nodes import Apply, DirectionalDerivative
 from uflx._src.passes.contracts import core_normal_form, derivatives_expanded
+from uflx.arithmetic import conjugate, num
+from uflx.calculus import directional_derivative
+from uflx.forms import apply, dual_space, form, function
+from uflx.passes import apply_derivatives, expand_applications, lower
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

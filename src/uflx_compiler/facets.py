@@ -3,20 +3,11 @@
 import basix
 import numpy as np
 
-from uflx import (
-    EuclideanSpace,
-    conormal,
-    domain_map,
-    jacobian,
-    lower,
-    pull_back,
-    side_map,
-)
-from uflx import (
-    mesh as make_mesh,
-)
 from uflx.algorithms import derived_index
-from uflx.nodes import Conormal, SideMap
+from uflx.geometry import conormal, domain_map, jacobian, pull_back, side_map
+from uflx.geometry import mesh as make_mesh
+from uflx.nodes import Conormal, EuclideanSpace, SideMap
+from uflx.passes import lower
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.inclusions import affine_map, reference_normal
 from uflx_basix.runtime import runtime_array

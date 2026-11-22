@@ -2,20 +2,14 @@ import numpy as np
 import pytest
 from testutil import ill_typed, keeps_static_type
 
-from uflx import (
-    ScalarType,
-    absolute,
-    conjugate,
-    directional_derivative,
-    form,
-    function,
-    multiply,
-    num,
-)
 from uflx._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx._src.nodes import Conjugate
 from uflx._src.nodes.forms import entry_function
 from uflx._src.passes import applications, derivatives
+from uflx.arithmetic import absolute, conjugate, multiply, num
+from uflx.calculus import directional_derivative
+from uflx.forms import form, function
+from uflx.nodes import ScalarType
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

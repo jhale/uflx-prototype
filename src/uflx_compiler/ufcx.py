@@ -10,21 +10,6 @@ from math import prod
 import basix
 import numpy as np
 
-from uflx import (
-    add,
-    apply_derivatives,
-    expand_applications,
-    function,
-    index_sum,
-    lower,
-    multiply,
-    reference_integral,
-    replace,
-    tensor,
-)
-from uflx import (
-    mesh as make_mesh,
-)
 from uflx.algorithms import (
     bottom_up,
     derived_index,
@@ -32,8 +17,13 @@ from uflx.algorithms import (
     map_fields,
     memoized,
     operands,
+    replace,
     substitute_values,
 )
+from uflx.arithmetic import add, multiply
+from uflx.calculus import reference_integral
+from uflx.forms import function
+from uflx.geometry import mesh as make_mesh
 from uflx.nodes import (
     AbstractExpression,
     Form,
@@ -46,6 +36,8 @@ from uflx.nodes import (
     Tensor,
     Zero,
 )
+from uflx.passes import apply_derivatives, expand_applications, lower
+from uflx.tensors import index_sum, tensor
 from uflx_basix.basix_nodes import BasixSpace
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.nodes import IndexTable, VertexCoordinates

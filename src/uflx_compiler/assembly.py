@@ -1,8 +1,9 @@
 import numpy as np
 
-from uflx import add, component_tensor, identity, replace
-from uflx.algorithms import derived_indices
+from uflx.algorithms import derived_indices, replace
+from uflx.arithmetic import add
 from uflx.nodes import Conjugate, Form, Zero
+from uflx.tensors import component_tensor, identity
 
 from .evaluation import evaluate
 from .folding import fold

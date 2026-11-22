@@ -2,41 +2,37 @@
 
 from typing import Literal, assert_type
 
-from uflx import (
-    Boolean,
-    Complex,
-    EuclideanSpace,
-    Float,
-    Integer,
-    Zero,
-    add,
-    directional_derivative,
-    domain_map,
-    form,
-    lower,
-    num,
-    side_map,
-    tensor,
-)
 from uflx._src.passes.contracts import (
     core_normal_form,
     derivatives_expanded,
     reference_integration,
 )
 from uflx.algorithms import bottom_up
+from uflx.arithmetic import add, num
+from uflx.calculus import directional_derivative
+from uflx.forms import form
+from uflx.geometry import domain_map, side_map
 from uflx.nodes import (
     AbstractDomain,
     AbstractExpression,
     AbstractTopology,
+    Boolean,
     BroadcastTo,
     CellMap,
+    Complex,
     DirectionalDerivative,
     DomainMap,
+    EuclideanSpace,
+    Float,
     Function,
     Gradient,
+    Integer,
     Mesh,
     SideMap,
+    Zero,
 )
+from uflx.passes import lower
+from uflx.tensors import tensor
 
 
 def valid(f: Function, g: Function) -> None:

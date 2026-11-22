@@ -8,23 +8,19 @@ import numpy as np
 import pytest
 from testutil import grouped_topology, push_forward
 
-from uflx import (
-    EuclideanSpace,
+from uflx.arithmetic import logarithm, num, square_root
+from uflx.calculus import divergence, gradient, integral
+from uflx.forms import function
+from uflx.geometry import mesh
+from uflx.nodes import EuclideanSpace
+from uflx.tensors import (
     broadcast_to,
     component_tensor,
     determinant,
-    divergence,
-    function,
     gathered_index,
-    gradient,
     index,
     index_sum,
-    integral,
     inverse,
-    logarithm,
-    mesh,
-    num,
-    square_root,
     tensor,
 )
 from uflx_basix.basix_cells import basix_cell

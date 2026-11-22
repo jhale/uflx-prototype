@@ -3,7 +3,9 @@ import numpy as np
 import pytest
 from testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
-from uflx import form, function, gradient, integral, pull_back
+from uflx.calculus import gradient, integral
+from uflx.forms import form, function
+from uflx.geometry import pull_back
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import assemble, compile_form, evaluate, runtime_tables

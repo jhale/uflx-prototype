@@ -2,24 +2,16 @@ import basix
 import numpy as np
 from testutil import grouped_topology, push_forward, vertex_mesh
 
-from uflx import (
-    EuclideanSpace,
-    coordinate,
-    curl,
-    divergence,
-    expand_integrals,
-    function,
-    gradient,
-    index,
-    index_sum,
-    integral,
-    mesh,
-    num,
-    tensor,
-)
 from uflx._src.algorithms.traversal import everywhere
 from uflx._src.nodes import Gradient, PushForward
 from uflx._src.passes.lowering import lower_spatial
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, curl, divergence, gradient, integral
+from uflx.forms import function
+from uflx.geometry import mesh
+from uflx.nodes import EuclideanSpace
+from uflx.passes import expand_integrals
+from uflx.tensors import index, index_sum, tensor
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_compiler import compile_form, evaluate

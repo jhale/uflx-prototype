@@ -5,11 +5,12 @@ import pytest
 
 pytest.importorskip("egglog")
 
-from uflx import component_tensor, index, index_sum, num, tensor
 from uflx._src.nodes import IndexSum, Zero
 from uflx._src.nodes.structure import expression_operands
 from uflx._src.optimisation import OptimisationOptions, optimise
 from uflx._src.tensors import identity
+from uflx.arithmetic import num
+from uflx.tensors import component_tensor, index, index_sum, tensor
 from uflx_basix.nodes import RuntimeArray
 from uflx_compiler.evaluation import evaluate
 
@@ -186,9 +187,9 @@ def test_alpha_interning_collects_renamed_opaque_sums(index_count):
 
 
 def test_alpha_atom_buckets_check_collisions_and_preserve_free_identities(monkeypatch):
-    from uflx import function
     from uflx._src.algorithms.alpha import AlphaHasher
     from uflx._src.optimisation.encoding import decode, encode
+    from uflx.forms import function
     from uflx_basix.spaces import space
 
     V = space("alpha-atom", scalar_type="real")
@@ -248,7 +249,9 @@ def test_custom_cost_callback():
 
 @pytest.mark.parametrize("kind", ["shared_factors", "cancellation", "indexed_energy"])
 def test_derivative_redundancies_surviving_current_cleanup(kind):
-    from uflx import apply_derivatives, directional_derivative, function, lower
+    from uflx.calculus import directional_derivative
+    from uflx.forms import function
+    from uflx.passes import apply_derivatives, lower
     from uflx_basix.spaces import space
     from uflx_compiler.algebra import _normalizer
     from uflx_oracle import evaluate as oracle
@@ -278,8 +281,9 @@ def test_derivative_redundancies_surviving_current_cleanup(kind):
 
 
 def test_complex_grouped_form_and_rebind():
-    from uflx import conjugate, form, function, rebind
     from uflx._src.algorithms.binding import alpha_equivalent
+    from uflx.arithmetic import conjugate
+    from uflx.forms import form, function, rebind
     from uflx_basix.spaces import space
     from uflx_oracle import evaluate as oracle
 
@@ -338,7 +342,7 @@ def test_delta_contracts_defined_runtime_vector_components():
 
 @pytest.mark.parametrize("preserve_floating_point_evaluation", [False, True])
 def test_empty_sum_does_not_expose_undefined_factor(preserve_floating_point_evaluation):
-    from uflx import broadcast_to
+    from uflx.tensors import broadcast_to
 
     i = index("empty")
     partial = num(1) / num(0)
@@ -378,7 +382,7 @@ def test_preserving_mode_keeps_signed_zero_and_reduction_order():
 
 @pytest.mark.parametrize("preserve_floating_point_evaluation", [False, True])
 def test_structural_tensor_selection_and_broadcast(preserve_floating_point_evaluation):
-    from uflx import broadcast_to
+    from uflx.tensors import broadcast_to
 
     options = OptimisationOptions(
         preserve_floating_point_evaluation=preserve_floating_point_evaluation
@@ -396,7 +400,7 @@ def test_structural_tensor_selection_and_broadcast(preserve_floating_point_evalu
 
 @pytest.mark.parametrize("preserve_floating_point_evaluation", [False, True])
 def test_complex_simplifications_preserve_undefined_operands(preserve_floating_point_evaluation):
-    from uflx import conjugate, imaginary_part, real_part
+    from uflx.arithmetic import conjugate, imaginary_part, real_part
 
     options = OptimisationOptions(
         preserve_floating_point_evaluation=preserve_floating_point_evaluation
@@ -452,9 +456,9 @@ def test_defined_zero_product_retains_family_indices_without_rewrite_cycle():
 def test_complex_operators_roundtrip_through_egglog(operation, preserve):
     from egglog.deconstruct import get_callable_args
 
-    from uflx import conjugate, imaginary_part, real_part
     from uflx._src.optimisation.encoding import decode, encode
     from uflx._src.optimisation.language import Scalar
+    from uflx.arithmetic import conjugate, imaginary_part, real_part
 
     z = num(complex(-0.0, 2.0))
     constructor = {
@@ -474,7 +478,7 @@ def test_complex_operators_roundtrip_through_egglog(operation, preserve):
 
 @pytest.mark.parametrize("preserve", [False, True])
 def test_complex_rules_run_in_egglog_without_changing_arithmetic_in_preserving_mode(preserve):
-    from uflx import conjugate, real_part
+    from uflx.arithmetic import conjugate, real_part
 
     x = RuntimeArray("real-unary", ())
     arithmetic = (x + num(1.0)) + num(-1.0)
@@ -488,7 +492,7 @@ def test_complex_rules_run_in_egglog_without_changing_arithmetic_in_preserving_m
 
 @pytest.mark.parametrize("preserve", [False, True])
 def test_complex_rules_do_not_treat_complex_values_as_real(preserve):
-    from uflx import imaginary_part, real_part
+    from uflx.arithmetic import imaginary_part, real_part
 
     z = num(2 + 3j)
     for original in (real_part(z), imaginary_part(z)):
@@ -502,7 +506,8 @@ def test_complex_rules_do_not_treat_complex_values_as_real(preserve):
 
 @pytest.mark.parametrize("preserve", [False, True])
 def test_double_conjugation_of_tensor_and_form_atoms(preserve):
-    from uflx import conjugate, form, function
+    from uflx.arithmetic import conjugate
+    from uflx.forms import form, function
     from uflx_basix.spaces import space
 
     u = function(space("complex-form-atom", scalar_type="complex"), "u")
@@ -515,7 +520,7 @@ def test_double_conjugation_of_tensor_and_form_atoms(preserve):
 
 @pytest.mark.parametrize("preserve", [False, True])
 def test_complex_zero_rewrites_preserve_real_type_and_free_indices(preserve):
-    from uflx import imaginary_part, real_part
+    from uflx.arithmetic import imaginary_part, real_part
 
     i = index("complex-zero-index")
     zero = Zero((), ((i, 3),), (), "complex")
@@ -527,7 +532,7 @@ def test_complex_zero_rewrites_preserve_real_type_and_free_indices(preserve):
 
 
 def test_complex_search_obeys_region_budget():
-    from uflx import conjugate
+    from uflx.arithmetic import conjugate
 
     x = RuntimeArray("complex-budget", ())
     original = conjugate(conjugate(x))
@@ -538,7 +543,7 @@ def test_complex_search_obeys_region_budget():
 
 @pytest.mark.parametrize("preserve", [False, True])
 def test_elementary_scalar_rules_and_evaluation_policy(preserve):
-    from uflx import absolute, logarithm
+    from uflx.arithmetic import absolute, logarithm
 
     options = OptimisationOptions(preserve_floating_point_evaluation=preserve)
     x = RuntimeArray("power-one", ())
@@ -576,14 +581,14 @@ def test_power_zero_requires_a_defined_base(denominator):
 
 
 def test_nested_absolute_keeps_undefined_operand():
-    from uflx import absolute
+    from uflx.arithmetic import absolute
 
     partial = num(1) / num(0)
     assert optimise(absolute(absolute(partial))).expression is absolute(partial)
 
 
 def test_logarithm_only_folds_one():
-    from uflx import logarithm
+    from uflx.arithmetic import logarithm
 
     for value in (0, -1, 2):
         original = logarithm(num(value))
@@ -726,8 +731,8 @@ def test_floating_point_divisors_remain_opaque():
 
 
 def test_zero_product_does_not_assume_arbitrary_matrix_inverses_exist():
-    from uflx import inverse
     from uflx._src.nodes import Inverse
+    from uflx.tensors import inverse
 
     A = RuntimeArray("possibly-singular", (2, 2))
     original = num(0) * inverse(A)[0, 0]
@@ -739,8 +744,9 @@ def test_zero_product_does_not_assume_arbitrary_matrix_inverses_exist():
 @pytest.mark.parametrize("size", [0, 1, 2, 3])
 @pytest.mark.parametrize("preserve", [False, True])
 def test_constant_identity_matrices(size, preserve):
-    from uflx import determinant, inverse, logarithm
     from uflx._src.nodes import Determinant, Inverse, Logarithm
+    from uflx.arithmetic import logarithm
+    from uflx.tensors import determinant, inverse
 
     matrix = identity(size)
     options = OptimisationOptions(preserve_floating_point_evaluation=preserve)
@@ -755,8 +761,8 @@ def test_constant_identity_matrices(size, preserve):
 
 @pytest.mark.parametrize("values", [((2,),), ((2, 1), (1, 3)), ((0, 2, 1), (1, 0, 3), (4, 1, 2))])
 def test_exact_small_matrix_determinants_and_inverses(values):
-    from uflx import determinant, inverse
     from uflx._src.nodes import Determinant, Float, Inverse
+    from uflx.tensors import determinant, inverse
 
     matrix = tensor(tuple(tensor(tuple(num(v) for v in row)) for row in values))
     for original in (determinant(matrix), inverse(matrix)):
@@ -766,7 +772,7 @@ def test_exact_small_matrix_determinants_and_inverses(values):
 
 
 def test_matrix_inverse_keeps_small_exact_rational_pivots():
-    from uflx import inverse
+    from uflx.tensors import inverse
 
     tiny = num(1) / num(10**30)
     matrix = tensor((tensor((tiny, num(0))), tensor((num(0), num(1)))))
@@ -779,8 +785,8 @@ def test_matrix_inverse_keeps_small_exact_rational_pivots():
 
 @pytest.mark.parametrize("values", [((0,),), ((1, 2), (2, 4)), ((0, 0), (0, 0))])
 def test_singular_constant_matrix_inverse_stays_undefined(values):
-    from uflx import determinant, inverse
     from uflx._src.nodes import Inverse
+    from uflx.tensors import determinant, inverse
 
     matrix = tensor(tuple(tensor(tuple(num(v) for v in row)) for row in values))
     det = optimise(determinant(matrix)).expression
@@ -792,7 +798,7 @@ def test_singular_constant_matrix_inverse_stays_undefined(values):
 
 
 def test_constant_matrix_fold_preserves_family_and_complex_zero_type():
-    from uflx import determinant
+    from uflx.tensors import determinant
 
     i = index("matrix-family")
     for size in (0, 2):
@@ -803,8 +809,8 @@ def test_constant_matrix_fold_preserves_family_and_complex_zero_type():
 
 
 def test_matrix_folding_leaves_unknown_float_rectangular_and_large_inputs():
-    from uflx import determinant, inverse
     from uflx._src.nodes import Determinant, Inverse
+    from uflx.tensors import determinant, inverse
 
     matrices = (
         RuntimeArray("matrix", (2, 2)),
@@ -820,8 +826,8 @@ def test_matrix_folding_leaves_unknown_float_rectangular_and_large_inputs():
 
 
 def test_matrix_fold_does_not_discard_undefined_entries_even_for_empty_matrices():
-    from uflx import broadcast_to, determinant, inverse
     from uflx._src.nodes import Determinant, Inverse
+    from uflx.tensors import broadcast_to, determinant, inverse
 
     for size in (0, 2):
         matrix = broadcast_to(num(1) / num(0), (size, size))
@@ -830,7 +836,7 @@ def test_matrix_fold_does_not_discard_undefined_entries_even_for_empty_matrices(
 
 
 def test_constant_inverse_produces_exact_non_dyadic_fractions():
-    from uflx import inverse
+    from uflx.tensors import inverse
 
     matrix = tensor((tensor((num(2), num(1))), tensor((num(1), num(3)))))
     expected = tensor(
@@ -842,8 +848,9 @@ def test_constant_inverse_produces_exact_non_dyadic_fractions():
 @pytest.mark.parametrize("operation", ["determinant", "inverse", "logdet"])
 @pytest.mark.parametrize("preserve", [False, True])
 def test_constant_matrix_families_through_broadcast(operation, preserve):
-    from uflx import broadcast_to, determinant, inverse, logarithm
     from uflx._src.nodes import Determinant, Inverse, Logarithm
+    from uflx.arithmetic import logarithm
+    from uflx.tensors import broadcast_to, determinant, inverse
 
     i = index("repeated-matrix")
     matrix = broadcast_to(identity(2), (3, 2, 2))[i]
@@ -861,7 +868,7 @@ def test_constant_matrix_families_through_broadcast(operation, preserve):
 
 
 def test_constant_matrix_selection_does_not_discard_undefined_siblings():
-    from uflx import determinant
+    from uflx.tensors import determinant
 
     undefined = num(1) / num(0)
     invalid = tensor((tensor((undefined, num(0))), tensor((num(0), num(1)))))
@@ -1010,7 +1017,7 @@ def test_definedness_propagates_to_new_egglog_arithmetic():
 
 
 def test_defined_runtime_input_does_not_make_logarithm_total():
-    from uflx import logarithm
+    from uflx.arithmetic import logarithm
 
     x = RuntimeArray("log-input", ())
     partial = logarithm(x)

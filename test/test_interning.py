@@ -11,7 +11,6 @@ import pytest
 from test_surface import M
 from testutil import contains
 
-from uflx import density, inverse, jacobian
 from uflx._src.algorithms.traversal import map_fields, rebuild
 from uflx._src.meshes import cell_map
 from uflx._src.nodes import (
@@ -26,6 +25,8 @@ from uflx._src.nodes import (
     Tensor,
 )
 from uflx._src.nodes.base import _digest_of
+from uflx.geometry import density, jacobian
+from uflx.tensors import inverse
 from uflx_basix.spaces import space
 
 V = space("V")
@@ -142,7 +143,7 @@ def test_cache_hits_do_not_initialize_or_validate_again():
 def test_private_dataclass_storage_is_frozen():
     from dataclasses import FrozenInstanceError
 
-    from uflx import EuclideanSpace
+    from uflx.nodes import EuclideanSpace
 
     domain = EuclideanSpace(3)
     with pytest.raises(FrozenInstanceError):

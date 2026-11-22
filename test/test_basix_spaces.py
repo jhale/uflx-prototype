@@ -4,10 +4,13 @@ import pytest
 from test_basix import mixed, square
 from testutil import push_forward, side_map
 
-from uflx import expand_arithmetic, function, gradient, integral, pull_back
 from uflx._src.passes import integrals
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx._src.passes.lowering import lower_spatial
+from uflx.calculus import gradient, integral
+from uflx.forms import function
+from uflx.geometry import pull_back
+from uflx.passes import expand_arithmetic
 from uflx_basix.assembly import conforming_dofmap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space

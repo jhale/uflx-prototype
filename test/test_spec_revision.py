@@ -8,38 +8,25 @@ import numpy as np
 import pytest
 from testutil import grouped_topology
 
-from uflx import (
-    Complex,
-    EuclideanSpace,
-    Float,
-    Integer,
-    ScalarType,
-    Zero,
-    apply,
-    cell_map,
+from uflx._src.nodes import Base, Determinant, Function, Index, Indexed
+from uflx._src.nodes.structure import expression_operands
+from uflx.algorithms import replace
+from uflx.arithmetic import conjugate
+from uflx.calculus import coordinate, directional_derivative, gradient, integral
+from uflx.forms import apply, conjugate_space, dual_space, form, function
+from uflx.geometry import cell_map, mesh
+from uflx.nodes import Complex, EuclideanSpace, Float, Integer, ScalarType, Zero
+from uflx.passes import lower
+from uflx.tensors import (
     component,
     component_tensor,
-    conjugate,
-    conjugate_space,
-    coordinate,
     determinant,
-    directional_derivative,
-    dual_space,
-    form,
-    function,
     gathered_index,
-    gradient,
     index,
     index_sum,
     indexed,
-    integral,
-    lower,
-    mesh,
-    replace,
     tensor,
 )
-from uflx._src.nodes import Base, Determinant, Function, Index, Indexed
-from uflx._src.nodes.structure import expression_operands
 from uflx_basix.cells import reference_simplex
 from uflx_basix.indices import index_table
 from uflx_basix.runtime import runtime_array, runtime_extent

@@ -5,15 +5,10 @@ import numpy as np
 from test_basix import mixed, square
 from testutil import push_forward, side_map
 
-from uflx import (
-    directional_derivative,
-    form,
-    function,
-    gradient,
-    integral,
-    num,
-    pull_back,
-)
+from uflx.arithmetic import num
+from uflx.calculus import directional_derivative, gradient, integral
+from uflx.forms import form, function
+from uflx.geometry import pull_back
 from uflx_basix.assembly import conforming_dofmap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
@@ -99,7 +94,7 @@ def test_bound_directional_derivatives_assemble_to_the_energy_derivatives():
 
 
 def test_zero_form_uses_argument_spaces_for_rectangular_complex_tensor():
-    from uflx import ScalarType
+    from uflx.nodes import ScalarType
 
     D = square(basix_cell(basix.CellType.triangle))[0]
     V = basix_space("rows", D.topology, P, 1, True, ScalarType.complex)

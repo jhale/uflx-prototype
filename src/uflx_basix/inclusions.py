@@ -1,18 +1,10 @@
 from functools import reduce
 
-from uflx import (
-    absolute,
-    add,
-    component_tensor,
-    coordinate,
-    determinant,
-    divide,
-    index,
-    inverse,
-    jacobian,
-    tensor,
-)
+from uflx.arithmetic import absolute, add, divide
+from uflx.calculus import coordinate
+from uflx.geometry import jacobian
 from uflx.nodes import Integer
+from uflx.tensors import component_tensor, determinant, index, inverse, tensor
 
 
 def affine_map(F, points):

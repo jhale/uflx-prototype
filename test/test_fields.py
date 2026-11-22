@@ -6,30 +6,17 @@ from test_integrals import D as MESH
 from test_integrals import K
 from testutil import assert_clean, check_types, form_with_fixed_argument
 
-from uflx import (
-    add,
-    conjugate,
-    coordinate,
-    density,
-    directional_derivative,
-    divide,
-    form,
-    function,
-    gradient,
-    index,
-    index_sum,
-    indexed,
-    integral,
-    multiply,
-    num,
-    pull_back,
-)
 from uflx._src.meshes import cell_map
 from uflx._src.nodes import Function
 from uflx._src.passes import applications, derivatives, integrals
 from uflx._src.passes.applications import applications_expanded
 from uflx._src.passes.derivatives import _derivatives_complete
 from uflx._src.passes.integrals import integrals_expanded
+from uflx.arithmetic import add, conjugate, divide, multiply, num
+from uflx.calculus import coordinate, directional_derivative, gradient, integral
+from uflx.forms import form, function
+from uflx.geometry import density, pull_back
+from uflx.tensors import index, index_sum, indexed
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

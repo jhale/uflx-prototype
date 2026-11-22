@@ -5,26 +5,17 @@ import sys
 import numpy as np
 from testutil import assert_clean, check_types, grouped_topology, keeps_static_type, vertex_mesh
 
-from uflx import (
-    EuclideanSpace,
-    add,
-    component_tensor,
-    coordinate,
-    expand_arithmetic,
-    function,
-    gradient,
-    index,
-    indexed,
-    integral,
-    multiply,
-    num,
-    tensor,
-)
 from uflx._src.passes import integrals
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx._src.passes.integrals import integrals_expanded
 from uflx._src.passes.lowering import lower_spatial
 from uflx._src.passes.pullbacks import pull_backs_expanded
+from uflx.arithmetic import add, multiply, num
+from uflx.calculus import coordinate, gradient, integral
+from uflx.forms import function
+from uflx.nodes import EuclideanSpace
+from uflx.passes import expand_arithmetic
+from uflx.tensors import component_tensor, index, indexed, tensor
 from uflx_basix.cells import reference_simplex
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate

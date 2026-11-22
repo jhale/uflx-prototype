@@ -6,8 +6,9 @@ import numpy as np
 import pytest
 
 import uflx
-from uflx import imaginary_part, index, num, real_part, tensor
 from uflx._src.nodes import ComponentTensor, Indexed, Integer, Power, Product, Sum
+from uflx.arithmetic import imaginary_part, num, real_part
+from uflx.tensors import index, tensor
 from uflx_oracle import evaluate
 
 RNG = np.random.default_rng(1)

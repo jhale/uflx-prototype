@@ -1,27 +1,13 @@
 import numpy as np
 from testutil import ill_typed
 
-from uflx import (
-    ScalarType,
-    add,
-    apply,
-    component_tensor,
-    conjugate,
-    divide,
-    dual_space,
-    form,
-    function,
-    index,
-    index_sum,
-    indexed,
-    multiply,
-    num,
-    partial,
-    tensor,
-)
 from uflx._src.literals import zero
 from uflx._src.passes import applications
 from uflx._src.passes.applications import applications_expanded
+from uflx.arithmetic import add, conjugate, divide, multiply, num
+from uflx.forms import apply, dual_space, form, function, partial
+from uflx.nodes import ScalarType
+from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

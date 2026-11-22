@@ -1,24 +1,12 @@
 import numpy as np
 from testutil import ill_typed
 
-from uflx import (
-    add,
-    apply,
-    component_tensor,
-    conjugate,
-    directional_derivative,
-    dual_space,
-    form,
-    function,
-    index,
-    indexed,
-    multiply,
-    num,
-    partial,
-    tensor,
-)
 from uflx._src.passes import applications
 from uflx._src.passes.applications import applications_expanded
+from uflx.arithmetic import add, conjugate, multiply, num
+from uflx.calculus import directional_derivative
+from uflx.forms import apply, dual_space, form, function, partial
+from uflx.tensors import component_tensor, index, indexed, tensor
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

@@ -2,10 +2,11 @@
 
 import pytest
 
-from uflx import form, function, index
 from uflx._src.algorithms.binding import alpha_equivalent
 from uflx._src.algorithms.traversal import rebuild
 from uflx._src.nodes.base import _encode, construction_equal
+from uflx.forms import form, function
+from uflx.tensors import index
 from uflx_basix.spaces import space
 
 

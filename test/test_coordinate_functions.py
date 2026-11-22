@@ -4,22 +4,18 @@ from test_basix import square
 from test_compiler import functionals, runtime_mesh
 from testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
-from uflx import (
-    EuclideanSpace,
-    cell_map,
-    expand_integrals,
-    function,
-    integral,
-    mesh,
-    num,
-    pull_back,
-    tensor,
-)
 from uflx._src.algorithms.traversal import everywhere
 from uflx._src.meshes import is_cell
 from uflx._src.nodes import CellMap, Division, Gradient, PullBack
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx._src.passes.lowering import lower_spatial
+from uflx.arithmetic import num
+from uflx.calculus import integral
+from uflx.forms import function
+from uflx.geometry import cell_map, mesh, pull_back
+from uflx.nodes import EuclideanSpace
+from uflx.passes import expand_integrals
+from uflx.tensors import tensor
 from uflx_basix.assembly import conforming_dofmap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space

@@ -5,24 +5,19 @@ from math import prod
 import basix
 import numpy as np
 
-from uflx import (
-    EuclideanSpace,
-    cell_map,
+from uflx.arithmetic import num
+from uflx.calculus import integral
+from uflx.geometry import cell_map, domain_map, jacobian, pull_back, push_forward
+from uflx.nodes import AbstractExpression, CellMap, EuclideanSpace, Mesh
+from uflx.tensors import (
     component_tensor,
     determinant,
-    domain_map,
     index,
     index_sum,
-    integral,
     inverse,
-    jacobian,
     matrix_product,
-    num,
-    pull_back,
-    push_forward,
     tensor,
 )
-from uflx.nodes import AbstractExpression, CellMap, Mesh
 
 from .basix_nodes import BasixBasis, BasixCell, BasixSpace, table
 from .basix_spaces import basix_space

@@ -12,37 +12,28 @@ from testutil import (
     pairing,
 )
 
-from uflx import (
-    ScalarType,
+from uflx._src.literals import zero
+from uflx._src.nodes import Apply, DirectionalDerivative
+from uflx._src.passes import applications, derivatives
+from uflx._src.passes.applications import applications_expanded
+from uflx._src.passes.derivatives import _derivatives_complete
+from uflx.arithmetic import (
     absolute,
     add,
-    apply,
-    component_tensor,
     conjugate,
-    conjugate_space,
-    directional_derivative,
     divide,
-    dual_space,
-    form,
-    function,
     imaginary_part,
-    index,
-    index_sum,
-    indexed,
-    inverse,
     logarithm,
     multiply,
     num,
     power,
     real_part,
     square_root,
-    tensor,
 )
-from uflx._src.literals import zero
-from uflx._src.nodes import Apply, DirectionalDerivative
-from uflx._src.passes import applications, derivatives
-from uflx._src.passes.applications import applications_expanded
-from uflx._src.passes.derivatives import _derivatives_complete
+from uflx.calculus import directional_derivative
+from uflx.forms import apply, conjugate_space, dual_space, form, function
+from uflx.nodes import ScalarType
+from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

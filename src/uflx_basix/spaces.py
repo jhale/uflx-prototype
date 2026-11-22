@@ -1,4 +1,4 @@
-from uflx import ScalarType
+from uflx.nodes import ScalarType
 
 from .nodes import Space
 

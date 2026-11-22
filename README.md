@@ -1,9 +1,20 @@
 # UFLx spec interpreter
 
 The `uflx-spec-interpreter` distribution provides four Python packages. Import
-language operations from `uflx`, use `uflx_basix` for concrete cells, spaces and
+language operations from the `uflx` submodules, use `uflx_basix` for concrete cells, spaces and
 DOF maps, compile forms with `uflx_compiler`, and evaluate expressions directly
 with `uflx_oracle`.
+
+| Public module | What to import |
+| --- | --- |
+| `uflx.arithmetic` | Numeric literals, arithmetic and comparisons, including `num`, `add` and `less_than` |
+| `uflx.tensors` | Indices, tensors and contractions, including `index`, `tensor` and `index_sum` |
+| `uflx.forms` | Functions, spaces and form binding, including `function`, `form`, `partial` and `apply` |
+| `uflx.calculus` | Coordinates, derivatives and integrals, including `gradient` and `integral` |
+| `uflx.geometry` | Meshes, maps and geometric transformations, including `mesh` and `pull_back` |
+| `uflx.passes` | Lowering and individual evaluation passes, including `lower` and `apply_derivatives` |
+| `uflx.nodes` | Node classes used in pattern matching and extensions, including `Sum` and `AbstractExpression` |
+| `uflx.algorithms` | Graph traversal, comparison and rewriting, including `bottom_up` and `replace` |
 
 `lower(f)` runs the standard core recipe and checks its core-normal-form output.
 Individual transformations remain available. The [rule map](RULES.md) tracks the
@@ -466,7 +477,7 @@ Quadrature and tabulation follow the checked core boundary. Geometry derivatives
 Full application constructs a lazy node. Partial application and rebinding transform explicit binders.
 
 ```python
-from uflx import apply, partial, rebind
+from uflx.forms import apply, partial, rebind
 
 F = form(u * v, (u, v))
 partial(F, {u: w})  # form(w * v, (v,))
@@ -564,9 +575,7 @@ blocks. Apply `real_part` or `imaginary_part` to bodies before binding real test
 and direction functions to obtain real matrices. The mixed-block tests compare
 both representations with finite differences of assembled FE residuals.
 
-The `uflx` package exports the free functions of the specification, literal classes,
-`EuclideanSpace`, scalar types and the convenience constructors `num` and `identity`.
-`reference_integral(f, D, cell_slot)` gives one local cell’s reference integral.
+`uflx.calculus.reference_integral(f, D, cell_slot)` gives one local cell’s reference integral.
 Mesh expansion adds these integrals over the fixed slots without introducing
 an array index or cell sum. UFCx compilation selects its local slot directly.
 It works for cells and facet meshes. `CellMap(parent, cell_slot)` selects a slot;
@@ -579,8 +588,7 @@ use nested pull-backs: `pull_back(pull_back(u, outer), inner)`.
 The optional `side_domain(D, S, *entries)` helper derives source geometry; a
 source mesh can also be constructed independently. Cell bindings and neighbour
 lookup belong to the calling finite element package.
-A user, and a test that builds expressions, imports only these, as in
-`from uflx import add, index`. `AbstractExpression` also has
+`AbstractExpression` also has
 the operator overloads of the specification, which call these free functions
 and reject Python numbers.
 
@@ -591,8 +599,8 @@ extension base classes. Import graph operations from `uflx.algorithms`. For
 example, this pass folds integer sums after visiting their operands.
 
 ```python
-from uflx import add, num
 from uflx.algorithms import bottom_up
+from uflx.arithmetic import add, num
 from uflx.nodes import Integer, Sum
 
 
@@ -608,7 +616,7 @@ assert bottom_up(add(num(2), num(3)), fold_integer_sum) == num(5)
 
 For a recursive pass, `memoized` shares results across visits, `map_values`
 rebuilds a node with its transformed value operands, and `complete_indices`
-restores free indices that a replacement dropped. Use `uflx.replace` to
+restores free indices that a replacement dropped. Use `uflx.algorithms.replace` to
 substitute through construction dependencies or `uflx.algorithms.substitute_values`
 to instantiate values while keeping geometry and identity metadata fixed.
 
@@ -792,7 +800,7 @@ The ordinary test suite also checks three source conventions:
 - `test/test_boundaries.py` resolves absolute and relative imports, including
   `from package import submodule`, local imports and imports under
   `TYPE_CHECKING`. It enforces the existing package dependency direction and
-  prevents core implementation modules from importing the public facade,
+  prevents core implementation modules from importing the public submodules,
   `_draft`, or `_src/extensions`. Extension modules may depend on the core. It also keeps static queries,
   traversal, rewrite completion and substitution independent of passes and
   contracts, and prevents transformations from importing their lowering recipe.
@@ -801,11 +809,11 @@ The ordinary test suite also checks three source conventions:
   preserves the `_members(entries)` conversion. Returning `NotImplemented` for
   unsupported operand types remains allowed. Numerical overload tests remain
   responsible for behaviour.
-- `test/test_signatures.py` checks explicit facade imports against the literal
+- `test/test_signatures.py` checks each public submodule's imports against its literal
   `__all__` list, rejecting duplicate bindings, duplicate exports, wildcard
   imports and missing names. With the language specification available, its
-  generated free-function and pass tables determine the top-level names,
-  alongside the explicitly listed constructors, conveniences and submodules. Existing
+  generated free-function and pass tables determine the names exported across the
+  language submodules alongside their convenience functions. The
   signature checks also verify parameter names and supported overloads.
 
 These checks inspect static source syntax; they do not follow dynamic imports
@@ -816,8 +824,8 @@ without the specification.
 
 ### Public and private names
 
-The public modules `uflx`, `uflx.nodes` and `uflx.algorithms` declare their
-exports in `__all__`. Node classes retain the spelling in the specification.
+Each public submodule declares its exports in `__all__`. Importing `uflx` alone
+loads only the package root. Node classes retain the spelling in the specification.
 The compiler and Basix extension use these public imports.
 
 Shared interfaces have ordinary names within `_src`. Module-local helpers begin

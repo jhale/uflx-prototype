@@ -1,15 +1,9 @@
 """Library constructors for explicit relations and separately chosen orientation."""
 
-from uflx import (
-    EuclideanSpace,
-    conormal,
-    domain_map,
-    expand_pull_backs,
-    pull_back,
-    side_map,
-    tensor,
-)
-from uflx.nodes import Mesh
+from uflx.geometry import conormal, domain_map, pull_back, side_map
+from uflx.nodes import EuclideanSpace, Mesh
+from uflx.passes import expand_pull_backs
+from uflx.tensors import tensor
 
 from .inclusions import affine_map, reference_normal, vertex_rows
 

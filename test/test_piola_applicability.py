@@ -4,25 +4,17 @@ import numpy as np
 import pytest
 from testutil import grouped_topology, push_forward
 
-from uflx import (
-    EuclideanSpace,
-    ScalarType,
-    apply_gradients,
-    coordinate,
-    curl,
-    divergence,
-    expand_pull_backs,
-    function,
-    mesh,
-    pull_back,
-    tensor,
-    transformation_law,
-)
 from uflx._src.algorithms.traversal import everywhere
 from uflx._src.meshes import cell_map
 from uflx._src.nodes import Curl, Divergence, Gradient, PullBack, PushForward
 from uflx._src.passes.contracts import _allowed_in_core_normal_form
 from uflx._src.rules.coordinates import piola_law
+from uflx.calculus import coordinate, curl, divergence
+from uflx.forms import function
+from uflx.geometry import mesh, pull_back, transformation_law
+from uflx.nodes import EuclideanSpace, ScalarType
+from uflx.passes import apply_gradients, expand_pull_backs
+from uflx.tensors import tensor
 from uflx_basix.cells import reference_simplex
 from uflx_basix.spaces import space
 from uflx_oracle import at, evaluate

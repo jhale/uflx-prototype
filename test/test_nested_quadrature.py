@@ -3,17 +3,12 @@
 import basix
 import numpy as np
 
-from uflx import (
-    EuclideanSpace,
-    cell_map,
-    directional_derivative,
-    domain_map,
-    function,
-    integral,
-    num,
-    pull_back,
-    tensor,
-)
+from uflx.arithmetic import num
+from uflx.calculus import directional_derivative, integral
+from uflx.forms import function
+from uflx.geometry import cell_map, domain_map, pull_back
+from uflx.nodes import EuclideanSpace
+from uflx.tensors import tensor
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.interpolation import interpolate

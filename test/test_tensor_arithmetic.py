@@ -3,21 +3,14 @@
 import numpy as np
 import pytest
 
-from uflx import (
-    apply,
-    apply_derivatives,
-    directional_derivative,
-    expand_arithmetic,
-    form,
-    function,
-    index,
-    indexed,
-    lower,
-    num,
-)
 from uflx._src.algorithms.traversal import everywhere
 from uflx._src.nodes import Division, Product, Sum
 from uflx._src.passes.contracts import in_core_normal_form
+from uflx.arithmetic import num
+from uflx.calculus import directional_derivative
+from uflx.forms import apply, form, function
+from uflx.passes import apply_derivatives, expand_arithmetic, lower
+from uflx.tensors import index, indexed
 from uflx_basix.runtime import runtime_array, runtime_extent
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate

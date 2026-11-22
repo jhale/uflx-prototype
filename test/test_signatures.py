@@ -7,8 +7,9 @@ from typing import get_overloads
 
 import pytest
 
-import uflx
-from uflx import nodes
+from uflx import algorithms, arithmetic, calculus, forms, geometry, nodes, passes, tensors
+
+LANGUAGE_MODULES = (arithmetic, calculus, forms, geometry, passes, tensors)
 
 SPEC = Path(
     os.environ.get("UFLX_SPEC_PATH", Path(__file__).parents[2] / "uflx" / "design" / "language.md")
@@ -35,25 +36,13 @@ def spec_signatures():
 @pytest.mark.skipif(not SPEC.exists(), reason="the uflx repository is not beside this one")
 def test_the_public_free_functions_take_the_parameters_of_the_specification():
     spec = spec_signatures()
-    # Additional public constructors, conveniences and namespaces.
-    conveniences = {
-        "Boolean",
-        "EuclideanSpace",
-        "Complex",
-        "Float",
-        "Integer",
-        "ScalarType",
-        "Zero",
-        "algorithms",
-        "identity",
-        "nodes",
-        "num",
-        "replace",
-        "reference_integral",
+    functions = {
+        name: getattr(module, name) for module in LANGUAGE_MODULES for name in module.__all__
     }
-    assert set(uflx.__all__) == set(spec) | conveniences
+    assert set(functions) == set(spec) | {"identity", "num", "reference_integral"}
+    assert len(functions) == sum(len(module.__all__) for module in LANGUAGE_MODULES)
     for name in spec:
-        function = getattr(uflx, name)
+        function = functions[name]
         signatures = [inspect.signature(f) for f in get_overloads(function) or [function]]
         parameters = {
             tuple(
@@ -120,7 +109,7 @@ def facade_declarations(source):
     return set(exports)
 
 
-@pytest.mark.parametrize("module", [uflx, uflx.algorithms, uflx.nodes])
+@pytest.mark.parametrize("module", [*LANGUAGE_MODULES, algorithms, nodes])
 def test_facade_imports_match_its_declared_exports(module):
     path = Path(module.__file__)
     assert facade_declarations(path.read_text()) == set(module.__all__)

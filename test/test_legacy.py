@@ -16,17 +16,12 @@ from legacy import (
 )
 from testutil import grouped_topology, push_forward, side_domain, side_map, vertex_mesh
 
-from uflx import (
-    conjugate,
-    form,
-    function,
-    gradient,
-    index,
-    index_sum,
-    integral,
-    pull_back,
-)
 from uflx._src.nodes import Conjugate, Integer, Product, Sum
+from uflx.arithmetic import conjugate
+from uflx.calculus import gradient, integral
+from uflx.forms import form, function
+from uflx.geometry import pull_back
+from uflx.tensors import index, index_sum
 from uflx_basix.assembly import conforming_dofmap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space

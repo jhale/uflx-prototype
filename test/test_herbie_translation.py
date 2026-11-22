@@ -118,8 +118,8 @@ def test_translated_rules_collect_signed_terms_and_guard_cancellation():
 
 def test_herbie_group_is_opt_in_and_respects_floating_point_policy():
     pytest.importorskip("egglog")
-    from uflx import num
     from uflx._src.optimisation import OptimisationOptions, optimise
+    from uflx.arithmetic import num
     from uflx_basix.runtime import runtime_array
     from uflx_compiler.evaluation import evaluate
 

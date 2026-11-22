@@ -2,20 +2,12 @@ import basix
 import numpy as np
 from testutil import grouped_topology, push_forward, side_domain
 
-from uflx import (
-    EuclideanSpace,
-    coordinate,
-    directional_derivative,
-    form,
-    function,
-    gradient,
-    index,
-    index_sum,
-    integral,
-    mesh,
-    num,
-    tensor,
-)
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, directional_derivative, gradient, integral
+from uflx.forms import form, function
+from uflx.geometry import mesh
+from uflx.nodes import EuclideanSpace
+from uflx.tensors import index, index_sum, tensor
 from uflx_basix.assembly import conforming_dofmap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space

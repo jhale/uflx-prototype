@@ -4,27 +4,16 @@ import basix
 import numpy as np
 from testutil import grouped_topology, push_forward, table, vertex_mesh
 
-from uflx import (
-    EuclideanSpace,
-    ScalarType,
-    coordinate,
-    density,
-    domain_map,
-    function,
-    gradient,
-    index,
-    index_sum,
-    integral,
-    jacobian,
-    mesh,
-    num,
-    pull_back,
-    tensor,
-)
 from uflx._src.algorithms.substitution import substitute
 from uflx._src.meshes import cell_map
 from uflx._src.nodes import Mesh
 from uflx._src.passes.lowering import lower_spatial
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, gradient, integral
+from uflx.forms import function
+from uflx.geometry import density, domain_map, jacobian, mesh, pull_back
+from uflx.nodes import EuclideanSpace, ScalarType
+from uflx.tensors import index, index_sum, tensor
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.cells import reference_simplex

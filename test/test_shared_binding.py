@@ -2,19 +2,12 @@
 
 import pytest
 
-from uflx import (
-    component_tensor,
-    directional_derivative,
-    form,
-    function,
-    index,
-    index_sum,
-    num,
-    rebind,
-    tensor,
-)
 from uflx._src.algorithms.binding import alpha_equivalent, binding_signature
 from uflx._src.algorithms.substitution import occurs, rename_bound, substitute
+from uflx.arithmetic import num
+from uflx.calculus import directional_derivative
+from uflx.forms import form, function, rebind
+from uflx.tensors import component_tensor, index, index_sum, tensor
 from uflx_basix.spaces import space
 
 V = space("shared-binding", scalar_type="real")

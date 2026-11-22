@@ -5,31 +5,25 @@ import sys
 import numpy as np
 from testutil import assert_clean, check_types, form_with_fixed_argument
 
-from uflx import (
+from uflx._src.passes import applications, derivatives
+from uflx._src.passes.applications import applications_expanded
+from uflx._src.passes.derivatives import _derivatives_complete
+from uflx.arithmetic import (
     absolute,
     add,
-    apply,
     conjugate,
-    directional_derivative,
     divide,
-    dual_space,
-    form,
-    function,
     imaginary_part,
-    index,
-    index_sum,
-    indexed,
     logarithm,
     multiply,
     num,
     power,
     real_part,
     square_root,
-    tensor,
 )
-from uflx._src.passes import applications, derivatives
-from uflx._src.passes.applications import applications_expanded
-from uflx._src.passes.derivatives import _derivatives_complete
+from uflx.calculus import directional_derivative
+from uflx.forms import apply, dual_space, form, function
+from uflx.tensors import index, index_sum, indexed, tensor
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

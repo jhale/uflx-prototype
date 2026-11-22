@@ -6,14 +6,15 @@ from math import prod
 
 import numpy as np
 
-from uflx import add, divide, index_sum, multiply, num, replace
 from uflx.algorithms import (
     alpha_equivalent,
     complete_indices,
     expression_operands,
     map_values,
     memoized,
+    replace,
 )
+from uflx.arithmetic import add, divide, multiply, num
 from uflx.nodes import (
     Division,
     Index,
@@ -24,6 +25,7 @@ from uflx.nodes import (
     Tensor,
     Zero,
 )
+from uflx.tensors import index_sum
 
 from .algebra import _normalizer
 from .evaluation import evaluate

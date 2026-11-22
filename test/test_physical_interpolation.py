@@ -7,15 +7,10 @@ from test_interpolation import sample
 from test_nested_quadrature import edge_sampling_rule
 from testutil import vertex_mesh
 
-from uflx import (
-    cell_map,
-    directional_derivative,
-    function,
-    integral,
-    num,
-    pull_back,
-    push_forward,
-)
+from uflx.arithmetic import num
+from uflx.calculus import directional_derivative, integral
+from uflx.forms import function
+from uflx.geometry import cell_map, pull_back, push_forward
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.interpolation import interpolate

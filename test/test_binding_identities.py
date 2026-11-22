@@ -2,30 +2,17 @@
 
 import pytest
 
-from uflx import (
-    EuclideanSpace,
-    ScalarType,
-    Zero,
-    add,
-    directional_derivative,
-    domain_map,
-    form,
-    function,
-    gradient,
-    index,
-    index_sum,
-    jacobian,
-    matrix_product,
-    multiply,
-    num,
-    partial,
-    replace,
-    transpose,
-)
 from uflx._src.algorithms.substitution import substitute, substitute_values
 from uflx._src.geometry import _metric
 from uflx._src.nodes import Function, Index
 from uflx._src.passes.lowering import lower_spatial
+from uflx.algorithms import replace
+from uflx.arithmetic import add, multiply, num
+from uflx.calculus import directional_derivative, gradient
+from uflx.forms import form, function, partial
+from uflx.geometry import domain_map, jacobian
+from uflx.nodes import EuclideanSpace, ScalarType, Zero
+from uflx.tensors import index, index_sum, matrix_product, transpose
 from uflx_basix.spaces import space
 
 P = EuclideanSpace(2)

@@ -3,19 +3,14 @@
 import numpy as np
 import pytest
 
-from uflx import (
-    Integer,
-    ScalarType,
-    apply,
-    apply_derivatives,
-    directional_derivative,
-    expand_applications,
-    function,
-    index,
-    num,
-)
 from uflx._src.literals import zero
 from uflx._src.nodes import Complex, Product, Sum, Zero
+from uflx.arithmetic import num
+from uflx.calculus import directional_derivative
+from uflx.forms import apply, function
+from uflx.nodes import Integer, ScalarType
+from uflx.passes import apply_derivatives, expand_applications
+from uflx.tensors import index
 from uflx_basix.spaces import space
 from uflx_compiler.algebra import _normalizer
 from uflx_compiler.evaluation import evaluate as evaluate_array

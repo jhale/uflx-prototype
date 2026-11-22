@@ -6,8 +6,9 @@ from test_basix import quadrilaterals
 from test_compiler import functionals
 from testutil import contains, grouped_topology, push_forward, vertex_mesh
 
-from uflx import function, gradient, integral
 from uflx._src.nodes import GatheredIndex
+from uflx.calculus import gradient, integral
+from uflx.forms import function
 from uflx_basix.assembly import conforming_dofmap
 from uflx_basix.basix_cells import basix_cell
 from uflx_basix.basix_spaces import basix_space

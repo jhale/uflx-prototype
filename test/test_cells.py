@@ -1,14 +1,9 @@
 import numpy as np
 
-from uflx import (
-    component_tensor,
-    coordinate,
-    domain_map,
-    index,
-    inverse,
-    num,
-    tensor,
-)
+from uflx.arithmetic import num
+from uflx.calculus import coordinate
+from uflx.geometry import domain_map
+from uflx.tensors import component_tensor, index, inverse, tensor
 from uflx_basix.cells import reference_simplex
 from uflx_basix.inclusions import affine_map, centroid, reference_normal
 from uflx_oracle import at, evaluate

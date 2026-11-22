@@ -1,4 +1,6 @@
 import ast
+import subprocess
+import sys
 from importlib.util import resolve_name
 from pathlib import Path
 
@@ -7,9 +9,11 @@ import pytest
 import uflx
 import uflx_basix
 import uflx_compiler
-import uflx_oracle
 
 SOURCE = Path(__file__).resolve().parents[1] / "src"
+PUBLIC_MODULES = {
+    f"uflx.{path.stem}" for path in (SOURCE / "uflx").glob("*.py") if not path.stem.startswith("_")
+}
 
 
 def imports_in(source, module, is_package=False):
@@ -58,8 +62,8 @@ def test_the_core_imports_neither_the_extension_nor_the_oracle():
 @pytest.mark.parametrize(
     ("package", "allowed"),
     [
-        (uflx_basix, {"uflx", "uflx.nodes"}),
-        (uflx_compiler, {"uflx", "uflx.algorithms", "uflx.nodes"}),
+        (uflx_basix, PUBLIC_MODULES - {"uflx.algorithms"}),
+        (uflx_compiler, PUBLIC_MODULES),
     ],
 )
 def test_extension_and_compiler_use_public_core_modules(package, allowed):
@@ -69,10 +73,14 @@ def test_extension_and_compiler_use_public_core_modules(package, allowed):
                 assert m in allowed, (path, m)
 
 
-def test_the_public_api_is_the_names_it_declares():
-    public = {n for n in dir(uflx) if not n.startswith("_")}
-    assert public == set(uflx.__all__)
-    assert uflx_oracle.evaluate
+def test_importing_the_package_root_does_not_load_or_reexport_the_language():
+    code = """
+import sys
+import uflx
+assert not any(name.startswith('uflx.') for name in sys.modules)
+assert not any(not name.startswith('_') for name in vars(uflx))
+"""
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
@@ -81,7 +89,7 @@ def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
         if relative.parts[0] != "_src" or "extensions" in relative.parts:
             continue
         for module in imported(path):
-            assert module not in {"uflx", "uflx.algorithms", "uflx.nodes"}, (path, module)
+            assert module != "uflx" and module not in PUBLIC_MODULES, (path, module)
             assert not module.startswith(
                 (
                     "uflx._draft",

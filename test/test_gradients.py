@@ -6,32 +6,25 @@ from test_integrals import K
 from testutil import assert_clean, check_types, contains, keeps_static_type
 
 import uflx_oracle as oracle
-from uflx import (
+from uflx._src.nodes import Conormal, Function, Gradient, PullBack
+from uflx._src.passes import gradients
+from uflx._src.passes.contracts import in_core_normal_form
+from uflx.arithmetic import (
     absolute,
     add,
-    component_tensor,
     conjugate,
-    coordinate,
     divide,
-    expand_arithmetic,
-    function,
-    gradient,
-    index,
-    index_sum,
-    indexed,
-    integral,
-    inverse,
     logarithm,
     multiply,
     num,
     power,
     real_part,
     square_root,
-    tensor,
 )
-from uflx._src.nodes import Conormal, Function, Gradient, PullBack
-from uflx._src.passes import gradients
-from uflx._src.passes.contracts import in_core_normal_form
+from uflx.calculus import coordinate, gradient, integral
+from uflx.forms import function
+from uflx.passes import expand_arithmetic
+from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 

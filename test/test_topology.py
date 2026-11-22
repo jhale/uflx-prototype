@@ -3,8 +3,9 @@ from test_integrals import DIAGONAL, SQUARE, D, K
 from test_integrals import I as interval
 from testutil import grouped_topology, side_data, side_domain, side_map
 
-from uflx import function, pull_back
 from uflx._src.nodes import SideMap
+from uflx.forms import function
+from uflx.geometry import pull_back
 from uflx_basix.spaces import space
 from uflx_oracle import at, evaluate
 

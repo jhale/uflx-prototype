@@ -1,19 +1,12 @@
 import numpy as np
 
-from uflx import (
-    component_tensor,
-    directional_derivative,
-    function,
-    index,
-    index_sum,
-    indexed,
-    multiply,
-    num,
-    tensor,
-)
 from uflx._src.algorithms.substitution import substitute
 from uflx._src.passes import derivatives
 from uflx._src.passes.contracts import in_core_normal_form
+from uflx.arithmetic import multiply, num
+from uflx.calculus import directional_derivative
+from uflx.forms import function
+from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
 from uflx_basix.spaces import space
 from uflx_oracle import evaluate
 
@@ -79,8 +72,8 @@ def test_substitution_renames_a_bound_index_tuple():
 def test_a_gradient_of_a_tensor_built_with_index_tuples():
     from test_integrals import K
 
-    from uflx import coordinate, gradient, integral
     from uflx._src.passes import gradients
+    from uflx.calculus import coordinate, gradient, integral
 
     X = coordinate(K)
     xy = multiply(indexed(X, (0,)), indexed(X, (1,)))

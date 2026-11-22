@@ -2,18 +2,13 @@ from test_integrals import D, K
 from test_integrals import u as on_D
 from testutil import keeps_static_type
 
-from uflx import (
-    Integer,
-    ScalarType,
-    directional_derivative,
-    function,
-    gradient,
-    multiply,
-    num,
-)
 from uflx._src.nodes import Complex
 from uflx._src.passes.derivatives import apply_derivatives
 from uflx._src.passes.gradients import apply_gradients
+from uflx.arithmetic import multiply, num
+from uflx.calculus import directional_derivative, gradient
+from uflx.forms import function
+from uflx.nodes import Integer, ScalarType
 from uflx_basix.spaces import space
 
 V = space("V")

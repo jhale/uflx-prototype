@@ -1,15 +1,11 @@
 import basix
 import numpy as np
 
-from uflx import (
-    EuclideanSpace,
-    index_sum,
-    tensor,
-)
 from uflx.algorithms import bottom_up, derived_index, derived_indices
 from uflx.nodes import (
     CellMap,
     DomainMap,
+    EuclideanSpace,
     Function,
     GatheredIndex,
     Gradient,
@@ -18,6 +14,7 @@ from uflx.nodes import (
     Tensor,
     Zero,
 )
+from uflx.tensors import index_sum, tensor
 from uflx_basix.basix_nodes import BasixBasis, BasixCell, BasixSpace
 from uflx_basix.basix_spaces import basix_space
 from uflx_basix.nodes import IndexTable, RuntimeArray, VertexCoordinates

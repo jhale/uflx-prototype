@@ -26,7 +26,6 @@ SCALAR_CONSTRUCTION = {
     ("_src/arithmetic.py", "divide", "Division"),
 }
 EXPORT_MODULES = {
-    "uflx",
     "uflx.nodes",
     "uflx._src.nodes",
     "uflx._src.nodes.arithmetic",
@@ -104,10 +103,10 @@ def test_arithmetic_construction_boundaries():
 @pytest.mark.parametrize(
     "source",
     [
-        "from uflx import Product; Product(a, b)",
+        "from uflx.nodes import Product; Product(a, b)",
         "from uflx._src.nodes import Product as P; P(a, b)",
         "from uflx import nodes; nodes.Product(a, b)",
-        "import uflx as u; u.Product(a, b)",
+        "import uflx.nodes as n; n.Product(a, b)",
         "import uflx._src.nodes as n; n.Product(a, b)",
         "import uflx._src.nodes; uflx._src.nodes.Product(a, b)",
         "from ..nodes import Product; Product(a, b)",
@@ -124,7 +123,8 @@ def test_constructor_import_spellings(source):
 
 def test_patterns_and_free_functions_are_allowed():
     source = """
-from uflx import Product, multiply
+from uflx.arithmetic import multiply
+from uflx.nodes import Product
 match expression:
     case Product(a, b):
         result = multiply(a, b)
@@ -135,9 +135,9 @@ assert isinstance(result, Product)
 
 def test_local_import_alias_does_not_leak():
     source = """
-from uflx import multiply as operation
+from uflx.arithmetic import multiply as operation
 def f():
-    from uflx import Product as operation
+    from uflx.nodes import Product as operation
     return operation(a, b)
 def g():
     return operation(a, b)
@@ -148,5 +148,5 @@ def g():
 
 @pytest.mark.parametrize("node", FACTORIES)
 def test_each_tensor_aware_operation_is_checked(node):
-    source = f"from uflx import {node}; {node}(operand)"
+    source = f"from uflx.nodes import {node}; {node}(operand)"
     assert construction_calls(source, "uflx._src.example") == [("<module>", node, 1)]

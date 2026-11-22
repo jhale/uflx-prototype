@@ -12,24 +12,6 @@ from testutil import (
     side_map,
 )
 
-from uflx import (
-    EuclideanSpace,
-    add,
-    component_tensor,
-    coordinate,
-    expand_arithmetic,
-    function,
-    gradient,
-    index,
-    index_sum,
-    indexed,
-    integral,
-    mesh,
-    multiply,
-    num,
-    pull_back,
-    tensor,
-)
 from uflx._src.nodes import (
     CellMap,
     Conormal,
@@ -42,6 +24,13 @@ from uflx._src.passes import integrals
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx._src.passes.lowering import lower_spatial
 from uflx._src.passes.pullbacks import pull_backs_expanded
+from uflx.arithmetic import add, multiply, num
+from uflx.calculus import coordinate, gradient, integral
+from uflx.forms import function
+from uflx.geometry import mesh, pull_back
+from uflx.nodes import EuclideanSpace
+from uflx.passes import expand_arithmetic
+from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
 from uflx_basix.cells import reference_simplex
 from uflx_basix.nodes import VertexCoordinates
 from uflx_basix.sides import outward_conormal
