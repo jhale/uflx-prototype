@@ -39,7 +39,7 @@ This Python library contains the following packages:
 
 - [P2 Poisson problem on a single triangle](examples/poisson.py)
 - [Mixed Poisson problem on a single triangle](examples/mixed_poisson.py)
-- [Cell and interior-facet kernels for DG Poisson on curved quadratic triangles](examples/dg_poisson.py)
+- [DG Poisson on a triangle and a quadrilateral sharing a curved edge](examples/dg_poisson.py)
 
 ## Statistics
 

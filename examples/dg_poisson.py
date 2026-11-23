@@ -1,7 +1,7 @@
-"""P1 symmetric interior penalty DG Poisson on two curved P2 triangles.
+"""Symmetric interior penalty DG Poisson on a triangle and a quadrilateral.
 
-For this bilinear form the cell integral gives a 3 x 3 local tensor. The interior
-facet integral couples the DOFs on both cells in a 6 x 6 local tensor.
+The triangle carries a discontinuous P1 field on P2 geometry. The quadrilateral
+carries a discontinuous Q1 field on Q2 geometry. Their shared edge is curved.
 """
 
 import basix
@@ -21,43 +21,55 @@ from uflx_basix.spaces import local_space
 from uflx_extensions.index_tables import index_table
 from uflx_jax_compiler import trace
 
-# Cell stiffness on one triangle
+# Local finite elements
 
 triangle = basix.CellType.triangle
+quadrilateral = basix.CellType.quadrilateral
 interval = basix.CellType.interval
-p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-dg1 = basix.create_element(basix.ElementFamily.P, triangle, 1, discontinuous=True)
-
-T = topology(triangle)
-X = local_space(T, p2, shape=(2,))
-x = function(X, "x")
+family = basix.ElementFamily.P
+p2 = basix.create_element(family, triangle, 2)
+q2 = basix.create_element(family, quadrilateral, 2)
+p1_dg = basix.create_element(family, triangle, 1, discontinuous=True)
+q1_dg = basix.create_element(family, quadrilateral, 1, discontinuous=True)
 plane = EuclideanSpace(2)
-cell_mesh = Mesh(x, plane)
 
-V = local_space(T, dg1)
-cell_u_ref = function(V, "u")
-cell_v_ref = function(V, "v")
-cell_u = push_forward(cell_u_ref, cell_mesh, V.law)
-cell_v = push_forward(cell_v_ref, cell_mesh, V.law)
+# Volume integral on each cell type
 
-cell_grad_u = gradient(cell_u, cell_mesh)
-cell_grad_v = gradient(cell_v, cell_mesh)
-volume = integral(cell_grad_u @ cell_grad_v, cell_mesh)
+cell_integrals = {}
+for cell_type, geometry_element, field_element in (
+    (triangle, p2, p1_dg),
+    (quadrilateral, q2, q1_dg),
+):
+    T = topology(cell_type)
+    X = local_space(T, geometry_element, shape=(2,))
+    x = function(X, "x")
+    cell_mesh = Mesh(x, plane)
+    V = local_space(T, field_element)
+    cell_u_ref = function(V, "u")
+    cell_v_ref = function(V, "v")
+    cell_u = push_forward(cell_u_ref, cell_mesh, V.law)
+    cell_v = push_forward(cell_v_ref, cell_mesh, V.law)
+    grad_u = gradient(cell_u, cell_mesh)
+    grad_v = gradient(cell_v, cell_mesh)
+    volume = integral(grad_u @ grad_v, cell_mesh)
+    cell_integrals[cell_type] = (volume, (cell_v_ref, cell_u_ref), x)
 
-# Two-cell mesh and shared edge
-T_pair = topology(triangle, triangle)
-X_pair = local_space(T_pair, p2, shape=(2,))
+# Two-cell mesh and shared interval
+
+T_pair = topology(triangle, quadrilateral)
+X_pair = local_space(T_pair, (p2, q2), shape=(2,))
 x_pair = function(X_pair, "x")
 mesh = Mesh(x_pair, plane)
-
-V_pair = local_space(T_pair, dg1)
+V_pair = local_space(T_pair, (p1_dg, q1_dg))
 u_ref = function(V_pair, "u")
 v_ref = function(V_pair, "v")
 u = push_forward(u_ref, mesh, V_pair.law)
 v = push_forward(v_ref, mesh, V_pair.law)
 
-# On each side the assembler selects one of three triangle facets and one of two orientations.
-local_facets = index_table("entity_local_index", shape=(2,), extent=3)
+# Each cell has its own local facet numbering. Both sides use the two interval orientations.
+triangle_facet = index_table("triangle_facet", shape=(), extent=3)
+quad_facet = index_table("quad_facet", shape=(), extent=4)
+local_facets = (triangle_facet[()], quad_facet[()])
 permutations = index_table("quadrature_permutation", shape=(2,), extent=2)
 edge, plus, minus, n = interior_facet(mesh, local_facets, permutations)
 
@@ -83,76 +95,67 @@ normal_flux_v = avg_grad_v @ n
 flux = integral(-normal_flux_u * jump_v - normal_flux_v * jump_u, edge)
 jumps = integral(jump_u * jump_v, edge)
 
-# Lowering to the reference triangle and interval
+# Lower and tabulate the cell integrals on their respective reference cells
 
-volume_ref = lower(volume)
+cell_kernels = {}
+for cell_type, (volume, arguments, x) in cell_integrals.items():
+    volume_ref = lower(volume)
+    cell_rule = basix.make_quadrature(cell_type, degree=8)
+    volume_sum = apply_quadrature(volume_ref, *cell_rule)
+    cell_form = form(volume_sum, arguments)
+    evaluate_cell = trace(cell_form, x)
+    cell_kernels[cell_type] = jax.jit(evaluate_cell)
+
+# Lower the interior facet integrals on the reference interval
+
 h_ref = lower(h)
 flux_ref = lower(flux)
 jumps_ref = lower(jumps)
 
-# Quadrature and local bilinear forms
-
-cell_rule = basix.make_quadrature(triangle, degree=8)
-cell_sum = apply_quadrature(volume_ref, *cell_rule)
-cell_form = form(cell_sum, (cell_v_ref, cell_u_ref))
-
-# Integrate the edge length independently of the flux and jump terms.
+# The arc length and the DG terms have independent quadrature rules.
 length_rule = basix.make_quadrature(interval, degree=8)
-length = apply_quadrature(h_ref, *length_rule)
-
 facet_rule = basix.make_quadrature(interval, degree=8)
+length = apply_quadrature(h_ref, *length_rule)
 flux_sum = apply_quadrature(flux_ref, *facet_rule)
 jump_sum = apply_quadrature(jumps_ref, *facet_rule)
 penalty_weight = num(10) / length
 facet_sum = flux_sum + penalty_weight * jump_sum
 interior_facet_form = form(facet_sum, (v_ref, u_ref))
-
-# Cell and interior facet integral kernels
-
-# The cell integral needs only coordinate DOFs.
-evaluate_cell_form = trace(cell_form, x)
-tabulate_cell_tensor = jax.jit(evaluate_cell_form)
-
-evaluate_interior_facet_form = trace(interior_facet_form, x_pair, local_facets, permutations)
+evaluate_facet = trace(interior_facet_form, x_pair, triangle_facet, quad_facet, permutations)
 
 
 @jax.jit
 def tabulate_interior_facet_tensor(coordinate_dofs, entity_local_index, quadrature_permutation):
-    """Return the local 6 x 6 tensor with the plus cell's DOFs followed by the minus cell's."""
-    packed_dofs = coordinate_dofs.reshape(-1, 2)
-    return evaluate_interior_facet_form(packed_dofs, entity_local_index, quadrature_permutation)
+    """Return the 7 x 7 tensor with triangle DOFs first and quadrilateral DOFs second."""
+    plus_facet = entity_local_index[0]
+    minus_facet = entity_local_index[1]
+    return evaluate_facet(coordinate_dofs, plus_facet, minus_facet, quadrature_permutation)
 
 
-# Gather kernel inputs as a DOLFINx assembler would
+# Gather the P2 and Q2 coordinate DOFs
 
-# The common edge joins vertices 1 and 2. Moving its shared P2 node (node 4)
-# away from the midpoint (0.5, 0.5) bends the edge towards vertex 3.
-vertices = [(0, 0), (1, 0), (0, 1), (1, 1)]
-edge_nodes = [(0.56, 0.56), (0, 0.5), (0.5, 0), (1, 0.5), (0.5, 1)]
-geometry_points = np.array(vertices + edge_nodes)
+# The triangle lies below the shared edge y = 0.32*x*(1-x) and the quadrilateral above it.
 
-# Basix P2 order is three vertices, then one node per edge opposite each vertex.
-geometry_dofmap = np.array([(0, 1, 2, 4, 5, 6), (2, 1, 3, 7, 8, 4)])
-# Gather coordinates in (cell, coordinate DOF, component) order.
-# This 2D JAX example uses two components per DOF. UFCx packs three.
-coordinate_dofs = geometry_points[geometry_dofmap]
+s, t = p2.points.T
+triangle_dofs = np.column_stack((1 - s - t, -t + 0.32 * s * (1 - s - t)))
 
-# The shared edge is facet 0 on the first cell and facet 2 on the second.
-# Orient both charts from the smaller global vertex ID to the larger one.
-entity_local_index = np.array([0, 2], dtype=np.intc)
-triangle_edges = basix.cell.topology(triangle)[1]
-edge_vertices = np.asarray(triangle_edges)
-local_endpoints = edge_vertices[entity_local_index]
-global_endpoints = np.take_along_axis(geometry_dofmap, local_endpoints, axis=1)
-reversed_edges = global_endpoints[:, 0] > global_endpoints[:, 1]
-quadrature_permutation = reversed_edges.astype(np.uint8)
+s, t = q2.points.T
+quad_dofs = np.column_stack((s, t + 0.32 * s * (1 - s) * (1 - t)))
+
+# Pack six triangle nodes followed by nine quadrilateral nodes.
+coordinate_dofs = np.concatenate((triangle_dofs, quad_dofs))
+
+# Triangle facet 2 runs right to left. Quadrilateral facet 0 runs left to right.
+entity_local_index = np.array([2, 0], dtype=np.intc)
+quadrature_permutation = np.array([1, 0], dtype=np.uint8)
 
 # Tabulate the local tensors
 
-tabulate_cell_batch = jax.vmap(tabulate_cell_tensor)
-cell_tensors = tabulate_cell_batch(coordinate_dofs)
-interior_facet_tensor = tabulate_interior_facet_tensor(
+triangle_tensor = cell_kernels[triangle](triangle_dofs)
+quad_tensor = cell_kernels[quadrilateral](quad_dofs)
+facet_tensor = tabulate_interior_facet_tensor(
     coordinate_dofs, entity_local_index, quadrature_permutation
 )
-print("Cell tensors", cell_tensors)
-print("Interior facet tensor", interior_facet_tensor)
+print("Triangle cell tensor", triangle_tensor)
+print("Quadrilateral cell tensor", quad_tensor)
+print("Interior facet tensor", facet_tensor)

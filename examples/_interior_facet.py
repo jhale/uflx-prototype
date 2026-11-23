@@ -1,4 +1,4 @@
-"""Interior facet geometry for the two-triangle DG example."""
+"""Interior facet geometry for the mixed-cell DG example."""
 
 from uflx.geometry import conormal, side_domain, side_map
 from uflx_basix.cells import topology
