@@ -26,7 +26,12 @@ class FunctionSpace:
     def __init__(self, mesh, family, degree, shape=()):
         # The layer offers the Lagrange elements only, which the family names.
         self.mesh, self.shape = mesh, shape
-        self.space = space("V", mesh.domain.topology, basix.ElementFamily.P, degree)
+        topology = mesh.domain.topology
+        elements = tuple(
+            basix.create_element(basix.ElementFamily.P, K.cell_type, degree)
+            for K in topology.cell_types
+        )
+        self.space = space("V", elements, domain=topology)
 
     def function(self, label):
         # The toy has no blocked spaces, so a vector function is a tensor of its components.

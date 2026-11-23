@@ -1,0 +1,99 @@
+import basix
+import numpy as np
+import pytest
+
+from uflx_basix.cells import cell
+from uflx_basix.spaces import space
+
+from ..uflx.library import static_topology
+
+
+def test_native_variant_precision_and_dof_order_are_part_of_the_space():
+    def create(order, variant=basix.LagrangeVariant.gll_warped, dtype=np.float32):
+        return basix.create_element(
+            basix.ElementFamily.P,
+            basix.CellType.interval,
+            3,
+            variant,
+            dof_ordering=order,
+            dtype=dtype,
+        )
+
+    order = [1, 0, 3, 2]
+    element = create(order)
+    V = space("V", element)
+    assert V.domain is cell(element.cell_type)
+    assert V.element(0) is element
+    assert space("V", create(order)) is V
+    assert space("V", create([])) is not V
+    assert space("V", create(order, dtype=np.float64)) is not V
+    assert space("V", create(order, basix.LagrangeVariant.equispaced)) is not V
+
+
+def test_native_elements_follow_topology_slots():
+    tri = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1)
+    quad = basix.create_tp_element(
+        basix.ElementFamily.P, basix.CellType.quadrilateral, 2, basix.LagrangeVariant.equispaced
+    )
+    T = static_topology((cell(tri.cell_type), cell(quad.cell_type)), ((0, 1, 2), (1, 3, 2, 4)))
+    V = space("mixed", (tri, quad), domain=T)
+    assert V.elements == (tri, quad)
+    assert V.element(1).dof_ordering == quad.dof_ordering
+    assert V.cell_dofs == (tuple(range(tri.dim)), tuple(range(tri.dim, tri.dim + quad.dim)))
+    with pytest.raises(ValueError, match="cell type"):
+        space("wrong order", (quad, tri), domain=T)
+    with pytest.raises(ValueError, match="per cell slot"):
+        space("missing slot", (tri,), domain=T)
+    with pytest.raises(ValueError, match="common value shape and map type"):
+        space(
+            "incompatible",
+            (basix.create_element(basix.ElementFamily.RT, tri.cell_type, 1), quad),
+            domain=T,
+        )
+
+
+def interval_element(*points):
+    """A custom discontinuous element with DOFs at the given reference points."""
+    base = basix.create_element(
+        basix.ElementFamily.P, basix.CellType.interval, len(points) - 1, discontinuous=True
+    )
+    x = base.x
+    x[1][0] = np.array(points).reshape(-1, 1)
+    return basix.create_custom_element(
+        base.cell_type,
+        base.value_shape,
+        base.wcoeffs,
+        x,
+        base.M,
+        base.interpolation_nderivs,
+        base.map_type,
+        base.sobolev_space,
+        base.discontinuous,
+        base.embedded_subdegree,
+        base.embedded_superdegree,
+        base.polyset_type,
+    )
+
+
+@pytest.mark.parametrize("custom", [False, True])
+def test_element_can_be_rebuilt_from_graph_data(custom):
+    if custom:
+        element = interval_element(0.375)
+    else:
+        element = basix.create_element(
+            basix.ElementFamily.P, basix.CellType.interval, 1, dof_ordering=[1, 0], dtype=np.float32
+        )
+
+    def construction():
+        data = space("temporary", element).element_data[0]
+        return type(data), data.construction_arguments
+
+    cls, args = construction()
+    rebuilt = cls(*args).native
+    assert rebuilt is not element
+    assert rebuilt.dtype == element.dtype and rebuilt.dof_ordering == element.dof_ordering
+    np.testing.assert_array_equal(rebuilt.points, element.points)
+    np.testing.assert_array_equal(rebuilt.interpolation_matrix, element.interpolation_matrix)
+    np.testing.assert_allclose(
+        rebuilt.tabulate(1, element.points), element.tabulate(1, element.points)
+    )

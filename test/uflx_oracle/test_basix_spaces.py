@@ -52,7 +52,7 @@ def jump_squared(u, D, E):
 @pytest.mark.parametrize("degree", [1, 2])
 def test_an_interpolated_polynomial_integrates_exactly(degree):
     D, _, _, geometry = square(cell(basix.CellType.triangle))
-    V = space("V", D.topology, P, degree)
+    V = space("V", basix.create_element(P, basix.CellType.triangle, degree), domain=D.topology)
     uT = function(V, "u")
     u = push_forward(uT, D)
     f = (lambda x: 1 + x[0] + 2 * x[1]) if degree == 1 else (lambda x: x[0] ** 2 + x[0] * x[1])
@@ -66,13 +66,17 @@ def test_matching_cell_local_coefficients_make_traces_continuous():
     D, E, _, geometry = square(cell(basix.CellType.triangle))
     rng = np.random.default_rng(3)
     for degree in (1, 2):
-        V = space("V", D.topology, P, degree)
+        V = space("V", basix.create_element(P, basix.CellType.triangle, degree), domain=D.topology)
         uT = function(V, "u")
         coefficients = geometry | {uT: interpolate(V, lambda x: np.cos(x[0] + 2 * x[1]), SQUARE)}
         assert np.isclose(
             value(jump_squared(push_forward(uT, D), D, E), coefficients), 0, atol=1e-10
         )
-    W = space("W", D.topology, P, 1, discontinuous=True)
+    W = space(
+        "W",
+        basix.create_element(P, basix.CellType.triangle, 1, discontinuous=True),
+        domain=D.topology,
+    )
     wT = function(W, "w")
     w = push_forward(wT, D)
     assert value(jump_squared(w, D, E), geometry | {wT: rng.normal(size=W.num_dofs)}) > 1e-3
@@ -83,7 +87,8 @@ def test_matching_cell_local_coefficients_make_traces_continuous():
 
 def test_a_continuous_space_on_triangles_and_a_quadrilateral():
     D, E, _, geometry = mixed()
-    V = space("V", D.topology, P, 2)
+    elements = tuple(basix.create_element(P, K.cell_type, 2) for K in D.topology.cell_types)
+    V = space("V", elements, domain=D.topology)
     uT = function(V, "u")
     u = push_forward(uT, D)
     env = geometry | {uT: interpolate(V, lambda x: x[0] ** 2 + x[0] * x[1] - x[1], MIXED)}

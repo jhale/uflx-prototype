@@ -16,16 +16,16 @@ from ..uflx.library import static_topology
 
 def test_incompatible_inputs_are_rejected():
     K = cell(basix.CellType.triangle)
-    V = space("target", K, basix.ElementFamily.P, 1)
+    V = space("target", basix.create_element(basix.ElementFamily.P, K.cell_type, 1))
     topology = static_topology((K,), ((0, 1, 2),))
     with pytest.raises(ValueError, match="reference cell"):
-        interpolate(num(1), space("physical target", topology, basix.ElementFamily.P, 1))
+        interpolate(num(1), space("physical target", V.element(0), domain=topology))
     with pytest.raises(ValueError, match="value shape"):
         interpolate(coordinate(K), V)
     with pytest.raises(ValueError, match="domain"):
         interpolate(coordinate(EuclideanSpace(2))[0], V)
     with pytest.raises(NotImplementedError, match="derivative DOFs"):
-        H = space("Hermite", K, basix.ElementFamily.Hermite, 3)
+        H = space("Hermite", basix.create_element(basix.ElementFamily.Hermite, K.cell_type, 3))
         interpolate(num(1), H)
 
 
@@ -47,7 +47,7 @@ interpolation_cases = pytest.mark.parametrize(
 
 def interpolation_case(cell_type, family, degree, shape):
     K = cell(cell_type)
-    V = space("target", K, family, degree, shape=shape)
+    V = space("target", basix.create_element(family, cell_type, degree), shape=shape)
     x = coordinate(K)
 
     def expression(shape, offset=1):

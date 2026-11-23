@@ -6,7 +6,6 @@ from typing import final
 
 import basix
 import numpy as np
-from basix.finite_element import tp_dof_ordering
 
 from uflx.nodes import (
     AbstractExpression,
@@ -19,6 +18,8 @@ from uflx.nodes import (
     Zero,
 )
 from uflx.tensors import tensor
+
+from ._elements import BuiltinElement, CustomElement
 
 
 @final
@@ -54,20 +55,27 @@ class BasixSpace(AbstractFunctionSpace):
     identifier = "toy.BasixSpace"
     label: str
     _domain: AbstractTopology | BasixCell
-    family_value: int
-    degree: int
-    discontinuous_value: int
+    element_data: tuple[BuiltinElement | CustomElement, ...]
     _scalar_type: str
     block_shape: tuple[int, ...]
     argument_spaces = ()
 
-    @property
-    def family(self):
-        return basix.ElementFamily(self.family_value)
-
-    @property
-    def discontinuous(self):
-        return bool(self.discontinuous_value)
+    def _validate(self):
+        if not isinstance(self.domain, (BasixCell, AbstractTopology)):
+            raise ValueError("expected a Basix reference cell or a topology")
+        cells = (self.domain,) if isinstance(self.domain, BasixCell) else self.domain.cell_types
+        if not cells or len(self.element_data) != len(cells):
+            raise ValueError("supply one Basix element per cell slot")
+        if any(n <= 0 for n in self.block_shape):
+            raise ValueError("block shape extents must be positive")
+        first = self.element(0)
+        for K, E in zip(cells, self.elements, strict=True):
+            if not isinstance(K, BasixCell) or K.cell_type != E.cell_type:
+                raise ValueError("element cell type must match its domain cell")
+            if self.block_shape and E.value_shape:
+                raise ValueError("blocked spaces require a scalar base element")
+            if E.value_shape != first.value_shape or E.map_type != first.map_type:
+                raise ValueError("elements must have a common value shape and map type")
 
     def element(self, j):
         return self.elements[j]
@@ -78,23 +86,7 @@ class BasixSpace(AbstractFunctionSpace):
 
     @cached_property
     def elements(self):
-        # The dofs of an element that factors are in the order of its factors, the last fastest.
-        out = []
-        cells = (self.domain,) if isinstance(self.domain, BasixCell) else self.domain.cell_types
-        for K in cells:
-            variant = (
-                basix.LagrangeVariant.unset
-                if self.family in (basix.ElementFamily.HHJ, basix.ElementFamily.Hermite)
-                else basix.LagrangeVariant.equispaced
-            )
-            args = (self.family, K.cell_type, self.degree, variant)
-            try:
-                order = tp_dof_ordering(*args, discontinuous=self.discontinuous)
-            except RuntimeError:
-                order = None
-            E = basix.create_element(*args, discontinuous=self.discontinuous, dof_ordering=order)
-            out.append(E)
-        return tuple(out)
+        return tuple(data.native for data in self.element_data)
 
     @property
     def block_size(self):

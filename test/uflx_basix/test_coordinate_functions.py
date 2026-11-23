@@ -20,7 +20,8 @@ VERTICES = np.array([(0, 0), (1, 0), (1, 1), (0, 1)], dtype=float)
 
 
 def coordinates(degree, discontinuous=False):
-    X = space("X", T, P, degree, discontinuous)
+    element = basix.create_element(P, K.cell_type, degree, discontinuous=discontinuous)
+    X = space("X", element, domain=T)
     x0, x1 = function(X, "x0"), function(X, "x1")
     return X, x0, x1, tensor((x0, x1))
 

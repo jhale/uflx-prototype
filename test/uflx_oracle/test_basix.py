@@ -38,7 +38,7 @@ def value(e, P=None, X=()):
 
 def test_reference_interpolation_uses_the_element_sampling_points():
     K = cell(basix.CellType.triangle)
-    V = space("P1", K, basix.ElementFamily.P, 1)
+    V = space("P1", basix.create_element(basix.ElementFamily.P, K.cell_type, 1))
     x = coordinate(K)[0]
     interpolant = interpolate(x * x, V)
     assert value(interpolant, K, (0.25, 0.5)) == pytest.approx(0.25)
@@ -177,3 +177,28 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
         assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
         if expected is not None:
             assert np.isclose(after, expected, rtol=1e-6, atol=1e-9), (after, expected)
+
+
+def test_custom_element_supplies_its_own_interpolation_functional():
+    from ..uflx_basix.test_spaces import interval_element
+
+    left = space("C", interval_element(0.25))
+    right = space("C", interval_element(0.75))
+    assert left is not right
+    x = coordinate(left.domain)[0]
+    assert value(interpolate(x, left), left.domain, (0.5,)) == pytest.approx(0.25)
+    assert value(interpolate(x, right), right.domain, (0.5,)) == pytest.approx(0.75)
+
+
+def test_oracle_tabulates_each_custom_elements_own_basis():
+    from ..uflx_basix.test_spaces import interval_element
+
+    point = np.array([[0.22]])
+    for first_dof in (0.22, 0.22 + 1e-12):
+        element = interval_element(first_dof, 0.7)
+        V = space("linear", element)
+        u = function(V, "u")
+        weights = np.array([0.0, 1e10])
+        expected = element.tabulate(0, point)[0, 0, :, 0] @ weights
+        actual = Interpreter({u: weights}).evaluate(u, points={V.domain: point[0]})
+        assert actual == pytest.approx(expected, abs=1e-9)

@@ -179,15 +179,19 @@ extension imports the core. `test/uflx/test_boundaries.py` checks this order.
 import basix
 
 from uflx.calculus import coordinate
-from uflx_basix.cells import cell
 from uflx_basix.spaces import space
 from uflx_basix.interpolation import interpolate
 
-K = cell(basix.CellType.triangle)
-V = space("P1", K, basix.ElementFamily.P, 1)
+element = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1)
+V = space("P1", element)
+K = V.domain
 x = coordinate(K)
 p = interpolate(x[0] * x[0], V)
 ```
+
+For a mesh, pass `domain=topology` to use the element on each cell. For a mixed
+topology, pass a tuple of Basix elements in cell-slot order. The space uses the
+variant, precision and DOF ordering chosen when creating each element.
 
 Here `p` is the linear field on the reference triangle that agrees with
 `x[0] * x[0]` at its three vertices. For a physical field, the caller selects
@@ -263,7 +267,8 @@ in two dimensions, each cell supplies six pairs of coordinates in the coordinate
 element's DOF order. The oracle reads them through the ordinary coefficient binding.
 
 ```python
-X = space("geometry", topology, basix.ElementFamily.P, 2, shape=(2,))
+element = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 2)
+X = space("geometry", element, domain=topology, shape=(2,))
 x = function(X, "x")
 domain = mesh(x, EuclideanSpace(2))
 area = Interpreter({x: packed_coordinate_dofs}).evaluate(integral(num(1), domain))
@@ -630,8 +635,9 @@ Node classes check their own construction rules, using shared structural helpers
 in `_src/nodes/validation.py`. These checks do not prove mathematical hypotheses
 or form linearity. Downstream libraries remain responsible for their own leaf
 contracts. `ScalarType.real` and `ScalarType.complex` are plain string constants, so they
-satisfy the construction-argument whitelist. The factories in `uflx_basix` encode external enum values
-using permitted graph arguments.
+satisfy the construction-argument whitelist. The Basix adapter keeps the supplied finite element and records its construction
+data in the graph. For custom elements this includes the interpolation points and
+matrices, so different sampling functionals have distinct space identities.
 
 `replace` traverses construction dependencies and preserves lexical binding;
 evaluation traverses only value operands. Rewrite completion preserves complex

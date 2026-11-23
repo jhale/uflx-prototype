@@ -20,7 +20,10 @@ def vertex_mesh(T, vertices, *, label="x"):
     vertices = np.asarray(vertices, dtype=float)
     shape = (vertices.shape[1],)
     if isinstance(T.cell_types[0], BasixCell):
-        X = space("geometry", T, basix.ElementFamily.P, 1, shape=shape)
+        elements = tuple(
+            basix.create_element(basix.ElementFamily.P, K.cell_type, 1) for K in T.cell_types
+        )
+        X = space("geometry", elements, domain=T, shape=shape)
         x = function(X, label)
         values = np.empty(X.num_dofs)
         for j, row in enumerate(T.cells):

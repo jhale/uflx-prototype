@@ -1,6 +1,5 @@
 """Reference quadrature and finite-element tabulation for the oracle."""
 
-from functools import cache
 from itertools import product
 from math import comb, prod
 
@@ -41,7 +40,6 @@ def is_basix_basis(node):
     return basix is not None and isinstance(node, BasixBasis)
 
 
-@cache
 def _tabulator(element, dimension, order):
     """Tabulate all partial derivatives through the given order at a reference point."""
     rows = comb(dimension + order, order)

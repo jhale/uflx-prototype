@@ -15,15 +15,19 @@ P, RT = basix.ElementFamily.P, basix.ElementFamily.RT
 K, I = cell(basix.CellType.triangle), cell(basix.CellType.interval)
 T = grouped_topology((K,), (((0, 1, 2), (0, 2, 3)),), ())
 BOUNDARY = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("inside", T, 0),),))
-X = space("X", T, P, 1)
+X = space("X", basix.create_element(P, K.cell_type, 1), domain=T)
 x0, x1 = function(X, "x0"), function(X, "x1")
 v0, v1 = function(X, "v0"), function(X, "v1")
 D = mesh(tensor((x0, x1)), EuclideanSpace(2))
 
 
 def functionals():
-    u = push_forward(function(space("V", T, P, 2), "u"), D)
-    w = push_forward(function(space("R", T, RT, 1), "w"), D)
+    u = push_forward(
+        function(space("V", basix.create_element(P, K.cell_type, 2), domain=T), "u"), D
+    )
+    w = push_forward(
+        function(space("R", basix.create_element(RT, K.cell_type, 1), domain=T), "w"), D
+    )
     g, y = gradient(u, D), coordinate(D)
     return {
         "area": integral(num(1), D),
