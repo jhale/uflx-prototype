@@ -32,14 +32,16 @@ core language is further developed.
    implementation is complete with respect to the specification.
 2. `uflx_basix` - uses [Basix](https://github.com/fenics/basix) to provide
    element definitions and tabulations. 
-3. `uflx_jax_compiler` - a very simple reference form compiler which traces to
-   JAX. It is designed for simplicity and to act as an oracle for other
-   compiler efforts. Is is feature complete with respect to the specification
-   and supports `uflx_extensions`.
+3. `uflx_jax_compiler` - a simple reference form compiler which traces original
+   and lowered (core normal form) UFLx expressions to JAX callables. Tests can
+   check lowered forms against direct evalution, and symbolic derivatives
+   against JAX automatic differentiation. It can be used as as an oracle for
+   other (proper) compiler efforts. Is is feature complete with respect to the
+   specification and supports `uflx_extensions`.
 4. `uflx_extensions` - An extension with complex differentiation and external
    operators, to test the UFLx extension concepts.
 
-## Some examples
+## Examples
 
 ### Poisson problem on triangles
 
