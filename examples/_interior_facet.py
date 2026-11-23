@@ -1,41 +1,21 @@
-"""Interior-edge geometry for the two-triangle DG example."""
+"""Interior facet geometry for the two-triangle DG example."""
 
-import basix
-import jax.numpy as jnp
-import numpy as np
-
-from uflx.forms import function
-from uflx.geometry import domain_map, side_domain, side_map
-from uflx_basix.cells import cell, topology
-from uflx_basix.spaces import local_space
+from uflx.geometry import conormal, side_domain, side_map
+from uflx_basix.cells import topology
+from uflx_basix.facets import reference_facet
 
 
-def interior_facet(plus_cell, minus_cell):
-    """Return the edge and its side maps, and the reference geometry for the facet kernel."""
-    interval = basix.CellType.interval
-    I, K = cell(interval), cell(basix.CellType.triangle)
-    p1 = basix.create_element(basix.ElementFamily.P, interval, 1)
-    p0 = basix.create_element(basix.ElementFamily.P, interval, 0, discontinuous=True)
+def interior_facet(mesh, local_facets, permutations):
+    """Build the shared domain, its two restrictions, and the physical plus normal."""
+    plus_cell = mesh[0]
+    minus_cell = mesh[1]
+    into_plus, ref_normal = reference_facet(
+        plus_cell.reference_cell, local_facets[0], permutations[0]
+    )
+    into_minus, _ = reference_facet(minus_cell.reference_cell, local_facets[1], permutations[1])
 
-    # Each chart joins two vertices of the reference triangle. The P2 cell map curves the edge.
-    charts = local_space(I, p1, shape=(2,))
-    plus_chart = function(charts, "plus chart")
-    minus_chart = function(charts, "minus chart")
-    into_plus = domain_map(I, plus_chart, K)
-    into_minus = domain_map(I, minus_chart, K)
-    edge = side_domain(plus_cell.parent, topology(interval), (plus_cell.cell_slot, into_plus))
+    edge_topology = topology(into_plus.parameter_domain.cell_type)
+    edge = side_domain(mesh, edge_topology, (0, into_plus))
     plus = side_map(edge, (plus_cell, into_plus))
     minus = side_map(edge, (minus_cell, into_minus))
-    ref_normal = function(local_space(I, p0, shape=(2,)), "plus reference normal")
-    return (edge, plus, minus), (plus_chart, minus_chart, ref_normal)
-
-
-def facet_geometry_values(local_facets, permutations):
-    """Look up the two charts and the plus reference normal in trace-input order."""
-    triangle = basix.CellType.triangle
-    edges = np.asarray(basix.cell.topology(triangle)[1])
-    points = basix.cell.geometry(triangle)[edges]
-    oriented_edges = jnp.asarray(np.stack((points, points[:, ::-1]), axis=1))
-    normals = jnp.asarray(basix.cell.facet_outward_normals(triangle))
-    plus_points, minus_points = oriented_edges[local_facets, permutations]
-    return plus_points, minus_points, normals[local_facets[0]]
+    return edge, plus, minus, conormal(plus, ref_normal)

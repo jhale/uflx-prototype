@@ -25,7 +25,7 @@ This Python library contains the following packages:
 1. `uflx` - an implementation of the core language. The implementation is
    complete with respect to the specification.
 2. `uflx_basix` - uses [Basix](https://github.com/fenics/basix) to provide
-   element definitions and tabulations. 
+   element definitions, tabulations, and oriented reference facet maps.
 3. `uflx_jax_compiler` - a deliberately tiny form 'compiler' that traces both
    original and lowered (core normal form) UFLx expressions to JAX callables.
    Tests can check lowered forms against direct evalution, and symbolic UFLx

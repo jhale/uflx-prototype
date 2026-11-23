@@ -8,6 +8,7 @@ from uflx.arithmetic import num, power
 from uflx.calculus import coordinate
 from uflx.nodes import AbstractExpression, EuclideanSpace
 from uflx_extensions.external_operators import external_operator
+from uflx_extensions.index_tables import index_table
 from uflx_jax_compiler import trace
 
 from ..uflx.library import IndexTable
@@ -29,6 +30,16 @@ def test_a_gathered_index_reads_an_index_value_and_gathers_nest():
     # With i = 0 and j = 0, the inner table gives 1, the outer table gives table[0][1] = 1.
     assert trace(a, i, j)(0, 0) == 20.0
     assert trace(a, i, j)(1, 0) == 10.0
+
+
+def test_scalar_and_rectangular_runtime_index_tables():
+    cell = index_table("cell", shape=(), extent=2)
+    dofmap = index_table("dofmap", shape=(2, 3), extent=4)
+    values = nodes.Tensor(tuple(num(value) for value in (10, 20, 30, 40)))
+    read = trace(values[dofmap[cell[()], 2]], cell, dofmap)
+    cell_dofs = np.array([[0, 1, 2], [2, 1, 3]])
+    assert read(0, cell_dofs) == 30
+    assert read(1, cell_dofs) == 40
 
 
 def test_oracle_can_supply_a_whole_field_to_an_external_operator():

@@ -50,6 +50,7 @@ def trace(expression: AbstractExpression, *inputs):
     Call the kernel with one value per declared input, followed by one value for
     each form slot without a Basix basis. A field input takes its coefficients,
     a domain input takes an evaluation point, and a free index takes its component.
+    An index table input takes an integer array with the declared table shape.
 
     Apply quadrature to each reference integral before tracing, or declare the
     integral as an input and pass its (points, weights) on the reference cell.

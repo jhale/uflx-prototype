@@ -48,7 +48,15 @@ def indexed(node, array, bindings):
 
     def entry(i):
         if isinstance(i, GatheredIndex):
-            return jnp.asarray(i.table.values)[tuple(map(entry, i.indices))]
+            table = i.table
+            if table in bindings:
+                values = jnp.asarray(bindings[table])
+                expected = tuple(size(n, bindings) for n in table.shape)
+                if values.shape != expected or not jnp.issubdtype(values.dtype, jnp.integer):
+                    raise ValueError(f"expected an integer index table of shape {expected}")
+            else:
+                values = jnp.asarray(table.values)
+            return values[tuple(map(entry, i.indices))]
         if isinstance(i, Index):
             if i in bindings:
                 return bindings[i]

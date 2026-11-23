@@ -1,8 +1,14 @@
+import basix
+import pytest
+
 from uflx.arithmetic import num
 from uflx.calculus import coordinate
-from uflx.tensors import component_tensor, index, inverse, tensor
+from uflx.tensors import component_tensor, gathered_index, index, inverse, tensor
+from uflx_basix.cells import cell
+from uflx_basix.facets import reference_facet
 
 from ..uflx.inclusions import affine_map
+from ..uflx.library import IndexTable
 from .cells import reference_simplex
 
 # The affine maps and normals of the library of the toy, which side tables are built from.
@@ -26,3 +32,15 @@ def test_the_affine_map_is_the_composition_of_the_example():
     P = reference_simplex(0)
     m = index(("toy.affine_map", P, points, 0))
     assert affine_map(P, points) == component_tensor(points[0, m], (m,))
+
+
+def test_reference_facet_validates_the_facet_domain_and_orientation():
+    with pytest.raises(ValueError, match="no facets"):
+        reference_facet(cell(basix.CellType.point), 0)
+    with pytest.raises(IndexError, match="local facet"):
+        reference_facet(cell(basix.CellType.triangle), -1)
+    with pytest.raises(IndexError, match="permutation"):
+        reference_facet(cell(basix.CellType.triangle), 0, 2)
+    runtime_facet = gathered_index(IndexTable((0,), 5), (0,))
+    with pytest.raises(ValueError, match="facet type"):
+        reference_facet(cell(basix.CellType.prism), runtime_facet)
