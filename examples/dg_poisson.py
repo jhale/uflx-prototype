@@ -1,9 +1,11 @@
 """Tabulate cell and interior facet tensors for the symmetric interior penalty DG Poisson form.
 
-A triangle with P2 geometry has one curved exterior edge. Its two straight
-edges meet a triangle with affine P1 geometry and a square whose Q2 coordinate
-map is affine. Both triangles use discontinuous P1 field elements, and the
-square uses a discontinuous Q1 field element.
+The patch has two triangular cells and one quadrilateral cell. In cell order,
+their coordinate elements are P1, P2 and Q2. The triangles share a straight
+edge. The second triangle and the quadrilateral share both endpoints and the
+midpoint of a curved edge. The triangle's exterior edge and the quadrilateral's
+interior node can be displaced independently. The field elements are
+discontinuous P1 on the triangles and discontinuous Q1 on the quadrilateral.
 
 The example builds all six interior facet kernels and checks the energy of
 u(x, y) = x on the three cells and two interior facets of this patch.
@@ -28,30 +30,33 @@ from uflx_basix.spaces import local_space
 from uflx_extensions.index_tables import index_table
 from uflx_jax_compiler import trace
 
-# Patch topology and finite elements, in cell order
+# Topological cells of the patch
 
 triangle = basix.CellType.triangle
 quadrilateral = basix.CellType.quadrilateral
 interval = basix.CellType.interval
 patch_topology = topology(triangle, triangle, quadrilateral)
+
+# Coordinate and field elements assigned to each cell
+
 coordinate_degrees = (1, 2, 2)
 
 family = basix.ElementFamily.P
 plane = EuclideanSpace(2)
-cell_elements = []
+elements_by_cell = []
 for cell, degree in zip(patch_topology.cell_types, coordinate_degrees, strict=True):
     coordinate_element = basix.create_element(family, cell.cell_type, degree)
     field_element = basix.create_element(family, cell.cell_type, 1, discontinuous=True)
-    cell_elements.append((coordinate_element, field_element))
+    elements_by_cell.append((coordinate_element, field_element))
 
-# Reuse a kernel wherever the same coordinate and field elements occur.
-element_pairs = tuple(dict.fromkeys(cell_elements))
+# Cells with the same coordinate and field elements share a kernel key.
+cell_keys = tuple(dict.fromkeys(elements_by_cell))
 
-# Volume integral for each choice of elements
+# Cell kernels
 
 cell_kernels = {}
-for elements in element_pairs:
-    coordinate_element, field_element = elements
+for cell_key in cell_keys:
+    coordinate_element, field_element = cell_key
     cell_type = coordinate_element.cell_type
     
     T = topology(cell_type)
@@ -74,9 +79,9 @@ for elements in element_pairs:
     volume_sum = apply_quadrature(volume_ref, *cell_rule)
     cell_form = form(volume_sum, (v_ref, u_ref))
     evaluate_cell = trace(cell_form, x)
-    cell_kernels[elements] = jax.jit(evaluate_cell)
+    cell_kernels[cell_key] = jax.jit(evaluate_cell)
 
-# Interior facet kernels, using element_pairs order for the plus and minus sides
+# Interior facet kernels, using cell_keys order for the plus and minus sides
 
 permutations = index_table("quadrature_permutation", shape=(2,), extent=2)
 
@@ -85,9 +90,9 @@ length_rule = basix.make_quadrature(interval, degree=8)
 facet_rule = basix.make_quadrature(interval, degree=8)
 
 facet_kernels = {}
-for plus_elements, minus_elements in combinations_with_replacement(element_pairs, 2):
-    plus_geometry, plus_field = plus_elements
-    minus_geometry, minus_field = minus_elements
+for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
+    plus_geometry, plus_field = plus_key
+    minus_geometry, minus_field = minus_key
     plus_type = plus_geometry.cell_type
     minus_type = minus_geometry.cell_type
     
@@ -136,67 +141,68 @@ for plus_elements, minus_elements in combinations_with_replacement(element_pairs
     facet_sum = apply_quadrature(facet_ref, *facet_rule)
     interior_facet_form = form(facet_sum, (v_ref, u_ref))
     evaluate_facet = trace(interior_facet_form, x, plus_facet, minus_facet, permutations)
-    facet_kernels[plus_elements, minus_elements] = jax.jit(evaluate_facet)
+    facet_kernels[plus_key, minus_key] = jax.jit(evaluate_facet)
 
 # Typical form compiler would hand off kernels to assembler here
 
 # Mesh geometry
 
-# On the P2 triangle, move only the midpoint of the exterior edge from vertex 1 to 2.
-# Its map is F(s, t) = (s, t + 4 * boundary_offset * s * t), affine on both shared edges.
+# Set interface_offset to zero for a straight P2/Q2 edge. The other offsets are independent.
 boundary_offset = 0.15
+interface_offset = 0.08
+quad_interior_offset = 0.03
 nodes = np.array(
     [
         (0.0, 0.0),
         (1.0, 0.0),
         (0.0, 1.0),
-        (0.0, -1.0),
         (-1.0, 0.0),
-        (-1.0, 1.0),
-        (0.5, 0.5 + boundary_offset),
-        (0.0, 0.5),
-        (0.5, 0.0),
-        (-0.5, 0.0),
-        (-1.0, 0.5),
-        (-0.5, 1.0),
-        (-0.5, 0.5),
+        (0.0, -1.0),
+        (1.0, -1.0),
+        (0.5, 0.5 + boundary_offset),  # Node 6 on the P2 exterior edge
+        (0.0, 0.5),  # Node 7 lies halfway along the straight P1/P2 edge
+        (0.5, interface_offset),  # Node 8 belongs to both sides of the curved P2/Q2 edge
+        (0.5, -1.0),
+        (0.0, -0.5),
+        (1.0, -0.5),
+        (0.5, -0.5 + quad_interior_offset),  # Node 12 affects only the quadrilateral interior
     ]
 )
 
-# Each cell supplies its own coordinate DOFs in Basix order. The Q2 square is affine.
+# Coordinate DOFs in Basix order. The P2 and Q2 maps traverse their shared edge in opposite orders.
 geometry_dofmaps = (
-    [1, 0, 3],
+    [2, 3, 0],
     [0, 1, 2, 6, 7, 8],
-    [4, 0, 5, 2, 9, 10, 7, 11, 12],
+    [1, 0, 5, 4, 8, 11, 10, 9, 12],
 )
-cells = tuple(zip(cell_elements, geometry_dofmaps, strict=True))
+cell_data = tuple(zip(elements_by_cell, geometry_dofmaps, strict=True))
 
 # Each row gives the incident cells (+, -), their local facet numbers, and their permutations.
-# Orient the first edge from vertex 0 to 1, and the second from vertex 0 to 2.
+# Orient the straight edge from vertex 0 to 2 and the curved edge from vertex 0 to 1.
 interior_facets = (
-    ((0, 1), (2, 2), (1, 0)),
-    ((1, 2), (1, 2), (0, 0)),
+    ((0, 1), (1, 1), (1, 0)),
+    ((1, 2), (2, 0), (0, 1)),
 )
 
 # Tabulate the tensors and evaluate the patch energy for u(x, y) = x.
 
 patch_energy = 0.0
 x_dofs = []
-for cell, (elements, dofs) in enumerate(cells):
+for cell_index, (cell_key, dofs) in enumerate(cell_data):
     coordinates = nodes[dofs]
-    cell_tensor = cell_kernels[elements](coordinates)
-    print("Cell tensor", cell, cell_tensor)
+    cell_tensor = cell_kernels[cell_key](coordinates)
+    print("Cell tensor", cell_index, cell_tensor)
 
     # The P1 and Q1 field DOFs are vertex values. Vertices come first in each geometry DOF map.
-    _, field_element = elements
+    _, field_element = cell_key
     cell_x = coordinates[: field_element.dim, 0]
     x_dofs.append(cell_x)
     patch_energy += cell_x @ cell_tensor @ cell_x
 
 for (plus, minus), entity_local_index, permutations in interior_facets:
-    plus_elements, plus_dofs = cells[plus]
-    minus_elements, minus_dofs = cells[minus]
-    kernel = facet_kernels[plus_elements, minus_elements]
+    plus_key, plus_dofs = cell_data[plus]
+    minus_key, minus_dofs = cell_data[minus]
+    kernel = facet_kernels[plus_key, minus_key]
     coordinate_dofs = np.concatenate((nodes[plus_dofs], nodes[minus_dofs]))
     quadrature_permutation = np.array(permutations, dtype=np.uint8)
     facet_tensor = kernel(coordinate_dofs, *entity_local_index, quadrature_permutation)
@@ -213,8 +219,8 @@ for (plus, minus), entity_local_index, permutations in interior_facets:
     penalty_energy = unit_jump @ facet_tensor @ unit_jump
     np.testing.assert_allclose(penalty_energy, 10.0, rtol=1e-6)
 
-# The squared gradient is one. The curved edge adds the area under 4 * offset * s * (1 - s)
-# for s between 0 and 1, above the two units of area in the straight-sided patch.
+# The squared gradient is one. Bending the interior edge transfers area between its neighbours.
+# The exterior edge adds the area under 4 * boundary_offset * s * (1 - s) for s between 0 and 1.
 expected_area = 2.0 + 2.0 * boundary_offset / 3.0
 np.testing.assert_allclose(patch_energy, expected_area, rtol=1e-6)
 print("Patch energy for u(x, y) = x", patch_energy)
