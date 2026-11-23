@@ -27,6 +27,7 @@ from ..uflx_basix.meshes import (
     quadrilaterals,
     side_data,
     side_map,
+    single_cell_mesh,
     square,
 )
 from .quadrature import integrate_at
@@ -37,12 +38,14 @@ def value(e, P=None, X=()):
     return np.real(trace(e, *points)(*points.values()))
 
 
-def test_reference_interpolation_uses_the_element_sampling_points():
-    K = cell(basix.CellType.triangle)
-    V = local_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 1))
-    x = coordinate(K)[0]
-    interpolant = interpolate(x * x, V)
-    assert value(interpolant, K, (0.25, 0.5)) == pytest.approx(0.25)
+def test_interpolation_uses_the_element_sampling_points():
+    mesh = single_cell_mesh(basix.CellType.triangle)
+    P1 = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1)
+    V = local_space(mesh.topology, P1)
+    x = coordinate(mesh)[0]
+    interpolant = interpolate(x * x, V, cell=mesh[0])
+    at = trace(interpolant, mesh.coordinate_function, mesh)
+    assert at([[0, 0], [2, 0], [0, 1]], (0.5, 0.5)) == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(
@@ -182,13 +185,14 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
 def test_custom_element_supplies_its_own_interpolation_functional():
     from ..uflx_basix.test_spaces import interval_element
 
-    K = cell(basix.CellType.interval)
-    left = local_space(K, interval_element(0.25))
-    right = local_space(K, interval_element(0.75))
+    mesh = single_cell_mesh(basix.CellType.interval)
+    left = local_space(mesh.topology, interval_element(0.25))
+    right = local_space(mesh.topology, interval_element(0.75))
     assert left is not right
-    x = coordinate(left.domain)[0]
-    assert value(interpolate(x, left), left.domain, (0.5,)) == pytest.approx(0.25)
-    assert value(interpolate(x, right), right.domain, (0.5,)) == pytest.approx(0.75)
+    x = coordinate(mesh)[0]
+    for V, expected in ((left, 1.5), (right, 2.5)):
+        at = trace(interpolate(x, V, cell=mesh[0]), mesh.coordinate_function, mesh)
+        assert at([[1.0], [3.0]], (2.0,)) == pytest.approx(expected)
 
 
 def test_oracle_tabulates_each_custom_elements_own_basis():

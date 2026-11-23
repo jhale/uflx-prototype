@@ -87,8 +87,7 @@ def _local_value(space, slot, site, local):
 
 
 def basis_value(node, site):
-    space = node.space
-    if site.slot(space.domain) != node.cell_slot:
+    if site.slot(node.domain) != node.cell_slot:
         return np.zeros(node.value_shape)
-    basis = tabulate(space.element(node.cell_slot), site.points[space.domain])
+    basis = tabulate(node.element, site.points[node.domain])
     return basis.reshape(node.value_shape)

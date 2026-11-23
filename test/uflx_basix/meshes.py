@@ -7,12 +7,19 @@ import uflx.geometry as geometry
 from uflx.forms import function
 from uflx.geometry import mesh
 from uflx.nodes import EuclideanSpace, Mesh
-from uflx_basix.cells import cell
+from uflx_basix.cells import cell, topology
 from uflx_basix.nodes import BasixCell
 from uflx_basix.spaces import local_space
 
 from ..uflx.spaces import space as field_space
 from .cells import reference_simplex
+
+
+def single_cell_mesh(cell_type):
+    T = topology(cell_type)
+    P1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
+    x = function(local_space(T, P1, shape=(T.dimension,)), "x")
+    return mesh(x, EuclideanSpace(T.dimension))
 
 
 def vertex_mesh(T, vertices, *, label="x"):

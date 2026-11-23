@@ -12,7 +12,9 @@ from uflx.nodes import (
     AbstractFunctionSpace,
     AbstractReferenceCell,
     AbstractTopology,
+    CellMap,
     Float,
+    Mesh,
     ScalarType,
     TransformationLaw,
     Zero,
@@ -70,16 +72,18 @@ class BasixTopology(AbstractTopology):
 
 @final
 class BasixSpace(AbstractFunctionSpace):
-    """A Basix finite element on a reference cell or on each cell of a topology."""
+    """A Basix finite element on a reference cell, a mesh cell, or a topology."""
 
     identifier = "toy.BasixSpace"
-    _domain: AbstractTopology | BasixCell
+    support: AbstractTopology | BasixCell | CellMap
     element_data: tuple[BuiltinElement | CustomElement, ...]
     _scalar_type: str
     block_shape: tuple[int, ...]
     argument_spaces = ()
 
     def _validate(self):
+        if isinstance(self.support, CellMap) and not isinstance(self.support.parent, Mesh):
+            raise ValueError("a cell-bound space requires a physical mesh cell")
         if not isinstance(self.domain, (BasixCell, AbstractTopology)):
             raise ValueError("expected a Basix reference cell or a topology")
         cells = (self.domain,) if isinstance(self.domain, BasixCell) else self.domain.cell_types
@@ -96,12 +100,30 @@ class BasixSpace(AbstractFunctionSpace):
             if E.value_shape != first.value_shape or E.map_type != first.map_type:
                 raise ValueError("elements must have a common value shape and map type")
 
+    def on_cell(self, cell: CellMap) -> BasixSpace:
+        """Select this space's element on one physical cell."""
+        if not isinstance(cell, CellMap) or not isinstance(cell.parent, Mesh):
+            raise ValueError("expected a physical mesh cell")
+        if self.cell is not None and self.cell != cell:
+            raise ValueError("space is already restricted to a different cell")
+        if self.domain == cell.topology:
+            data = (self.element_data[cell.cell_slot],)
+        elif self.domain == cell.reference_cell:
+            data = self.element_data
+        else:
+            raise ValueError("cell does not belong to the space's domain")
+        return BasixSpace(cell, data, self.scalar_type, self.block_shape)
+
+    @property
+    def cell(self) -> CellMap | None:
+        return self.support if isinstance(self.support, CellMap) else None
+
     def element(self, j):
         return self.elements[j]
 
     @property
     def topology(self):
-        return self.domain
+        return self.cell.topology if self.cell is not None else self.domain
 
     @cached_property
     def elements(self):
@@ -149,7 +171,7 @@ class BasixSpace(AbstractFunctionSpace):
 
     @property
     def domain(self):
-        return self._domain
+        return self.support.reference_cell if isinstance(self.support, CellMap) else self.support
 
     @property
     def scalar_type(self):
@@ -168,14 +190,21 @@ class BasixBasis(AbstractExpression):
     argument_spaces = ()
     scalar_type = ScalarType.real
 
+    def _validate(self):
+        if self.space.cell is not None and self.cell_slot != self.space.cell.cell_slot:
+            raise ValueError("basis slot differs from the restricted space")
+
     @property
     def domain(self):
-        return self.space.domain
+        return self.space.topology
+
+    @property
+    def element(self):
+        return self.space.element(0 if self.space.cell is not None else self.cell_slot)
 
     @property
     def value_shape(self):
-        E = self.space.element(self.cell_slot)
-        return (E.dim, *E.value_shape)
+        return (self.element.dim, *self.element.value_shape)
 
 
 def table(values):
