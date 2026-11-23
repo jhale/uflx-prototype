@@ -4,6 +4,7 @@ The `uflx-spec-interpreter` distribution provides three Python packages. Import
 language operations from the `uflx` submodules, use `uflx_basix` for concrete
 reference cells, finite elements, interpolation and quadrature, and evaluate expressions with `uflx_oracle`.
 The experimental form compiler and its tests live on the `jhale/experimental-compiler` branch.
+The optional egglog optimiser and its tests live on `jhale/egglog-experiment`.
 
 | Public module | What to import |
 | --- | --- |
@@ -36,115 +37,6 @@ The implementation in `_src/` is organised by responsibility.
 | `rules/` | Mathematical rewrite rules |
 | `passes/` | Pass recipes and output contracts |
 | `extensions/` | Optional language extensions |
-| `optimisation/` | Optional egglog encoding, algebraic rules, extraction costs and reports |
-
-The optional optimiser requires Python 3.12+ and the `optimisation` extra:
-
-```sh
-pip install -e ".[optimisation]"
-```
-
-Call the optimiser explicitly on the expression to simplify.
-
-```python
-from uflx._src.optimisation import OptimisationOptions, optimise
-
-result = optimise(
-    expression,
-    OptimisationOptions(
-        rule_groups=("arithmetic", "indexed"),
-        preserve_floating_point_evaluation=False,  # True preserves arithmetic operations and grouping.
-        iterations=3,
-        max_region_nodes=60,
-        cost="loops",  # Or "tree"; a custom cost_model can be passed to optimise.
-    ),
-)
-simplified = result.expression
-report = result.report
-```
-
-The initial supported fragment is exact integer/rational scalar algebra, typed zeros,
-single-index sums with static extents, vector indexing and guarded identity-tensor
-contractions. Egglog also represents conjugation, real and imaginary parts,
-powers, absolute values and logarithms. Rules include double conjugation,
-real/imaginary projections, `x**1`, guarded `x**0`, `abs(abs(x))` and `log(1)`.
-Conjugation may wrap opaque tensor or form values.
-
-Structural cleanup selects known tensor entries, scalar broadcasts and zero
-components. Component-tensor selection uses simultaneous, capture-avoiding index
-substitution. It supports known-defined bodies and direct indexing permutations
-that retain the underlying tensor; other potentially singular bodies are left
-unchanged. Gathered indices and substitutions into stored metadata remain outside
-this initial scope.
-
-Integer and rational coefficients share an arbitrary-precision exact representation.
-For example, `(2*x)/2` can become `x`, and `x/2 + x/3` can become `(5/6)*x`.
-Division by an unknown or zero denominator is retained; fractions are never
-converted to approximate floating-point constants. These arithmetic rewrites
-are disabled by `preserve_floating_point_evaluation=True`.
-
-The optimiser also folds determinants and nonsingular inverses of stored square
-matrices up to 3 by 3, using exact integer/rational arithmetic. It reads entries
-through tensor construction, indexing and broadcasts when the source is known
-to be defined. Empty matrices and family indices are preserved. Singular inverses,
-floating-point entries, nonzero complex entries, rectangular and larger matrices
-remain untouched. This constant folder is outside the scalar e-graph and is
-disabled by `preserve_floating_point_evaluation=True`. Its results feed back into
-egglog, so `log(det(I))` becomes zero, including for repeated matrix families.
-
-Other operations remain opaque in egglog; UFLx traversal can still optimise their
-value operands. General tensor arithmetic should be core-lowered first.
-Complex constants remain opaque.
-
-Rules that discard an operand, such as multiplication by zero, require evidence
-that the operand is mathematically defined. Terminals denote supplied, defined
-values on admissible inputs; this includes runtime arrays and functions. Facts propagate through sums and products, including
-terms created during search. Nonterminal extension operations remain unknown; no
-user-assumptions API is implemented. Thus `x-x` and `0*x` can become zero for a
-runtime input, while `0*(1/x)` stays unchanged unless the denominator is known
-nonzero. Defined inputs do not make logarithms or matrix inverses total.
-Delta contraction likewise requires the remaining summand to be known to be defined. With the
-`indexed` group enabled, literal identity entries contract against vector or
-matrix entries and compound products/summands. Capture-avoiding UFLx substitution
-handles nested and multi-index sums outside the scalar e-graph; the result feeds
-back into egglog. These contractions are disabled when floating-point evaluation
-is preserved.
-
-Opaque expressions are interned using alpha fingerprints followed by exact
-alpha comparison. Their free identities remain significant, and reconstruction
-retrieves an original UFLx representative. No cross-invocation cache or general
-scope-normalised e-graph is implemented. With only the `arithmetic` group selected,
-index sums are opaque and can share modulo renaming of their own bound indices.
-`PyObject` is deliberately not used: its serialised snapshots do not preserve
-UFLx's original interned object references.
-
-These are exact real/complex algebraic transformations, not guarantees of identical
-floating-point execution. Set `preserve_floating_point_evaluation=True` to retain arithmetic
-operations and reduction order, including constant arithmetic and operations
-inside opaque nodes. This mode runs structural cleanup and safe unary egglog
-rules, keeping arithmetic, powers, logarithms and literals opaque. It skips
-arithmetic finishing cleanup. Unary searches appear in the region reports. It makes no guarantees
-about later compiler passes or generated code.
-
-Iteration and input-region limits are enforced; neither is a time or
-e-graph-memory limit. Each region reports its exploratory search stop
-(`saturated`, `iteration_limit` or `region_limit`), timings and alpha merges. A
-non-expanding constant cleanup phase follows search when floating-point changes
-are allowed, so the search status does not claim global saturation after cleanup.
-Oversized regions fall back to optimising their children, sharing traversal for
-repeated subexpressions. If those changes bring the parent within the limit, it
-is searched again. The limit applies to each search, not the total work across
-subregions. Oversized-region counts stop at the limit plus one. Traversal remains
-recursive in this initial implementation.
-
-The loop cost is a tree arithmetic estimate weighted by static sum extents;
-opaque operations have zero estimated internal cost. It does not model DAG reuse,
-memory traffic or vectorisation. Alpha sharing therefore does not guarantee that
-extraction chooses `2*a` over `a+a`.
-
-Optimisation tests skip when egglog is absent. Install both `lint` and
-`optimisation` on Python 3.12+ to type-check the optional subsystem. Importing
-the core or the optimisation entry point does not import egglog.
 
 `directional_derivative(f, x, h)` takes the derivative with respect to `x` at `x`
 in direction `h`. Use `directional_derivative(f, x, a, h)` to evaluate it at `a`.
@@ -331,7 +223,7 @@ points and directions remain outside the variable scope. `test_shared_binding.py
 checks these laws across all four core binder kinds and mixed nesting.
 
 `uflx.algorithms.alpha_equivalent` compares expressions modulo bound names.
-The optimiser also uses an internal fingerprint to filter candidate matches.
+Use an alpha fingerprint to filter candidate matches before comparing them.
 
 ```python
 from uflx._src.algorithms.alpha import AlphaHasher, alpha_hash
