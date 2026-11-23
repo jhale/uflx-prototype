@@ -32,7 +32,7 @@ core language is further developed.
    implementation is complete with respect to the specification.
 2. `uflx_basix` - uses [Basix](https://github.com/fenics/basix) to provide
    element definitions and tabulations. 
-3. `uflx_jax_compiler` - a simple reference form compiler which traces original
+3. `uflx_jax_compiler` - a simple form 'compiler' which traces both original
    and lowered (core normal form) UFLx expressions to JAX callables. Tests can
    check lowered forms against direct evalution, and symbolic derivatives
    against JAX automatic differentiation. It can be used as as an oracle for
@@ -98,8 +98,8 @@ As of 23rd November 2026.
 ### Complexity
 
 Radon is a static analysis tool that measures cyclomatic complexity of Python
-code. `uflx_jax_compiler` makes heavy use of `match` which unfairly scores its
-cyclomatic complexity.
+code. `uflx_jax_compiler` makes heavy use of `match` when tracing, which
+unfairly scores its cyclomatic complexity.
 
 | Radon score | uflx | uflx_basix | uflx_extensions | uflx_jax_compiler | Total | Distribution |
 |---|---:|---:|---:|---:|---:|:---|
