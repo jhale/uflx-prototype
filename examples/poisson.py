@@ -1,4 +1,4 @@
-"""P2 Poisson cell tensors on the unit triangle."""
+"""Second-order Poisson cell tensors on an affine triangle."""
 
 import basix
 import jax
@@ -31,13 +31,14 @@ v = push_forward(v_ref, mesh, V.law)
 # We write integrals on the physical mesh using the pushed forward functions
 a = integral(gradient(u, mesh) @ gradient(v, mesh), mesh)
 L = integral(v, mesh)
-# and lower then brings them to core normal form. 
+# and lower then brings them to core normal form i.e. differentiated and
+# pulled back to reference cells.
 a_ref = lower(a)
 L_ref = lower(L)
 
 # On an affine triangle both integrands are quadratic, so degree 2 is exact.
 rule = basix.make_quadrature(triangle, degree=2)
-# Rewrite the continuous integral with quadrature
+# Discretise the continuous integral with quadrature
 a_quadrature = apply_quadrature(a_ref, *rule)
 L_quadrature = apply_quadrature(L_ref, *rule)
 
@@ -45,8 +46,9 @@ L_quadrature = apply_quadrature(L_ref, *rule)
 a = form(a_quadrature, (v_ref, u_ref))
 L = form(L_quadrature, (v_ref,))
 
-# Trace to JAX and JIT compile. All standard JAX transforms are supported, e.g.
-# differentiation, mapping etc.
+# Trace to JAX and JIT compile. All standard JAX transforms are supported on
+# the trace, e.g. differentiation, mapping etc.
+# Performance is one-order of magnitude slower than FFCx.
 load = jax.jit(trace(L, x))
 stiffness = jax.jit(trace(a, x))
 
