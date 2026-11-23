@@ -76,10 +76,10 @@ Functions with cyclomatic complexity above 15 should be carefully considered.
 
 ## Caveats
 
-This software is alpha quality and is not designed for production use. If UFLx
-is pursued further, we will re-write the code from scratch using the
-specification and successful elements from this experiment. UFLx core language
-is intentionally minimal - higher level layers will be added once the core
+This software is alpha and is not designed for production use. If UFLx is
+pursued further, we will re-write the code from scratch using the specification
+and successful elements from this experiment. UFLx core language is
+intentionally minimal - higher level layers will be added once the core
 language is further developed.
 
 ## License
