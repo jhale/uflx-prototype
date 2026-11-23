@@ -29,7 +29,7 @@ core language is further developed.
 ## Components
 
 1. `uflx` - an implementation of the core language specification. The
-   implementation is complete.
+   implementation is complete with respect to the specification.
 2. `uflx_basix` - uses [Basix](https://github.com/fenics/basix) to provide
    element definitions and tabulations. 
 3. `uflx_jax_compiler` - a very simple reference form compiler which traces to
@@ -44,23 +44,23 @@ core language is further developed.
 
 ```python
 import basix
+import numpy as np
 
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import push_forward
 from uflx.nodes import EuclideanSpace, Mesh
 from uflx_basix.cells import topology
-from uflx_basix.nodes import BasixBasis, table
 from uflx_basix.spaces import space
+from uflx_jax_compiler.interpreter import Interpreter
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
 
-# The P1 coordinate map interpolates the three physical vertices.
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-X = space(T, p1)
-vertices = table(((0, 0), (2, 0), (0, 1)))
-mesh = Mesh(BasixBasis(X, 0) @ vertices, EuclideanSpace(2))
+X = space(T, p1, shape=(2,))
+x = function(X, "x")
+mesh = Mesh(x, EuclideanSpace(2))
 
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 V = space(T, p2)
@@ -70,6 +70,11 @@ v = push_forward(v_ref, mesh, V.law)
 
 a = form(integral(gradient(u, mesh) @ gradient(v, mesh), mesh), (v_ref, u_ref))
 L = form(integral(v, mesh), (v_ref,))
+
+# Each P1 vertex supplies one (x, y) pair to the coordinate function.
+vertices = np.array([(0.0, 0.0), (2.0, 0.0), (0.0, 1.0)])
+interpreter = Interpreter({x: vertices.ravel()})
+area = interpreter.evaluate(L, arguments=(np.ones(p2.dim),))  # L(1) is the area, 1.
 ```
 
 ## Statistics
