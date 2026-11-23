@@ -6,7 +6,6 @@ from operator import add
 from uflx.calculus import integral
 from uflx.geometry import domain_map, pull_back, push_forward, transformation_law
 from uflx.nodes import AbstractExpression, CellMap, EuclideanSpace, Function, Mesh, PullBack
-from uflx.passes import expand_pull_backs
 from uflx.tensors import component_tensor, index, index_sum
 
 from .nodes import BasixBasis, BasixSpace, table
@@ -110,8 +109,7 @@ def _interpolate_cell(f, V, cell):
 
     def sample(q, point):
         directions = push_forward(table(weights[..., q]), cell.parent, dual_law)
-        # The sampling point is already on this reference cell. Expand the mapped weights there.
-        physical_weights = expand_pull_backs(pull_back(directions, cell))
+        physical_weights = pull_back(directions, cell)
         pairing = index_sum(physical_weights[(a, *physical)] * f[(*blocks, *physical)], physical)
         at_point = domain_map(point_domain, table(point), cell.reference_cell)
         return integral(pull_back(pairing, at_point), point_domain)
