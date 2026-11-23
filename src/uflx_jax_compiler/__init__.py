@@ -1,5 +1,5 @@
-"""JAX evaluation and compilation of UFLx expressions."""
+"""JAX evaluation and tracing of UFLx expressions."""
 
-from .interpreter import Interpreter
+from .interpreter import Interpreter, trace
 
-__all__ = ["Interpreter"]
+__all__ = ["Interpreter", "trace"]

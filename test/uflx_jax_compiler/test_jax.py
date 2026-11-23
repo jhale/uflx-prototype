@@ -8,8 +8,9 @@ import numpy as np
 import pytest
 
 from uflx.calculus import coordinate, gradient, integral
-from uflx.forms import function
+from uflx.forms import form, function
 from uflx_extensions.external_operators import external_operator
+from uflx_jax_compiler import trace
 from uflx_jax_compiler.interpreter import Interpreter, Pointwise
 
 from ..uflx.spaces import space as field_space
@@ -25,12 +26,27 @@ def test_jit_value_and_gradient_of_integrated_spatial_derivative():
     slope = gradient(a * x * x, cell)[0]
     expression = integral(slope * slope, cell)
 
-    def energy(value):
-        return Interpreter({a: value}).evaluate(expression)
+    energy = trace(expression, inputs=(a,))
 
     values, gradients = jax.jit(jax.vmap(jax.value_and_grad(energy)))(jnp.array([3.0, 1.5]))
     np.testing.assert_allclose(values, [12, 3])
     np.testing.assert_allclose(gradients, [8, 4])
+
+
+def test_callable_takes_declared_inputs_then_ordered_form_slots():
+    V = field_space("V", scalar_type="real")
+    c = function(V, "c")
+    W = field_space("W", (2,), scalar_type="real")
+    u, v = function(W, "u"), function(W, "v")
+    operator = form(c * u[0] * v[1], (u, v))
+    kernel = trace(operator, inputs=(c,))
+    first, second = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
+    result = kernel(2.0, first, second)
+    assert isinstance(result, jax.Array)
+    assert result == 8.0
+    assert jax.jit(kernel)(3.0, second, first) == 18.0
+    with pytest.raises(TypeError, match="expected 3 positional values"):
+        kernel(2.0, first)
 
 
 def test_jit_differentiates_whole_field_samples():
@@ -43,8 +59,7 @@ def test_jit_differentiates_whole_field_samples():
     def read(field, scale):
         return scale * (field(jnp.array([0.25])) + field(jnp.array([0.75])))
 
-    def run(value):
-        return Interpreter({a: value, law: read}).evaluate(expression)
+    run = trace(expression, inputs=(a,), bindings={law: read})
 
     val, deriv = jax.jit(jax.value_and_grad(run))(2.0)
     np.testing.assert_allclose([val, deriv], [4.0, 4.0])
@@ -62,8 +77,7 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
     dofs = V.element(0).points[:, 0] ** 2
     slope = gradient(u, K)[0]
 
-    def sample(dofs, point):
-        return Interpreter({u: dofs}).evaluate(slope, points={K: point})
+    sample = trace(slope, inputs=(u, K))
 
     f = jax.jit(jax.vmap(jax.value_and_grad(sample, argnums=1), in_axes=(None, 0)))
     values, hessians = f(dofs, jnp.array([[0.375], [0.75]]))

@@ -52,7 +52,7 @@ from uflx.geometry import push_forward
 from uflx.nodes import EuclideanSpace, Mesh
 from uflx_basix.cells import topology
 from uflx_basix.spaces import space
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -71,11 +71,15 @@ v = push_forward(v_ref, mesh, V.law)
 a = form(integral(gradient(u, mesh) @ gradient(v, mesh), mesh), (v_ref, u_ref))
 L = form(integral(v, mesh), (v_ref,))
 
-# Each P1 vertex supplies one (x, y) pair to the coordinate function.
+load = trace(L, inputs=(x,))
+
+# Supply the coordinate values and the P2 test-function values.
 vertices = np.array([(0.0, 0.0), (2.0, 0.0), (0.0, 1.0)])
-interpreter = Interpreter({x: vertices})
-area = interpreter.evaluate(L, arguments=(np.ones(p2.dim),))  # L(1) is the area, 1.
+area = load(vertices, np.ones(p2.dim))  # L(1) is the area, 1.
 ```
+
+`trace` returns a plain callable. To compile the load or differentiate it with
+respect to the vertex coordinates, apply `jax.jit(load)` or `jax.grad(load, argnums=0)`.
 
 ## Statistics
 
