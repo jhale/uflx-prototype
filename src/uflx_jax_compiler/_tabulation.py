@@ -17,10 +17,13 @@ def _simplex(degree, point):
     bary = jnp.concatenate((jnp.array([1 - point.sum()]), point))
     # For node alpha, the Lagrange polynomial is the product of binomials
     # binom(degree * bary[i], alpha[i]) over the barycentric coordinates.
-    factors = [jnp.ones_like(bary)]
-    for i in range(degree):
-        factors.append(factors[-1] * (degree * bary - i) / (i + 1))
-    weights = jnp.prod(jnp.stack(factors)[alpha, np.arange(dim + 1)], axis=1)
+    # Multiply exactly degree affine factors per node. AD then exposes the
+    # constant top derivative to vmap, including the gradient of any P1 field.
+    factors = [[(j, k) for j, a in enumerate(row) for k in range(a)] for row in alpha]
+    weights = jnp.ones(len(indices), dtype=point.dtype)
+    for column in zip(*factors, strict=True):
+        axes, k = np.asarray(column).T
+        weights = weights * ((degree * bary[axes] - k) / (k + 1))
     return indices / max(degree, 1), weights
 
 
@@ -28,11 +31,11 @@ def _line(degree, t):
     # Chebyshev nodes stay inside the interval, including on a collapsed pyramid.
     n = degree + 1
     nodes = (1 - np.cos(np.pi * (np.arange(n) + 0.5) / n)) / 2
-    weights = []
-    for i, node in enumerate(nodes):
-        others = np.delete(nodes, i)
-        weights.append(jnp.prod(t - others) / np.prod(node - others))
-    return nodes[:, None], jnp.stack(weights)
+    others = np.array([np.delete(nodes, i) for i in range(n)])
+    weights = jnp.ones(n, dtype=t.dtype)
+    for other in others.T:
+        weights = weights * ((t - other) / (nodes - other))
+    return nodes[:, None], weights
 
 
 def _macro_simplex(cell, point):

@@ -32,7 +32,7 @@ def _basis_field(space, dof):
         local = (jnp.asarray(space.cell_dofs[slot]) == dof).astype(dtype(space))
         return _local_value(space, slot, site, local)
 
-    return BoundExpression(space, read)
+    return BoundExpression(space, read, needs_eager_samples=False)
 
 
 def local_basis(slot):

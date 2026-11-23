@@ -106,13 +106,17 @@ def pointwise(node, bindings, evaluate, *, batch=False):
     result_shape = shape(node, bindings)
     extents = result_shape[: len(order)]
 
-    def entry(key):
+    def entry(*key):
         return evaluate(dict(zip(order, key, strict=True)))
 
     if batch:
-        keys = jnp.indices(extents).reshape(len(order), -1).T
-        return jax.vmap(entry)(keys).reshape(result_shape)
-    return jnp.stack([entry(key) for key in np.ndindex(extents)]).reshape(result_shape)
+        # Separate maps let JAX keep each operand outside the axes it does not use.
+        mapped = entry
+        for axis in reversed(range(len(order))):
+            in_axes = tuple(0 if i == axis else None for i in range(len(order)))
+            mapped = jax.vmap(mapped, in_axes=in_axes)
+        return mapped(*(jnp.arange(n) for n in extents))
+    return jnp.stack([entry(*key) for key in np.ndindex(extents)]).reshape(result_shape)
 
 
 def solve(matrix, rhs):

@@ -38,6 +38,7 @@ class BoundExpression:
 
     signature: AbstractExpression | AbstractFunctionSpace
     read: Callable
+    needs_eager_samples: bool = True
 
 
 def as_argument(value, site):

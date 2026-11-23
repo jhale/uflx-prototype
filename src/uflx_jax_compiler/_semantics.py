@@ -55,13 +55,17 @@ from ._geometry import integrate, tangent_projector
 
 def needs_eager_samples(node, bindings):
     """A mapped predicate would trace both branches, including an unused binding."""
-    if isinstance(node, (Conditional, Form)) or isinstance(bindings.get(node), BoundExpression):
+    binding = bindings.get(node)
+    if isinstance(binding, BoundExpression):
+        return binding.needs_eager_samples
+    if isinstance(node, (Conditional, Form)):
         return True
     if isinstance(node, Function):
         field = bindings.get(node, bindings.get(f"coefficients:{node.label}"))
         # A supplied expression or per-cell field may introduce its own conditional.
         return isinstance(field, (AbstractExpression, dict))
-    return any(needs_eager_samples(child, bindings) for child in node_operands(node))
+    fields = [name for name in node.argument_names if name not in node.labels]
+    return any(needs_eager_samples(child, bindings) for child in node_operands(node, fields))
 
 
 def evaluate(node, bindings, site, arguments=()):

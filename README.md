@@ -30,13 +30,14 @@ This Python library contains the following packages:
    lowered (core normal form) UFLx expressions to JAX callables. Tests can
    check lowered forms against direct evalution, and symbolic UFLx derivatives
    against JAX automatic differentiation. The compiler is feature complete and
-   can be used as as an oracle for other (performant) efforts.
+   can be used as as an oracle for other (more performant) efforts.
 4. `uflx_extensions` - An extension with complex differentiation and external
    operators, intended to test the UFLx core extension concept.
 
 ## Examples
 
 - [P2 Poisson problem on a single triangle](examples/poisson.py)
+- [Mixed Poisson problem on a single triangle](examples/mixed_poisson.py)
 
 ## Statistics
 
@@ -75,9 +76,9 @@ Functions with cyclomatic complexity above 15 should be carefully considered.
 
 ## Caveats
 
-This software is alpha quality and not designed for production use. If UFLx is
-pursued further, it is likely that we will re-write the code from scratch using
-the specification and successful elements from this experiment. UFLx core
+This software is alpha quality and is not designed for production use. If UFLx
+is pursued further, it is likely that we will re-write the code from scratch
+using the specification and successful elements from this experiment. UFLx core
 language is intentionally minimal - higher level layers will be added once the
 core language is further developed.
 

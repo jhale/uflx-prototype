@@ -23,7 +23,7 @@ def conjugated(value):
         def read(site, slots):
             return conjugated(value.read(site, tuple(conjugated(arg) for arg in slots)))
 
-        return BoundExpression(value.signature, read)
+        return BoundExpression(value.signature, read, value.needs_eager_samples)
     if callable(value):
         return lambda *args: conjugated(value(*(conjugated(arg) for arg in args)))
     return jnp.conj(value)
