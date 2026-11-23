@@ -40,6 +40,7 @@ This Python library contains the following packages:
 - [P2 Poisson problem on a single triangle](examples/poisson.py)
 - [Mixed Poisson problem on a single triangle](examples/mixed_poisson.py)
 - [DG Poisson facet kernels on a mixed mesh of triangles and quadrilaterals](examples/dg_poisson.py)
+- [PDE-constrained optimisation on the unit interval: tangent, adjoint and Hessian forms](examples/pde_constrained.py)
 
 ## Statistics
 
