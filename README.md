@@ -395,8 +395,8 @@ The private modules of `_src`:
 and applies JAX operations. Call it directly for eager evaluation, or wrap a
 function of its numerical inputs in `jax.jit` to compile it.
 Use it to obtain a value for a field, apply a form to numerical arguments, or
-compare an expression before and after lowering. Install `pip install -e ".[jax]"` for
-the JAX evaluator and Basix. For an integral on a positive-dimensional Basix cell,
+compare an expression before and after lowering. Running `pip install -e .` from
+the repository installs JAX and Basix. For an integral on a positive-dimensional Basix cell,
 the JAX backend calls `basix.make_quadrature(K.cell_type, degree=12)`. Other reference
 cells can supply their own `quadrature(degree)` method. A point integral uses one
 sample of weight one. The JAX backend uses JAX's active precision. Set

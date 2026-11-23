@@ -4,15 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uflx-spec-interpreter"
-version = "0.1.0"
+version = "0.1.0.dev0"
 description = "A numerical reference interpreter and symbolic transformations for UFLx"
 requires-python = ">=3.11"
-dependencies = ["numpy"]
+dependencies = [
+    "numpy",
+    "fenics-basix",
+    # Batched Basix tabulation uses jax.pure_callback's vmap_method, added in 0.4.35.
+    "jax>=0.4.35",
+]
 
 [project.optional-dependencies]
-# Batched Basix tabulation uses jax.pure_callback's vmap_method, added in 0.4.35.
-jax = ["fenics-basix", "jax>=0.4.35"]
-test = ["pytest", "pytest-xdist", "coverage", "fenics-basix", "jax>=0.4.35"]
+test = ["pytest", "pytest-xdist", "coverage"]
 lint = ["ruff", "pyright"]
 
 [tool.setuptools.packages.find]
