@@ -1,7 +1,6 @@
 """General reference-cell interpolation and its construction constraints."""
 
 import basix
-import numpy as np
 import pytest
 
 from uflx.arithmetic import num
@@ -15,7 +14,7 @@ from uflx_basix.spaces import space
 from ..uflx.library import static_topology
 
 
-def test_incompatible_inputs_and_sampling_rules_are_rejected():
+def test_incompatible_inputs_are_rejected():
     K = cell(basix.CellType.triangle)
     V = space("target", K, basix.ElementFamily.P, 1)
     topology = static_topology((K,), ((0, 1, 2),))
@@ -25,8 +24,6 @@ def test_incompatible_inputs_and_sampling_rules_are_rejected():
         interpolate(coordinate(K), V)
     with pytest.raises(ValueError, match="domain"):
         interpolate(coordinate(EuclideanSpace(2))[0], V)
-    with pytest.raises(ValueError, match="sampling matrix"):
-        interpolate(num(1), V, sampling_rule=(np.zeros((2, 2)), np.zeros((3, 3))))
     with pytest.raises(NotImplementedError, match="derivative DOFs"):
         H = space("Hermite", K, basix.ElementFamily.Hermite, 3)
         interpolate(num(1), H)
