@@ -239,3 +239,64 @@ def test_pointwise_jax_binding_is_traced_directly():
     read = partial(trace(expr, law, a), Pointwise(jnp.sin))
 
     np.testing.assert_allclose(jax.jit(jax.grad(read))(0.5), math.cos(0.5))
+
+
+@pytest.mark.parametrize(
+    ("cell_name", "family", "degree"),
+    [
+        ("triangle", "P", 4),
+        ("tetrahedron", "RT", 2),
+        ("quadrilateral", "P", 3),
+        ("prism", "P", 2),
+        ("pyramid", "P", 2),
+        ("triangle", "iso", 2),
+        ("tetrahedron", "iso", 1),
+    ],
+)
+def test_native_basis_values_and_derivatives(cell_name, family, degree):
+    import basix
+
+    from uflx_basix.cells import cell
+    from uflx_basix.nodes import BasixBasis
+    from uflx_basix.spaces import local_space
+
+    K = cell(basix.CellType[cell_name])
+    element = basix.create_element(
+        basix.ElementFamily[family], K.cell_type, degree, basix.LagrangeVariant.equispaced
+    )
+    basis = trace(BasixBasis(local_space(K, element), 0), K)
+    points, _ = basix.make_quadrature(K.cell_type, 4)
+    points = np.vstack((points, basix.geometry(K.cell_type)))
+    sample = jax.vmap(lambda p: (basis(p), jax.jacfwd(basis)(p)))
+    assert "callback" not in str(jax.make_jaxpr(sample)(points))
+    values, gradients = jax.jit(sample)(points)
+    native = element.tabulate(1, points)
+    np.testing.assert_allclose(values, native[0].reshape(values.shape), atol=1e-12)
+    for axis in range(K.dimension):
+        row = basix.index(*np.eye(K.dimension, dtype=int)[axis])
+        np.testing.assert_allclose(
+            gradients[..., axis], native[row].reshape(values.shape), atol=1e-11
+        )
+
+
+@pytest.mark.parametrize("cell_name", ["interval", "quadrilateral", "hexahedron"])
+def test_macroedge_uses_the_polynomial_on_the_selected_half(cell_name):
+    import basix
+
+    from uflx_basix.cells import cell
+    from uflx_basix.spaces import local_space
+
+    K = cell(basix.CellType[cell_name])
+    element = basix.create_element(
+        basix.ElementFamily.iso, K.cell_type, 1, basix.LagrangeVariant.equispaced
+    )
+    u = function(local_space(K, element), "u")
+    # This continuous piecewise linear field has a kink at the midpoint.
+    dofs = np.maximum(element.points[:, 0] - 0.5, 0.0)
+    kernel = partial(trace(u, u, K), dofs)
+    points = np.tile(np.array([[0.25], [0.5], [0.75]]), (1, K.dimension))
+    values, gradients = jax.jit(jax.vmap(jax.value_and_grad(kernel)))(points)
+    np.testing.assert_allclose(values, [0, 0, 0.25], atol=1e-13)
+    expected = np.zeros_like(points)
+    expected[2, 0] = 1
+    np.testing.assert_allclose(gradients, expected, atol=1e-13)

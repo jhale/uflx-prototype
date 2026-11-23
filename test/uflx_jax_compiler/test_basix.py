@@ -199,7 +199,7 @@ def test_oracle_tabulates_each_custom_elements_own_basis():
         element = interval_element(first_dof, 0.7)
         V = local_space(cell(element.cell_type), element)
         u = function(V, "u")
-        weights = np.array([0.0, 1e10])
+        weights = np.array([0.0, 1.0])
         expected = element.tabulate(0, point)[0, 0, :, 0] @ weights
         actual = trace(u, u, V.domain)(weights, point[0])
-        assert actual == pytest.approx(expected, abs=1e-9)
+        assert actual == pytest.approx(expected, abs=1e-15, rel=0)

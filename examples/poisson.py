@@ -28,13 +28,15 @@ u_ref, v_ref = function(V, "u"), function(V, "v")
 u = push_forward(u_ref, mesh, V.law)
 v = push_forward(v_ref, mesh, V.law)
 
-# On an affine triangle both integrands are quadratic, so degree 2 is exact.
-rule = basix.make_quadrature(triangle, degree=2)
-# Note that here we are writing a form on the physical mesh...
+# Note that inside lower we are writing intergrals on the physical mesh...
 a_ref = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
 L_ref = lower(integral(v, mesh))
-# but after pullback, the arguments of the form live on the reference
-# element.
+
+# On an affine triangle both integrands are quadratic, so degree 2 is exact.
+rule = basix.make_quadrature(triangle, degree=2)
+
+# ...but after pullback (lower), the arguments of the form live on the
+# reference element, hence v_ref and u_ref are used.
 a = form(apply_quadrature(a_ref, *rule), (v_ref, u_ref))
 L = form(apply_quadrature(L_ref, *rule), (v_ref,))
 
