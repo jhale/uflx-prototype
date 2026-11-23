@@ -49,6 +49,26 @@ class BasixCell(AbstractReferenceCell):
 
 
 @final
+class BasixTopology(AbstractTopology):
+    """An ordered collection of local cells with Basix reference geometry."""
+
+    identifier = "uflx_basix.BasixTopology"
+    _cell_types: tuple[BasixCell, ...]
+
+    @property
+    def cell_types(self) -> tuple[BasixCell, ...]:
+        return self._cell_types
+
+    def _validate(self):
+        if not self.cell_types:
+            raise ValueError("a topology requires at least one cell")
+        if not all(isinstance(K, BasixCell) for K in self.cell_types):
+            raise TypeError("expected Basix reference cells")
+        if any(K.dimension != self.dimension for K in self.cell_types[1:]):
+            raise ValueError("topology cells must have the same dimension")
+
+
+@final
 class BasixSpace(AbstractFunctionSpace):
     """A Basix finite element on a reference cell or on each cell of a topology."""
 

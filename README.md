@@ -48,25 +48,22 @@ import basix
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import push_forward
-from uflx.nodes import AbstractTopology, EuclideanSpace, Mesh
-from uflx_basix.cells import cell
+from uflx.nodes import EuclideanSpace, Mesh
+from uflx_basix.cells import topology
 from uflx_basix.nodes import BasixBasis, table
 from uflx_basix.spaces import space
 
-
-class OneTriangle(AbstractTopology):
-    identifier = "example.OneTriangle"
-    cell_types = (cell(basix.CellType.triangle),)
-
+triangle = basix.CellType.triangle
+T = topology(triangle)
 
 # The P1 coordinate map interpolates the three physical vertices.
-p1 = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1)
-X = space(OneTriangle(), p1)
+p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
+X = space(T, p1)
 vertices = table(((0, 0), (2, 0), (0, 1)))
 mesh = Mesh(BasixBasis(X, 0) @ vertices, EuclideanSpace(2))
 
-p2 = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 2)
-V = space(mesh.topology, p2)
+p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
+V = space(T, p2)
 u_ref, v_ref = function(V, "u"), function(V, "v")
 u = push_forward(u_ref, mesh, V.law)
 v = push_forward(v_ref, mesh, V.law)

@@ -2,10 +2,8 @@ import basix
 import numpy as np
 import pytest
 
-from uflx_basix.cells import cell
+from uflx_basix.cells import cell, topology
 from uflx_basix.spaces import space
-
-from ..uflx.library import static_topology
 
 
 def test_native_variant_precision_and_dof_order_are_part_of_the_space():
@@ -31,12 +29,23 @@ def test_native_variant_precision_and_dof_order_are_part_of_the_space():
     assert space(K, create(order, basix.LagrangeVariant.equispaced)) is not V
 
 
+def test_topology_slots_are_distinct_even_for_repeated_cell_types():
+    triangle = basix.CellType.triangle
+    T = topology(triangle, triangle)
+    assert T.cell_types == (cell(triangle), cell(triangle))
+    assert T[0] is not T[1]
+    with pytest.raises(ValueError, match="at least one cell"):
+        topology()
+    with pytest.raises(ValueError, match="same dimension"):
+        topology(triangle, basix.CellType.interval)
+
+
 def test_native_elements_follow_topology_slots():
     tri = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1)
     quad = basix.create_tp_element(
         basix.ElementFamily.P, basix.CellType.quadrilateral, 2, basix.LagrangeVariant.equispaced
     )
-    T = static_topology((cell(tri.cell_type), cell(quad.cell_type)), ((0, 1, 2), (1, 3, 2, 4)))
+    T = topology(tri.cell_type, quad.cell_type)
     V = space(T, (tri, quad))
     assert V.elements == (tri, quad)
     assert V.element(1).dof_ordering == quad.dof_ordering
