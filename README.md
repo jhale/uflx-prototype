@@ -1,4 +1,4 @@
-# Experimental UFLx core language implementation
+# Experimental UFLx Core
 
 UFLx core is an expressive minimal language for writing finite element
 variational forms. It is a potential successor to
@@ -71,3 +71,5 @@ cyclomatic complexity.
 | 21–40 | 2 | 0 | 0 | 0 | 2 | ▏ |
 | 41+ | 0 | 0 | 0 | 1 | 1 | ▏ |
 | Total | 527 | 28 | 12 | 73 | 640 |  |
+
+## License

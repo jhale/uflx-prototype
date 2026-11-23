@@ -3,9 +3,9 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "uflx-spec-interpreter"
+name = "uflx-core-experimental"
 version = "0.1.0.dev0"
-description = "A numerical reference interpreter and symbolic transformations for UFLx"
+description = "An experimental Python implementation of the UFLx core language"
 requires-python = ">=3.11"
 dependencies = [
     "numpy",
