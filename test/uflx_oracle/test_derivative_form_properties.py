@@ -3,12 +3,12 @@ import sys
 
 import numpy as np
 
-from uflx._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx._src.passes import applications, derivatives
 from uflx.arithmetic import absolute, add, conjugate, multiply, num, real_part
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.nodes import ScalarType
+from uflx_extensions.complex_differentiation import complex_derivative_parts
 from uflx_oracle.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, ill_typed

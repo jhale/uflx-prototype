@@ -24,7 +24,7 @@ addopts = "-n 6 --import-mode=importlib"
 
 [tool.coverage.run]
 branch = true
-source = ["uflx", "uflx_basix", "uflx_oracle"]
+source = ["uflx", "uflx_basix", "uflx_extensions", "uflx_oracle"]
 
 [tool.coverage.report]
 show_missing = true
@@ -39,10 +39,10 @@ select = ["E", "W", "F", "I", "RUF", "UP", "ICN", "NPY", "FLY", "LOG", "ISC"]
 ignore = ["E731", "E741"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["uflx", "uflx_basix", "uflx_oracle"]
+known-first-party = ["uflx", "uflx_basix", "uflx_extensions", "uflx_oracle"]
 
 [tool.pyright]
-include = ["src/uflx"]
+include = ["src/uflx", "src/uflx_extensions"]
 exclude = ["src/uflx_oracle", "src/uflx_basix", "test"]
 typeCheckingMode = "strict"
 pythonVersion = "3.11"

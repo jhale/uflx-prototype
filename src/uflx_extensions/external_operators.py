@@ -3,18 +3,28 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, NamedTuple, final
+from collections.abc import Callable
+from functools import cached_property
+from typing import NamedTuple, final
 
-from ..nodes import AbstractExpression, Base
-from ..nodes.caching import cached
-from ..nodes.scalar_types import ExpressionScalarType
-from ..nodes.static import free_indices
+from uflx.algorithms import expand_derivatives_with, free_indices
+from uflx.nodes import (
+    AbstractDomain,
+    AbstractExpression,
+    AbstractExtent,
+    AbstractTopology,
+    Base,
+    ExpressionScalarType,
+    Index,
+)
 
-if TYPE_CHECKING:
-    from ..nodes.domains import AbstractDomain
-    from ..nodes.indices import AbstractExtent, Index
-    from ..nodes.topology import AbstractTopology
-    from ..rules.differentiation import Transform
+__all__ = [
+    "AbstractOperation",
+    "ExternalOperator",
+    "OutputType",
+    "apply_external_derivatives",
+    "external_operator",
+]
 
 
 class OutputType(NamedTuple):
@@ -41,8 +51,7 @@ class ExternalOperator(AbstractExpression):
     operation: AbstractOperation
     operands: tuple[AbstractExpression, ...]
 
-    @property
-    @cached
+    @cached_property
     def output_type(self) -> OutputType:
         return self.operation.output_type(self.operands)
 
@@ -63,7 +72,6 @@ class ExternalOperator(AbstractExpression):
         return ()
 
     @property
-    @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return free_indices(*self.operands)
 
@@ -79,7 +87,9 @@ def external_operator(
 
 
 def _tangent(
-    expression: AbstractExpression, at: Transform, derivative: Transform
+    expression: AbstractExpression,
+    at: Callable[[AbstractExpression], AbstractExpression],
+    derivative: Callable[[AbstractExpression], AbstractExpression],
 ) -> AbstractExpression | None:
     if isinstance(expression, ExternalOperator):
         points = tuple(map(at, expression.operands))
@@ -90,6 +100,4 @@ def _tangent(
 
 def apply_external_derivatives(f: AbstractExpression) -> AbstractExpression:
     """Apply EO01 together with the core directional derivative rules."""
-    from ..passes.derivatives import expand_derivatives_with
-
     return expand_derivatives_with(f, _tangent)

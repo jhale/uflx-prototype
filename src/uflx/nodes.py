@@ -59,6 +59,7 @@ from ._src.nodes import (
     TransformationLaw,
     Zero,
 )
+from ._src.nodes.scalar_types import ExpressionScalarType
 
 __all__ = [
     "Absolute",
@@ -91,6 +92,7 @@ __all__ = [
     "DomainMap",
     "DualSpace",
     "EuclideanSpace",
+    "ExpressionScalarType",
     "Float",
     "Form",
     "Function",

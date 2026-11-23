@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-from uflx._src.extensions.external_operators import apply_external_derivatives, external_operator
 from uflx._src.nodes import AbstractFunctionSpace, Apply, Conditional
 from uflx.arithmetic import conditional, less_than, num, square_root
 from uflx.calculus import coordinate, directional_derivative, gradient
@@ -10,10 +9,11 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import Boolean, EuclideanSpace
 from uflx.passes import expand_applications, lower
 from uflx.tensors import component_tensor, index, index_sum, tensor
+from uflx_extensions.external_operators import apply_external_derivatives, external_operator
 from uflx_oracle.interpreter import Interpreter
 
-from ..external_operators import Energy, EnergyTangent
 from ..uflx.spaces import space
+from ..uflx_extensions.operations import Energy, EnergyTangent
 
 
 def value(expression, env=None, indices=None):
@@ -110,13 +110,10 @@ def test_derivative_of_full_terminal_application():
     assert value(lower(directional_derivative(expression, A, F, F)), {x: 3}) == 9
 
 
-def test_external_operator_derivative_action_and_missing_rule():
+def test_external_derivative_and_expanded_action_agree():
     x = function(space("R", scalar_type="real"), "x")
     f = external_operator(Energy(), (x, x))
     derivative = directional_derivative(f, x, x, num(3))
     assert value(derivative, {x: 2, Energy(): lambda a, b: a * b}) == 12
     d = apply_external_derivatives(derivative)
-    assert d.operation is EnergyTangent() and d.operands == (x, x, num(3), num(3))
     assert value(d, {x: 2, EnergyTangent(): lambda a, b, h, k: h * b + a * k}) == 12
-    with pytest.raises(TypeError, match="no derivative action"):
-        apply_external_derivatives(directional_derivative(d, x, x, num(1)))

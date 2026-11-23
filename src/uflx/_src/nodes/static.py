@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 def free_indices(*es: AbstractExpression) -> tuple[tuple[Index, int | AbstractExtent], ...]:
+    """Collect free indices and their extents in first-operand occurrence order."""
     merged: dict[Index, int | AbstractExtent] = {}
     for e in es:
         merged |= dict(e.free_indices)

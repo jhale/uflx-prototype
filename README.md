@@ -1,8 +1,9 @@
 # UFLx spec interpreter
 
-The `uflx-spec-interpreter` distribution provides three Python packages. Import
-language operations from the `uflx` submodules, use `uflx_basix` for concrete
-reference cells, finite elements, interpolation and quadrature, and evaluate expressions with `uflx_oracle`.
+The `uflx-spec-interpreter` distribution provides four Python packages. Import
+core language operations from `uflx` submodules and optional language constructs
+from `uflx_extensions`. `uflx_basix` supplies reference cells, elements, interpolation
+and quadrature. `uflx_oracle` evaluates expressions.
 The experimental form compiler and its tests live on the `jhale/experimental-compiler` branch.
 The optional egglog optimiser and its tests live on `jhale/egglog-experiment`.
 
@@ -36,7 +37,6 @@ The implementation in `_src/` is organised by responsibility.
 | `algorithms/` | Traversal, rewriting, substitution and generated names |
 | `rules/` | Mathematical rewrite rules |
 | `passes/` | Pass recipes and output contracts |
-| `extensions/` | Optional language extensions |
 
 `directional_derivative(f, x, h)` takes the derivative with respect to `x` at `x`
 in direction `h`. Use `directional_derivative(f, x, a, h)` to evaluate it at `a`.
@@ -55,15 +55,21 @@ The core implements the evaluation passes in the UFLx language specification
 (`design/language.md` in the uflx repository). The tests check the passes against
 an independent numerical reference interpreter.
 
-The oracle imports the Basix extension and the core language. The Basix
-extension imports the core. `test/uflx/test_boundaries.py` checks this order.
+The oracle uses the core and both extension packages. `uflx_basix` and
+`uflx_extensions` each import the public UFLx submodules independently.
+`test/uflx/test_boundaries.py` checks these dependencies.
 
 - `uflx` implements the core language and its transformations.
 - `uflx_basix` attaches Basix reference cells, finite elements and basis values
   to UFLx expressions. Its two operations use reference-cell data.
   `interpolate(f, V)` uses the element’s sampling points and interpolation matrix.
   `apply_quadrature` turns one reference integral into a weighted sum.
-- `uflx_oracle` evaluates the resulting expressions numerically.
+- `uflx_extensions.complex_differentiation` builds complex-linear and antilinear
+  projections from core directional derivatives. The oracle evaluates these compositions directly.
+- `uflx_extensions.external_operators` defines an expression node and uses
+  `uflx.algorithms.expand_derivatives_with` to supply its symbolic derivative rule.
+- `uflx_oracle` evaluates the resulting expressions numerically. It recognises
+  the external operator node and invokes the function supplied for that operation.
 
 ### Interpolation on a reference cell
 
@@ -210,7 +216,7 @@ Nested internal binders may freshen during substitution.
 `Boolean`, `less_than` and `conditional` support symbolic selection.
 Eager evaluation selects a branch for each free-index assignment. A traced
 predicate produces a JAX conditional, with both branches traced.
-Library operations can use `_src/extensions/external_operators.py` to declare an
+Library operations can use `uflx_extensions.external_operators` to declare an
 operand signature and a derivative action. Its `apply_external_derivatives` recipe
 passes the library all point values followed by all direction values in operand order.
 
@@ -275,7 +281,7 @@ by these probes. The remaining public binding API migration is separate.
 may use different scalar types. Output scalar type does not imply complex
 linearity in an argument.
 
-The optional library composition in `extensions/complex_differentiation.py`
+`complex_derivative_parts` in `uflx_extensions.complex_differentiation`
 returns `(D[h] - i*D[i*h])/2` and `(D[h] + i*D[i*h])/2` for complex variables.
 Bind a fresh direction as `h` or `conjugate(h)`, respectively. The helper neither
 binds nor evaluates; it is not a core primitive. Both parts can be complex even
@@ -462,7 +468,7 @@ point. JAX differentiates through either calling convention.
 
 ```python
 import jax.numpy as jnp
-from uflx._src.extensions.external_operators import external_operator
+from uflx_extensions.external_operators import external_operator
 from uflx_oracle.interpreter import Interpreter, Pointwise
 
 response = external_operator(law, (x[0],))
@@ -489,7 +495,8 @@ Run `pytest test` for the full suite or select a package, for example
 | --- | --- |
 | `test/uflx/` | Core language and passes, with fixture spaces, runtime data and topologies |
 | `test/uflx_basix/` | Core and Basix, including reference elements, interpolation and quadrature |
-| `test/uflx_oracle/` | Both lower layers and oracle evaluation |
+| `test/uflx_extensions/` | Core operations, extension nodes and symbolic derivative rules |
+| `test/uflx_oracle/` | Core, both extension packages and oracle evaluation |
 
 Shared fixtures follow the same import order.
 
@@ -560,7 +567,7 @@ inserts directions unchanged. `apply_derivatives` does not collect scalar algebr
 ## Static type checking
 
 Install the `lint` extra and run `pyright` from the repository root. The strict
-configuration covers `src/uflx`. No diagnostic categories are disabled.
+configuration covers `src/uflx` and `src/uflx_extensions`. No diagnostic categories are disabled.
 
 Python argument types are now checked statically instead of repeatedly checked
 inside constructors and passes. Construction still enforces the primitive argument
@@ -612,8 +619,8 @@ The ordinary test suite also checks three source conventions:
 - `test/uflx/test_boundaries.py` resolves absolute and relative imports, including
   `from package import submodule`, local imports and imports under
   `TYPE_CHECKING`. It enforces the existing package dependency direction and
-  prevents core implementation modules from importing the public submodules,
-  `_draft`, or `_src/extensions`. Extension modules may depend on the core. It also keeps static queries,
+  checks that extensions use public core modules. Core implementation modules
+  use internal imports and exclude draft modules. The check also keeps static queries,
   traversal, rewrite completion and substitution independent of passes and
   contracts, and prevents transformations from importing their lowering recipe.
 - `test/uflx/test_overloads.py` checks that expression operator methods return calls
@@ -638,7 +645,7 @@ without the specification.
 
 Each public submodule declares its exports in `__all__`. Importing `uflx` alone
 loads only the package root. Node classes retain the spelling in the specification.
-The Basix extension uses these public imports.
+Both extension packages use these public imports.
 
 Shared interfaces have ordinary names within `_src`. Module-local helpers begin
 with `_`. Strict Pyright checks cross-module access.

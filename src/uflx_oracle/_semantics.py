@@ -3,7 +3,6 @@
 import jax
 import jax.numpy as jnp
 
-from uflx._src.extensions.external_operators import ExternalOperator
 from uflx.algorithms import operands as node_operands
 from uflx.nodes import (
     Absolute,
@@ -45,6 +44,7 @@ from uflx.nodes import (
     Tensor,
     Zero,
 )
+from uflx_extensions.external_operators import ExternalOperator
 
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors

@@ -7,16 +7,16 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from uflx._src.extensions.external_operators import AbstractOperation, OutputType, external_operator
 from uflx.arithmetic import conditional, conjugate, less_than, num
 from uflx.calculus import coordinate, directional_derivative, gradient
 from uflx.forms import function
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import determinant, tensor
+from uflx_extensions.external_operators import AbstractOperation, OutputType, external_operator
 from uflx_oracle.interpreter import Interpreter, Pointwise
 
-from ..external_operators import Energy
 from ..uflx.spaces import space as field_space
+from ..uflx_extensions.operations import Energy
 
 
 def test_derivatives_at_scales_where_perturbations_round_away():

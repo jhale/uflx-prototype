@@ -4,14 +4,14 @@ import numpy as np
 import pytest
 
 from uflx import nodes
-from uflx._src.extensions.external_operators import external_operator
 from uflx.arithmetic import num, power
 from uflx.calculus import coordinate
 from uflx.nodes import AbstractExpression, EuclideanSpace
+from uflx_extensions.external_operators import external_operator
 from uflx_oracle.interpreter import Interpreter
 
-from ..external_operators import Energy
 from ..uflx.library import IndexTable
+from ..uflx_extensions.operations import Energy
 
 
 def test_a_gathered_index_reads_an_index_value_and_gathers_nest():

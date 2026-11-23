@@ -7,14 +7,14 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from uflx._src.extensions.external_operators import external_operator
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import function
+from uflx_extensions.external_operators import external_operator
 from uflx_oracle.interpreter import Interpreter, Pointwise
 
-from ..external_operators import Energy
 from ..uflx.spaces import space as field_space
 from ..uflx_basix.cells import reference_simplex
+from ..uflx_extensions.operations import Energy
 from .test_differentiation import Sine
 
 

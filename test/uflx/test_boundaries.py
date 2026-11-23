@@ -12,6 +12,14 @@ PUBLIC_MODULES = {
 }
 
 
+DEPENDENCIES = {
+    "uflx": set(),
+    "uflx_basix": {"uflx"},
+    "uflx_extensions": {"uflx"},
+    "uflx_oracle": {"uflx", "uflx_basix", "uflx_extensions"},
+}
+
+
 def imports_in(source, module, is_package=False, root=SOURCE):
     """Resolve static imports, including local and TYPE_CHECKING imports."""
     package = module if is_package else module.rpartition(".")[0]
@@ -47,17 +55,18 @@ def assert_imports_none_of(package, forbidden):
         assert not forbidden & {m.split(".")[0] for m in imported(path)}, path
 
 
-def test_the_core_imports_neither_the_extension_nor_the_oracle():
-    assert_imports_none_of("uflx", {"uflx_basix", "uflx_oracle"})
-    assert_imports_none_of("uflx_basix", {"uflx_oracle"})
+@pytest.mark.parametrize("package", DEPENDENCIES)
+def test_package_dependencies(package):
+    forbidden = DEPENDENCIES.keys() - {package} - DEPENDENCIES[package]
+    assert_imports_none_of(package, forbidden)
 
 
-def test_extension_uses_public_core_modules():
-    for path in files("uflx_basix"):
-        # Quadrature names the bound sampling and component indices through the public API.
-        modules = (
-            PUBLIC_MODULES if path.name == "quadrature.py" else PUBLIC_MODULES - {"uflx.algorithms"}
-        )
+@pytest.mark.parametrize("package", ["uflx_basix", "uflx_extensions"])
+def test_extension_uses_public_core_modules(package):
+    for path in files(package):
+        modules = PUBLIC_MODULES
+        if package == "uflx_basix" and path.name != "quadrature.py":
+            modules = modules - {"uflx.algorithms"}
         for m in imported(path):
             if m.partition(".")[0] == "uflx":
                 assert m in modules, (path, m)
@@ -65,13 +74,12 @@ def test_extension_uses_public_core_modules():
 
 def test_suite_imports_follow_package_order():
     root = SOURCE.parent
-    layers = ("uflx", "uflx_basix", "uflx_oracle")
     for path in (root / "test").rglob("*.py"):
         folder = path.relative_to(root / "test").parts[0]
         # Helpers directly under test/ are available to every suite.
-        level = layers.index(folder) if folder in layers else 0
-        forbidden = set(layers[level + 1 :])
-        if level == 0:
+        owner = folder if folder in DEPENDENCIES else "uflx"
+        forbidden = DEPENDENCIES.keys() - {owner} - DEPENDENCIES[owner]
+        if owner in {"uflx", "uflx_extensions"}:
             forbidden.add("basix")
         for module in imported(path, root):
             package = module.removeprefix("test.").partition(".")[0]
@@ -91,16 +99,11 @@ assert not any(not name.startswith('_') for name in vars(uflx))
 def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
     for path in files("uflx"):
         relative = path.relative_to(SOURCE / "uflx")
-        if relative.parts[0] != "_src" or "extensions" in relative.parts:
+        if relative.parts[0] != "_src":
             continue
         for module in imported(path):
             assert module != "uflx" and module not in PUBLIC_MODULES, (path, module)
-            assert not module.startswith(
-                (
-                    "uflx._draft",
-                    "uflx._src.extensions",
-                )
-            ), (path, module)
+            assert not module.startswith("uflx._draft"), (path, module)
 
 
 @pytest.mark.parametrize(
@@ -133,10 +136,10 @@ def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
         ),
         ("from . import function", "uflx.example", False, "uflx"),
         (
-            "if TYPE_CHECKING:\n    from ..extensions import external_operators",
+            "if TYPE_CHECKING:\n    from uflx_extensions import external_operators",
             "uflx._src.nodes.example",
             False,
-            "uflx._src.extensions.external_operators",
+            "uflx_extensions.external_operators",
         ),
         (
             "def f():\n    from uflx._src import arithmetic as a",

@@ -12,21 +12,21 @@ import numpy as np
 import pytest
 from jax.tree_util import Partial
 
-from uflx._src.extensions.external_operators import (
+from uflx.arithmetic import num
+from uflx.calculus import coordinate, directional_derivative
+from uflx.forms import apply, form, function
+from uflx.nodes import Apply, DirectionalDerivative, Function, Integer, Product
+from uflx_extensions.external_operators import (
     AbstractOperation,
     ExternalOperator,
     OutputType,
     external_operator,
 )
-from uflx.arithmetic import num
-from uflx.calculus import coordinate, directional_derivative
-from uflx.forms import apply, form, function
-from uflx.nodes import Apply, DirectionalDerivative, Function, Integer, Product
 from uflx_oracle.interpreter import Interpreter
 
-from ..external_operators import Energy
 from ..uflx.spaces import space
 from ..uflx_basix.integrals import D
+from ..uflx_extensions.operations import Energy
 
 
 def pointwise(fn, *operands):

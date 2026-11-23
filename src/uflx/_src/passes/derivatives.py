@@ -23,7 +23,12 @@ def apply_derivatives(f: AbstractExpression) -> AbstractExpression:
 def expand_derivatives_with(
     f: AbstractExpression, rule: DerivativeRule | None
 ) -> AbstractExpression:
-    # Derivative evaluation does no optional algebraic collection.
+    """Expand directional derivatives with an optional rule for library nodes.
+
+    The rule receives the node, a function to evaluate an operand at the
+    differentiation point, and a function to differentiate an operand. Return
+    a derivative expression or None to continue with the core rules.
+    """
     differential = cache(deriv)
 
     def evaluate(e: AbstractExpression) -> AbstractExpression:

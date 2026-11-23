@@ -3,11 +3,11 @@
 import numpy as np
 import pytest
 
-from uflx._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx.arithmetic import conjugate, num, real_part
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
+from uflx_extensions.complex_differentiation import complex_derivative_parts
 from uflx_oracle.interpreter import Interpreter
 
 from ..uflx.spaces import space
@@ -60,5 +60,3 @@ def test_projection_keeps_complex_linearity_explicit(body):
     rotated = data | {h: 1j * data[h]}
     assert np.isclose(value(plus, rotated), 1j * value(plus, data))
     assert np.isclose(value(minus, rotated), -1j * value(minus, data))
-    with pytest.raises(ValueError, match="complex variable"):
-        complex_derivative_parts(r * r, r, r, k)

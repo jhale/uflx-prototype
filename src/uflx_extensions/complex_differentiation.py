@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from ..nodes import (
+from uflx.calculus import directional_derivative
+from uflx.nodes import (
     AbstractExpression,
     Complex,
-    DirectionalDerivative,
     Function,
     Integer,
     ScalarType,
 )
-from ..nodes.arguments import argument_members, map_argument
+
+__all__ = ["complex_derivative_parts"]
 
 
 def complex_derivative_parts(
@@ -26,9 +27,11 @@ def complex_derivative_parts(
     entries h and conjugate(h), respectively. Their sum is the full real
     differential; each contribution can be complex even when f is real.
     """
-    if any(variable.space.scalar_type != ScalarType.complex for variable in argument_members(x)):
+    variables = x if isinstance(x, tuple) else (x,)
+    if any(variable.space.scalar_type != ScalarType.complex for variable in variables):
         raise ValueError("complex derivative parts require a complex variable")
     i = Complex(Integer(0), Integer(1))
-    delta = DirectionalDerivative(f, x, a, h)
-    rotated = DirectionalDerivative(f, x, a, map_argument(lambda value: i * value, h))
+    delta = directional_derivative(f, x, a, h)
+    rotated_direction = tuple(i * value for value in h) if isinstance(h, tuple) else i * h
+    rotated = directional_derivative(f, x, a, rotated_direction)
     return (delta - i * rotated) / Integer(2), (delta + i * rotated) / Integer(2)

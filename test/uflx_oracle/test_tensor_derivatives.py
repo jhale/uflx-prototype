@@ -3,13 +3,13 @@
 import numpy as np
 import pytest
 
-from uflx._src.extensions.complex_differentiation import complex_derivative_parts
 from uflx._src.nodes import AbstractExpression, Zero
 from uflx.arithmetic import conjugate, num
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, form, function
 from uflx.passes import apply_derivatives
 from uflx.tensors import tensor
+from uflx_extensions.complex_differentiation import complex_derivative_parts
 from uflx_oracle.interpreter import Interpreter
 
 from ..uflx.spaces import space
