@@ -39,7 +39,7 @@ L_ref = lower(L)
 rule = basix.make_quadrature(triangle, degree=2)
 # Rewrite the continuous integral with quadrature
 a_quadrature = apply_quadrature(a_ref, *rule)
-L_quadrature = apply_quadrature(a_ref, *rule) 
+L_quadrature = apply_quadrature(L_ref, *rule)
 
 # Note that the form arguments are the basis functions on the reference cell.
 a = form(a_quadrature, (v_ref, u_ref))

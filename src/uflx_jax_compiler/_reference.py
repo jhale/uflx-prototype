@@ -1,0 +1,312 @@
+"""Factor a fixed quadrature sum into reference tensors and cell coefficients."""
+
+from collections import defaultdict
+from functools import cache, lru_cache, reduce
+from itertools import product
+from math import prod
+from operator import add, attrgetter, mul
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+
+from uflx.algorithms import operands
+from uflx.arithmetic import num
+from uflx.nodes import (
+    Absolute,
+    AbstractExpression,
+    ComponentTensor,
+    Coordinate,
+    Determinant,
+    Division,
+    DomainMap,
+    EuclideanSpace,
+    Float,
+    Form,
+    Function,
+    Gradient,
+    Indexed,
+    IndexSum,
+    Integer,
+    Integral,
+    Inverse,
+    Logarithm,
+    Power,
+    Product,
+    PullBack,
+    SquareRoot,
+    Sum,
+    Tensor,
+    Zero,
+)
+from uflx.tensors import indexed, tensor
+
+from ._finite_elements import basix_space, is_basix_basis
+
+# Bound distributive expansion and the largest table (including its quadrature axis).
+_MAX_EXPANSION = 256
+_MAX_ENTRIES = 128 * 1024
+
+
+_ALGEBRA = (
+    Absolute,
+    ComponentTensor,
+    Coordinate,
+    Determinant,
+    Division,
+    Float,
+    Gradient,
+    Indexed,
+    IndexSum,
+    Integer,
+    Inverse,
+    Logarithm,
+    Power,
+    Product,
+    PullBack,
+    SquareRoot,
+    Sum,
+    Tensor,
+    Zero,
+)
+
+
+class _UseQuadrature(Exception):
+    """The ordinary quadrature kernel handles this expression."""
+
+
+def _literal(node):
+    match node:
+        case Float(x) | Integer(x):
+            return x
+        case Tensor(entries):
+            return tuple(map(_literal, entries))
+    raise _UseQuadrature
+
+
+def _sampled(body, inputs):
+    """Recognize the actual weighted point evaluations, independently of index labels."""
+    match body:
+        case IndexSum(
+            Product(Indexed(weights, (w,)), Integral(PullBack(expr, mapping), domain) as sample),
+            (q,),
+        ):
+            match mapping:
+                case DomainMap(source, ComponentTensor(Indexed(points, (p, j)), (k,)), cell):
+                    if (
+                        q == w == p
+                        and j == k
+                        and q != j
+                        and domain == source == EuclideanSpace(0)
+                        and sample not in inputs
+                        and (sample, domain) not in inputs
+                        and not expr.free_indices
+                        and not expr.argument_spaces
+                        and not expr.value_shape
+                    ):
+                        return expr, cell, points, weights
+    raise _UseQuadrature
+
+
+def _factors(body, arguments, inputs):
+    """Expand bound component indices and collect scalar products with equal cell factors."""
+
+    @cache
+    def fields(node):
+        if isinstance(node, Function):
+            if node.scalar_type != "real" or (node not in arguments and node not in inputs):
+                raise _UseQuadrature
+            return frozenset((node,))
+        if is_basix_basis(node):
+            return frozenset()
+        if isinstance(node, AbstractExpression) and (
+            node.scalar_type != "real" or not isinstance(node, _ALGEBRA)
+        ):
+            raise _UseQuadrature
+        names = [name for name in node.argument_names if name not in node.labels]
+        return frozenset().union(*(fields(child) for child in operands(node, names)))
+
+    # Unknown operators and lexical binders must keep their original sampling semantics.
+    used = fields(body)
+    runtime = tuple(x for x in inputs if x in used and x not in arguments)
+
+    visits = 0
+
+    def expand(node, components, bound):
+        nonlocal visits
+        visits += 1
+        if visits > _MAX_EXPANSION:
+            raise _UseQuadrature
+        deps = fields(node)
+        if not node.free_indices and deps <= arguments:
+            yield (indexed(node, components),), ()
+            return
+        match node:
+            case Indexed(expr, indices):
+                try:
+                    selected = tuple(i if isinstance(i, int) else bound[i] for i in indices)
+                except KeyError:
+                    raise _UseQuadrature from None
+                yield from expand(expr, selected, bound)
+            case ComponentTensor(expr, indices):
+                yield from expand(expr, (), bound | dict(zip(indices, components, strict=True)))
+            case IndexSum(expr, indices):
+                extents = dict(expr.free_indices)
+                sizes = [extents[i] for i in indices]
+                if (
+                    not all(isinstance(n, int) and n > 0 for n in sizes)
+                    or prod(sizes) > _MAX_EXPANSION
+                ):
+                    raise _UseQuadrature
+                for key in product(*(range(n) for n in sizes)):
+                    yield from expand(
+                        expr, components, bound | dict(zip(indices, key, strict=True))
+                    )
+            case Product(a, b):
+                for r, c in expand(a, components if a.value_shape else (), bound):
+                    for s, d in expand(b, components if b.value_shape else (), bound):
+                        yield r + s, c + d
+            case Sum(a, b):
+                yield from expand(a, components, bound)
+                yield from expand(b, components, bound)
+            case Tensor(entries):
+                yield from expand(entries[components[0]], components[1:], bound)
+            case _ if not node.free_indices and deps.isdisjoint(arguments):
+                yield (), (indexed(node, components),)
+            case _:
+                raise _UseQuadrature
+
+    # R_ijrs and R_ijsr can share a cell coefficient. Sorting only scalar factors
+    # also preserves the distinct coefficients of a nonsymmetric form.
+    by_reference = defaultdict(list)
+    digest = attrgetter("digest")
+    for reference, cell in expand(body, (), {}):
+        by_reference[tuple(sorted(reference, key=digest))].append(tuple(sorted(cell, key=digest)))
+
+    def monomial(factors):
+        return reduce(mul, factors) if factors else num(1)
+
+    by_cell = defaultdict(list)
+    for factors, coefficients in by_reference.items():
+        polynomial = tuple(sorted(coefficients, key=lambda term: tuple(map(digest, term))))
+        by_cell[polynomial].append(monomial(factors))
+    reference = tensor(tuple(reduce(add, terms) for terms in by_cell.values()))
+    return reference, tuple(by_cell), runtime
+
+
+def _contraction(body, arguments, inputs, ordinary):
+    expr, cell, points, weights = _sampled(body, inputs)
+    basis_size = prod(arg.space.num_dofs for arg in arguments)
+    if not all(isinstance(n, int) for n in points.value_shape) or (
+        basis_size * prod(points.value_shape) > _MAX_ENTRIES
+    ):
+        raise _UseQuadrature
+    reference, coefficients, runtime = _factors(expr, frozenset(arguments), inputs)
+    if basis_size * weights.value_shape[0] * reference.value_shape[0] > _MAX_ENTRIES:
+        raise _UseQuadrature
+    points, weights = np.asarray(_literal(points)), np.asarray(_literal(weights))
+    basis = ordinary(Form(reference, arguments), (cell,))
+    # Reuse cell factors shared across different entries of the geometry tensor.
+    leaves = dict.fromkeys(f for terms in coefficients for term in terms for f in term)
+    reads = {f: ordinary(f, (*runtime, cell)) for f in leaves}
+
+    def read(*args):
+        values = {f: evaluate(*args) for f, evaluate in reads.items()}
+        return jnp.stack(
+            [
+                sum(prod(values[f] for f in term) for term in polynomial)
+                for polynomial in coefficients
+            ]
+        )
+
+    positions = [inputs.index(x) for x in runtime]
+    numeric_kinds = ["fiu" if basix_space(x.space) is not None else "f" for x in runtime]
+
+    @lru_cache(maxsize=2)
+    def reference_table(dtype):
+        # Store a host constant, never a tracer from an enclosing jit, vmap or AD.
+        with jax.ensure_compile_time_eval():
+            samples = jax.jit(jax.vmap(basis))(jnp.asarray(points, dtype=dtype))
+            table = jnp.tensordot(jnp.asarray(weights, dtype=dtype), samples, axes=1)
+            return np.ascontiguousarray(np.moveaxis(np.asarray(table), -1, 0))
+
+    @lru_cache(maxsize=4)
+    def table_for(specs, dtype):
+        # A traced result may have out_axes=None only if it carries no point axis.
+        # Abstract coefficient values keep this proof independent of the current cell.
+        mapped = jax.vmap(read, in_axes=(None,) * len(specs) + (0,), out_axes=None)
+        try:
+            jax.eval_shape(mapped, *specs, jax.ShapeDtypeStruct(points.shape, dtype))
+            return reference_table(dtype)
+        except (KeyError, TypeError, ValueError):
+            # A point-dependent result or another required binding uses ordinary evaluation.
+            return None
+
+    fallback = ordinary(Form(body, arguments), inputs)
+
+    def kernel(*values):
+        if len(values) != len(inputs):
+            return fallback(*values)
+        data = tuple(values[i] for i in positions)
+        if any(callable(v) or isinstance(v, (dict, AbstractExpression)) for v in data):
+            return fallback(*values)
+        try:
+            arrays = tuple(map(jnp.asarray, data))
+        except (TypeError, ValueError):
+            return fallback(*values)
+        if all(v.dtype.kind in kinds for v, kinds in zip(arrays, numeric_kinds, strict=True)):
+            specs = tuple(jax.ShapeDtypeStruct(v.shape, v.dtype) for v in arrays)
+            table = table_for(specs, np.float64 if jax.config.x64_enabled else np.float32)
+            if table is not None:
+                return jnp.tensordot(read(*arrays, points[0]), table, axes=1)
+        return fallback(*values)
+
+    return kernel
+
+
+def reference_kernel(expression, inputs, ordinary):
+    """Specialize eligible integrals independently, retaining the usual trace elsewhere."""
+    if not isinstance(expression, (Form, Sum)) or any(
+        not (
+            isinstance(key, (Function, Integral))
+            or (isinstance(key, tuple) and len(key) == 2 and isinstance(key[0], Integral))
+        )
+        for key in inputs
+    ):
+        return None
+
+    @cache
+    def visit(expr):
+        if expr.free_indices or expr.value_shape or expr.scalar_type != "real":
+            return None
+        if isinstance(expr, Form):
+            args, body = expr.arguments, expr.expression
+            if (
+                not args
+                or body.argument_spaces
+                or any(
+                    not isinstance(a, Function)
+                    or basix_space(a.space) is None
+                    or a.scalar_type != "real"
+                    for a in args
+                )
+            ):
+                return None
+            if not isinstance(body, Sum):
+                try:
+                    return _contraction(body, args, inputs, ordinary)
+                except _UseQuadrature:
+                    return None
+            a, b = Form(body.first, args), Form(body.second, args)
+        elif isinstance(expr, Sum):
+            a, b = expr.first, expr.second
+        else:
+            return None
+        left, right = visit(a), visit(b)
+        if left is None and right is None:
+            return None
+        left = left or ordinary(a, inputs)
+        right = right or ordinary(b, inputs)
+        return lambda *values: left(*values) + right(*values)
+
+    return visit(expression)

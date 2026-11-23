@@ -9,6 +9,7 @@ from uflx.nodes import AbstractDomain, AbstractExpression, AbstractTopology, Int
 from ._context import Sample
 from ._external import Pointwise as Pointwise
 from ._finite_elements import local_basis
+from ._reference import reference_kernel
 from ._semantics import evaluate
 
 
@@ -55,6 +56,9 @@ def trace(expression: AbstractExpression, *inputs):
     For a mesh with different cell types, declare (integral, reference_cell)
     inputs for the respective rules. A point integral is evaluated exactly.
 
+    For separable real forms, fixed quadrature sums over reference basis functions
+    are precomputed and contracted with the cell data at evaluation.
+
     A blocked Basix field accepts flat DOFs or one block per scalar basis DOF.
     Unselected free indices become leading array axes in free-index order.
     An external operation takes a JAX-traceable implementation. Field operands
@@ -67,6 +71,10 @@ def trace(expression: AbstractExpression, *inputs):
         raise ValueError("each input must be declared once")
     _check_quadrature(expression, keys)
 
+    return reference_kernel(expression, inputs, _kernel) or _kernel(expression, inputs)
+
+
+def _kernel(expression, inputs):
     def action(*values):
         environment = {}
         points = {}

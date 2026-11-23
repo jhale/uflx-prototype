@@ -1,4 +1,4 @@
-# Experimental UFLx Core
+# Experimental UFLx core language implementation
 
 [UFLx core](https://fenics.github.io/uflx/language/) is an expressive minimal
 language specification for writing finite element variational forms. It is a
