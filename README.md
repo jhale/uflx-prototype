@@ -39,7 +39,7 @@ This Python library contains the following packages:
 
 - [P2 Poisson problem on a single triangle](examples/poisson.py)
 - [Mixed Poisson problem on a single triangle](examples/mixed_poisson.py)
-- [DG Poisson on a triangle and a quadrilateral sharing a curved edge](examples/dg_poisson.py)
+- [DG Poisson facet kernels on a mixed mesh of triangles and quadrilaterals](examples/dg_poisson.py)
 
 ## Statistics
 
