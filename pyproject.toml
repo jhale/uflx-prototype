@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
+# Batched Basix tabulation uses jax.pure_callback's vmap_method, added in 0.4.35.
 jax = ["fenics-basix", "jax>=0.4.35"]
 test = ["pytest", "pytest-xdist", "coverage", "fenics-basix", "jax>=0.4.35"]
 lint = ["ruff", "pyright"]
