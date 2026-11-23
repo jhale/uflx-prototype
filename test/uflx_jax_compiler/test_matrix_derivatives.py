@@ -9,7 +9,7 @@ from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
-from uflx.tensors import component_tensor, determinant, index, tensor
+from uflx.tensors import component_tensor, determinant, index, inverse, tensor
 from uflx_jax_compiler import trace
 
 from ..testutil import contains
@@ -111,3 +111,38 @@ def test_determinant_gradient_derivative_at_a_singular_minor():
     direction = np.diag([2.0, 0.0, 0.0])
     _, mixed = jax.jvp(jax.grad(evaluate), (point,), (direction,))
     np.testing.assert_allclose(mixed, np.diag([0.0, 0.0, 6.0]))
+
+
+@pytest.mark.parametrize("n", [2, 3])
+@pytest.mark.parametrize("scalar_type", ["real", "complex"])
+def test_small_inverse_under_vmap_and_ad(n, scalar_type):
+    A = function(space("inverse-matrix", (n, n), scalar_type=scalar_type), "A")
+    kernel = trace(inverse(A), A)
+    rng = np.random.default_rng(15)
+    matrix = rng.normal(size=(n, n)) + n * np.eye(n)
+    direction = rng.normal(size=(n, n))
+    if scalar_type == "complex":
+        matrix = matrix + 1j * rng.normal(size=(n, n))
+        direction = direction + 1j * rng.normal(size=(n, n))
+    # Permuting the rows gives each mapped item a different first pivot.
+    batch = np.stack([np.roll(matrix, k, axis=0) for k in range(n)])
+    directions = np.broadcast_to(direction, batch.shape)
+    inv = np.linalg.inv(batch)
+    mapped = jax.vmap(kernel)
+    values, tangents = jax.jit(lambda a, h: jax.jvp(mapped, (a,), (h,)))(batch, directions)
+    np.testing.assert_allclose(values, inv, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(tangents, -inv @ directions @ inv, rtol=1e-12, atol=1e-12)
+    _, pullback = jax.vjp(mapped, batch)
+    transpose = inv.swapaxes(-1, -2)
+    np.testing.assert_allclose(pullback(directions)[0], -transpose @ directions @ transpose)
+
+
+@pytest.mark.parametrize("n", [2, 3])
+def test_small_inverse_at_extreme_scales(n):
+    A = function(space("scaled-matrix", (n, n), scalar_type="real"), "A")
+    kernel = jax.jit(jax.vmap(trace(inverse(A), A)))
+    # The inverse is representable even when a determinant overflows or underflows.
+    scales = np.array([1e200, 1e-200])[:, None, None]
+    matrix = (np.eye(n) + np.triu(np.ones((n, n))))[::-1]
+    result = kernel(scales * matrix) * scales
+    np.testing.assert_allclose(result, np.broadcast_to(np.linalg.inv(matrix), result.shape))

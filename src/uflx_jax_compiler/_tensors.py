@@ -127,7 +127,34 @@ def solve(matrix, rhs):
     return jnp.linalg.solve(matrix, rhs)
 
 
+def _small_inverse(matrix):
+    """Invert a 2x2 or 3x3 matrix with pivoted row operations unrolled by JAX."""
+    n = matrix.shape[0]
+    matrix = matrix.astype(jnp.result_type(matrix, 0.0))
+    rows = list(jnp.concatenate((matrix, jnp.eye(n, dtype=matrix.dtype)), axis=1))
+
+    # Eliminate below each pivot in [A | I]. Pivoting avoids division by a
+    # small leading entry and does not require forming a determinant.
+    for k in range(n - 1):
+        for i in range(k + 1, n):
+            pivot, row = rows[k], rows[i]
+            swap = jnp.abs(row[k]) > jnp.abs(pivot[k])
+            rows[k] = jnp.where(swap, row, pivot)
+            rows[i] = jnp.where(swap, pivot, row)
+        for i in range(k + 1, n):
+            rows[i] = rows[i] - (rows[i][k] / rows[k][k]) * rows[k]
+
+    result = [row[n:] for row in rows]
+    for k in reversed(range(n)):
+        for j in range(k + 1, n):
+            result[k] = result[k] - rows[k][j] * result[j]
+        result[k] = result[k] / rows[k][k]
+    return jnp.stack(result)
+
+
 def inverse(matrix):
+    if matrix.shape in ((2, 2), (3, 3)):
+        return _small_inverse(matrix)
     return solve(matrix, jnp.eye(matrix.shape[0], dtype=matrix.dtype))
 
 

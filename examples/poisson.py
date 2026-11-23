@@ -28,19 +28,25 @@ u_ref, v_ref = function(V, "u"), function(V, "v")
 u = push_forward(u_ref, mesh, V.law)
 v = push_forward(v_ref, mesh, V.law)
 
-# Note that inside lower we have integrals on the physical mesh...
-a_ref = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
-L_ref = lower(integral(v, mesh))
+# We write integrals on the physical mesh using the pushed forward functions
+a = integral(gradient(u, mesh) @ gradient(v, mesh), mesh)
+L = integral(v, mesh)
+# and lower then brings them to core normal form. 
+a_ref = lower(a)
+L_ref = lower(L)
 
 # On an affine triangle both integrands are quadratic, so degree 2 is exact.
 rule = basix.make_quadrature(triangle, degree=2)
+# Rewrite the continuous integral with quadrature
+a_quadrature = apply_quadrature(a_ref, *rule)
+L_quadrature = apply_quadrature(a_ref, *rule) 
 
-# ...but after lower, which pulls the integral back to the reference cell, the
-# arguments of the form live on the reference element, hence v_ref and u_ref
-# are used.
-a = form(apply_quadrature(a_ref, *rule), (v_ref, u_ref))
-L = form(apply_quadrature(L_ref, *rule), (v_ref,))
+# Note that the form arguments are the basis functions on the reference cell.
+a = form(a_quadrature, (v_ref, u_ref))
+L = form(L_quadrature, (v_ref,))
 
+# Trace to JAX and JIT compile. All standard JAX transforms are supported, e.g.
+# differentiation, mapping etc.
 load = jax.jit(trace(L, x))
 stiffness = jax.jit(trace(a, x))
 
