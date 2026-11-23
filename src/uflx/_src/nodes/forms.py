@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, final
 from .arguments import argument_members, map_argument
 from .arithmetic import Conjugate
 from .caching import cached
-from .expressions import AbstractExpression
+from .expressions import AbstractExpression, BindingExpression
 from .scalar_types import NumericalScalarType, numerical_type
 from .spaces import AbstractFunctionSpace
 
@@ -31,7 +31,8 @@ def _entry_space(
     from ..spaces import conjugated
 
     def space(m: Function | Conjugate) -> AbstractFunctionSpace:
-        return conjugated(entry_function(m).space) if isinstance(m, Conjugate) else m.space
+        V = entry_function(m).space
+        return conjugated(V) if isinstance(m, Conjugate) else V
 
     return map_argument(space, entry)
 
@@ -74,17 +75,13 @@ class Function(AbstractExpression):
 
 
 @final
-class Form(AbstractExpression):
+class Form(BindingExpression[Function]):
     value_fields = ("expression",)
     identifier = "uflx.Form"
     expression: AbstractExpression
     arguments: tuple[Function | Conjugate | tuple[Function | Conjugate, ...], ...]
     scope = ("expression", "arguments")
     binding_fields = ("arguments",)
-
-    def bound(self) -> tuple[Function, ...]:
-        # The functions of the entries, without the conjugate of an entry conjugate(v).
-        return tuple(entry_function(m) for a in self.arguments for m in argument_members(a))
 
     @property
     @cached

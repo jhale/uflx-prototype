@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Literal, final
 
 from .arguments import argument_members
 from .caching import cached
-from .expressions import AbstractExpression
+from .expressions import AbstractExpression, BindingExpression
 from .scalar_types import NumericalScalarType, ScalarType, numerical_type
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 @final
-class DirectionalDerivative(AbstractExpression):
+class DirectionalDerivative(BindingExpression["Function"]):
     value_fields = ("expression", "point", "direction")
     identifier = "uflx.DirectionalDerivative"
     # The variable, the point and the direction are a function and two expressions, or tuples.
@@ -26,9 +26,6 @@ class DirectionalDerivative(AbstractExpression):
     direction: AbstractExpression | tuple[AbstractExpression, ...]
     scope = ("expression", "variable")
     binding_fields = ("variable",)
-
-    def bound(self) -> tuple[Function, ...]:
-        return argument_members(self.variable)
 
     @property
     @cached

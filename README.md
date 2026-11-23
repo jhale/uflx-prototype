@@ -214,8 +214,9 @@ Library operations can use `_src/extensions/external_operators.py` to declare an
 operand signature and a derivative action. Its `apply_external_derivatives` recipe
 passes the library all point values followed by all direction values in operand order.
 
-Core binding algorithms use the same declarations, scopes and ordered signatures
-for forms, index binders and derivative variables. Capture avoidance and explicit
+Forms, index binders and directional derivatives declare their binding fields and lexical
+scope on the node. `bound()` reads those declarations in order, flattening product
+entries and extracting the function from a conjugated entry. Capture avoidance and explicit
 renaming share scope reconstruction. `alpha_equivalent` compares lexical addresses
 with context-sensitive memoization, preserving free identities and structural
 parameter types without changing interning or structural equality. Derivative

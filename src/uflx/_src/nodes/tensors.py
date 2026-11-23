@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, final
 
 from .caching import cached
-from .expressions import AbstractExpression
+from .expressions import AbstractExpression, BindingExpression
 from .indices import Index
 from .scalar_types import ExpressionScalarType, NumericalScalarType, numerical_type
 from .validation import require
@@ -165,16 +165,13 @@ class Indexed(AbstractExpression):
 
 
 @final
-class ComponentTensor(AbstractExpression):
+class ComponentTensor(BindingExpression[Index]):
     value_fields = ("expression",)
     identifier = "uflx.ComponentTensor"
     expression: AbstractExpression
     indices: tuple[Index, ...]
     scope = ("expression", "indices")
     binding_fields = ("indices",)
-
-    def bound(self) -> tuple[Index, ...]:
-        return self.indices
 
     @property
     @cached
@@ -209,16 +206,13 @@ class ComponentTensor(AbstractExpression):
 
 
 @final
-class IndexSum(AbstractExpression):
+class IndexSum(BindingExpression[Index]):
     value_fields = ("expression",)
     identifier = "uflx.IndexSum"
     expression: AbstractExpression
     indices: tuple[Index, ...]
     scope = ("expression", "indices")
     binding_fields = ("indices",)
-
-    def bound(self) -> tuple[Index, ...]:
-        return self.indices
 
     @property
     @cached

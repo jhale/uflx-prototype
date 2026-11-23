@@ -94,6 +94,13 @@ def test_derivative_point_and_direction_are_outside_the_renamed_scope():
     assert substitute(renamed, {v: w}) is directional_derivative(v * v, v, w, w)
 
 
+def test_renaming_tuple_derivative_preserves_variable_order_and_evaluation_operands():
+    node = directional_derivative(u * v, (u, v), (v, u), (w, a))
+    assert rename_bound(node, {v: u, u: v}) is directional_derivative(v * u, (v, u), (v, u), (w, a))
+    with pytest.raises(TypeError, match="explicit Form"):
+        rebind(node, {u: w})
+
+
 def test_derivative_body_capture_is_rejected():
     node = directional_derivative(u * v, u, a, a)
     with pytest.raises(ValueError, match="capture"):

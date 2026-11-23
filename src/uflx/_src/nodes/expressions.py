@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, ClassVar, Never
+from typing import TYPE_CHECKING, ClassVar, Generic, Never, TypeVar, cast
 
-from .arguments import argument_members
+from .arguments import BindingEntry, argument_members, binding_name
 from .base import Base
 from .scalar_types import ExpressionScalarType, ScalarType
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
+    from .forms import Function
     from .indices import AbstractExtent, GatheredIndex, Index
     from .spaces import AbstractFunctionSpace
     from .topology import AbstractTopology
@@ -136,3 +137,26 @@ class AbstractExpression(Base):
 
     def __bool__(self) -> Never:
         raise TypeError("symbolic expressions have no Python truth value")
+
+
+_Name = TypeVar("_Name", bound="Function | Index")
+
+
+class BindingExpression(AbstractExpression, Generic[_Name]):
+    """An expression whose declaration fields bind functions or indices."""
+
+    def binding_entries(self) -> tuple[BindingEntry, ...]:
+        """Outer declarations in order, preserving grouped form entries."""
+        return tuple(
+            entry
+            for field in self.binding_fields
+            for entry in argument_members(getattr(self, field))
+        )
+
+    def bound(self) -> tuple[_Name, ...]:
+        names = (
+            binding_name(member)
+            for entry in self.binding_entries()
+            for member in argument_members(entry)
+        )
+        return cast("tuple[_Name, ...]", tuple(names))
