@@ -37,8 +37,8 @@ def test_reference_facet_maps_vertices_in_ufcx_order(cell_type, facet, code, ord
 
 def test_facet_and_permutation_can_be_supplied_at_runtime():
     triangle = basix.CellType.triangle
-    facets = index_table("facets", shape=(2,), extent=3)
-    permutations = index_table("permutations", shape=(2,), extent=2)
+    facets = index_table("facets", shape=(2,))
+    permutations = index_table("permutations", shape=(2,))
     inclusion, normal = reference_facet(cell(triangle), facets[1], permutations[1])
     assert inclusion.free_indices == normal.free_indices == ()
     chart = jax.jit(
@@ -60,3 +60,17 @@ def test_facet_and_permutation_can_be_supplied_at_runtime():
         outward(np.array([0.0, 1.0]))
     with pytest.raises(ValueError, match="shape"):
         outward(np.array([1]))
+
+
+def test_one_facet_array_indexes_cells_with_different_numbers_of_facets():
+    facets = index_table("facets", shape=(2,))
+    triangle = basix.CellType.triangle
+    quadrilateral = basix.CellType.quadrilateral
+    _, plus = reference_facet(cell(triangle), facets[0])
+    _, minus = reference_facet(cell(quadrilateral), facets[1])
+    kernel = jax.jit(trace(plus - minus, facets))
+    plus_normals = basix.cell.facet_outward_normals(triangle)
+    minus_normals = basix.cell.facet_outward_normals(quadrilateral)
+    for i in range(len(plus_normals)):
+        for j in range(len(minus_normals)):
+            np.testing.assert_allclose(kernel(np.array([i, j])), plus_normals[i] - minus_normals[j])

@@ -2,8 +2,8 @@
 
 The patch has two triangular cells and one quadrilateral cell. In cell order,
 their coordinate elements are P1, P2 and Q2. The triangles share a straight
-edge. The second triangle and the quadrilateral share both endpoints and the
-midpoint of a curved edge. The triangle's exterior edge and the quadrilateral's
+facet. The second triangle and the quadrilateral share both endpoints and the
+midpoint of a curved facet. The triangle's exterior facet and the quadrilateral's
 interior node can be displaced independently. The field elements are
 discontinuous P1 on the triangles and discontinuous Q1 on the quadrilateral.
 
@@ -83,7 +83,8 @@ for cell_key in cell_keys:
 
 # Interior facet kernels, using cell_keys order for the plus and minus sides
 
-permutations = index_table("quadrature_permutation", shape=(2,), extent=2)
+local_facets = index_table("entity_local_index", shape=(2,))
+permutations = index_table("quadrature_permutation", shape=(2,))
 
 # All pairs share a reference interval. Arc length and DG terms have independent rules.
 length_rule = basix.make_quadrature(interval, degree=8)
@@ -109,14 +110,9 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     u = push_forward(u_ref, mesh, V.law)
     v = push_forward(v_ref, mesh, V.law)
 
-    plus_edges = basix.cell.topology(plus_type)[1]
-    minus_edges = basix.cell.topology(minus_type)[1]
-    plus_facet = index_table("plus_facet", shape=(), extent=len(plus_edges))
-    minus_facet = index_table("minus_facet", shape=(), extent=len(minus_edges))
-    local_facets = (plus_facet[()], minus_facet[()])
-    edge, plus, minus, n = interior_facet(mesh, local_facets, permutations)
+    facet, plus, minus, n = interior_facet(mesh, local_facets, permutations)
 
-    # Symmetric interior penalty form on the shared physical edge
+    # Symmetric interior penalty form on the shared physical facet
     jump_u = pull_back(u, plus) - pull_back(u, minus)
     jump_v = pull_back(v, plus) - pull_back(v, minus)
 
@@ -127,27 +123,27 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     normal_flux_u = avg_grad_u @ n
     normal_flux_v = avg_grad_v @ n
 
-    # Divide the penalty parameter by the full arc length of the shared edge.
+    # Divide the penalty parameter by the full arc length of the shared facet.
     penalty_parameter = num(10)
-    h = integral(num(1), edge)
+    h = integral(num(1), facet)
     h_ref = lower(h)
     length = apply_quadrature(h_ref, *length_rule)
 
     consistency = -normal_flux_u * jump_v - normal_flux_v * jump_u
     penalty = (penalty_parameter / length) * jump_u * jump_v
-    facet_integral = integral(consistency + penalty, edge)
+    facet_integral = integral(consistency + penalty, facet)
 
     facet_ref = lower(facet_integral)
     facet_sum = apply_quadrature(facet_ref, *facet_rule)
     interior_facet_form = form(facet_sum, (v_ref, u_ref))
-    evaluate_facet = trace(interior_facet_form, x, plus_facet, minus_facet, permutations)
+    evaluate_facet = trace(interior_facet_form, x, local_facets, permutations)
     facet_kernels[plus_key, minus_key] = jax.jit(evaluate_facet)
 
 # Typical form compiler would hand off kernels to assembler here
 
 # Mesh geometry
 
-# Set interface_offset to zero for a straight P2/Q2 edge. The other offsets are independent.
+# Set interface_offset to zero for a straight P2/Q2 facet. The other offsets are independent.
 boundary_offset = 0.15
 interface_offset = 0.08
 quad_interior_offset = 0.03
@@ -159,9 +155,9 @@ nodes = np.array(
         (-1.0, 0.0),
         (0.0, -1.0),
         (1.0, -1.0),
-        (0.5, 0.5 + boundary_offset),  # Node 6 on the P2 exterior edge
-        (0.0, 0.5),  # Node 7 lies halfway along the straight P1/P2 edge
-        (0.5, interface_offset),  # Node 8 belongs to both sides of the curved P2/Q2 edge
+        (0.5, 0.5 + boundary_offset),  # Node 6 on the P2 exterior facet
+        (0.0, 0.5),  # Node 7 lies halfway along the straight P1/P2 facet
+        (0.5, interface_offset),  # Node 8 belongs to both sides of the curved P2/Q2 facet
         (0.5, -1.0),
         (0.0, -0.5),
         (1.0, -0.5),
@@ -169,7 +165,7 @@ nodes = np.array(
     ]
 )
 
-# Coordinate DOFs in Basix order. The P2 and Q2 maps traverse their shared edge in opposite orders.
+# Coordinate DOFs in Basix order. The P2 and Q2 maps give their shared facet opposite orientations.
 geometry_dofmaps = (
     [2, 3, 0],
     [0, 1, 2, 6, 7, 8],
@@ -178,7 +174,7 @@ geometry_dofmaps = (
 cell_data = tuple(zip(elements_by_cell, geometry_dofmaps, strict=True))
 
 # Each row gives the incident cells (+, -), their local facet numbers, and their permutations.
-# Orient the straight edge from vertex 0 to 2 and the curved edge from vertex 0 to 1.
+# Orient the straight facet from vertex 0 to 2 and the curved facet from vertex 0 to 1.
 interior_facets = (
     ((0, 1), (1, 1), (1, 0)),
     ((1, 2), (2, 0), (0, 1)),
@@ -199,13 +195,14 @@ for cell_index, (cell_key, dofs) in enumerate(cell_data):
     x_dofs.append(cell_x)
     patch_energy += cell_x @ cell_tensor @ cell_x
 
-for (plus, minus), entity_local_index, permutations in interior_facets:
+for (plus, minus), facet_numbers, permutation_codes in interior_facets:
     plus_key, plus_dofs = cell_data[plus]
     minus_key, minus_dofs = cell_data[minus]
     kernel = facet_kernels[plus_key, minus_key]
     coordinate_dofs = np.concatenate((nodes[plus_dofs], nodes[minus_dofs]))
-    quadrature_permutation = np.array(permutations, dtype=np.uint8)
-    facet_tensor = kernel(coordinate_dofs, *entity_local_index, quadrature_permutation)
+    entity_local_index = np.asarray(facet_numbers, dtype=np.intc)
+    quadrature_permutation = np.asarray(permutation_codes, dtype=np.uint8)
+    facet_tensor = kernel(coordinate_dofs, entity_local_index, quadrature_permutation)
     print("Interior facet tensor", (plus, minus), facet_tensor)
 
     # The continuous field has zero jump on both interfaces.
@@ -214,13 +211,13 @@ for (plus, minus), entity_local_index, permutations in interior_facets:
     np.testing.assert_allclose(facet_energy, 0.0, atol=1e-6)
     patch_energy += facet_energy
 
-    # A unit jump costs 10 * h_facet / h_length. Both rules give the same edge length here.
+    # A unit jump costs 10 * h_facet / h_length. Both rules give the same facet length here.
     unit_jump = np.concatenate((np.ones_like(x_dofs[plus]), np.zeros_like(x_dofs[minus])))
     penalty_energy = unit_jump @ facet_tensor @ unit_jump
     np.testing.assert_allclose(penalty_energy, 10.0, rtol=1e-6)
 
-# The squared gradient is one. Bending the interior edge transfers area between its neighbours.
-# The exterior edge adds the area under 4 * boundary_offset * s * (1 - s) for s between 0 and 1.
+# The squared gradient is one. Bending the interior facet transfers area between its neighbours.
+# The exterior facet adds the area under 4 * boundary_offset * s * (1 - s) for s between 0 and 1.
 expected_area = 2.0 + 2.0 * boundary_offset / 3.0
 np.testing.assert_allclose(patch_energy, expected_area, rtol=1e-6)
 print("Patch energy for u(x, y) = x", patch_energy)

@@ -26,7 +26,9 @@ class AbstractIndexTable(Base):
     # A table of index values that the solver gives, which is not an expression.
     @property
     @abstractmethod
-    def extent(self) -> int | AbstractExtent: ...
+    def extent(self) -> int | AbstractExtent | None:
+        """Declared size of the axis indexed by each entry, if specified."""
+        ...
 
     @property
     @abstractmethod
@@ -42,7 +44,7 @@ class GatheredIndex(Base):
     indices: tuple[int | Index | GatheredIndex, ...]
 
     @property
-    def extent(self) -> int | AbstractExtent:
+    def extent(self) -> int | AbstractExtent | None:
         return self.table.extent
 
     @property

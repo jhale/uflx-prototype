@@ -14,8 +14,8 @@ def interior_facet(mesh, local_facets, permutations):
     )
     into_minus, _ = reference_facet(minus_cell.reference_cell, local_facets[1], permutations[1])
 
-    edge_topology = topology(into_plus.parameter_domain.cell_type)
-    edge = side_domain(mesh, edge_topology, (0, into_plus))
-    plus = side_map(edge, (plus_cell, into_plus))
-    minus = side_map(edge, (minus_cell, into_minus))
-    return edge, plus, minus, conormal(plus, ref_normal)
+    facet_topology = topology(into_plus.parameter_domain.cell_type)
+    facet = side_domain(mesh, facet_topology, (0, into_plus))
+    plus = side_map(facet, (plus_cell, into_plus))
+    minus = side_map(facet, (minus_cell, into_minus))
+    return facet, plus, minus, conormal(plus, ref_normal)

@@ -5,28 +5,26 @@ from typing import final
 from uflx.nodes import AbstractExtent, AbstractIndexTable, GatheredIndex, Index
 from uflx.tensors import gathered_index
 
-__all__ = ["IndexTable", "index_table"]
+__all__ = ["IndexArray", "IndexTable", "index_table"]
 
 _Extent = int | AbstractExtent
 _Entry = int | Index | GatheredIndex
 
 
-@final
-class IndexTable(AbstractIndexTable):
-    """A symbolic table whose entries are indices in [0, extent)."""
+class IndexArray(AbstractIndexTable):
+    """A symbolic input supplied as an integer array of the declared shape."""
 
-    identifier = "uflx_extensions.IndexTable"
+    identifier = "uflx_extensions.IndexArray"
     label: str
     _shape: tuple[_Extent, ...]
-    _extent: _Extent
 
     @property
     def shape(self) -> tuple[_Extent, ...]:
         return self._shape
 
     @property
-    def extent(self) -> _Extent:
-        return self._extent
+    def extent(self) -> _Extent | None:
+        return None
 
     def __getitem__(self, key: _Entry | tuple[_Entry, ...]) -> GatheredIndex:
         entries = key if isinstance(key, tuple) else (key,)
@@ -34,7 +32,7 @@ class IndexTable(AbstractIndexTable):
 
     def _validate(self) -> None:
         for n in (*self.shape, self.extent):
-            if isinstance(n, AbstractExtent):
+            if n is None or isinstance(n, AbstractExtent):
                 continue
             if type(n) is not int:
                 raise TypeError("expected an integer or an abstract extent")
@@ -42,6 +40,22 @@ class IndexTable(AbstractIndexTable):
                 raise ValueError("index table extents must be nonnegative")
 
 
-def index_table(label: str, shape: tuple[_Extent, ...], extent: _Extent) -> IndexTable:
-    """Declare an integer table of the given shape and exclusive upper bound."""
+@final
+class IndexTable(IndexArray):
+    """An index array whose entries all target axes of the declared extent."""
+
+    identifier = "uflx_extensions.IndexTable"
+    _extent: _Extent
+
+    @property
+    def extent(self) -> _Extent:
+        return self._extent
+
+
+def index_table(
+    label: str, shape: tuple[_Extent, ...], extent: _Extent | None = None
+) -> IndexArray:
+    """Declare a runtime integer array. Supply extent to check target axes at construction."""
+    if extent is None:
+        return IndexArray(label, shape)
     return IndexTable(label, shape, extent)

@@ -51,7 +51,7 @@ def entries(
         elif isinstance(i, Index):
             direct.append((i, n))
         else:
-            if i.extent != n:
+            if i.extent is not None and i.extent != n:
                 raise IndexError("gather extent differs from the axis")
             gathered.extend(i.free_indices)
     return merge_indices(tuple(direct), tuple(gathered))
