@@ -353,8 +353,7 @@ The private `_src` modules implement the public functions.
 - `meshes.py`: `mesh`, `cell_map`, `side_domain`,
   `side_map` and `conormal`
 - `spaces.py`: `conjugate_space` and `dual_space`
-- `forms.py`: `function`, `form` and `apply`
-- `algorithms/form_binding.py`: `partial` and `rebind`
+- `forms.py` implements `function`, `form`, `apply` and `partial`
 - `nodes/static.py`: the free functions that read the static type
 
 The private modules of `_src`:
@@ -376,7 +375,8 @@ The private modules of `_src`:
   by section of the specification, most with a module of the same name for
   their free functions
 - `algorithms/traversal.py`: graph traversal and reconstruction
-- `algorithms/substitution.py`: capture-avoiding freshening and simultaneous substitution
+- `algorithms/substitution.py` implements capture-avoiding freshening, simultaneous
+  substitution and `rebind`
 - `algorithms/rewriting.py`: replacement compatibility, index completion and promotion
 - `passes/contracts.py`: evaluation-stage requirements, including core normal form
 - `rules/`: mathematical rules grouped as in the specification; passes select and

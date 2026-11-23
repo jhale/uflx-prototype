@@ -194,7 +194,7 @@ def test_private_helpers_stay_in_their_module():
         ),
         ("algorithms.rewriting", {"algorithms.substitution", "passes"}),
         ("algorithms.substitution", {"passes"}),
-        ("algorithms.form_binding", {"passes"}),
+        ("forms", {"passes"}),
         ("rules.structural", {"passes"}),
         ("rules.linearity", {"passes"}),
         ("rules.differentiation", {"passes"}),

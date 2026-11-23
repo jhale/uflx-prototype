@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..algorithms.form_binding import partial
 from ..algorithms.rewriting import rewrite, zero_like
 from ..algorithms.traversal import everywhere
 from ..arithmetic import multiply
-from ..forms import apply
+from ..forms import apply, partial
 from ..nodes import Apply, Conditional, Conjugate, Form, Product, Zero
 from ..nodes.arguments import map_argument
 from ..rules.linearity import linear_fields

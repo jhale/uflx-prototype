@@ -3,9 +3,20 @@ from __future__ import annotations
 import weakref
 from collections.abc import Callable, Mapping, Sequence
 from functools import cache
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast, overload
 
-from ..nodes import AbstractExpression, Base, Function, Index, Zero
+from ..nodes import (
+    AbstractExpression,
+    Base,
+    ComponentTensor,
+    Conjugate,
+    Form,
+    Function,
+    Index,
+    IndexSum,
+    Zero,
+)
+from ..nodes.arguments import BindingEntry, FormEntry, argument_members, binding_name
 from ..nodes.structure import operands
 from ..nodes.types import Construction
 from .binding import binding_signature, scoped_body_fields
@@ -17,6 +28,8 @@ if TYPE_CHECKING:
 
 _T = TypeVar("_T", bound=Base)
 _K = TypeVar("_K", bound=Base)
+_Entry = TypeVar("_Entry", bound=BindingEntry)
+_IndexBinder = TypeVar("_IndexBinder", ComponentTensor, IndexSum)
 _Renames = tuple[tuple[Base, Function | Index], ...]
 
 
@@ -119,7 +132,7 @@ def _rename_scope(node: _T, renames: Mapping[_K, Construction]) -> _T:
 def rename_bound(node: _T, renames: Mapping[Index | Function, Index | Function]) -> _T:
     """Rename declarations simultaneously, preserving type and lexical scope.
 
-    Public adapters validate entry grouping and conjugation. This operation
+    rebind validates entry grouping and conjugation. This operation
     handles names uniformly, including derivative variables whose evaluation
     point and direction lie outside their scope.
     """
@@ -145,6 +158,36 @@ def rename_bound(node: _T, renames: Mapping[Index | Function, Index | Function])
     if binding_signature(result) != signature:
         raise ValueError("renaming changed the binding signature")
     return result
+
+
+@overload
+def rebind(binder: Form, mapping: Mapping[FormEntry, FormEntry]) -> Form: ...
+
+
+@overload
+def rebind(binder: _IndexBinder, mapping: Mapping[Index, Index]) -> _IndexBinder: ...
+
+
+def rebind(
+    binder: AbstractExpression, mapping: Mapping[_Entry, BindingEntry]
+) -> Form | ComponentTensor | IndexSum:
+    """Rename complete declarations simultaneously, preserving grouping and conjugation."""
+    if not isinstance(binder, Form | ComponentTensor | IndexSum):
+        raise TypeError("rebind requires an explicit Form, ComponentTensor or IndexSum")
+    if not mapping:
+        return binder
+    entries = binder.binding_entries()
+    renames: dict[Index | Function, Index | Function] = {}
+    for source, target in mapping.items():
+        if source not in entries:
+            raise ValueError("unknown bound declaration")
+        if isinstance(source, tuple) != isinstance(target, tuple):
+            raise ValueError("rebind must preserve argument grouping")
+        for old, new in zip(argument_members(source), argument_members(target), strict=True):
+            if isinstance(old, Conjugate) != isinstance(new, Conjugate):
+                raise ValueError("rebind must preserve conjugation")
+            renames[binding_name(old)] = binding_name(new)
+    return rename_bound(binder, renames)
 
 
 def substitute(node: Base, mapping: Mapping[_K, Construction]) -> Construction:

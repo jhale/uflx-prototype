@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, cast
 
+from .algorithms.rewriting import complete_family, promote
+from .algorithms.substitution import occurs, substitute
 from .nodes import (
     AbstractExpression,
     Apply,
@@ -9,6 +12,9 @@ from .nodes import (
     Form,
     Function,
 )
+from .nodes.arguments import FormEntry, argument_members
+from .nodes.forms import entry_function
+from .nodes.validation import admissible, merge_indices
 
 if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
@@ -33,3 +39,41 @@ def apply(
     if not arguments and not form.argument_spaces:
         return form
     return Apply(form, arguments)
+
+
+def partial(
+    form: Form, mapping: Mapping[FormEntry, AbstractExpression | tuple[AbstractExpression, ...]]
+) -> AbstractExpression:
+    """Instantiate complete outer entries simultaneously; reject retained capture."""
+    if not isinstance(cast("object", form), Form):
+        raise TypeError("partial requires an explicit Form")
+    if not mapping:
+        return form
+    if any(entry not in form.arguments for entry in mapping):
+        raise ValueError("selector is not an outer argument entry")
+    replacements: dict[Function, AbstractExpression] = {}
+    indices = form.free_indices
+    spaces = form.argument_spaces[len(form.expression.argument_spaces) :]
+    for entry, space in zip(form.arguments, spaces, strict=True):
+        if entry not in mapping:
+            continue
+        value = mapping[entry]
+        admissible(space, value)
+        indices = merge_indices(indices, *(m.free_indices for m in argument_members(value)))
+        for member, supplied in zip(argument_members(entry), argument_members(value), strict=True):
+            variable = entry_function(member)
+            supplied = promote(variable, supplied)
+            replacements[variable] = (
+                Conjugate(supplied) if isinstance(member, Conjugate) else supplied
+            )
+    remaining = tuple(entry for entry in form.arguments if entry not in mapping)
+    if any(
+        occurs(entry_function(member), value)
+        for entry in remaining
+        for member in argument_members(entry)
+        for value in replacements.values()
+    ):
+        raise ValueError("partial would capture a retained argument; rebind it explicitly first")
+    body = cast("AbstractExpression", substitute(form.expression, replacements))
+    body = complete_family(indices, body)
+    return Form(body, remaining) if remaining else body

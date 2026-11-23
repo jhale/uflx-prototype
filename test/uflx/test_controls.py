@@ -1,6 +1,7 @@
 """Negative controls deliberately break a pass and check that its tests detect the error."""
 
-from uflx._src.algorithms import form_binding, substitution
+from uflx._src import forms
+from uflx._src.algorithms import substitution
 from uflx._src.passes import applications
 from uflx.arithmetic import multiply, num
 from uflx.forms import apply, form, function
@@ -23,5 +24,5 @@ def test_sequential_substitution_captures(monkeypatch):
             e = substitution.substitute(e, {name: value})
         return e
 
-    monkeypatch.setattr(form_binding, "substitute", sequential)
+    monkeypatch.setattr(forms, "substitute", sequential)
     assert applications.expand_applications(e) == multiply(num(2), num(2))
