@@ -88,7 +88,8 @@ grad_v_plus = pull_back(grad_v, plus)
 grad_v_minus = pull_back(grad_v, minus)
 avg_grad_v = (grad_v_plus + grad_v_minus) / num(2)
 
-# h is the full arc length, so the scalar 10/h can multiply the integrated jump product.
+# The penalty weight is the penalty parameter divided by the full arc length h.
+penalty_parameter = num(10)
 h = integral(num(1), edge)
 normal_flux_u = avg_grad_u @ n
 normal_flux_v = avg_grad_v @ n
@@ -118,7 +119,7 @@ facet_rule = basix.make_quadrature(interval, degree=8)
 length = apply_quadrature(h_ref, *length_rule)
 flux_sum = apply_quadrature(flux_ref, *facet_rule)
 jump_sum = apply_quadrature(jumps_ref, *facet_rule)
-penalty_weight = num(10) / length
+penalty_weight = penalty_parameter / length
 facet_sum = flux_sum + penalty_weight * jump_sum
 interior_facet_form = form(facet_sum, (v_ref, u_ref))
 evaluate_facet = trace(interior_facet_form, x_pair, triangle_facet, quad_facet, permutations)
@@ -132,20 +133,33 @@ def tabulate_interior_facet_tensor(coordinate_dofs, entity_local_index, quadratu
     return evaluate_facet(coordinate_dofs, plus_facet, minus_facet, quadrature_permutation)
 
 
-# Gather the P2 and Q2 coordinate DOFs
+# Mesh coordinates and cell geometry DOF maps
 
-# The triangle lies below the shared edge y = 0.32*x*(1-x) and the quadrilateral above it.
-
-s, t = p2.points.T
-triangle_dofs = np.column_stack((1 - s - t, -t + 0.32 * s * (1 - s - t)))
-
-s, t = q2.points.T
-quad_dofs = np.column_stack((s, t + 0.32 * s * (1 - s) * (1 - t)))
-
-# Pack six triangle nodes followed by nine quadrilateral nodes.
+# Nodes 0 and 1 are the endpoints of the shared edge. Node 5 sets its curvature.
+nodes = np.array(
+    [
+        (0.0, 0.0),
+        (1.0, 0.0),
+        (0.0, -1.0),
+        (0.0, 1.0),
+        (1.0, 1.0),
+        (0.5, 0.08),  # Shared edge midpoint
+        (0.0, -0.5),
+        (0.5, -0.5),
+        (0.0, 0.5),
+        (1.0, 0.5),
+        (0.5, 1.0),
+        (0.5, 0.54),  # Quadrilateral interior
+    ]
+)
+triangle_geometry_dofmap = [1, 0, 2, 6, 7, 5]
+quad_geometry_dofmap = [0, 1, 3, 4, 5, 8, 9, 10, 11]
+triangle_dofs = nodes[triangle_geometry_dofmap]
+quad_dofs = nodes[quad_geometry_dofmap]
 coordinate_dofs = np.concatenate((triangle_dofs, quad_dofs))
 
-# Triangle facet 2 runs right to left. Quadrilateral facet 0 runs left to right.
+# Orient the shared edge from vertex 0 to vertex 1. Triangle facet 2 runs from 1 to 0,
+# so reverse its quadrature points. Quadrilateral facet 0 already runs from 0 to 1.
 entity_local_index = np.array([2, 0], dtype=np.intc)
 quadrature_permutation = np.array([1, 0], dtype=np.uint8)
 
@@ -159,3 +173,21 @@ facet_tensor = tabulate_interior_facet_tensor(
 print("Triangle cell tensor", triangle_tensor)
 print("Quadrilateral cell tensor", quad_tensor)
 print("Interior facet tensor", facet_tensor)
+
+# Check the patch energy for the continuous field u(x, y) = x.
+
+# The P1 and Q1 field DOFs are vertex values, and the vertices come first in each DOF map.
+triangle_x = triangle_dofs[:3, 0]
+quad_x = quad_dofs[:4, 0]
+patch_x = np.concatenate((triangle_x, quad_x))
+
+# The jump vanishes on the curved edge, so the interior facet contributes zero.
+facet_energy = patch_x @ facet_tensor @ patch_x
+np.testing.assert_allclose(facet_energy, 0.0, atol=1e-6)
+
+# The squared gradient is one everywhere, so the energy equals the patch area.
+triangle_energy = triangle_x @ triangle_tensor @ triangle_x
+quad_energy = quad_x @ quad_tensor @ quad_x
+patch_energy = triangle_energy + quad_energy + facet_energy
+np.testing.assert_allclose(patch_energy, 1.5, rtol=1e-6)
+print("Patch energy for u(x, y) = x", patch_energy)
