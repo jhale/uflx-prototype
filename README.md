@@ -1,21 +1,24 @@
 # Experimental UFLx core language implementation
 
-This repository contains an experimental implementation of the UFLx core
-[language specification](https://fenics.github.io/uflx/language/). 
-
 UFLx core is an expressive minimal language for writing finite element
 variational forms. It is a potential successor to
 [UFL](https://github.com/fenics/ufl) which is used by the [FEniCS
 Project](https://fenicsproject.org) and
 [Firedrake](https://firedrakeproject.org).
 
+This repository contains an experimental implementation of the UFLx core
+[language specification](https://fenics.github.io/uflx/language/), including
+lowerings to the [core normal
+form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
+aimed at downstream compilers.
+
 ## Caveats
 
 This software is alpha quality and not designed for production use. If UFLx is
-pursued, it is likely that we will re-write the code from scratch using the
-specification and successful elements from this interpreter. UFLx core language
-is intentionally minimal - we will add higher level layers once the core
-language is settled.
+pursued further, it is likely that we will re-write the code from scratch using
+the specification and successful elements from this experiment. UFLx core
+language is intentionally minimal - higher level layers will be added once the
+core language is further developed.
 
 ## Components
 
