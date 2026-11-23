@@ -94,10 +94,18 @@ def field_value(node, bindings, site, value):
     slot = site.slot(topology)
     basis = tabulate(space.element(slot), site.points[topology])
 
-    local = jnp.asarray(coefficients)[np.asarray(space.cell_dofs[slot])]
+    values = jnp.asarray(coefficients)
+    dofs = np.asarray(space.cell_dofs[slot])
     if space.block_shape:
-        return (local.reshape(-1, space.block_size).T @ basis[:, 0]).reshape(space.value_shape)
-    return (local @ basis).reshape(space.value_shape)
+        flat_shape = (space.num_dofs,)
+        nodal_shape = (space.num_dofs // space.block_size, *space.block_shape)
+        if values.shape not in (flat_shape, nodal_shape):
+            raise ValueError(
+                f"expected coefficient shape {flat_shape} or {nodal_shape} (got {values.shape})"
+            )
+        local = values.reshape(-1)[dofs].reshape(-1, *space.block_shape)
+        return jnp.tensordot(basis[:, 0], local, axes=1)
+    return (values[dofs] @ basis).reshape(space.value_shape)
 
 
 def basis_value(node, site):

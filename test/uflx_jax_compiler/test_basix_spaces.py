@@ -9,7 +9,7 @@ from uflx.calculus import gradient, integral
 from uflx.forms import function
 from uflx.geometry import pull_back
 from uflx.passes import expand_arithmetic
-from uflx_basix.cells import cell
+from uflx_basix.cells import cell, topology
 from uflx_basix.spaces import space
 from uflx_jax_compiler.interpreter import Interpreter
 
@@ -93,3 +93,21 @@ def test_a_continuous_space_on_triangles_and_a_quadrilateral():
     env = geometry | {uT: interpolate(V, lambda x: x[0] ** 2 + x[0] * x[1] - x[1], MIXED)}
     assert np.isclose(value(integral(u, D), env), 1 / 3 + 1 / 4 - 1 / 2)
     assert np.isclose(value(jump_squared(u, D, E), env), 0, atol=1e-10)
+
+
+@pytest.mark.parametrize("shape", [(2,), (2, 2)])
+def test_blocked_coefficients_accept_one_value_per_scalar_dof(shape):
+    triangle = basix.CellType.triangle
+    T = topology(triangle, triangle)
+    p1 = basix.create_element(P, triangle, 1)
+    V = space(T, p1, shape=shape)
+    u = function(V, "u")
+    values = np.arange(V.num_dofs, dtype=float).reshape(-1, *shape)
+    site = {"points": {T: p1.points[1]}, "cells": {T: 1}}
+
+    for coefficients in (values, values.ravel()):
+        result = Interpreter({u: coefficients}).evaluate(u, **site)
+        np.testing.assert_allclose(result, values[p1.dim + 1])
+
+    with pytest.raises(ValueError, match="expected coefficient shape"):
+        Interpreter({u: values.swapaxes(0, 1)}).evaluate(u, **site)

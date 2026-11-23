@@ -73,7 +73,7 @@ L = form(integral(v, mesh), (v_ref,))
 
 # Each P1 vertex supplies one (x, y) pair to the coordinate function.
 vertices = np.array([(0.0, 0.0), (2.0, 0.0), (0.0, 1.0)])
-interpreter = Interpreter({x: vertices.ravel()})
+interpreter = Interpreter({x: vertices})
 area = interpreter.evaluate(L, arguments=(np.ones(p2.dim),))  # L(1) is the area, 1.
 ```
 

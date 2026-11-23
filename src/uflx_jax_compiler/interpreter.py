@@ -16,6 +16,8 @@ class Interpreter:
     """Evaluate UFLx with JAX using the supplied field and operation bindings.
 
     Bind fields to numbers, arrays, UFLx expressions or JAX-traceable functions of a point.
+    Blocked Basix fields accept flat coefficients or one block per scalar basis DOF,
+    with trailing axes matching the space's block shape.
     Bind external operations to JAX-traceable functions. A field operand is a callable
     of its coordinates. Wrap a function in Pointwise to pass values at the current point.
     Bind operator-valued functions to callables of their slots. Domain-free input terminals
