@@ -14,7 +14,6 @@ from uflx.forms import function
 from uflx.geometry import mesh, pull_back
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
-from uflx_jax_compiler.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type
 from ..uflx.sides import outward_conormal
@@ -23,6 +22,7 @@ from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.integrals import DIAGONAL
 from ..uflx_basix.meshes import side_domain, side_map
 from ..uflx_basix.surface import FOLD, GEOMETRY, R3, M
+from .quadrature import integrate_at
 from .test_integrals import BOUNDARY
 
 I = reference_simplex(1)
@@ -126,8 +126,7 @@ def check(name, e, env, bad, rows):
     if not keeps_static_type(e, out):
         bad["static"] += 1
     bad["grammar"] += not (pull_backs_expanded(out) and in_core_normal_form(out))
-    oracle = Interpreter(env)
-    before, after = oracle.evaluate(e), oracle.evaluate(out)
+    before, after = integrate_at(e, env, degree=12), integrate_at(out, env, degree=12)
     if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
         bad["value"] += 1
         if bad["value"] <= 3:

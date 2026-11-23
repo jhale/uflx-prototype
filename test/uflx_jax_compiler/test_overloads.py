@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from uflx.arithmetic import imaginary_part, real_part
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..uflx.test_overloads import RNG, A, B, a, array, x, y
 
@@ -10,7 +10,7 @@ Z = RNG.normal(size=(2, 2)) + 1j * RNG.normal(size=(2, 2))
 
 
 def value(e):
-    return np.asarray(Interpreter().evaluate(e))
+    return np.asarray(trace(e)())
 
 
 @pytest.mark.parametrize(

@@ -6,11 +6,11 @@ potential successor to [UFL](https://github.com/fenics/ufl) which is used by
 the [FEniCS Project](https://fenicsproject.org) and
 [Firedrake](https://firedrakeproject.org).
 
-This repository contains an experimental implementation of the UFLx core
-[language specification](https://fenics.github.io/uflx/language/), including
+This repository contains an experimental implementation of the [UFLx core
+language specification](https://fenics.github.io/uflx/language/), including
 lowerings to the [core normal
 form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
-for downstream compilers to use.
+for typical downstream form compilers.
 
 ## Installation
 
@@ -18,28 +18,21 @@ for downstream compilers to use.
 pip install git+https:// 
 ```
 
-## Caveats
-
-This software is alpha quality and not designed for production use. If UFLx is
-pursued further, it is likely that we will re-write the code from scratch using
-the specification and successful elements from this experiment. UFLx core
-language is intentionally minimal - higher level layers will be added once the
-core language is further developed.
-
 ## Components
+
+This Python library contains the following packages:
 
 1. `uflx` - an implementation of the core language. The implementation is
    complete with respect to the specification.
 2. `uflx_basix` - uses [Basix](https://github.com/fenics/basix) to provide
    element definitions and tabulations. 
-3. `uflx_jax_compiler` - a simple form 'compiler' which traces both original
-   and lowered (core normal form) UFLx expressions to JAX callables. Tests can
-   check lowered forms against direct evalution, and symbolic derivatives
-   against JAX automatic differentiation. It can be used as as an oracle for
-   other (proper) compiler efforts. Is is feature complete with respect to the
-   specification and supports `uflx_extensions`.
+3. `uflx_jax_compiler` - a tiny form 'compiler' that traces both original and
+   lowered (core normal form) UFLx expressions to JAX callables. Tests can
+   check lowered forms against direct evalution, and symbolic UFLx derivatives
+   against JAX automatic differentiation. The compiler is feature complete and
+   can be used as as an oracle for other (performant) efforts.
 4. `uflx_extensions` - An extension with complex differentiation and external
-   operators, to test the UFLx extension concepts.
+   operators, intended to test the UFLx core extension concept.
 
 ## Examples
 
@@ -63,7 +56,9 @@ As of 23rd November 2026.
 
 Radon is a static analysis tool that measures cyclomatic complexity of Python
 code. `uflx_jax_compiler` makes heavy use of `match` when tracing, which
-unfairly scores its cyclomatic complexity.
+perhaps unfairly scores its cyclomatic complexity.
+
+Functions with cyclomatic complexity above 15 should be carefully considered.
 
 | Radon score | uflx | uflx_basix | uflx_extensions | uflx_jax_compiler | Total | Distribution |
 |---|---:|---:|---:|---:|---:|:---|
@@ -77,5 +72,13 @@ unfairly scores its cyclomatic complexity.
 | 21–40 | 2 | 0 | 0 | 0 | 2 | ▏ |
 | 41+ | 0 | 0 | 0 | 1 | 1 | ▏ |
 | Total | 527 | 28 | 12 | 73 | 640 |  |
+
+## Caveats
+
+This software is alpha quality and not designed for production use. If UFLx is
+pursued further, it is likely that we will re-write the code from scratch using
+the specification and successful elements from this experiment. UFLx core
+language is intentionally minimal - higher level layers will be added once the
+core language is further developed.
 
 ## License

@@ -9,9 +9,10 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_integrals
 from uflx.tensors import component_tensor, index
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..uflx_basix.test_pull_back_gradients import GEOMETRY, D, K, nodes
+from .quadrature import integrate_at
 
 X, k = coordinate(D), index("k")
 
@@ -29,10 +30,9 @@ def test_a_gradient_pulled_back_by_a_map_that_is_not_a_cell_needs_no_inverse():
     out = core(f)
     assert in_core_normal_form(out) and not any(isinstance(n, Inverse) for n in nodes(out))
 
-    oracle = Interpreter()
     assert np.isclose(
-        oracle.evaluate(out, points={P: np.array([0.2, 0.3])}),
-        oracle.evaluate(f, points={P: np.array([0.2, 0.3])}),
+        trace(out, P)(np.array([0.2, 0.3])),
+        trace(f, P)(np.array([0.2, 0.3])),
     )
 
 
@@ -41,8 +41,7 @@ def test_a_gradient_of_the_coordinates_of_a_mesh_needs_no_inverse():
     f = integral(gradient(X[0] * X[0] * X[1], D)[0], D)
     out = core(f)
     assert in_core_normal_form(out) and not any(isinstance(n, Inverse) for n in nodes(out))
-    oracle = Interpreter(GEOMETRY)
-    assert np.isclose(oracle.evaluate(out), oracle.evaluate(f))
+    assert np.isclose(integrate_at(out, GEOMETRY, degree=12), integrate_at(f, GEOMETRY, degree=12))
 
 
 def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
@@ -61,9 +60,8 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
         assert result.scalar_type == original.scalar_type
         assert result.argument_spaces == original.argument_spaces
         assert not any(isinstance(n, Inverse) for n in nodes(result))
-        oracle = Interpreter(GEOMETRY)
         np.testing.assert_allclose(
-            oracle.evaluate(result),
-            oracle.evaluate(original, points={K: np.array([0.2, 0.3])}),
+            trace(result, *GEOMETRY)(*GEOMETRY.values()),
+            trace(original, *GEOMETRY, K)(*GEOMETRY.values(), np.array([0.2, 0.3])),
             atol=1e-12,
         )

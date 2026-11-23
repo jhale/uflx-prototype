@@ -8,7 +8,7 @@ from uflx.calculus import coordinate, curl, divergence
 from uflx.nodes import EuclideanSpace
 from uflx.passes import apply_gradients
 from uflx.tensors import tensor
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 
 def test_ordinary_divergence_and_curl_expand_without_any_pullback():
@@ -21,5 +21,5 @@ def test_ordinary_divergence_and_curl_expand_without_any_pullback():
     for original, expected in cases:
         out = apply_gradients(original)
         assert everywhere(out, lambda node: not isinstance(node, Divergence | Curl | PullBack))
-        actual = Interpreter().evaluate(out, points={P: np.array([0.3, 0.7])})
+        actual = trace(out, P)(np.array([0.3, 0.7]))
         np.testing.assert_allclose(actual, expected)

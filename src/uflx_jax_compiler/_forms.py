@@ -32,8 +32,9 @@ def conjugated(value):
 def function_value(node, bindings, site, arguments, read):
     space = node.space
     domain = space.domain
-    if elements.is_basix_space(space):
-        return elements.field_value(node, bindings, site, read)
+    element_space = elements.basix_space(space)
+    if element_space is not None:
+        return elements.field_value(node, element_space, bindings, site, read)
     value = bindings[node]
     if isinstance(value, dict):
         value = value[site.slot(domain)]

@@ -219,8 +219,8 @@ def evaluate(node, bindings, site, arguments=()):
             return jnp.trace(value(Gradient(x, domain), arguments), axis1=-2, axis2=-1)
         case Curl(x, domain):
             return _spatial.curl(value(Gradient(x, domain), arguments))
-        case Integral(x, domain):
-            return integrate(domain, field(x), site, value)
+        case Integral(x, _):
+            return integrate(node, bindings, field(x), site, value)
         case PullBack(x, mapping):
             if _tensors.axes(mapping, bindings):
                 return pointwise(batch=not needs_eager_samples(node, bindings))

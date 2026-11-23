@@ -10,7 +10,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx.tensors import component_tensor, determinant, index, tensor
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..testutil import contains
 from ..uflx.spaces import space
@@ -32,7 +32,7 @@ def test_determinant_derivative_at_singular_matrix(n, scalar_type):
         direction = direction * (1 + 2j)
     # At diag(0, 1, ...), only the (0, 0) cofactor is nonzero.
     expected = direction[0, 0] if n else 0
-    np.testing.assert_allclose(Interpreter({A: point, H: direction}).evaluate(derivative), expected)
+    np.testing.assert_allclose(trace(derivative, A, H)(point, direction), expected)
 
 
 def test_determinant_derivative_uses_point_and_preserves_its_family():
@@ -44,7 +44,7 @@ def test_determinant_derivative_uses_point_and_preserves_its_family():
     derivative = apply_derivatives(
         component_tensor(directional_derivative(determinant(A), t, points, num(1)), (i,))
     )
-    np.testing.assert_allclose(Interpreter().evaluate(derivative), [0, 6])
+    np.testing.assert_allclose(trace(derivative)(), [0, 6])
 
 
 def test_second_determinant_derivative_at_zero():
@@ -53,7 +53,7 @@ def test_second_determinant_derivative_at_zero():
     first = directional_derivative(determinant(A), t, t, num(1))
     second = apply_derivatives(directional_derivative(first, t, num(0), num(1)))
     assert not contains(second, lambda node: isinstance(node, Inverse))
-    np.testing.assert_allclose(Interpreter().evaluate(second), 2)
+    np.testing.assert_allclose(trace(second)(), 2)
 
 
 def test_determinant_derivative_matches_finite_difference():
@@ -67,9 +67,7 @@ def test_determinant_derivative_matches_finite_difference():
     expected = (
         np.linalg.det(point + step * direction) - np.linalg.det(point - step * direction)
     ) / (2 * step)
-    np.testing.assert_allclose(
-        Interpreter({A: point, H: direction}).evaluate(derivative), expected, rtol=1e-8
-    )
+    np.testing.assert_allclose(trace(derivative, A, H)(point, direction), expected, rtol=1e-8)
 
 
 @pytest.mark.parametrize(
@@ -92,7 +90,7 @@ def test_determinant_jvp_and_gradient(point, cofactors):
     expr = determinant(A)
 
     def evaluate(matrix):
-        return Interpreter({A: matrix}).evaluate(expr)
+        return trace(expr, A)(matrix)
 
     direction = np.arange(2, 2 + point.size, dtype=point.dtype).reshape(point.shape)
     grad = jax.jit(jax.grad(evaluate, holomorphic=complex_input))(point)
@@ -106,7 +104,7 @@ def test_determinant_gradient_derivative_at_a_singular_minor():
     expr = determinant(A)
 
     def evaluate(matrix):
-        return Interpreter({A: matrix}).evaluate(expr)
+        return trace(expr, A)(matrix)
 
     # At diag(2t, 3, 0) the only nonzero cofactor is the final diagonal entry, 6t.
     point = np.diag([0.0, 3.0, 0.0])

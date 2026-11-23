@@ -15,7 +15,7 @@ from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell
 from uflx_basix.interpolation import interpolate
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..testutil import table
 from ..uflx.inclusions import affine_map, reference_normal
@@ -29,11 +29,12 @@ from ..uflx_basix.meshes import (
     side_map,
     square,
 )
+from .quadrature import integrate_at
 
 
 def value(e, P=None, X=()):
     points = {P: X} if P is not None else {}
-    return np.real(Interpreter().evaluate(e, points=points))
+    return np.real(trace(e, *points)(*points.values()))
 
 
 def test_reference_interpolation_uses_the_element_sampling_points():
@@ -59,7 +60,9 @@ def test_a_basix_simplex_is_the_unit_simplex(n, cell_type):
     assert np.allclose(value(K.vertices), value(simplex.vertices))
     for domain in (simplex, K):
         moment = integral(coordinate(domain)[0] ** num(12), domain)
-        assert value(moment) == pytest.approx(factorial(12) / factorial(12 + n), rel=1e-12)
+        assert integrate_at(moment, {}, degree=12) == pytest.approx(
+            factorial(12) / factorial(12 + n), rel=1e-12
+        )
 
 
 @pytest.mark.parametrize(
@@ -93,9 +96,8 @@ def facet_integrals(K):
         out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
         assert in_core_normal_form(out)
-        oracle = Interpreter(env)
-        values.append(oracle.evaluate(out))
-        assert np.isclose(oracle.evaluate(e), values[-1], rtol=1e-6)
+        values.append(integrate_at(out, env, degree=12))
+        assert np.isclose(integrate_at(e, env, degree=12), values[-1], rtol=1e-6)
     return np.array(values)
 
 
@@ -133,8 +135,7 @@ def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
         out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
         assert in_core_normal_form(out)
-        oracle = Interpreter(env)
-        before, after = oracle.evaluate(e), oracle.evaluate(out)
+        before, after = integrate_at(e, env, degree=12), integrate_at(out, env, degree=12)
         assert np.isclose(before, after, rtol=1e-6), (before, after)
         if expected is not None:
             assert np.isclose(after, expected, rtol=1e-6), (after, expected)
@@ -172,8 +173,7 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
         out = lower_spatial(integrals.expand_integrals(e))
         out = expand_arithmetic(out)
         assert in_core_normal_form(out)
-        oracle = Interpreter(env)
-        before, after = oracle.evaluate(e), oracle.evaluate(out)
+        before, after = integrate_at(e, env, degree=12), integrate_at(out, env, degree=12)
         assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
         if expected is not None:
             assert np.isclose(after, expected, rtol=1e-6, atol=1e-9), (after, expected)
@@ -201,5 +201,5 @@ def test_oracle_tabulates_each_custom_elements_own_basis():
         u = function(V, "u")
         weights = np.array([0.0, 1e10])
         expected = element.tabulate(0, point)[0, 0, :, 0] @ weights
-        actual = Interpreter({u: weights}).evaluate(u, points={V.domain: point[0]})
+        actual = trace(u, u, V.domain)(weights, point[0])
         assert actual == pytest.approx(expected, abs=1e-9)

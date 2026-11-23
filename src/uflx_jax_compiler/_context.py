@@ -28,9 +28,7 @@ class Sample:
             return self.cells[domain]
         topology = domain.topology if isinstance(domain, Mesh) else domain
         if isinstance(topology, AbstractTopology) and len(topology.cell_types) != 1:
-            raise ValueError(
-                "select a local cell slot with a pull-back or pass cells to Interpreter.evaluate"
-            )
+            raise ValueError("select a local cell slot with a pull-back to its reference cell")
         return 0
 
 

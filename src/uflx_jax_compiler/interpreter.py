@@ -1,35 +1,73 @@
-"""Evaluate UFLx expressions and fully applied forms by their numerical definitions."""
-
-from collections.abc import Mapping
+"""Evaluate UFLx expressions and trace finite element forms to local tensors."""
 
 import jax
 import jax.numpy as jnp
 
-from uflx.nodes import AbstractDomain, AbstractExpression, AbstractTopology
+from uflx.algorithms import memoized, operands
+from uflx.nodes import AbstractDomain, AbstractExpression, AbstractTopology, Integral, Mesh
 
 from ._context import Sample
 from ._external import Pointwise as Pointwise
+from ._finite_elements import local_basis
 from ._semantics import evaluate
+
+
+def _tabulate_slot(action, position, dim, basis):
+    def tabulated(*values):
+        def entry(i):
+            return action(*values[:position], basis(i), *values[position:])
+
+        return jax.vmap(entry)(jnp.arange(dim))
+
+    return tabulated
+
+
+def _check_quadrature(expression, inputs):
+    @memoized
+    def visit(walk, node):
+        if isinstance(node, Integral) and node.integration_domain.dimension and node not in inputs:
+            domain = node.integration_domain
+            cells = domain.topology.cell_types if isinstance(domain, Mesh) else (domain,)
+            if any((node, cell) not in inputs for cell in cells):
+                raise ValueError("supply an explicit quadrature rule for each integral", node)
+        # Derived index labels can name the integral that quadrature already expanded.
+        fields = [name for name in node.argument_names if name not in node.labels]
+        for child in operands(node, fields):
+            walk(child)
+
+    visit(expression)
 
 
 def trace(expression: AbstractExpression, *inputs):
     """Return a JAX-traceable function for an expression or form.
 
-    Call it with one value per declared input, then one per ordered form slot.
-    A field input takes its coefficients, a domain input takes an evaluation point,
-    and a free index input takes its selected component. The result is a JAX array.
+    Each Basix form slot contributes a leading tensor axis in declaration order.
+    The axis follows the space's packed local DOF order, including all cell slots.
+    A product of Basix spaces concatenates its members' DOFs on one axis.
+    Use uflx.forms.apply or partial to take an action on a specific field.
 
-    An external operation input takes its JAX-traceable implementation. Bind fixed
-    inputs with functools.partial. To sample a particular cell, pull the expression
-    back to its reference cell before tracing.
+    Call the kernel with one value per declared input, followed by one value for
+    each form slot without a Basix basis. A field input takes its coefficients,
+    a domain input takes an evaluation point, and a free index takes its component.
+
+    Apply quadrature to each reference integral before tracing, or declare the
+    integral as an input and pass its (points, weights) on the reference cell.
+    For a mesh with different cell types, declare (integral, reference_cell)
+    inputs for the respective rules. A point integral is evaluated exactly.
+
+    A blocked Basix field accepts flat DOFs or one block per scalar basis DOF.
+    Unselected free indices become leading array axes in free-index order.
+    An external operation takes a JAX-traceable implementation. Field operands
+    are callable. Wrap the implementation in Pointwise to receive their values
+    at the current point. Bind fixed inputs with functools.partial. To sample a
+    particular cell, pull the expression back to its reference cell before tracing.
     """
-    if len(set(inputs)) != len(inputs):
+    keys = set(inputs)
+    if len(keys) != len(inputs):
         raise ValueError("each input must be declared once")
-    arity = len(inputs) + len(expression.argument_spaces)
+    _check_quadrature(expression, keys)
 
-    def kernel(*values):
-        if len(values) != arity:
-            raise TypeError(f"expected {arity} positional values, got {len(values)}")
+    def action(*values):
         environment = {}
         points = {}
         for key, value in zip(inputs, values[: len(inputs)], strict=True):
@@ -40,50 +78,17 @@ def trace(expression: AbstractExpression, *inputs):
         sample = Sample(points, {})
         return jnp.asarray(evaluate(expression, environment, sample, values[len(inputs) :]))
 
+    arity = len(inputs) + len(expression.argument_spaces)
+    # Wrap the last slot first so the first declared basis is the outermost axis.
+    for i, space in reversed(tuple(enumerate(expression.argument_spaces))):
+        basis = local_basis(space)
+        if basis is not None:
+            action = _tabulate_slot(action, len(inputs) + i, *basis)
+            arity -= 1
+
+    def kernel(*values):
+        if len(values) != arity:
+            raise TypeError(f"expected {arity} positional values, got {len(values)}")
+        return action(*values)
+
     return kernel
-
-
-class Interpreter:
-    """Evaluate UFLx with JAX using the supplied field and operation bindings.
-
-    Bind fields to numbers, arrays, UFLx expressions or JAX-traceable functions of a point.
-    Blocked Basix fields accept flat coefficients or one block per scalar basis DOF,
-    with trailing axes matching the space's block shape.
-    Bind external operations to JAX-traceable functions. A field operand is a callable
-    of its coordinates. Wrap a function in Pointwise to pass values at the current point.
-    Bind operator-valued functions to callables of their slots. Domain-free input terminals
-    with no free indices or slots accept arrays. Inputs and extents also accept library labels.
-    """
-
-    def __init__(self, environment: Mapping | None = None):
-        self.environment = environment if environment is not None else {}
-
-    def evaluate(
-        self, expression: AbstractExpression, arguments=(), *, indices=None, points=None, cells=None
-    ):
-        """Return the numerical value for the given ordered form slots.
-
-        Unselected free indices are leading array axes in expression.free_indices order.
-        Select an entry with indices={i: k}. Supply coordinates keyed by domain in points.
-        When a point evaluation needs one of several local cells, supply its slot
-        in cells, keyed by mesh or topology.
-        """
-        arguments = tuple(arguments)
-        if len(arguments) != len(expression.argument_spaces):
-            raise ValueError(
-                f"expected {len(expression.argument_spaces)} form arguments, got {len(arguments)}"
-            )
-        site = Sample(
-            {domain: jnp.asarray(point, dtype=float) for domain, point in (points or {}).items()},
-            dict(cells or {}),
-        )
-        bindings = dict(self.environment) | dict(indices or {})
-        value = evaluate(expression, bindings, site, arguments)
-        # Eager scalar results can be used as UFLx literals. A traced scalar stays in the graph.
-        if (
-            isinstance(value, jax.Array)
-            and not isinstance(value, jax.core.Tracer)
-            and not value.ndim
-        ):
-            return value.item()
-        return value

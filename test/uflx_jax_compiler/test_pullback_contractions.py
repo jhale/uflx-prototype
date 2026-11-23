@@ -11,7 +11,7 @@ from uflx.calculus import coordinate, gradient
 from uflx.forms import function
 from uflx.geometry import cell_map, pull_back
 from uflx.passes import expand_pull_backs
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 from ..uflx_basix.test_pullback_contractions import geometry
@@ -39,6 +39,6 @@ def test_gradient_pullback_uses_covariant_law_for_scalar_and_vector_fields(vecto
     env = {x: lambda p: jnp.array([p[0], 2 * p[0]])}
     env[u] = coordinate(D) if vector else coordinate(D)[0]
     out = lower_spatial(actual)
-    value = Interpreter(env).evaluate(out, points={C.reference_cell: [0.3]})
+    value = trace(out, *env, C.reference_cell)(*env.values(), [0.3])
     desired = np.array([[1, 2], [2, 4]]) / 5 if vector else np.array([1, 2]) / 5
     np.testing.assert_allclose(value, desired, atol=1e-6)

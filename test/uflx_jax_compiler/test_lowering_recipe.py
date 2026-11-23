@@ -9,7 +9,7 @@ from uflx.arithmetic import conjugate, num
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function
 from uflx.passes import apply_derivatives, expand_applications, lower
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 
@@ -23,7 +23,7 @@ def test_actions_exposed_by_binding_are_finished():
     point = form(num(2) * conjugate(v), (conjugate(v),))
     result = expand_applications(apply(wrapper, (point,)))
     assert everywhere(result, lambda n: not isinstance(n, Apply))
-    assert np.isclose(Interpreter({u: 3 + 1j}).evaluate(result), 2 * (3 - 1j))
+    assert np.isclose(trace(result, u)(3 + 1j), 2 * (3 - 1j))
 
 
 def test_derivative_finishes_actions_created_by_dual_direction():
@@ -34,7 +34,7 @@ def test_derivative_finishes_actions_created_by_dual_direction():
     e = directional_derivative(apply(l, (conjugate(u),)), l, l, direction)
     out = apply_derivatives(e)
     assert everywhere(out, lambda n: not isinstance(n, Apply | DirectionalDerivative))
-    assert np.isclose(Interpreter({u: 3 + 1j}).evaluate(out), 2 * (3 - 1j))
+    assert np.isclose(trace(out, u)(3 + 1j), 2 * (3 - 1j))
     assert not core_normal_form(lower(e))
 
 
@@ -47,7 +47,7 @@ def test_point_substitution_exposes_action_and_another_derivative():
     out = apply_derivatives(e)
     assert not derivatives_expanded(out)
     assert everywhere(out, lambda n: not isinstance(n, Apply))
-    assert np.isclose(Interpreter({u: 2, h: 3}).evaluate(out), 12)
+    assert np.isclose(trace(out, u, h)(2, 3), 12)
 
 
 def test_lowering_a_derivative_in_a_geometry_direction():
@@ -55,4 +55,4 @@ def test_lowering_a_derivative_in_a_geometry_direction():
     e = directional_derivative(x * x, x, x, h)
     out = lower(e)
     assert not core_normal_form(out)
-    assert np.isclose(Interpreter({x: 2, h: 3}).evaluate(out), 12)
+    assert np.isclose(trace(out, x, h)(2, 3), 12)

@@ -6,7 +6,7 @@ from uflx.arithmetic import add, conjugate, multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.tensors import component_tensor, index, indexed, tensor
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..testutil import ill_typed
 from ..uflx.spaces import space
@@ -26,9 +26,8 @@ def check(name, e, ienv=None):
     ienv = ienv or {}
     out = applications.expand_applications(e)
     n = len(e.argument_spaces)
-    oracle = Interpreter(env)
-    before = oracle.evaluate(e, arguments=args[:n], indices=ienv)
-    after = oracle.evaluate(out, arguments=args[:n], indices=ienv)
+    before = trace(e, *env, *ienv)(*env.values(), *ienv.values(), *args[:n])
+    after = trace(out, *env, *ienv)(*env.values(), *ienv.values(), *args[:n])
     assert np.allclose(before, after, atol=1e-6), name
     assert applications_expanded(out), name
     assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))
@@ -69,4 +68,4 @@ def test_cases():
     # The argument contains the variable of the derivative: expect h * u, not 2 h u.
     J = form(directional_derivative(multiply(u, v), u, u, h), (v,))
     out = check("action on a form with a derivative of u at u", apply(J, (u,)))
-    assert np.isclose(Interpreter(env).evaluate(out), env[h] * env[u])
+    assert np.isclose(trace(out, *env)(*env.values()), env[h] * env[u])

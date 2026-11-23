@@ -1,7 +1,7 @@
 import numpy as np
 
 from uflx.geometry import domain_map
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..uflx.inclusions import affine_map, centroid, reference_normal
 from ..uflx_basix.cells import reference_simplex
@@ -10,7 +10,7 @@ from ..uflx_basix.test_cells import table
 
 def value(e, P=None, X=()):
     points = {P: X} if P is not None else {}
-    return np.real(Interpreter().evaluate(e, points=points))
+    return np.real(trace(e, *points)(*points.values()))
 
 
 def test_the_hypotenuse_of_the_unit_triangle():

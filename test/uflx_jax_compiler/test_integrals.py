@@ -15,13 +15,13 @@ from uflx.forms import function
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, indexed, tensor
-from uflx_jax_compiler.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, keeps_static_type
 from ..uflx.spaces import space
 from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.integrals import GEOMETRY, SQUARE, D, I, K, c, u
 from ..uflx_basix.meshes import grouped_topology, vertex_mesh
+from .quadrature import integrate_at
 
 R2 = EuclideanSpace(2)
 X = coordinate(K)
@@ -123,8 +123,10 @@ def main(trials):
         fr = dict(e.free_indices)
         for combo in itertools.product(*(range(n) for n in fr.values())):
             ienv = dict(zip(fr, combo))
-            oracle = Interpreter(env)
-            before, after = oracle.evaluate(e, indices=ienv), oracle.evaluate(out, indices=ienv)
+            before, after = (
+                integrate_at(e, env | ienv, degree=12),
+                integrate_at(out, env | ienv, degree=12),
+            )
             if not np.allclose(before, after, rtol=1e-6, atol=1e-8):
                 bad["value"] += 1
                 if bad["value"] <= 3:

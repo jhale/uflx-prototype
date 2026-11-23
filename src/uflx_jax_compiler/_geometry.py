@@ -6,7 +6,6 @@ import jax.numpy as jnp
 from uflx.nodes import AbstractCoordinateDomain, Mesh
 
 from . import _tensors
-from ._finite_elements import reference_quadrature
 
 
 def chart_of(piece, site, value):
@@ -65,11 +64,26 @@ def side_reference(side, site, value):
     return slot, parent_slot, inclusion, point, target
 
 
-def integrate(domain, fn, site, value):
+def integrate(integral, bindings, fn, site, value):
+    domain = integral.integration_domain
+
+    def on_reference_cell(cell, integrand):
+        rule = bindings.get((integral, cell), bindings.get(integral))
+        if rule is None:
+            if cell.dimension == 0:
+                return integrand(site.at({cell: jnp.empty(0)}))
+            raise ValueError("supply an explicit quadrature rule for each integral", integral)
+        points, weights = rule
+        points, weights = jnp.asarray(points, dtype=float), jnp.asarray(weights)
+        if weights.ndim != 1 or points.shape != (weights.size, cell.dimension):
+            raise ValueError("quadrature needs one reference point per weight", integral)
+        if not weights.size:
+            return jnp.zeros(_tensors.shape(integral, bindings), dtype=_tensors.dtype(integral))
+        samples = jax.vmap(lambda p: integrand(site.at({cell: p})))(points)
+        return jnp.tensordot(weights, samples, axes=1)
+
     if isinstance(domain, AbstractCoordinateDomain):
-        points, weights = reference_quadrature(domain)
-        samples = jax.vmap(lambda p: fn(site.at({domain: p})))(jnp.asarray(points))
-        return jnp.tensordot(jnp.asarray(weights), samples, axes=1)
+        return on_reference_cell(domain, fn)
 
     def integrate_piece(slot, piece):
         chart = chart_of(piece, site, value)
@@ -84,7 +98,7 @@ def integrate(domain, fn, site, value):
             )
             return density * fn(sample)
 
-        return integrate(piece.reference_cell, mapped, site, value)
+        return on_reference_cell(piece.reference_cell, mapped)
 
     total = 0
     for slot, piece in enumerate(domain):

@@ -8,7 +8,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx_extensions.complex_differentiation import complex_derivative_parts
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 
@@ -18,7 +18,7 @@ r, k, b = (function(R, name) for name in ("r", "k", "b"))
 
 
 def value(f, data):
-    return Interpreter(data).evaluate(apply_derivatives(f))
+    return trace(apply_derivatives(f), *data)(*data.values())
 
 
 @pytest.mark.parametrize("real_output", [False, True])

@@ -11,9 +11,10 @@ from uflx.geometry import pull_back
 from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell, topology
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..uflx_basix.meshes import mixed, push_forward, side_map, square
+from .quadrature import integrate_at
 
 P = basix.ElementFamily.P
 # The vertex coordinates of the square of test_basix and of its mixed mesh.
@@ -37,8 +38,7 @@ def value(e, env):
     out = lower_spatial(integrals.expand_integrals(e))
     out = expand_arithmetic(out)
     assert in_core_normal_form(out)
-    oracle = Interpreter(env)
-    before, after = oracle.evaluate(e), oracle.evaluate(out)
+    before, after = integrate_at(e, env, degree=12), integrate_at(out, env, degree=12)
     assert np.isclose(before, after, rtol=1e-6, atol=1e-9), (before, after)
     return np.real(after)
 
@@ -103,11 +103,11 @@ def test_blocked_coefficients_accept_one_value_per_scalar_dof(shape):
     V = local_space(T, p1, shape=shape)
     u = function(V, "u")
     values = np.arange(V.num_dofs, dtype=float).reshape(-1, *shape)
-    site = {"points": {T: p1.points[1]}, "cells": {T: 1}}
+    sample = trace(pull_back(u, T[1]), u, T[1].reference_cell)
 
     for coefficients in (values, values.ravel()):
-        result = Interpreter({u: coefficients}).evaluate(u, **site)
+        result = sample(coefficients, p1.points[1])
         np.testing.assert_allclose(result, values[p1.dim + 1])
 
     with pytest.raises(ValueError, match="expected coefficient shape"):
-        Interpreter({u: values.swapaxes(0, 1)}).evaluate(u, **site)
+        sample(values.swapaxes(0, 1), p1.points[1])

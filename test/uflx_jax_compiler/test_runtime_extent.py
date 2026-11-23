@@ -9,7 +9,7 @@ from uflx.calculus import coordinate, integral
 from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index_sum
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..testutil import contains
 from ..uflx.test_runtime_extent import i, points, q, weights
@@ -29,9 +29,8 @@ def runtime_quadrature():
 def test_integer_indices_check_known_bounds_only():
     data = np.array([[1.0, 2.0], [3.0, 4.0]])
     env = {q: 2, points: data}
-    oracle = Interpreter(env)
-    np.testing.assert_array_equal(oracle.evaluate(points[0]), data[0])
-    assert oracle.evaluate(points[1, 0]) == data[1, 0]
+    np.testing.assert_array_equal(trace(points[0], *env)(*env.values()), data[0])
+    assert trace(points[1, 0], *env)(*env.values()) == data[1, 0]
     with pytest.raises(IndexError):
         points[-1, 0]
     with pytest.raises(IndexError):
@@ -61,4 +60,4 @@ def test_runtime_quadrature_passes_through_every_pass_unchanged_in_extent():
         expected = sum(wk * (p[0] ** 2 * p[1] + 3 * p[0]) for p, wk in zip(P, w, strict=True))
         env = {q: n, points: P, weights: w}
         for g in (e, out):
-            assert np.isclose(Interpreter(env).evaluate(g), expected)
+            assert np.isclose(trace(g, *env)(*env.values()), expected)

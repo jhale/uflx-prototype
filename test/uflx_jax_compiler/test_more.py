@@ -7,7 +7,7 @@ from uflx.arithmetic import add, conjugate, divide, multiply, num
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.nodes import ScalarType
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..testutil import ill_typed
 from ..uflx.spaces import space
@@ -35,9 +35,9 @@ def check(name, e, ienv=None, vals=None):
     out = applications.expand_applications(e)
     n = len(e.argument_spaces)
     vals = vals if vals is not None else tuple(cplx() for _ in range(n))
-    oracle = Interpreter(env)
-    before = oracle.evaluate(e, arguments=vals, indices=ienv)
-    after = oracle.evaluate(out, arguments=vals, indices=ienv)
+    bindings = env | (ienv or {})
+    before = trace(e, *bindings)(*bindings.values(), *vals)
+    after = trace(out, *bindings)(*bindings.values(), *vals)
     assert np.allclose(before, after, atol=1e-5), name
     assert applications_expanded(out), name
     assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))

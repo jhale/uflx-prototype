@@ -14,12 +14,12 @@ from uflx.calculus import coordinate, directional_derivative, gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import density, pull_back
 from uflx.tensors import index, index_sum, indexed
-from uflx_jax_compiler.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, form_with_fixed_argument
 from ..uflx.spaces import space
 from ..uflx_basix.integrals import GEOMETRY, K
 from ..uflx_basix.integrals import D as MESH
+from .quadrature import integrate_at
 
 VD = space("VD", domain=MESH)
 u, w, h = (function(VD, n) for n in "uwh")
@@ -91,8 +91,10 @@ def main(trials):
         )
         check_types(bad, e, out)
         vals = tuple(args[: len(e.argument_spaces)])
-        oracle = Interpreter(env)
-        before, after = oracle.evaluate(e, arguments=vals), oracle.evaluate(out, arguments=vals)
+        before, after = (
+            integrate_at(e, env, *vals, degree=12),
+            integrate_at(out, env, *vals, degree=12),
+        )
         if not np.allclose(before, after, rtol=1e-4, atol=1e-6):
             bad["value"] += 1
             if bad["value"] <= 3:

@@ -22,11 +22,11 @@ from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import function
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
-from uflx_jax_compiler.interpreter import Interpreter
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type
 from ..uflx.spaces import space
 from ..uflx_basix.integrals import K
+from .quadrature import integrate_at
 
 X = coordinate(K)
 u = function(space("V", domain=K), "u")
@@ -91,7 +91,6 @@ def needs_pass(n):
 
 
 def main(trials):
-    interpreter = Interpreter(ENV)
     bad = dict(value=0, static=0, grammar=0, lazy=0, rejected=0)
     for seed in range(trials):
         rnd = random.Random(seed)
@@ -105,7 +104,7 @@ def main(trials):
         if not keeps_static_type(e, out):
             bad["static"] += 1
         bad["grammar"] += not in_core_normal_form(out)
-        before, after = interpreter.evaluate(e), interpreter.evaluate(out)
+        before, after = integrate_at(e, ENV, degree=12), integrate_at(out, ENV, degree=12)
         if not np.allclose(before, after, rtol=1e-4, atol=1e-5):
             bad["value"] += 1
             if bad["value"] <= 3:

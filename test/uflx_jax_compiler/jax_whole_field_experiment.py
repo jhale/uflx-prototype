@@ -22,7 +22,7 @@ from uflx_extensions.external_operators import (
     OutputType,
     external_operator,
 )
-from uflx_jax_compiler.interpreter import Interpreter
+from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 from ..uflx_basix.integrals import D
@@ -164,7 +164,7 @@ def test_whole_field_against_oracle():
     # The graph oracle takes traceable fields. Only the host adapter under test
     # retains Python callbacks and checks that it supplies concrete NumPy points.
     x = coordinate(D)[0]
-    oracle = Interpreter({u: {0: x, 1: num(2) + x}, h: num(1) + x, a: 2.0, **library_bindings()})
+    library = library_bindings()
     retained = {}
     with jax.checking_leaks():
         for cell, field in cells.items():
@@ -172,7 +172,11 @@ def test_whole_field_against_oracle():
             env = {u: Partial(field), h: Partial(direction), a: 2.0}
             for expr in (value, first, second):
                 result = evaluate(expr, env, library_bindings(saved))
-                assert float(result) == pytest.approx(oracle.evaluate(expr, cells={D: cell}))
+                assert float(result) == pytest.approx(
+                    trace(expr, u, h, a, *library)(
+                        num(2 * cell) + x, num(1) + x, 2.0, *library.values()
+                    )
+                )
             retained[cell] = saved
 
     # Both calls and all derivative traces have finished. Sample at fresh points, in reverse
@@ -200,7 +204,7 @@ def test_stationary_scalar_operand_without_a_derivative_binding():
     expr = external_operator(Energy(), (a * a, num(2)))
     derivative = directional_derivative(expr, a, num(0), num(1))
     library = {Energy(): operator.mul}
-    assert Interpreter(library).evaluate(derivative) == evaluate(derivative, {}, library) == 0
+    assert trace(derivative, *library)(*library.values()) == evaluate(derivative, {}, library) == 0
     active = directional_derivative(expr, a, num(1), num(1))
     with pytest.raises(TypeError, match="missing evaluation for derivative action"):
         evaluate(active, {}, library)
