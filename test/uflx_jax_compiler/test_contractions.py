@@ -1,0 +1,120 @@
+"""Free-index axes, tensor value axes and the boundaries between them."""
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+
+from uflx.arithmetic import conditional, less_than, num
+from uflx.calculus import coordinate, gradient
+from uflx.forms import form, function
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import EuclideanSpace, GatheredIndex
+from uflx.tensors import broadcast_to, component_tensor, index, index_sum, tensor
+from uflx_jax_compiler.interpreter import Interpreter
+
+from ..uflx.library import IndexTable, RuntimeArray, RuntimeExtent
+from ..uflx.spaces import space
+
+
+def test_contraction_retains_free_axes_in_order_and_differentiates():
+    i, j, k = map(index, "ijk")
+    A, B = RuntimeArray("A", (2, 3)), RuntimeArray("B", (4, 3))
+    b = RuntimeArray("b", (3,))
+    expr = index_sum(A[i, j] * B[k, j] * b[j], (j,))
+    a, m, v = jnp.arange(6.0).reshape(2, 3), jnp.arange(12.0).reshape(4, 3), jnp.arange(3.0)
+    expected = jnp.einsum("ij,kj,j->ik", a, m, v)
+    oracle = Interpreter({A: a, B: m, b: v})
+    np.testing.assert_allclose(oracle.evaluate(expr), expected)
+    np.testing.assert_allclose(oracle.evaluate(expr, indices={k: 2}), expected[:, 2])
+    # Rebinding i as a tensor axis shadows the caller's selection.
+    np.testing.assert_allclose(
+        oracle.evaluate(component_tensor(expr, (i,)), indices={i: 1}), expected.T
+    )
+
+    def evaluate(v):
+        return Interpreter({A: a, B: m, b: v}).evaluate(expr)
+
+    np.testing.assert_allclose(jax.jit(jax.jacrev(evaluate))(v), jnp.einsum("ij,kj->ikj", a, m))
+
+
+def test_value_axes_follow_free_axes_during_broadcasts_and_gathers():
+    i, j = map(index, "ij")
+    a, b = RuntimeArray("a", (2,)), RuntimeArray("b", (3,))
+    oracle = Interpreter({a: [1.0, 2.0], b: [3.0, 4.0, 5.0]})
+    pair = tensor((a[i], b[j]))
+    scaled = b[j] * broadcast_to(pair, (4, 2))
+    expected = np.empty((3, 2, 4, 2))
+    for y, x in np.ndindex(3, 2):
+        expected[y, x] = (y + 3) * np.array([x + 1, y + 3])
+    np.testing.assert_array_equal(oracle.evaluate(scaled), expected)
+    reversed_i = GatheredIndex(IndexTable((1, 0), 2), (i,))
+    np.testing.assert_array_equal(oracle.evaluate(pair[reversed_i]), [[3, 4, 5], [2, 2, 2]])
+
+
+def test_empty_runtime_contraction_does_not_read_the_body():
+    i, j = map(index, "ij")
+    n = RuntimeExtent("n")
+    a = RuntimeArray("a", (3, n))
+    expr = a[i, j] * a[i, j]
+    oracle = Interpreter({n: 0})
+    np.testing.assert_array_equal(oracle.evaluate(index_sum(expr, (j,))), np.zeros(3))
+    assert oracle.evaluate(component_tensor(expr, (j, i))).shape == (0, 3)
+
+
+def test_family_of_pullbacks_and_lazy_conditionals():
+    i = index("i")
+    line = EuclideanSpace(1)
+    a = RuntimeArray("a", (3,))
+    points = domain_map(EuclideanSpace(0), tensor((a[i],)), line)
+    x = coordinate(line)[0]
+    expr = pull_back(gradient(x * x, line), points)
+    oracle = Interpreter({a: [-1.0, 2.0, 3.0]})
+    np.testing.assert_allclose(oracle.evaluate(expr), [[-2.0], [4.0], [6.0]])
+    missing = RuntimeArray("unused", ())
+    selected = conditional(less_than(a[i], num(10)), a[i], missing)
+    np.testing.assert_array_equal(oracle.evaluate(selected), [-1.0, 2.0, 3.0])
+    field = conditional(less_than(x, num(10)), x, missing)
+    np.testing.assert_array_equal(oracle.evaluate(pull_back(field, points)), [-1.0, 2.0, 3.0])
+    u = function(space("field", domain=line, scalar_type="real"), "u")
+    indirect = Interpreter({a: [-1.0, 2.0, 3.0], u: field})
+    np.testing.assert_array_equal(indirect.evaluate(pull_back(u, points)), [-1.0, 2.0, 3.0])
+
+
+def test_indexed_pullback_preserves_shared_axes_under_jit_and_ad():
+    i, j, k = map(index, "ijk")
+    line = EuclideanSpace(1)
+    a, b = RuntimeArray("a", (2, 3)), RuntimeArray("b", (4, 3))
+    points = domain_map(EuclideanSpace(0), tensor((a[i, j],)), line)
+    x = coordinate(line)[0]
+    field = tensor((b[k, j] * x, b[k, j] + x))
+    expr = pull_back(field, points)
+    locations, weights = jnp.arange(6.0).reshape(2, 3), jnp.arange(12.0).reshape(4, 3)
+
+    def sample(locations):
+        return Interpreter({a: locations, b: weights}).evaluate(expr)
+
+    # Field axes (k, j), then the additional map axis i, then the two components.
+    w, p = weights[:, :, None], locations.T[None, :, :]
+    expected = jnp.stack((w * p, w + p), axis=-1)
+    np.testing.assert_allclose(jax.jit(sample)(locations), expected)
+    derivative = jax.grad(lambda a: sample(a).sum())(locations)
+    np.testing.assert_allclose(derivative, jnp.broadcast_to((weights + 1).sum(axis=0), (2, 3)))
+    partial = Interpreter({a: locations, b: weights}).evaluate(expr, indices={j: 1})
+    np.testing.assert_allclose(partial, expected[:, 1])
+
+
+def test_real_contraction_of_integer_storage():
+    i = index("i")
+    a = RuntimeArray("a", (3,))
+    oracle = Interpreter({a: np.full(3, 8, dtype=np.int8)})
+    assert oracle.evaluate(index_sum(a[i] * a[i], (i,))) == 192.0
+
+
+def test_contracted_forms_receive_their_own_slots():
+    i = index("i")
+    V = space("scalar", scalar_type="real")
+    u, v = function(V, "u"), function(V, "v")
+    a = RuntimeArray("weights", (3,))
+    left, right = form(a[i] * u, (u,)), form(v, (v,))
+    total = index_sum(left * right, (i,))
+    assert Interpreter({a: [1.0, 2.0, 3.0]}).evaluate(total, arguments=(2.0, 5.0)) == 60.0

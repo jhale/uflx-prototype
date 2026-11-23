@@ -16,7 +16,7 @@ DEPENDENCIES = {
     "uflx": set(),
     "uflx_basix": {"uflx"},
     "uflx_extensions": {"uflx"},
-    "uflx_oracle": {"uflx", "uflx_basix", "uflx_extensions"},
+    "uflx_jax_compiler": {"uflx", "uflx_basix", "uflx_extensions"},
 }
 
 
@@ -109,7 +109,7 @@ def test_core_implementation_does_not_import_its_facade_or_draft_extensions():
 @pytest.mark.parametrize(
     ("source", "module", "is_package", "expected"),
     [
-        ("import uflx_oracle as oracle", "uflx.example", False, "uflx_oracle"),
+        ("import uflx_jax_compiler as oracle", "uflx.example", False, "uflx_jax_compiler"),
         (
             "from uflx import _src",
             "uflx_basix.example",

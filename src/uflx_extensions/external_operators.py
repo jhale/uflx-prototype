@@ -7,7 +7,7 @@ from collections.abc import Callable
 from functools import cached_property
 from typing import NamedTuple, final
 
-from uflx.algorithms import expand_derivatives_with, free_indices
+from uflx.algorithms import free_indices
 from uflx.nodes import (
     AbstractDomain,
     AbstractExpression,
@@ -100,4 +100,6 @@ def _tangent(
 
 def apply_external_derivatives(f: AbstractExpression) -> AbstractExpression:
     """Apply EO01 together with the core directional derivative rules."""
+    from uflx.passes import expand_derivatives_with
+
     return expand_derivatives_with(f, _tangent)

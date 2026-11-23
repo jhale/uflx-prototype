@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
-oracle = ["fenics-basix", "jax>=0.4.35"]
+jax = ["fenics-basix", "jax>=0.4.35"]
 test = ["pytest", "pytest-xdist", "coverage", "fenics-basix", "jax>=0.4.35"]
 lint = ["ruff", "pyright"]
 
@@ -24,7 +24,7 @@ addopts = "-n 6 --import-mode=importlib"
 
 [tool.coverage.run]
 branch = true
-source = ["uflx", "uflx_basix", "uflx_extensions", "uflx_oracle"]
+source = ["uflx", "uflx_basix", "uflx_extensions", "uflx_jax_compiler"]
 
 [tool.coverage.report]
 show_missing = true
@@ -39,11 +39,11 @@ select = ["E", "W", "F", "I", "RUF", "UP", "ICN", "NPY", "FLY", "LOG", "ISC"]
 ignore = ["E731", "E741"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["uflx", "uflx_basix", "uflx_extensions", "uflx_oracle"]
+known-first-party = ["uflx", "uflx_basix", "uflx_extensions", "uflx_jax_compiler"]
 
 [tool.pyright]
 include = ["src/uflx", "src/uflx_extensions"]
-exclude = ["src/uflx_oracle", "src/uflx_basix", "test"]
+exclude = ["src/uflx_jax_compiler", "src/uflx_basix", "test"]
 typeCheckingMode = "strict"
 pythonVersion = "3.11"
 reportUnnecessaryTypeIgnoreComment = "error"

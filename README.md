@@ -3,7 +3,8 @@
 The `uflx-spec-interpreter` distribution provides four Python packages. Import
 core language operations from `uflx` submodules and optional language constructs
 from `uflx_extensions`. `uflx_basix` supplies reference cells, elements, interpolation
-and quadrature. `uflx_oracle` evaluates expressions.
+and quadrature. `uflx_jax_compiler` evaluates expressions with JAX and supports
+compiling them with `jax.jit`.
 The experimental form compiler and its tests live on the `jhale/experimental-compiler` branch.
 The optional egglog optimiser and its tests live on `jhale/egglog-experiment`.
 
@@ -55,7 +56,7 @@ The core implements the evaluation passes in the UFLx language specification
 (`design/language.md` in the uflx repository). The tests check the passes against
 an independent numerical reference interpreter.
 
-The oracle uses the core and both extension packages. `uflx_basix` and
+The JAX backend uses the core and both extension packages. `uflx_basix` and
 `uflx_extensions` each import the public UFLx submodules independently.
 `test/uflx/test_boundaries.py` checks these dependencies.
 
@@ -65,10 +66,10 @@ The oracle uses the core and both extension packages. `uflx_basix` and
   `interpolate(f, V)` uses the element’s sampling points and interpolation matrix.
   `apply_quadrature` turns one reference integral into a weighted sum.
 - `uflx_extensions.complex_differentiation` builds complex-linear and antilinear
-  projections from core directional derivatives. The oracle evaluates these compositions directly.
+  projections from core directional derivatives. The JAX backend evaluates these compositions directly.
 - `uflx_extensions.external_operators` defines an expression node and uses
-  `uflx.algorithms.expand_derivatives_with` to supply its symbolic derivative rule.
-- `uflx_oracle` evaluates the resulting expressions numerically. It recognises
+  `uflx.passes.expand_derivatives_with` to supply its symbolic derivative rule.
+- `uflx_jax_compiler` evaluates the resulting expressions numerically. It recognises
   the external operator node and invokes the function supplied for that operation.
 
 ### Interpolation on a reference cell
@@ -145,7 +146,7 @@ def sample(node):
 sampled_form = bottom_up(reference_form, sample)
 ```
 
-The oracle can evaluate the weighted sum directly. Use
+The JAX backend can evaluate the weighted sum directly. Use
 `uflx.passes.expand_pull_backs` to expand its point evaluations.
 
 ### Local coefficients and library assembly
@@ -162,7 +163,7 @@ also handles orientation and the accumulation of local contributions.
 
 Geometry data follow the same packing contract. For a quadratic triangle mesh
 in two dimensions, each cell supplies six pairs of coordinates in the coordinate
-element's DOF order. The oracle reads them through the ordinary coefficient binding.
+element's DOF order. The JAX backend reads them through the ordinary coefficient binding.
 
 ```python
 element = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 2)
@@ -290,7 +291,7 @@ when the full differential is real.
 Alternatively, use a real direction `q` of a compatible library space. Bind
 `D[q]` and `D[i*q]` as separate real slots, adding real-variable derivative
 blocks. Apply `real_part` or `imaginary_part` to bodies before binding real test
-and direction functions to obtain real matrices. The oracle tests the mixed
+and direction functions to obtain real matrices. The JAX backend tests the mixed
 differential and its explicit parts against finite differences.
 
 `uflx.calculus.reference_integral(f, D, cell_slot)` gives one local cell’s reference integral.
@@ -388,22 +389,24 @@ The private modules of `_src`:
 - `rules/`: mathematical rules grouped as in the specification; passes select and
   compose them.
 
-### Numerical reference interpreter
+### JAX compiler
 
-`uflx_oracle.interpreter.Interpreter` evaluates the original expression tree.
+`uflx_jax_compiler.interpreter.Interpreter.evaluate` walks the UFLx expression
+and applies JAX operations. Call it directly for eager evaluation, or wrap a
+function of its numerical inputs in `jax.jit` to compile it.
 Use it to obtain a value for a field, apply a form to numerical arguments, or
-compare an expression before and after lowering. Install `pip install -e ".[oracle]"` for
+compare an expression before and after lowering. Install `pip install -e ".[jax]"` for
 the JAX evaluator and Basix. For an integral on a positive-dimensional Basix cell,
-the oracle calls `basix.make_quadrature(K.cell_type, degree=12)`. Other reference
+the JAX backend calls `basix.make_quadrature(K.cell_type, degree=12)`. Other reference
 cells can supply their own `quadrature(degree)` method. A point integral uses one
-sample of weight one. The oracle uses JAX's active precision. Set
+sample of weight one. The JAX backend uses JAX's active precision. Set
 `JAX_ENABLE_X64=true` for double-precision reference values.
 
 ```python
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, gradient
 from uflx.nodes import EuclideanSpace
-from uflx_oracle.interpreter import Interpreter
+from uflx_jax_compiler.interpreter import Interpreter
 
 plane = EuclideanSpace(2)
 x = coordinate(plane)
@@ -416,7 +419,7 @@ interpreter.evaluate(gradient(f, plane), points=point)  # [6.0, 1.0]
 
 Pass field data to `Interpreter(environment)`, keyed by function nodes. A field can
 be a numerical value, a UFLx expression, or a callable of the current coordinate.
-The oracle can read the same field more than once during evaluation, so callbacks
+The JAX backend can read the same field more than once during evaluation, so callbacks
 should be pure. Basix fields accept local coefficient arrays. A domain-free library
 terminal with no indices or form slots can be bound to an array. Such terminals
 and runtime extents accept node keys or their library-defined labels.
@@ -436,14 +439,14 @@ slot zero. On an interior facet, each side map selects its own parent slot so
 both traces can be evaluated at the same point. An external operator that receives a
 whole field can sample it as `field(point)` on the selected slot.
 
-The oracle walks the original UFLx graph using JAX operations. For example,
+The JAX backend walks the original UFLx graph using JAX operations. For example,
 `index_sum(A[i, j] * b[j], (j,))` evaluates to the array given by
 `jnp.einsum("ij,j->i", A_values, b_values)`. A spatial derivative differentiates
-a function of the point. For a Basix field, the oracle contracts the table of
+a function of the point. For a Basix field, the JAX backend contracts the table of
 exact basis derivatives with the reference direction. A directional derivative
 of a UFLx expression varies the named functions simultaneously.
 
-For a family of indexed pullbacks, the oracle can use `jax.vmap` to sample the
+For a family of indexed pullbacks, the JAX backend can use `jax.vmap` to sample the
 field across its free indices. Eager conditionals select their branch separately
 at each sample. JAX can also differentiate an entire evaluation with respect to
 its inputs.
@@ -469,7 +472,7 @@ point. JAX differentiates through either calling convention.
 ```python
 import jax.numpy as jnp
 from uflx_extensions.external_operators import external_operator
-from uflx_oracle.interpreter import Interpreter, Pointwise
+from uflx_jax_compiler.interpreter import Interpreter, Pointwise
 
 response = external_operator(law, (x[0],))
 interpreter = Interpreter({law: Pointwise(jnp.sin)})
@@ -489,18 +492,18 @@ that determine array shapes are static.
 ### Running the tests
 
 Run `pytest test` for the full suite or select a package, for example
-`pytest test/uflx_oracle`. Each test belongs to the lowest layer that can run its assertions and fixtures.
+`pytest test/uflx_jax_compiler`. Each test belongs to the lowest layer that can run its assertions and fixtures.
 
 | Test folder | What it can use |
 | --- | --- |
 | `test/uflx/` | Core language and passes, with fixture spaces, runtime data and topologies |
 | `test/uflx_basix/` | Core and Basix, including reference elements, interpolation and quadrature |
 | `test/uflx_extensions/` | Core operations, extension nodes and symbolic derivative rules |
-| `test/uflx_oracle/` | Core, both extension packages and oracle evaluation |
+| `test/uflx_jax_compiler/` | Core, both extension packages and JAX evaluation |
 
 Shared fixtures follow the same import order.
 
-The oracle tests check on random expressions that a pass keeps the value
+The JAX backend tests check on random expressions that a pass keeps the value
 and the static type, that its output is in its grammar, and that the grammar
 rejects its inputs. The construction rules of the argument spaces are checked in the
 tests, by `ill_typed` in `test/testutil.py`, on the input and the output of
@@ -514,7 +517,7 @@ pytest                # on 6 workers, set in pyproject.toml
 ruff check . && ruff format --check .
 pyright
 coverage run -m pytest && coverage report
-python -m test.uflx_oracle.test_full 100
+python -m test.uflx_jax_compiler.test_full 100
 ```
 
 ## Following the specification
@@ -541,7 +544,7 @@ matrices, so different sampling functionals have distinct space identities.
 
 `replace` traverses construction dependencies and preserves lexical binding;
 evaluation traverses only value operands. Rewrite completion preserves complex
-arithmetic and family indices. The oracle handles complex literals,
+arithmetic and family indices. The JAX backend handles complex literals,
 determinants and explicit cell reads independently of the rewrite rules.
 
 Test utilities supply the default transformation laws and side selections used

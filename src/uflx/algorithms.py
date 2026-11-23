@@ -7,7 +7,6 @@ from ._src.algorithms.substitution import replace, substitute_values
 from ._src.algorithms.traversal import bottom_up, map_fields, map_values, memoized
 from ._src.nodes.static import free_indices
 from ._src.nodes.structure import expression_operands, operands
-from ._src.passes.derivatives import expand_derivatives_with
 
 __all__ = [
     "alpha_equivalent",
@@ -15,7 +14,6 @@ __all__ = [
     "complete_indices",
     "derived_index",
     "derived_indices",
-    "expand_derivatives_with",
     "expression_operands",
     "free_indices",
     "map_fields",

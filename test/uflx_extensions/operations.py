@@ -1,4 +1,4 @@
-"""Example operations used by the extension and oracle tests."""
+"""Example operations used by the extension and JAX backend tests."""
 
 from uflx_extensions.external_operators import AbstractOperation, OutputType
 
