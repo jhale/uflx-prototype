@@ -26,11 +26,12 @@ This Python library contains the following packages:
    complete with respect to the specification.
 2. `uflx_basix` - uses [Basix](https://github.com/fenics/basix) to provide
    element definitions and tabulations. 
-3. `uflx_jax_compiler` - a tiny form 'compiler' that traces both original and
-   lowered (core normal form) UFLx expressions to JAX callables. Tests can
-   check lowered forms against direct evalution, and symbolic UFLx derivatives
-   against JAX automatic differentiation. The compiler is feature complete and
-   can be used as as an oracle for other (more performant) efforts.
+3. `uflx_jax_compiler` - a deliberately tiny form 'compiler' that traces both
+   original and lowered (core normal form) UFLx expressions to JAX callables.
+   Tests can check lowered forms against direct evalution, and symbolic UFLx
+   derivatives against JAX automatic differentiation. Benchmarks are typically
+   an order of magnitude slower than FFCx. The compiler is feature complete and
+   can be used as as an oracle for other, more performant, efforts.
 4. `uflx_extensions` - An extension with complex differentiation and external
    operators, intended to test the UFLx core extension concept.
 
