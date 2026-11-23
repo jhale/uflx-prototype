@@ -12,35 +12,32 @@ from ._external import Pointwise as Pointwise
 from ._semantics import evaluate
 
 
-def trace(expression: AbstractExpression, *, inputs=(), bindings=None, cells=None):
+def trace(expression: AbstractExpression, *inputs):
     """Return a JAX-traceable function for an expression or form.
 
     Call it with one value per declared input, then one per ordered form slot.
     A field input takes its coefficients, a domain input takes an evaluation point,
     and a free index input takes its selected component. The result is a JAX array.
 
-    Supply fixed fields or external operations in bindings and fixed cell slots in
-    cells. Calling the returned function evaluates the UFLx graph. Apply JAX
-    transformations such as jax.jit or jax.grad at the call site as needed.
+    An external operation input takes its JAX-traceable implementation. Bind fixed
+    inputs with functools.partial. To sample a particular cell, pull the expression
+    back to its reference cell before tracing.
     """
-    inputs = tuple(inputs)
     if len(set(inputs)) != len(inputs):
         raise ValueError("each input must be declared once")
-    fixed = dict(bindings or {})
-    cell_slots = dict(cells or {})
     arity = len(inputs) + len(expression.argument_spaces)
 
     def kernel(*values):
         if len(values) != arity:
             raise TypeError(f"expected {arity} positional values, got {len(values)}")
-        environment = fixed.copy()
+        environment = {}
         points = {}
         for key, value in zip(inputs, values[: len(inputs)], strict=True):
             if isinstance(key, (AbstractDomain, AbstractTopology)):
                 points[key] = jnp.asarray(value, dtype=float)
             else:
                 environment[key] = value
-        sample = Sample(points, cell_slots)
+        sample = Sample(points, {})
         return jnp.asarray(evaluate(expression, environment, sample, values[len(inputs) :]))
 
     return kernel

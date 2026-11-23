@@ -1,6 +1,7 @@
 """Trace the original UFLx graph through the public evaluation entry point."""
 
 import math
+from functools import partial
 
 import jax
 import jax.numpy as jnp
@@ -9,6 +10,7 @@ import pytest
 
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import form, function
+from uflx.geometry import pull_back
 from uflx_extensions.external_operators import external_operator
 from uflx_jax_compiler import trace
 from uflx_jax_compiler.interpreter import Interpreter, Pointwise
@@ -26,7 +28,7 @@ def test_jit_value_and_gradient_of_integrated_spatial_derivative():
     slope = gradient(a * x * x, cell)[0]
     expression = integral(slope * slope, cell)
 
-    energy = trace(expression, inputs=(a,))
+    energy = trace(expression, a)
 
     values, gradients = jax.jit(jax.vmap(jax.value_and_grad(energy)))(jnp.array([3.0, 1.5]))
     np.testing.assert_allclose(values, [12, 3])
@@ -39,7 +41,7 @@ def test_callable_takes_declared_inputs_then_ordered_form_slots():
     W = field_space("W", (2,), scalar_type="real")
     u, v = function(W, "u"), function(W, "v")
     operator = form(c * u[0] * v[1], (u, v))
-    kernel = trace(operator, inputs=(c,))
+    kernel = trace(operator, c)
     first, second = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     result = kernel(2.0, first, second)
     assert isinstance(result, jax.Array)
@@ -59,7 +61,7 @@ def test_jit_differentiates_whole_field_samples():
     def read(field, scale):
         return scale * (field(jnp.array([0.25])) + field(jnp.array([0.75])))
 
-    run = trace(expression, inputs=(a,), bindings={law: read})
+    run = partial(trace(expression, law, a), read)
 
     val, deriv = jax.jit(jax.value_and_grad(run))(2.0)
     np.testing.assert_allclose([val, deriv], [4.0, 4.0])
@@ -77,12 +79,30 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
     dofs = V.element(0).points[:, 0] ** 2
     slope = gradient(u, K)[0]
 
-    sample = trace(slope, inputs=(u, K))
+    sample = trace(slope, u, K)
 
     f = jax.jit(jax.vmap(jax.value_and_grad(sample, argnums=1), in_axes=(None, 0)))
     values, hessians = f(dofs, jnp.array([[0.375], [0.75]]))
     np.testing.assert_allclose(values, [0.75, 1.5])
     np.testing.assert_allclose(hessians, [[2.0], [2.0]])
+
+
+def test_pullback_selects_the_cell_of_a_discontinuous_field():
+    import basix
+
+    from uflx_basix.cells import topology
+    from uflx_basix.spaces import space
+
+    triangle = basix.CellType.triangle
+    T = topology(triangle, triangle)
+    p0 = basix.create_element(basix.ElementFamily.P, triangle, 0, discontinuous=True)
+    u = function(space(T, p0), "u")
+    dofs = jnp.array([2.0, 7.0])
+    point = jnp.array([0.0, 0.0])
+
+    for piece, expected in zip(T, (2.0, 7.0), strict=True):
+        sample = trace(pull_back(u, piece), u, piece.reference_cell)
+        assert jax.jit(sample)(dofs, point) == pytest.approx(expected)
 
 
 def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
