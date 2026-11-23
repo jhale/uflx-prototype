@@ -10,7 +10,7 @@ from uflx.forms import function
 from uflx.geometry import pull_back
 from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell, topology
-from uflx_basix.spaces import space
+from uflx_basix.spaces import local_space
 from uflx_jax_compiler.interpreter import Interpreter
 
 from ..uflx_basix.meshes import mixed, push_forward, side_map, square
@@ -52,7 +52,7 @@ def jump_squared(u, D, E):
 @pytest.mark.parametrize("degree", [1, 2])
 def test_an_interpolated_polynomial_integrates_exactly(degree):
     D, _, _, geometry = square(cell(basix.CellType.triangle))
-    V = space(D.topology, basix.create_element(P, basix.CellType.triangle, degree))
+    V = local_space(D.topology, basix.create_element(P, basix.CellType.triangle, degree))
     uT = function(V, "u")
     u = push_forward(uT, D)
     f = (lambda x: 1 + x[0] + 2 * x[1]) if degree == 1 else (lambda x: x[0] ** 2 + x[0] * x[1])
@@ -66,13 +66,13 @@ def test_matching_cell_local_coefficients_make_traces_continuous():
     D, E, _, geometry = square(cell(basix.CellType.triangle))
     rng = np.random.default_rng(3)
     for degree in (1, 2):
-        V = space(D.topology, basix.create_element(P, basix.CellType.triangle, degree))
+        V = local_space(D.topology, basix.create_element(P, basix.CellType.triangle, degree))
         uT = function(V, "u")
         coefficients = geometry | {uT: interpolate(V, lambda x: np.cos(x[0] + 2 * x[1]), SQUARE)}
         assert np.isclose(
             value(jump_squared(push_forward(uT, D), D, E), coefficients), 0, atol=1e-10
         )
-    W = space(
+    W = local_space(
         D.topology,
         basix.create_element(P, basix.CellType.triangle, 1, discontinuous=True),
     )
@@ -87,7 +87,7 @@ def test_matching_cell_local_coefficients_make_traces_continuous():
 def test_a_continuous_space_on_triangles_and_a_quadrilateral():
     D, E, _, geometry = mixed()
     elements = tuple(basix.create_element(P, K.cell_type, 2) for K in D.topology.cell_types)
-    V = space(D.topology, elements)
+    V = local_space(D.topology, elements)
     uT = function(V, "u")
     u = push_forward(uT, D)
     env = geometry | {uT: interpolate(V, lambda x: x[0] ** 2 + x[0] * x[1] - x[1], MIXED)}
@@ -100,7 +100,7 @@ def test_blocked_coefficients_accept_one_value_per_scalar_dof(shape):
     triangle = basix.CellType.triangle
     T = topology(triangle, triangle)
     p1 = basix.create_element(P, triangle, 1)
-    V = space(T, p1, shape=shape)
+    V = local_space(T, p1, shape=shape)
     u = function(V, "u")
     values = np.arange(V.num_dofs, dtype=float).reshape(-1, *shape)
     site = {"points": {T: p1.points[1]}, "cells": {T: 1}}

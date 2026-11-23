@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from uflx_basix.cells import cell, topology
-from uflx_basix.spaces import space
+from uflx_basix.spaces import local_space
 
 
 def test_native_variant_precision_and_dof_order_are_part_of_the_space():
@@ -20,13 +20,13 @@ def test_native_variant_precision_and_dof_order_are_part_of_the_space():
     order = [1, 0, 3, 2]
     element = create(order)
     K = cell(element.cell_type)
-    V = space(K, element)
+    V = local_space(K, element)
     assert V.domain is K
     assert V.element(0) is element
-    assert space(K, create(order)) is V
-    assert space(K, create([])) is not V
-    assert space(K, create(order, dtype=np.float64)) is not V
-    assert space(K, create(order, basix.LagrangeVariant.equispaced)) is not V
+    assert local_space(K, create(order)) is V
+    assert local_space(K, create([])) is not V
+    assert local_space(K, create(order, dtype=np.float64)) is not V
+    assert local_space(K, create(order, basix.LagrangeVariant.equispaced)) is not V
 
 
 def test_topology_slots_are_distinct_even_for_repeated_cell_types():
@@ -46,16 +46,16 @@ def test_native_elements_follow_topology_slots():
         basix.ElementFamily.P, basix.CellType.quadrilateral, 2, basix.LagrangeVariant.equispaced
     )
     T = topology(tri.cell_type, quad.cell_type)
-    V = space(T, (tri, quad))
+    V = local_space(T, (tri, quad))
     assert V.elements == (tri, quad)
     assert V.element(1).dof_ordering == quad.dof_ordering
     assert V.cell_dofs == (tuple(range(tri.dim)), tuple(range(tri.dim, tri.dim + quad.dim)))
     with pytest.raises(ValueError, match="cell type"):
-        space(T, (quad, tri))
+        local_space(T, (quad, tri))
     with pytest.raises(ValueError, match="per cell slot"):
-        space(T, (tri,))
+        local_space(T, (tri,))
     with pytest.raises(ValueError, match="common value shape and map type"):
-        space(
+        local_space(
             T,
             (basix.create_element(basix.ElementFamily.RT, tri.cell_type, 1), quad),
         )
@@ -94,7 +94,7 @@ def test_element_can_be_rebuilt_from_graph_data(custom):
         )
 
     def construction():
-        data = space(cell(element.cell_type), element).element_data[0]
+        data = local_space(cell(element.cell_type), element).element_data[0]
         return type(data), data.construction_arguments
 
     cls, args = construction()

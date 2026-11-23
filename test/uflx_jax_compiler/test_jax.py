@@ -71,10 +71,10 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import space
+    from uflx_basix.spaces import local_space
 
     K = cell(basix.CellType.interval)
-    V = space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
+    V = local_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
     u = function(V, "u")
     dofs = V.element(0).points[:, 0] ** 2
     slope = gradient(u, K)[0]
@@ -91,12 +91,12 @@ def test_pullback_selects_the_cell_of_a_discontinuous_field():
     import basix
 
     from uflx_basix.cells import topology
-    from uflx_basix.spaces import space
+    from uflx_basix.spaces import local_space
 
     triangle = basix.CellType.triangle
     T = topology(triangle, triangle)
     p0 = basix.create_element(basix.ElementFamily.P, triangle, 0, discontinuous=True)
-    u = function(space(T, p0), "u")
+    u = function(local_space(T, p0), "u")
     dofs = jnp.array([2.0, 7.0])
     point = jnp.array([0.0, 0.0])
 
@@ -109,10 +109,10 @@ def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import space
+    from uflx_basix.spaces import local_space
 
     K = cell(basix.CellType.tetrahedron)
-    V = space(
+    V = local_space(
         K,
         basix.create_element(
             basix.ElementFamily.P, K.cell_type, 3, basix.LagrangeVariant.equispaced

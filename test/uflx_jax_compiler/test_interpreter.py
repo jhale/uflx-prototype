@@ -168,10 +168,10 @@ def test_basix_form_slot_accepts_an_applied_field():
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import space
+    from uflx_basix.spaces import local_space
 
     K = cell(basix.CellType.triangle)
-    V = space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 1))
+    V = local_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 1))
     u = function(V, "u")
     identity = form(u, (u,))
     field = coordinate(K)[0]

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from uflx_basix.cells import cell
-from uflx_basix.spaces import space
+from uflx_basix.spaces import local_space
 
 from .meshes import square
 
@@ -13,7 +13,7 @@ from .meshes import square
 @pytest.mark.parametrize("shape", [(2,), (2, 2)])
 def test_blocked_fields_keep_cell_and_component_order(shape):
     D = square(cell(basix.CellType.triangle))[0]
-    V = space(
+    V = local_space(
         D.topology,
         basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1),
         shape=shape,

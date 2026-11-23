@@ -8,7 +8,7 @@ from uflx.geometry import cell_map, mesh, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import tensor
 from uflx_basix.cells import cell
-from uflx_basix.spaces import space
+from uflx_basix.spaces import local_space
 
 from .meshes import grouped_topology, side_domain, side_map
 
@@ -21,7 +21,7 @@ VERTICES = np.array([(0, 0), (1, 0), (1, 1), (0, 1)], dtype=float)
 
 def coordinates(degree, discontinuous=False):
     element = basix.create_element(P, K.cell_type, degree, discontinuous=discontinuous)
-    X = space(T, element)
+    X = local_space(T, element)
     x0, x1 = function(X, "x0"), function(X, "x1")
     return X, x0, x1, tensor((x0, x1))
 
