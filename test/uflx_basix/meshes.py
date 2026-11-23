@@ -23,7 +23,7 @@ def vertex_mesh(T, vertices, *, label="x"):
         elements = tuple(
             basix.create_element(basix.ElementFamily.P, K.cell_type, 1) for K in T.cell_types
         )
-        X = space("geometry", elements, domain=T, shape=shape)
+        X = space(T, elements, shape=shape)
         x = function(X, label)
         values = np.empty(X.num_dofs)
         for j, row in enumerate(T.cells):

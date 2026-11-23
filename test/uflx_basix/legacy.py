@@ -31,7 +31,7 @@ class FunctionSpace:
             basix.create_element(basix.ElementFamily.P, K.cell_type, degree)
             for K in topology.cell_types
         )
-        self.space = space("V", elements, domain=topology)
+        self.space = space(topology, elements)
 
     def function(self, label):
         # The toy has no blocked spaces, so a vector function is a tensor of its components.

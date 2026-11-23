@@ -53,7 +53,6 @@ class BasixSpace(AbstractFunctionSpace):
     """A Basix finite element on a reference cell or on each cell of a topology."""
 
     identifier = "toy.BasixSpace"
-    label: str
     _domain: AbstractTopology | BasixCell
     element_data: tuple[BuiltinElement | CustomElement, ...]
     _scalar_type: str

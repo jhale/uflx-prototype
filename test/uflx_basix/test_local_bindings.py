@@ -14,9 +14,8 @@ from .meshes import square
 def test_blocked_fields_keep_cell_and_component_order(shape):
     D = square(cell(basix.CellType.triangle))[0]
     V = space(
-        "V",
+        D.topology,
         basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1),
-        domain=D.topology,
         shape=shape,
     )
     per_cell = 3 * int(np.prod(shape))

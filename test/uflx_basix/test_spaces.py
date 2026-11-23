@@ -21,13 +21,14 @@ def test_native_variant_precision_and_dof_order_are_part_of_the_space():
 
     order = [1, 0, 3, 2]
     element = create(order)
-    V = space("V", element)
-    assert V.domain is cell(element.cell_type)
+    K = cell(element.cell_type)
+    V = space(K, element)
+    assert V.domain is K
     assert V.element(0) is element
-    assert space("V", create(order)) is V
-    assert space("V", create([])) is not V
-    assert space("V", create(order, dtype=np.float64)) is not V
-    assert space("V", create(order, basix.LagrangeVariant.equispaced)) is not V
+    assert space(K, create(order)) is V
+    assert space(K, create([])) is not V
+    assert space(K, create(order, dtype=np.float64)) is not V
+    assert space(K, create(order, basix.LagrangeVariant.equispaced)) is not V
 
 
 def test_native_elements_follow_topology_slots():
@@ -36,19 +37,18 @@ def test_native_elements_follow_topology_slots():
         basix.ElementFamily.P, basix.CellType.quadrilateral, 2, basix.LagrangeVariant.equispaced
     )
     T = static_topology((cell(tri.cell_type), cell(quad.cell_type)), ((0, 1, 2), (1, 3, 2, 4)))
-    V = space("mixed", (tri, quad), domain=T)
+    V = space(T, (tri, quad))
     assert V.elements == (tri, quad)
     assert V.element(1).dof_ordering == quad.dof_ordering
     assert V.cell_dofs == (tuple(range(tri.dim)), tuple(range(tri.dim, tri.dim + quad.dim)))
     with pytest.raises(ValueError, match="cell type"):
-        space("wrong order", (quad, tri), domain=T)
+        space(T, (quad, tri))
     with pytest.raises(ValueError, match="per cell slot"):
-        space("missing slot", (tri,), domain=T)
+        space(T, (tri,))
     with pytest.raises(ValueError, match="common value shape and map type"):
         space(
-            "incompatible",
+            T,
             (basix.create_element(basix.ElementFamily.RT, tri.cell_type, 1), quad),
-            domain=T,
         )
 
 
@@ -85,7 +85,7 @@ def test_element_can_be_rebuilt_from_graph_data(custom):
         )
 
     def construction():
-        data = space("temporary", element).element_data[0]
+        data = space(cell(element.cell_type), element).element_data[0]
         return type(data), data.construction_arguments
 
     cls, args = construction()

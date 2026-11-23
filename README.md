@@ -1,8 +1,8 @@
 # Experimental UFLx Core
 
-UFLx core is an expressive minimal language for writing finite element
-variational forms. It is a potential successor to
-[UFL](https://github.com/fenics/ufl) which is used by the [FEniCS
+[UFLx core](https://fenics.github.io/uflx/language/) is an expressive minimal
+language for writing finite element variational forms. It is a potential
+successor to [UFL](https://github.com/fenics/ufl) which is used by the [FEniCS
 Project](https://fenicsproject.org) and
 [Firedrake](https://firedrakeproject.org).
 
@@ -10,7 +10,13 @@ This repository contains an experimental implementation of the UFLx core
 [language specification](https://fenics.github.io/uflx/language/), including
 lowerings to the [core normal
 form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
-aimed at downstream compilers.
+for downstream compilers.
+
+## Installation
+
+```bash
+pip install git+https:// 
+```
 
 ## Caveats
 
@@ -22,7 +28,8 @@ core language is further developed.
 
 ## Components
 
-1. `uflx` - an implementation of the core language specification.
+1. `uflx` - an implementation of the core language specification. The
+   implementation is complete.
 2. `uflx_basix` - uses [Basix](https://github.com/fenics/basix) to provide
    element definitions and tabulations. 
 3. `uflx_jax_compiler` - a very simple reference form compiler which traces to
@@ -33,10 +40,39 @@ core language is further developed.
 
 ## Some examples
 
-A quick example of Poisson problem:
+### Poisson problem on triangles
 
 ```python
+import basix
 
+from uflx.calculus import gradient, integral
+from uflx.forms import form, function
+from uflx.geometry import push_forward
+from uflx.nodes import AbstractTopology, EuclideanSpace, Mesh
+from uflx_basix.cells import cell
+from uflx_basix.nodes import BasixBasis, table
+from uflx_basix.spaces import space
+
+
+class OneTriangle(AbstractTopology):
+    identifier = "example.OneTriangle"
+    cell_types = (cell(basix.CellType.triangle),)
+
+
+# The P1 coordinate map interpolates the three physical vertices.
+p1 = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1)
+X = space(OneTriangle(), p1)
+vertices = table(((0, 0), (2, 0), (0, 1)))
+mesh = Mesh(BasixBasis(X, 0) @ vertices, EuclideanSpace(2))
+
+p2 = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 2)
+V = space(mesh.topology, p2)
+u_ref, v_ref = function(V, "u"), function(V, "v")
+u = push_forward(u_ref, mesh, V.law)
+v = push_forward(v_ref, mesh, V.law)
+
+a = form(integral(gradient(u, mesh) @ gradient(v, mesh), mesh), (v_ref, u_ref))
+L = form(integral(v, mesh), (v_ref,))
 ```
 
 ## Statistics

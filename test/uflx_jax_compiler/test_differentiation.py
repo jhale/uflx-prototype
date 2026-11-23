@@ -154,7 +154,7 @@ def test_basix_second_derivatives_come_from_basis_tabulation():
     from uflx_basix.spaces import space
 
     K = cell(basix.CellType.triangle)
-    V = space("quadratic", basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
+    V = space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
     u = function(V, "u")
     x, y = V.element(0).points.T
     interpreter = Interpreter({u: x * x + 3 * x * y + 2 * y * y})

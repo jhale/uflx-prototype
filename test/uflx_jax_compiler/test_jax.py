@@ -57,7 +57,7 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
     from uflx_basix.spaces import space
 
     K = cell(basix.CellType.interval)
-    V = space("quadratic", basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
+    V = space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
     u = function(V, "u")
     dofs = V.element(0).points[:, 0] ** 2
     slope = gradient(u, K)[0]
@@ -79,7 +79,7 @@ def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
 
     K = cell(basix.CellType.tetrahedron)
     V = space(
-        "cubic",
+        K,
         basix.create_element(
             basix.ElementFamily.P, K.cell_type, 3, basix.LagrangeVariant.equispaced
         ),
