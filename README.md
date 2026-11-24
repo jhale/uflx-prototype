@@ -38,8 +38,8 @@ The final design, if accepted, will be reimplemented in a structured way at
 - A single algebra system for all expressions, including forms and zeroes.
 - Explicit index/tensor notation with a direct mapping to modern tensor
   contraction engines.
-- Minimal use of operator overloading, except in universally well-understood
-  algebraic settings.
+- Minimal use of operator overloading `+` `@` etc., except in universally
+  well-understood algebraic settings.
 - Explicit argument binding for form construction. In `e = conjugate(v) * u`,
   the complex scalar functions `v` and `u` are both free.
   `a = form(e, (conjugate(v), u))` binds them as arguments, declaring
@@ -59,10 +59,11 @@ The final design, if accepted, will be reimplemented in a structured way at
 - A [core normal
   form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
   which specifies what a 'typical' downstream tabulator and compiler must
-  accept, after `lower`. Downstream consumers are free to make other choices.
+  accept, after the built-in `lower` pass. Downstream consumers are free to
+  compose fine-grained lowerings and make other decisions.
 - A clear policy on language extensions, from simple passes through to full
   language extensions. External operators and a complex derivative helper is
-  currently implemented as a language extensions.
+  currently implemented as language extensions.
 
 ## Installation
 
@@ -122,7 +123,6 @@ points, weights = basix.make_quadrature(triangle, degree=2)
 a_quad = apply_quadrature(lower(a), points, weights)
 L_quad = apply_quadrature(lower(L), points, weights)
 
-# Test functions index the rows of A and trial functions index its columns. #
 # We specify x as a kernel input so we can supply the vertex coordinates at
 runtime.
 a_cell = form(a_quad, (v_ref, u_ref))
@@ -198,34 +198,6 @@ Out-of-scope:
 - Requests to add 'trivial' features (e.g. more elementary functions, pretty
   differential calculus constructions).
 
-### Hashing modulo alpha-equivalence
-
-Consider two symbolic indices with `i = index("i")` and `j = index("j")`,
-constructed using `index` from `uflx.tensors`. For a vector `a`, form the sums
-`s_i = index_sum(a[i], (i,))` and `s_j = index_sum(a[j], (j,))`.
-
-In the implementation, `s_i is s_j` evaluates to `False` because the two
-expressions contain distinct index nodes, `i is not j`, i.e. they are not
-structurally equal. 
-
-However, `s_i` and `s_j` are alpha-equivalent, because they differ only by the
-names of their bound variables - changing the names of the variables does not
-affect the mathematical meaning of the expressions.
-
-The implementation provides an algorithm `uflx.algorithms.alpha_equivalent`
-which returns `True` when two expressions with bound arguments are
-alpha-equivalent.
-
-The algorithm also applies to `component_tensor`, `form` and
-`directional_derivative`, the other binding constructions.
-
-The algorithm comes from Krzysztof Maziarz et al. [*Hashing Modulo
-Alpha-Equivalence* (PLDI 2021)](https://doi.org/10.1145/3453483.3454088).
-
-This repository uses an LLM-generated Python port of the summary code in
-`AlphaHashOptimizedHash.hs` from the authors’ [Haskell
-implementation](https://github.com/microsoft/hash-modulo-alpha) · [Python
-port](src/uflx/_src/algorithms/_alpha_summary.py)
 
 ## Statistics
 
@@ -288,3 +260,12 @@ modes.
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+The hashing modulo alpha-equivalence algorithm is based on Krzysztof Maziarz et
+al. [*Hashing Modulo Alpha-Equivalence* (PLDI
+2021)](https://doi.org/10.1145/3453483.3454088).
+
+This repository uses a direct LLM-generated Python port of the code in
+`AlphaHashOptimizedHash.hs` from the [Haskell
+implementation](https://github.com/microsoft/hash-modulo-alpha). The Copyright
+remains with Microsoft under the MIT license.
