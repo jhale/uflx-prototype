@@ -35,6 +35,18 @@ python examples/poisson.py
 
 Dependencies are `numpy`, `jax` and `fenics-basix`.
 
+### Building the documentation
+
+From the repository root, install the documentation dependencies and build the
+HTML pages with Sphinx.
+
+```bash
+python -m pip install -e '.[docs]'
+python -m sphinx -W -b html docs build/docs
+```
+
+Open `build/docs/index.html` in a browser.
+
 ## Headline features
 
 - A strict language ruleset that leads to:

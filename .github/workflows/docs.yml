@@ -1,0 +1,24 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  html:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[docs]'
+      - run: python -m sphinx -W -b html docs build/docs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-html
+          path: build/docs/
