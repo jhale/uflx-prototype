@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Physical Hermite degrees of freedom require explicit geometry reconstruction.
 
 This is one affine interval, not a general Hermite element implementation.

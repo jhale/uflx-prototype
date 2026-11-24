@@ -1,4 +1,8 @@
-# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Deterministic fingerprints modulo the interpreter's lexical alpha equivalence.
 
 UFLx-specific adapter to the reference algorithm port in _alpha_summary.py,

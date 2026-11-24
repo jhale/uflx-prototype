@@ -1,3 +1,9 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
+
 from uflx._src.nodes import Complex
 from uflx._src.passes.derivatives import apply_derivatives
 from uflx._src.passes.gradients import apply_gradients

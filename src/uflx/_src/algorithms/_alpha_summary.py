@@ -1,5 +1,9 @@
+# Copyright (C) 2026 Jack S. Hale
 # Copyright (c) Microsoft Corporation.
-# SPDX-License-Identifier: MIT
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Port of AlphaHashOptimizedHash.hs's summary algorithm.
 
 Algorithm reference:

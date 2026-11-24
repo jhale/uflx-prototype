@@ -1,3 +1,9 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
+
 # The classic FEniCS layer of EXAMPLES.md, for functions on a topology. A function of the layer
 # is the push-forward of a function on the topology, so a user script has one name for each.
 import basix

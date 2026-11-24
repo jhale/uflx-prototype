@@ -1,4 +1,8 @@
-# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Persistent sets for lexical dependencies, shared across source DAG nodes.
 
 Unlike a frozenset per subtree, adding one name copies only a treap search path.

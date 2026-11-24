@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Alpha fingerprints preserve lexical identity and support cache reuse."""
 
 from uflx._src.algorithms.alpha import alpha_hash

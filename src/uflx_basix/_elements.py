@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Immutable construction data for native Basix elements in a UFLx graph."""
 
 from functools import cached_property

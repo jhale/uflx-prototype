@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Structural construction checks, in the order of the language chapters."""
 
 from __future__ import annotations

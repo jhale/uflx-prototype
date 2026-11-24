@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Cell-local Durán-Liberman shear reduction on an affine physical triangle.
 
 We use the FEniCS-Shells convention grad(w) - theta. The lowest-order Basix

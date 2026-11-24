@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Interior facet geometry for the mixed-cell DG example."""
 
 from uflx.geometry import conormal, side_domain, side_map

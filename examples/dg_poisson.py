@@ -1,6 +1,11 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Tabulate cell and interior facet tensors for the symmetric interior penalty DG Poisson form.
 
-The patch has two triangular cells and one quadrilateral cell. In cell order,
+The topology has two triangular cells and one quadrilateral cell. In cell order,
 their coordinate elements are P1, P2 and Q2. The triangles share a straight
 facet. The second triangle and the quadrilateral share both endpoints and the
 midpoint of a curved facet. The triangle's exterior facet and the quadrilateral's
@@ -138,11 +143,13 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     evaluate_facet = trace(interior_facet_form, x, local_facets, permutations)
     facet_kernels[plus_key, minus_key] = jax.jit(evaluate_facet)
 
-# Typical form compiler would hand off kernels to assembler here
+# Typical form compiler would hand off cell_kernels and facet_kernels to
+# assembler at this point
 
 # Mesh geometry
 
-# Set interface_offset to zero for a straight P2/Q2 facet. The other offsets are independent.
+# Set interface_offset to zero for a straight P2/Q2 facet. The other offsets
+# are independent.
 boundary_offset = 0.15
 interface_offset = 0.08
 quad_interior_offset = 0.03

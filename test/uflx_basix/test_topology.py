@@ -1,3 +1,9 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
+
 from uflx._src.nodes import SideMap
 from uflx.forms import function
 from uflx.geometry import pull_back

@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Check the port against direct dictionary translations of the Haskell equations.
 
 No Haskell compiler is required. The oracle deliberately copies whole maps and

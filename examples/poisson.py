@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Second-order Poisson cell tensors on an affine triangle."""
 
 import basix
@@ -17,9 +22,9 @@ triangle = basix.CellType.triangle
 T = topology(triangle)
 
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-X = local_space(T, p1, shape=(2,))
+X = local_space(T, p1, shape=(T.dimension,))
 x = function(X, "x")
-mesh = create_mesh(x, euclidean_space(2))
+mesh = create_mesh(x, euclidean_space(T.dimension))
 
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 V = local_space(T, p2)

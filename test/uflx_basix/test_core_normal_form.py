@@ -1,3 +1,9 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
+
 from uflx._src.meshes import cell_map
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx.arithmetic import add, conjugate, multiply, num

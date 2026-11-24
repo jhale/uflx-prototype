@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Library constructors for explicit relations and separately chosen orientation."""
 
 from uflx.geometry import conormal, domain_map, pull_back, side_map

@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Example operations used by the extension and JAX backend tests."""
 
 from uflx_extensions.external_operators import AbstractOperation, OutputType

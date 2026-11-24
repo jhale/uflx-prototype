@@ -1,3 +1,8 @@
+# Copyright (C) 2026 Jack S. Hale
+#
+# This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
+#
+# SPDX-License-Identifier:    MIT
 """Keep tensor-aware arithmetic construction behind its free functions.
 
 This is a source convention check, not shape inference. It recognises imported
