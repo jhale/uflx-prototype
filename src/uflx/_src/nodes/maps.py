@@ -41,7 +41,7 @@ class DomainMap(Base):
             raise ValueError("parameterisation domain differs")
         if (
             f.scalar_type != ScalarType.real
-            or f.argument_spaces
+            or f.argument_spaces != ()
             or f.value_shape != (self.ambient_domain.dimension,)
         ):
             raise ValueError("invalid coordinate expression")

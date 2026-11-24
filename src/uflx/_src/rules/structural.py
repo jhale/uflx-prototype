@@ -86,7 +86,7 @@ def retain_gradient(
     j = derived_index("uflx.apply_gradients", f, P, "j")
     axes = derived_indices("uflx.apply_gradients", (f, P), len(f.value_shape))
     df = partial(f, P, j)
-    return ComponentTensor(Indexed(df, axes) if axes else df, (*axes, j))
+    return ComponentTensor(Indexed(df, axes) if axes != () else df, (*axes, j))
 
 
 def gradient_remains(f: AbstractExpression, P: AbstractDomain) -> bool:

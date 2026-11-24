@@ -43,7 +43,7 @@ def apply(
     form: AbstractExpression,
     arguments: tuple[Argument[AbstractExpression], ...],
 ) -> AbstractExpression:
-    if not arguments and not form.argument_spaces:
+    if arguments == () and form.argument_spaces == ():
         return form
     return Apply(form, arguments)
 
@@ -54,7 +54,7 @@ def partial(
     """Instantiate complete outer entries simultaneously; reject retained capture."""
     if not isinstance(cast("object", form), Form):
         raise TypeError("partial requires an explicit Form")
-    if not mapping:
+    if len(mapping) == 0:
         return form
     if any(entry not in form.arguments for entry in mapping):
         raise ValueError("selector is not an outer argument entry")
@@ -83,4 +83,4 @@ def partial(
         raise ValueError("partial would capture a retained argument; rebind it explicitly first")
     body = cast("AbstractExpression", substitute(form.expression, replacements))
     body = complete_family(indices, body)
-    return Form(body, remaining) if remaining else body
+    return Form(body, remaining) if remaining != () else body

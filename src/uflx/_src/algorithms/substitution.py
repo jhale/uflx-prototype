@@ -127,7 +127,7 @@ def _fresh_names(node: Base, avoid: Sequence[Construction]) -> Renames:
 
 def freshen(node: _T, avoid: Sequence[Construction]) -> _T:
     renames = _fresh_names(node, avoid)
-    return _rename_scope(node, dict(renames)) if renames else node
+    return _rename_scope(node, dict(renames)) if renames != () else node
 
 
 def _rename_scope(node: _T, renames: Mapping[_K, Construction]) -> _T:
@@ -179,7 +179,7 @@ def rebind(
     """Rename complete declarations simultaneously, preserving grouping and conjugation."""
     if not isinstance(binder, Form | ComponentTensor | IndexSum):
         raise TypeError("rebind requires an explicit Form, ComponentTensor or IndexSum")
-    if not mapping:
+    if len(mapping) == 0:
         return binder
     entries = binder.binding_entries()
     renames: dict[Index | Function, Index | Function] = {}
@@ -225,7 +225,7 @@ def _substitute(
     def fields(node: Base) -> tuple[str, ...]:
         if dependencies or isinstance(node, Zero):
             return node.argument_names
-        if node.labels:
+        if node.labels != ():
             return ()
         return (*node.value_fields, *node.index_fields)
 
@@ -242,7 +242,7 @@ def _substitute(
         found: set[Base] = set()
         for field in fields(node):
             active = eligible(node, keys) if field in node.scope else keys
-            if active and field not in node.labels:
+            if len(active) > 0 and field not in node.labels:
                 for child in operands(node, (field,)):
                     found.update(matches(child, active))
         return frozenset(found)
@@ -261,14 +261,14 @@ def _substitute(
         # Match the original node before applying any enclosing binder's renames.
         if node in keys:
             return mapping[node]
-        if not keys and not renames:
+        if len(keys) == 0 and renames == ():
             return node
         if isinstance(node, Zero):
             return _substitute_zero(node, lambda child: visit(child, keys, renames))
 
         selected = fields(node)
         inner_keys, inner_renames = keys, renames
-        if node.scope:
+        if node.scope != ():
             inner_keys = eligible(node, keys)
             inner_renames = scope_renames(node, inner_keys, renames)
 
@@ -284,7 +284,7 @@ def _substitute(
             active, bound = (inner_keys, inner_renames) if field in node.scope else (keys, renames)
             if field not in selected:
                 active = empty
-            if active or bound:
+            if len(active) > 0 or bound != ():
                 changes[field] = map_construction(
                     getattr(node, field), lambda child: visit(child, active, bound)
                 )

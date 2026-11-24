@@ -55,7 +55,7 @@ def side_map(
     source: Mesh | AbstractTopology,
     *entries: tuple[CellMap, DomainMap],
 ) -> SideMap:
-    if not entries:
+    if entries == ():
         raise ValueError("at least one cell-map entry is required")
     if any(not isinstance(cast("object", cell), CellMap) for cell, _ in entries):
         raise TypeError("side-map entries require CellMap handles")

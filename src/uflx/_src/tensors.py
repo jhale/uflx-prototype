@@ -43,7 +43,7 @@ def tensor(entries: tuple[AbstractExpression, ...]) -> Tensor:
 def indexed(
     expression: AbstractExpression, indices: tuple[int | Index | GatheredIndex, ...]
 ) -> AbstractExpression:
-    if indices == () and expression.value_shape:
+    if indices == () and expression.value_shape != ():
         raise IndexError("full indexing must cover every axis")
     return _empty_indices(expression) if indices == () else Indexed(expression, indices)
 
@@ -94,13 +94,13 @@ def matrix_product(first: AbstractExpression, second: AbstractExpression) -> Abs
     a = (i,) if len(first.value_shape) == 2 else ()
     b = (j,) if len(second.value_shape) == 2 else ()
     contracted = IndexSum(multiply(Indexed(first, (*a, k)), Indexed(second, (k, *b))), (k,))
-    return ComponentTensor(contracted, a + b) if a + b else contracted
+    return component_tensor(contracted, a + b)
 
 
 def component(
     expression: AbstractExpression, entries: tuple[int | Index | GatheredIndex, ...]
 ) -> AbstractExpression:
-    if not entries:
+    if entries == ():
         return expression
     if len(entries) < len(expression.value_shape):
         K = derived_indices(
@@ -117,10 +117,10 @@ def determinant(matrix: AbstractExpression) -> AbstractExpression:
 def _sign(p: tuple[int, ...]) -> int:
     pairs = combinations(range(len(p)), 2)
     inversions = sum(p[first] > p[second] for first, second in pairs)
-    return -1 if inversions % 2 else 1
+    return -1 if inversions % 2 == 1 else 1
 
 
 def _empty_indices(expression: AbstractExpression) -> AbstractExpression:
-    if expression.value_shape:
+    if expression.value_shape != ():
         raise ValueError("empty indices require a scalar")
     return expression

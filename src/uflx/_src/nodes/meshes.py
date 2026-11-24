@@ -61,10 +61,10 @@ class Mesh(AbstractDomain):
         topology = self.topology
         if any(not isinstance(K, AbstractReferenceCell) for K in topology.cell_types):
             raise ValueError("mesh cells must be reference cells")
-        if f.free_indices:
+        if f.free_indices != ():
             raise ValueError("mesh coordinates must have no free indices")
         if (
-            f.argument_spaces
+            f.argument_spaces != ()
             or f.scalar_type != ScalarType.real
             or f.value_shape != (self.ambient_domain.dimension,)
         ):
@@ -150,7 +150,7 @@ class SideMap(Base):
                 raise ValueError("side inclusion source differs from source reference cell")
             if A.ambient_domain != parent_cell:
                 raise ValueError("side inclusion target differs from parent reference cell")
-            if A.free_indices:
+            if A.free_indices != ():
                 raise ValueError("side inclusions must have no free indices")
 
 
@@ -211,7 +211,7 @@ class PushForward(AbstractExpression):
             raise ValueError("push-forward source differs from the topology")
         p = len(self.law.variances)
         if len(self.expression.value_shape) < p or (
-            p and self.expression.value_shape[-p:] != (self.mesh.dimension,) * p
+            p > 0 and self.expression.value_shape[-p:] != (self.mesh.dimension,) * p
         ):
             raise ValueError("transformed axes have the wrong extent")
 
@@ -267,7 +267,7 @@ class Conormal(AbstractExpression):
                 raise ValueError("reference conormal has the wrong domain")
             if m.value_shape != (A.ambient_domain.dimension,):
                 raise ValueError("reference conormal has the wrong shape")
-            if m.scalar_type != ScalarType.real or m.argument_spaces:
+            if m.scalar_type != ScalarType.real or m.argument_spaces != ():
                 raise ValueError("reference conormal must be a real field without arguments")
-            if m.free_indices:
+            if m.free_indices != ():
                 raise ValueError("reference conormals must have no free indices")

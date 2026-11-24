@@ -111,7 +111,7 @@ def construction_equal(left: Construction, right: Construction) -> bool:
     zero, as the construction digest does. Traverse tuples without recursion.
     """
     pending = [(left, right)]
-    while pending:
+    while len(pending) > 0:
         a, b = pending.pop()
         if a is b:
             continue

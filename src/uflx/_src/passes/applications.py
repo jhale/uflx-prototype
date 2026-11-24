@@ -27,7 +27,7 @@ def _expand(node: Apply) -> AbstractExpression:
         case Form(body, entries):
             inherited = len(body.argument_spaces)
             supplied = dict(zip(entries, arguments[inherited:], strict=True))
-            instantiated = partial(f, supplied) if entries else body
+            instantiated = partial(f, supplied) if entries != () else body
             return apply(instantiated, arguments[:inherited])
         case Conditional(predicate, left, right):
             return Conditional(predicate, apply(left, arguments), apply(right, arguments))
@@ -42,7 +42,9 @@ def _expand(node: Apply) -> AbstractExpression:
             return node
         case _:
             pass
-    fields = linear_fields(f) or structural_fields(f)
+    fields = linear_fields(f)
+    if fields is None:
+        fields = structural_fields(f)
     if fields is None:
         raise TypeError(f"no application rule for {type(f).__name__}")
     return commute(
@@ -50,7 +52,7 @@ def _expand(node: Apply) -> AbstractExpression:
         lambda operand: apply(operand, arguments),
         fields,
         arguments,
-        lambda operand: not operand.argument_spaces,
+        lambda operand: operand.argument_spaces == (),
     )
 
 

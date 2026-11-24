@@ -65,7 +65,7 @@ def conjugate(operand: AbstractExpression) -> AbstractExpression:
 def _entrywise(
     name: str, op: Callable[[AbstractExpression], AbstractExpression], f: AbstractExpression
 ) -> AbstractExpression:
-    if not len(f.value_shape):
+    if f.value_shape == ():
         return op(f)
     k = derived_indices(name, (f,), len(f.value_shape))
     return ComponentTensor(op(Indexed(f, k)), k)

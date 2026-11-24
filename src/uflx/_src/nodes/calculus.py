@@ -275,7 +275,7 @@ def _validate_calculus(e: Coordinate | Gradient | Divergence | Curl | Integral) 
     if f.domain not in domains:
         raise ValueError("expression and domain are not a valid pair")
     dim = P.ambient_coordinate_domain.dimension
-    if isinstance(e, Divergence) and (not f.value_shape or f.value_shape[-1] != dim):
+    if isinstance(e, Divergence) and (f.value_shape == () or f.value_shape[-1] != dim):
         raise ValueError("divergence requires a last axis in the ambient frame")
     if isinstance(e, Curl) and (dim not in (2, 3) or f.value_shape != (dim,)):
         raise ValueError("curl requires a vector in dimension two or three")

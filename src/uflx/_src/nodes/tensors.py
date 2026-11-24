@@ -107,7 +107,7 @@ class Tensor(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        if not self.entries:
+        if self.entries == ():
             raise ValueError("tensor entries must be nonempty")
         if any(
             f.value_shape != self.entries[0].value_shape
@@ -157,7 +157,7 @@ class Indexed(AbstractExpression):
     def _validate(self) -> None:
         from .validation import entries, merge_indices
 
-        if not self.indices:
+        if self.indices == ():
             raise ValueError("Indexed requires nonempty entries")
         merge_indices(
             self.expression.free_indices, entries(self.expression.value_shape, self.indices)
@@ -310,16 +310,16 @@ class Determinant(AbstractExpression):
 
 
 def _validate_index_binding(e: ComponentTensor | IndexSum) -> None:
-    if not e.indices or len(set(e.indices)) != len(e.indices):
+    if e.indices == () or len(set(e.indices)) != len(e.indices):
         raise ValueError("bound indices must be nonempty and distinct")
-    if e.expression.value_shape:
+    if e.expression.value_shape != ():
         raise ValueError("index binding requires a scalar")
     if any(i not in dict(e.expression.free_indices) for i in e.indices):
         raise ValueError("bound index is not free")
 
 
 def _matrix_operand(f: AbstractExpression, rectangular: bool = False) -> None:
-    if f.argument_spaces:
+    if f.argument_spaces != ():
         raise ValueError("nonlinear operand has argument spaces")
     if len(f.value_shape) != 2:
         raise ValueError("matrix operand must have rank two")

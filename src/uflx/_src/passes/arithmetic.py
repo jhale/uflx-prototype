@@ -16,15 +16,15 @@ def expand_arithmetic(f: AbstractExpression) -> AbstractExpression:
     """ST13-ST16. Expand tensor sums, scalar products and quotients."""
 
     def expand(e: AbstractExpression) -> AbstractExpression:
-        if not isinstance(e, Sum | Product | Division) or not e.value_shape:
+        if not isinstance(e, Sum | Product | Division) or e.value_shape == ():
             return e
         indices = derived_indices("uflx.expand_arithmetic", (e,), len(e.value_shape))
         first, second = (
             (e.numerator, e.denominator) if isinstance(e, Division) else (e.first, e.second)
         )
-        if first.value_shape:
+        if first.value_shape != ():
             first = Indexed(first, indices)
-        if second.value_shape:
+        if second.value_shape != ():
             second = Indexed(second, indices)
         scalar = type(e)(first, second)
         return ComponentTensor(scalar, indices)

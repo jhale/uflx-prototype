@@ -32,11 +32,11 @@ class AbstractExpression(Base):
         from .validation import merge_indices
 
         super().__post_init__()
-        if self.is_terminal and self.value_fields:
+        if self.is_terminal and self.value_fields != ():
             raise ValueError("a terminal has no value operands")
         operands = expression_operands(self)
         merge_indices(*(x.free_indices for x in operands))
-        if self.scalar_type == ScalarType.boolean and self.argument_spaces:
+        if self.scalar_type == ScalarType.boolean and self.argument_spaces != ():
             raise ValueError("Boolean expressions cannot take arguments")
         if self.requires_matching_domains:
             common_operand_domain(self)

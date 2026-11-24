@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, overload
 from .algorithms.names import derived_indices
 from .arithmetic import multiply
 from .nodes import (
-    ComponentTensor,
     Coordinate,
     Curl,
     DirectionalDerivative,
@@ -21,7 +20,7 @@ from .nodes import (
     IndexSum,
     Integral,
 )
-from .tensors import permutation_tensor
+from .tensors import component_tensor, permutation_tensor
 from .typing import Argument
 
 if TYPE_CHECKING:
@@ -70,9 +69,9 @@ def directional_derivative(
     **keywords: Argument[AbstractExpression],
 ) -> DirectionalDerivative:
     """Take the directional derivative at the variable itself or at an explicit point."""
-    if len(values) == 1 and not keywords:
+    if len(values) == 1 and len(keywords) == 0:
         return DirectionalDerivative(expression, variable, variable, values[0])
-    if not values and keywords.keys() == {"direction"}:
+    if values == () and keywords.keys() == {"direction"}:
         return DirectionalDerivative(expression, variable, variable, keywords["direction"])
 
     def at(
@@ -94,7 +93,7 @@ def trace_of_gradient(f: AbstractExpression, P: AbstractDomain) -> AbstractExpre
     # The value of Divergence(f, P), the last axis of f contracted with the axis of the gradient.
     *lead, k = derived_indices("uflx.divergence", (f, P), len(f.value_shape))
     entry = IndexSum(Indexed(Gradient(f, P), (*lead, k, k)), (k,))
-    return ComponentTensor(entry, tuple(lead)) if lead else entry
+    return component_tensor(entry, tuple(lead))
 
 
 def rotation_of_gradient(f: AbstractExpression, P: AbstractDomain) -> AbstractExpression:
@@ -105,4 +104,4 @@ def rotation_of_gradient(f: AbstractExpression, P: AbstractDomain) -> AbstractEx
     orientation = Indexed(permutation_tensor(n), (*out, j, k))
     gradient_entry = Indexed(Gradient(f, P), (k, j))
     entry = IndexSum(multiply(orientation, gradient_entry), (j, k))
-    return ComponentTensor(entry, tuple(out)) if out else entry
+    return component_tensor(entry, tuple(out))

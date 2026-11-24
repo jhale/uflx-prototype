@@ -163,7 +163,7 @@ class Apply(AbstractExpression):
     def _validate(self) -> None:
         from .validation import admissible
 
-        if not self.arguments or len(self.arguments) != len(self.form.argument_spaces):
+        if self.arguments == () or len(self.arguments) != len(self.form.argument_spaces):
             raise ValueError("application must supply every argument slot")
         for space, value in zip(self.form.argument_spaces, self.arguments, strict=True):
             admissible(space, value)

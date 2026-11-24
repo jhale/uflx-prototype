@@ -120,15 +120,15 @@ class Entry:
 
 
 def height(tree: Entry | None) -> int:
-    return tree.height if tree else 0
+    return tree.height if tree is not None else 0
 
 
 def size(tree: Entry | None) -> int:
-    return tree.size if tree else 0
+    return tree.size if tree is not None else 0
 
 
 def total(tree: Entry | None) -> int:
-    return tree.total if tree else 0
+    return tree.total if tree is not None else 0
 
 
 def node(
@@ -182,13 +182,13 @@ def alter(
     update: Callable[[int | None], int],
 ) -> Entry:
     if tree is None or tree.key == key:
-        position = update(tree.position if tree else None)
+        position = update(tree.position if tree is not None else None)
         return node(
             key,
             position,
             then_hash(digest(key), position),
-            tree.left if tree else None,
-            tree.right if tree else None,
+            tree.left if tree is not None else None,
+            tree.right if tree is not None else None,
         )
     if key < tree.key:
         return balanced(rebuild(tree, alter(tree.left, key, update), tree.right))
@@ -217,7 +217,7 @@ def pop(tree: Entry | None, key: int) -> tuple[Entry | None, int | None]:
 
 def entries(tree: Entry | None) -> Iterator[Entry]:
     pending: list[Entry] = []
-    while tree is not None or pending:
+    while tree is not None or len(pending) > 0:
         while tree is not None:
             pending.append(tree)
             tree = tree.left

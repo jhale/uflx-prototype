@@ -42,4 +42,4 @@ def linear_fields(expression: AbstractExpression) -> tuple[str, ...] | None:
         case Conjugate() | RealPart() | ImaginaryPart():
             return ("operand",)
         case _:
-            return expression.commuting or None
+            return expression.commuting if expression.commuting != () else None

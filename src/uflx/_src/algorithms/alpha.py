@@ -137,7 +137,7 @@ class AlphaHasher:
 
     def _prepare(self, root: Base) -> None:
         pending: list[tuple[Base, tuple[Construction, ...] | None]] = [(root, None)]
-        while pending:
+        while len(pending) > 0:
             node, signature = pending.pop()
             if node in self._info:
                 continue
@@ -195,7 +195,7 @@ class AlphaHasher:
         self._prepare(root)
         request = self._request(root, ())
         pending: list[tuple[_Request, _Recipe | None]] = [(request, None)]
-        while pending:
+        while len(pending) > 0:
             current, recipe = pending.pop()
             if current.key in self._memo:
                 continue

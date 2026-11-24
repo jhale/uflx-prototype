@@ -55,7 +55,11 @@ class LessThan(AbstractExpression):
 
     def _validate(self) -> None:
         for value in (self.first, self.second):
-            if value.scalar_type != "real" or value.value_shape or value.argument_spaces:
+            if (
+                value.scalar_type != "real"
+                or value.value_shape != ()
+                or value.argument_spaces != ()
+            ):
                 raise ValueError("comparison requires real scalar fields")
 
 
@@ -95,8 +99,8 @@ class Conditional(AbstractExpression):
     def _validate(self) -> None:
         if (
             self.predicate.scalar_type != "boolean"
-            or self.predicate.value_shape
-            or self.predicate.argument_spaces
+            or self.predicate.value_shape != ()
+            or self.predicate.argument_spaces != ()
         ):
             raise ValueError("selection requires a scalar Boolean predicate")
         if (

@@ -46,7 +46,7 @@ def lower(f: AbstractExpression) -> AbstractExpression:
     out = lower_spatial(out)
     out = expand_arithmetic(out)
     violations = core_normal_form(out)
-    if violations:
+    if violations != ():
         reasons = "; ".join(dict.fromkeys(reason for _, reason in violations))
         reducible = (
             Apply,

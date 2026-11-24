@@ -76,7 +76,8 @@ class Product(AbstractExpression):
     @property
     @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
-        return self.first.value_shape or self.second.value_shape
+        first_shape = self.first.value_shape
+        return self.second.value_shape if first_shape == () else first_shape
 
     @property
     @cached
@@ -93,7 +94,7 @@ class Product(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        if self.first.value_shape and self.second.value_shape:
+        if self.first.value_shape != () and self.second.value_shape != ():
             raise ValueError("product requires at least one scalar operand")
 
 
@@ -130,9 +131,9 @@ class Division(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        if self.denominator.value_shape:
+        if self.denominator.value_shape != ():
             raise ValueError("division requires a scalar denominator")
-        if self.denominator.argument_spaces:
+        if self.denominator.argument_spaces != ():
             raise ValueError("nonlinear operand has argument spaces")
 
 
@@ -169,11 +170,11 @@ class Power(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        if self.base.value_shape or self.exponent.value_shape:
+        if self.base.value_shape != () or self.exponent.value_shape != ():
             raise ValueError("power requires scalar operands")
-        if self.exponent.argument_spaces:
+        if self.exponent.argument_spaces != ():
             raise ValueError("nonlinear operand has argument spaces")
-        if self.base.argument_spaces:
+        if self.base.argument_spaces != ():
             raise ValueError("power base has argument spaces")
 
 
@@ -389,7 +390,7 @@ class Logarithm(AbstractExpression):
 
 def _scalar_operand(f: AbstractExpression, nonlinear: bool = True) -> None:
     numerical_type(f.scalar_type)
-    if f.value_shape:
+    if f.value_shape != ():
         raise ValueError("operation requires a scalar")
-    if nonlinear and f.argument_spaces:
+    if nonlinear and f.argument_spaces != ():
         raise ValueError("nonlinear operand has argument spaces")

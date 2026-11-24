@@ -31,7 +31,7 @@ def scoped_body_fields(node: Base) -> tuple[str, ...]:
 def binding_signature(node: Base) -> tuple[Construction, ...]:
     """Ordered function spaces or index extents, independent of binder labels."""
     names = node.bound()
-    if not names:
+    if names == ():
         return ()
     if all(isinstance(name, Function) for name in names):
         return tuple(name.space for name in names if isinstance(name, Function))
@@ -82,7 +82,7 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
         if root in dependency_cache:
             return dependency_cache[root]
         stack = [(root, False)]
-        while stack:
+        while len(stack) > 0:
             node, ready = stack.pop()
             if node in dependency_cache:
                 continue
@@ -131,7 +131,7 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
         na, nb = a.bound(), b.bound()
         if len(na) != len(nb):
             return False
-        inner_a, inner_b = (_enter(sa, na), _enter(sb, nb)) if na else (sa, sb)
+        inner_a, inner_b = (_enter(sa, na), _enter(sb, nb)) if na != () else (sa, sb)
         for field in reversed(a.argument_names):
             x, y = getattr(a, field), getattr(b, field)
             if field in a.labels:
@@ -149,7 +149,7 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
         pending.append(_Comparison(signatures[a], signatures[b], sa, sb))
         return True
 
-    while pending:
+    while len(pending) > 0:
         a, b, sa, sb = pending.pop()
         if type(a) is not type(b):
             return False
@@ -175,7 +175,7 @@ def construction_nodes(value: Construction) -> Iterator[Base]:
 def _construction_nodes(value: Construction) -> Iterator[Base]:
     """Iterate immediate node dependencies through arbitrarily nested tuples."""
     pending = [value]
-    while pending:
+    while len(pending) > 0:
         item = pending.pop()
         if isinstance(item, Base):
             yield item

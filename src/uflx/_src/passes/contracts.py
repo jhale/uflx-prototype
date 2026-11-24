@@ -90,7 +90,7 @@ def _derivative(node: AbstractExpression) -> str | None:
 
 
 def _reference_integral(node: AbstractExpression) -> str | None:
-    if reason := _derivative(node):
+    if (reason := _derivative(node)) is not None:
         return reason
     if isinstance(node, Integral) and isinstance(node.integration_domain, Mesh):
         return "mesh integral remains"
@@ -166,7 +166,7 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
         ):
             return True
         case Sum() | Product() | Division():
-            return not e.value_shape
+            return e.value_shape == ()
         case _ if field_terminal(e):
             return True
         case Divergence() | Curl():

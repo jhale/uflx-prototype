@@ -69,7 +69,7 @@ def derivative_of_node(
                 if not all(constant(member) for member in argument_leaves(slot)):
                     varied = (*points[:i], map_argument(d, slot), *points[i + 1 :])
                     terms.append(Apply(at(form), varied))
-            return total(terms) if terms else zero_like(f, ())
+            return total(terms) if len(terms) > 0 else zero_like(f, ())
         case Product(b, c):
             return d(b) * at(c) + at(b) * d(c)
         case Division(b, c):
@@ -118,7 +118,9 @@ def derivative_of_node(
             correction = transposed_derivative - transposed_derivative @ matrix @ inverse_matrix
             return inverse_derivative + inverse_matrix @ transpose(inverse_matrix) @ correction
         case _:
-            fields = linear_fields(f) or structural_fields(f)
+            fields = linear_fields(f)
+            if fields is None:
+                fields = structural_fields(f)
             if fields is None:
                 raise TypeError(f"no derivative rule for {type(f).__name__}")
             return commute(f, d, fields, avoid, constant, at)
