@@ -197,8 +197,7 @@ class Zero(AbstractExpression):
         return self._scalar_type
 
     @property
-    @cached
-    def domain(self) -> AbstractDomain | AbstractTopology | None:
+    def domain(self) -> None:
         return None
 
     def _validate(self) -> None:
@@ -214,10 +213,7 @@ class Zero(AbstractExpression):
         for size in self.value_shape:
             extent(size)
         seen: set[Index] = set()
-        for pair in self.free_indices:
-            if len(pair) != 2:
-                raise ValueError("a free index is an index/extent pair")
-            i, size = pair
+        for i, size in self.free_indices:
             extent(size)
             if i in seen:
                 raise ValueError("free index is repeated")
