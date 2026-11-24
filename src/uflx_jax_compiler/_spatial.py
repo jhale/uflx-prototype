@@ -41,6 +41,7 @@ def pullback_site(mapping, site, value):
 
 
 def push_forward(field, mesh, law, site, value):
+    site.require_ad("PushForward")
     slot = site.slot(mesh)
     chart = chart_of(mesh[slot], site, value)
     ref = reference_point(chart, site.points[mesh], mesh.dimension)
@@ -50,6 +51,7 @@ def push_forward(field, mesh, law, site, value):
 
 
 def conormal(side, conormals, site, value):
+    site.require_ad("Conormal")
     slot, parent_slot, inclusion, ref, target = side_reference(side, site, value)
     J = jax.jacfwd(chart_of(side.parent[parent_slot], site, value))(target)
     site = site.at({inclusion.parameter_domain: ref})

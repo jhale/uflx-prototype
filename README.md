@@ -103,8 +103,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 - [Runtime quadrature](examples/runtime_quadrature.py) passes quadrature
   points, weights and Basix basis tables to a P2 triangle stiffness kernel.
 - [Precomputed geometry](examples/precomputed_geometry.py) extracts geometry
-  terms from the Poisson integral and tabulates them at quadrature points
-  for stiffness assembly on a curved triangle.
+  terms from the Poisson integral, evaluates them at quadrature points and
+  assembles a curved triangle's stiffness matrix in one JIT-compiled function.
 - [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
   a discontinuous scalar on a curved triangle.
 - [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
@@ -186,7 +186,9 @@ called with new vertex coordinates to evaluate another triangle.
 - `uflx_basix` supplies finite elements, basis tabulations and oriented
   reference facet maps. [Basix](https://github.com/fenics/basix)
 - `uflx_jax_compiler` traces both original and lowered expressions to JAX
-  callables. It gives a reference result and tests UFLx's symbolic derivatives
+  callables. It uses Basix tables for finite-element derivatives by default.
+  Pass `allow_ad=True` to `trace` to evaluate derivatives with JAX when needed.
+  It gives a reference result and tests UFLx's symbolic derivatives
   against JAX's automatic differentiation. The compiler is feature complete,
   but benchmarks typically run about an order of magnitude slower than FFCx.
   PRs related to compiler performance will not be merged.

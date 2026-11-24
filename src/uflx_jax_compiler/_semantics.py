@@ -5,6 +5,8 @@
 # SPDX-License-Identifier:    MIT
 """Numerical semantics of the expression nodes, evaluated with lexical bindings."""
 
+from dataclasses import replace
+
 import jax
 import jax.numpy as jnp
 
@@ -53,8 +55,13 @@ from uflx_extensions.external_operators import ExternalOperator
 
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors
-from ._basis_tables import keeps_quadrature_point, sampled_quadrature
-from ._context import BoundExpression, Sample, lookup
+from ._basis_tables import (
+    keeps_quadrature_point,
+    quadrature_tables,
+    sampled_points,
+    sampled_quadrature,
+)
+from ._context import BoundExpression, PointTabulation, lookup
 from ._external import evaluate_external
 from ._geometry import integrate, quadrature_sum, tangent_projector
 
@@ -94,7 +101,7 @@ def _evaluate(node, bindings, site, arguments, memo):
     if site.tabulations and node.value_fields and not keeps_quadrature_point(node):
         # A whole-field operation can sample its operands anywhere, even if the
         # same field also has tabulated uses elsewhere in the integrand.
-        site = Sample(site.points, site.cells)
+        site = replace(site, tabulations={})
         memo = {}
 
     def scoped_value(expr, slots=(), *, at=site, bind=None):
@@ -263,6 +270,7 @@ def _evaluate(node, bindings, site, arguments, memo):
                 return pointwise()
             return evaluate_external(node, bindings[node.operation], site, scoped_value)
         case DirectionalDerivative():
+            site.require_ad("DirectionalDerivative")
             if order:
                 return pointwise()
             return _forms.directional(node, arguments, scoped_value)
@@ -272,6 +280,8 @@ def _evaluate(node, bindings, site, arguments, memo):
             point = jnp.asarray(site.points[domain])
             if not point.size:
                 return jnp.empty(_tensors.shape(node, bindings), dtype=_tensors.dtype(node))
+            if not site.allow_ad:
+                return elements.tabulated_gradient(node, bindings, site, scoped_value)
 
             def at_point(p):
                 result = scoped_value(x, arguments, at=site.differentiating(domain, p))
@@ -301,6 +311,15 @@ def _evaluate(node, bindings, site, arguments, memo):
             if _tensors.axes(mapping, bindings):
                 return pointwise(batch=not needs_eager_samples(node, bindings))
             at = _spatial.pullback_site(mapping, site, scoped_value)
+            if (source := sampled_points(mapping)) is not None:
+                points, q, cell = source
+                tables = quadrature_tables(
+                    points, cell, bindings, _tensors.size(points.value_shape[0], bindings)
+                )
+                if tables:
+                    point = at.points[cell]
+                    rows = {key: data[bindings[q]] for key, data in tables.items()}
+                    at = at.at({cell: point}, tabulations={cell: PointTabulation(point, rows)})
             return scoped_value(x, arguments, at=at)
         case PushForward(x, mesh, law):
             return _spatial.push_forward(field(x), mesh, law, site, scoped_value)

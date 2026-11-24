@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from math import comb
 
 import jax.numpy as jnp
+import numpy as np
 
 from uflx import nodes
 from uflx.algorithms import expression_operands
@@ -66,39 +67,50 @@ def keeps_quadrature_point(node):
     )
 
 
+def sampled_points(mapping):
+    """Identify the reference cell and row selected by evaluate_at_points."""
+    match mapping:
+        case nodes.DomainMap(
+            nodes.EuclideanSpace(0),
+            nodes.ComponentTensor(nodes.Indexed(points, (q, j)), (k,)),
+            cell,
+        ) if (
+            j == k
+            and q != j
+            and isinstance(q, nodes.Index)
+            and isinstance(cell, nodes.AbstractReferenceCell)
+            and points.domain is None
+            and not points.argument_spaces
+            and not points.free_indices
+            and points.scalar_type == nodes.ScalarType.real
+        ):
+            return points, q, cell
+    return None
+
+
 def sampled_quadrature(node, bindings=()):
     """Read the weighted reference-point sum by its algebra, independently of index labels."""
     match node:
-        case nodes.IndexSum(nodes.Product(nodes.Indexed(weights, (w,)), sample), (q,)):
+        case nodes.IndexSum(nodes.Product(nodes.Indexed(weights, (w,)), sample), (q,)) if w == q:
             components = ()
             if isinstance(sample, nodes.Indexed):
                 sample, components = sample.expression, sample.indices
             match sample:
                 case nodes.Integral(
-                    nodes.PullBack(
-                        expr,
-                        nodes.DomainMap(
-                            source, nodes.ComponentTensor(nodes.Indexed(points, (p, j)), (k,)), cell
-                        ),
-                    ),
-                    domain,
+                    nodes.PullBack(expr, mapping), nodes.EuclideanSpace(0) as domain
                 ):
+                    source = sampled_points(mapping)
                     if (
-                        q == w == p
-                        and j == k
-                        and q != j
-                        and domain == source == nodes.EuclideanSpace(0)
-                        and isinstance(cell, nodes.AbstractReferenceCell)
-                        and all(
-                            x.domain is None
-                            and not x.argument_spaces
-                            and not x.free_indices
-                            and x.scalar_type == nodes.ScalarType.real
-                            for x in (points, weights)
-                        )
+                        source is not None
+                        and source[1] == q
+                        and weights.domain is None
+                        and not weights.argument_spaces
+                        and not weights.free_indices
+                        and weights.scalar_type == nodes.ScalarType.real
                         and sample not in bindings
                         and (sample, domain) not in bindings
                     ):
+                        points, _, cell = source
                         return (
                             indexed(expr, components) if components else expr,
                             cell,
@@ -137,6 +149,10 @@ def basis_tables(expression):
                 )
             )
             continue
+        if isinstance(node, nodes.PullBack) and (source := sampled_points(node.map)) is not None:
+            points, _, cell = source
+            pending.extend(((points, None, None, 0, 0), (node.expression, points, cell, 0, 0)))
+            continue
         if isinstance(node, nodes.Integral):
             domain, slot, order = node.integration_domain, 0, 0
             point_source = node if isinstance(domain, nodes.AbstractReferenceCell) else None
@@ -174,6 +190,35 @@ def basis_tables(expression):
     return tuple(
         BasisTable(point_source, data, order) for (point_source, data), order in orders.items()
     )
+
+
+def literal_values(node):
+    match node:
+        case nodes.Float(x) | nodes.Integer(x):
+            return x
+        case nodes.Tensor(entries):
+            return tuple(map(literal_values, entries))
+        case nodes.Zero() if (
+            not node.free_indices
+            and not node.argument_spaces
+            and all(isinstance(n, int) for n in node.value_shape)
+        ):
+            return np.zeros(node.value_shape)
+    raise ValueError("expected a literal array")
+
+
+def fixed_basis_tables(expression, inputs):
+    tables = {}
+    for request in basis_tables(expression):
+        if request in inputs or request.point_source in inputs:
+            continue
+        try:
+            points = literal_values(request.point_source)
+        except ValueError:
+            continue
+        element = request.element
+        tables[request] = element.tabulate(request.order, np.asarray(points, dtype=element.dtype))
+    return tables
 
 
 def quadrature_tables(point_source, cell, bindings, npoints):

@@ -64,6 +64,7 @@ def side_reference(side, site, value):
     parent_slot, inclusion = side.entries[slot]
     point = site.points[source]
     if isinstance(source, Mesh):
+        site.require_ad("Physical side-map inversion")
         chart = chart_of(source[slot], site, value)
         point = reference_point(chart, point, source.dimension)
     at = site.at({inclusion.parameter_domain: point})
@@ -137,6 +138,7 @@ def integrate(integral, bindings, fn, site, value):
         return on_reference_cell(domain, fn)
 
     def integrate_piece(slot, piece):
+        site.require_ad("Physical mesh integration")
         chart = chart_of(piece, site, value)
 
         def mapped(site):

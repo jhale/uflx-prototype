@@ -5,16 +5,24 @@
 # SPDX-License-Identifier:    MIT
 """Finite-element tabulation for the JAX backend."""
 
-from itertools import combinations_with_replacement
+from itertools import combinations_with_replacement, product
 from math import comb, factorial, prod
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 
-from uflx.nodes import AbstractExpression, ConjugateSpace
+from uflx.nodes import (
+    AbstractExpression,
+    AbstractTopology,
+    CellMap,
+    ConjugateSpace,
+    Function,
+    Gradient,
+    PullBack,
+)
 
-from ._context import BoundExpression, lookup
+from ._context import BoundExpression, PointTabulation, lookup
 from ._tensors import dtype
 
 try:
@@ -51,7 +59,7 @@ def _basis_field(space, dof, whole_axis):
             value = jnp.where(active, value, 0)
         return value.reshape(space.value_shape).astype(dtype(space))
 
-    return BoundExpression(space, read, needs_eager_samples=False)
+    return BoundExpression(space, read, needs_eager_samples=False, is_basis_field=True)
 
 
 def local_basis(slot):
@@ -76,6 +84,72 @@ def local_basis(slot):
 
 def is_basix_basis(node):
     return basix is not None and isinstance(node, BasixBasis)
+
+
+def tabulated_gradient(gradient, bindings, site, read):
+    """Contract native reference derivative rows with the usual field DOFs or form slot."""
+    domain = gradient.domain
+    field = gradient
+    order = 0
+    while isinstance(field, Gradient) and field.domain == domain:
+        field = field.expression
+        order += 1
+    slot = site.slot(domain)
+    leaf = field
+    if (
+        isinstance(field, PullBack)
+        and isinstance(field.map, CellMap)
+        and isinstance(field.map.parent, AbstractTopology)
+        and field.map.reference_cell == domain
+    ):
+        slot, leaf = field.map.cell_slot, field.expression
+    if isinstance(leaf, Function) and basix_space(leaf.space) is not None:
+        binding = lookup(bindings, leaf, f"coefficients:{leaf.label}")
+        if (
+            callable(binding)
+            or isinstance(binding, AbstractExpression)
+            or (isinstance(binding, BoundExpression) and not binding.is_basis_field)
+        ):
+            site.require_ad("Spatial derivative of a supplied field")
+    elif is_basix_basis(leaf) and slot != leaf.cell_slot:
+        return jnp.zeros(gradient.value_shape, dtype=dtype(leaf))
+    elif not is_basix_basis(leaf):
+        site.require_ad(f"Spatial derivative of {type(field).__name__}")
+
+    data = leaf.space.element_data[0 if leaf.space.cell is not None else slot]
+    point = site.points[domain]
+    dim = point.shape[0]
+    table = site.tabulations.get(domain)
+    if table is not None and data in table.rows:
+        rows = table.rows[data]
+    else:
+        # The highest derivatives of a simplex polynomial are constant, including
+        # the Jacobian of a P1 simplex even when its evaluation point is dynamic.
+        element = data.native
+        if (element.polyset_type != basix.PolysetType.standard
+            or element.cell_type not in (basix.CellType.interval, basix.CellType.triangle, basix.CellType.tetrahedron)
+            or order < element.embedded_superdegree):
+            raise ValueError(
+                "allow_ad=False requires a Basix derivative table at this point; "
+                "use fixed reference points or supply the input from basis_tables()"
+            )
+        rows = jnp.asarray(element.tabulate(order, np.zeros((1, dim), dtype=element.dtype))[:, 0], dtype=point.dtype)
+    if rows.shape[0] < comb(dim + order, order):
+        raise ValueError(f"runtime basis tabulation needs derivatives through order {order}")
+    # Basix packs mixed partials once. Gradient has one tensor axis per derivative.
+    indices = [
+        basix.index(*(axes.count(i) for i in range(dim)))
+        for axes in product(range(dim), repeat=order)
+    ]
+
+    def component(row):
+        at = site.at(
+            {domain: point}, tabulations={domain: PointTabulation(point, {data: row[None]})}
+        )
+        return read(field, at=at)
+
+    values = jax.vmap(component)(rows[np.asarray(indices)])
+    return jnp.moveaxis(values, 0, -1).reshape((*values.shape[1:], *(dim,) * order))
 
 
 def _basis_at(space, slot, domain, site):

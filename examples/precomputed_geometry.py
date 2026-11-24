@@ -8,7 +8,8 @@
 """# Precomputed geometry
 
 Extract the geometry terms from the physical Poisson integral on a curved
-triangle. Evaluate them at quadrature points and reuse the tables in assembly.
+triangle. Evaluate them at quadrature points and assemble the stiffness
+matrix in one JIT-compiled kernel.
 """
 
 # %%
@@ -56,16 +57,6 @@ evaluators = [
     uflx_jax_compiler.trace(evaluate_at_points(term, points, q), x) for term in geometry.values()
 ]
 
-
-@jax.jit
-def tabulate_geometry(coordinates):
-    return tuple(evaluate(coordinates) for evaluate in evaluators)
-
-
-s, t = p2.points.T
-coordinates = np.column_stack((s, t + 0.4 * s * t))
-geometry_values = tabulate_geometry(coordinates)
-
 # %% [markdown]
 # ## Stiffness assembly
 
@@ -80,6 +71,16 @@ integrand = substitute_values(
 samples = evaluate_at_points(integrand, points, q)
 a = form(weighted_sum(samples, weights, q), (v_ref, u_ref))
 
-assemble_stiffness = jax.jit(uflx_jax_compiler.trace(a, *tables.values()))
-matrix = assemble_stiffness(*geometry_values)
+assemble_stiffness = uflx_jax_compiler.trace(a, *tables.values())
+
+
+@jax.jit
+def cell_stiffness(coordinates):
+    geometry_values = tuple(evaluate(coordinates) for evaluate in evaluators)
+    return assemble_stiffness(*geometry_values)
+
+
+s, t = p2.points.T
+coordinates = np.column_stack((s, t + 0.4 * s * t))
+matrix = cell_stiffness(coordinates)
 print("Cell stiffness matrix", matrix)

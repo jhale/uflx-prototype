@@ -32,6 +32,14 @@ class Sample:
     points: dict
     cells: dict
     tabulations: dict = field(default_factory=dict)
+    allow_ad: bool = False
+
+    def require_ad(self, operation):
+        if not self.allow_ad:
+            raise ValueError(
+                f"{operation} requires automatic differentiation (allow_ad=False). "
+                "Lower the expression first or enable AD."
+            )
 
     def at(self, points, *, cells=None, tabulations=None):
         # Moving to a different point invalidates the old quadrature rows for that domain.
@@ -41,7 +49,10 @@ class Sample:
         if tabulations:
             tables = tables | tabulations
         return Sample(
-            self.points | points, self.cells if cells is None else self.cells | cells, tables
+            self.points | points,
+            self.cells if cells is None else self.cells | cells,
+            tables,
+            self.allow_ad,
         )
 
     def differentiating(self, domain, point):
@@ -67,6 +78,7 @@ class BoundExpression:
     signature: AbstractExpression | AbstractFunctionSpace
     read: Callable
     needs_eager_samples: bool = True
+    is_basis_field: bool = False
 
 
 def as_argument(value, site):

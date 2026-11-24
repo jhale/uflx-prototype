@@ -46,7 +46,7 @@ from uflx.nodes import (
 )
 from uflx.tensors import indexed, tensor
 
-from ._basis_tables import sampled_quadrature
+from ._basis_tables import literal_values, sampled_quadrature
 from ._finite_elements import basix_space, is_basix_basis
 
 # Bound distributive expansion and the largest table (including its quadrature axis).
@@ -79,15 +79,6 @@ _ALGEBRA = (
 
 class _UseQuadrature(Exception):
     """The ordinary quadrature kernel handles this expression."""
-
-
-def _literal(node):
-    match node:
-        case Float(x) | Integer(x):
-            return x
-        case Tensor(entries):
-            return tuple(map(_literal, entries))
-    raise _UseQuadrature
 
 
 def _sampled(body, inputs):
@@ -248,7 +239,10 @@ def _contraction(body, arguments, inputs, ordinary):
     reference, coefficients, runtime = _factors(expr, frozenset(arguments), inputs)
     if basis_size * weights.value_shape[0] * reference.value_shape[0] > _MAX_ENTRIES:
         raise _UseQuadrature
-    points, weights = np.asarray(_literal(points)), np.asarray(_literal(weights))
+    try:
+        points, weights = np.asarray(literal_values(points)), np.asarray(literal_values(weights))
+    except ValueError:
+        raise _UseQuadrature from None
     basis = ordinary(Form(reference, arguments), (cell,))
     # Reuse cell factors shared across different entries of the geometry tensor.
     leaves = dict.fromkeys(f for terms in coefficients for term in terms for f in term)

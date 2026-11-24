@@ -5,6 +5,8 @@
 # SPDX-License-Identifier:    MIT
 """Evaluate UFLx expressions and trace finite element forms to local tensors."""
 
+from functools import partial
+
 import jax
 import jax.numpy as jnp
 
@@ -18,7 +20,7 @@ from uflx.nodes import (
     Mesh,
 )
 
-from ._basis_tables import BasisTable, basis_tables
+from ._basis_tables import BasisTable, basis_tables, fixed_basis_tables
 from ._context import Sample
 from ._external import Pointwise as Pointwise
 from ._finite_elements import local_basis
@@ -61,7 +63,7 @@ def _check_quadrature(expression, inputs):
         raise ValueError("basis table is not requested by this expression")
 
 
-def trace(expression: AbstractExpression, *inputs):
+def trace(expression: AbstractExpression, *inputs, allow_ad: bool = False):
     """Return a JAX-traceable function for an expression or form.
 
     Each Basix form slot contributes a leading tensor axis in declaration order.
@@ -84,6 +86,13 @@ def trace(expression: AbstractExpression, *inputs):
     as inputs. For each request, supply request.element.tabulate(request.order, points).
     Close over a fixed rule or precomputed table in a Python function before JIT.
 
+    By default the interpreter reads reference derivatives directly from Basix
+    tables. It tabulates fixed sampling points during kernel construction. For runtime
+    points supply the corresponding basis_tables inputs. Operations still requiring
+    internal automatic differentiation raise ValueError when evaluated. Pass allow_ad=True
+    to enable the JAX fallback. The returned kernel supports JAX differentiation with
+    respect to its numerical inputs.
+
     For separable real forms, fixed quadrature sums over reference basis functions
     are precomputed and contracted with the cell data at evaluation.
 
@@ -98,12 +107,13 @@ def trace(expression: AbstractExpression, *inputs):
     if len(keys) != len(inputs):
         raise ValueError("each input must be declared once")
     _check_quadrature(expression, keys)
-    kernel = reference_kernel(expression, inputs, _kernel) or _kernel(expression, inputs)
+    ordinary = partial(_kernel, allow_ad=allow_ad)
+    kernel = reference_kernel(expression, inputs, ordinary) or ordinary(expression, inputs)
     kernel.inputs = inputs
     return kernel
 
 
-def _kernel(expression, inputs):
+def _kernel(expression, inputs, *, allow_ad):
     # Runtime extents are structural types. Bind them from array shapes while
     # tracing, so array lengths do not become additional scalar JIT arguments.
     shaped_inputs = [
@@ -117,8 +127,10 @@ def _kernel(expression, inputs):
         and not isinstance(key, Integral)
     ]
 
+    constants = {} if allow_ad else fixed_basis_tables(expression, inputs)
+
     def action(*values):
-        environment = {}
+        environment = constants.copy()
         points = {}
         for key, value in zip(inputs, values[: len(inputs)], strict=True):
             if isinstance(key, (AbstractDomain, AbstractTopology)):
@@ -153,7 +165,7 @@ def _kernel(expression, inputs):
                     f"inconsistent array extent: expected {length}, got {environment[extent]}"
                 )
             environment.setdefault(extent, length)
-        sample = Sample(points, {})
+        sample = Sample(points, {}, allow_ad=allow_ad)
         return jnp.asarray(evaluate(expression, environment, sample, values[len(inputs) :]))
 
     arity = len(inputs) + len(expression.argument_spaces)
