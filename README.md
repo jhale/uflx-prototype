@@ -199,7 +199,7 @@ Out-of-scope:
 
 - No pull requests. File an issue, we then modify the language specification,
   if needed, and then we can implement the change together.
-- Issues related to the compiler performance.
+- Issues related to the compilers performance.
 - Algorithms related to transformations for generating optimised form compiler
   output.
 - Requests to add 'trivial' features (e.g. more elementary functions, pretty
