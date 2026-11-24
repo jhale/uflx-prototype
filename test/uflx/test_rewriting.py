@@ -92,6 +92,37 @@ def test_replacement_operands_are_processed_and_shared_nodes_reused():
     assert rebuild(out, entries=out.entries) is out
 
 
+def test_fixed_and_dynamic_visits_on_shared_branches():
+    a, b, c, d = map(num, (1, 2, 3, 4))
+    shared, later = a + b, c + a
+    root = tensor((shared, later, a, shared))
+    calls = []
+
+    def rule(node):
+        calls.append(node)
+        return {b: later, c: d}.get(node, node)
+
+    # A fixed pass uses the replacement as supplied, even if it is a later sibling.
+    fixed = tensor((a + later, d + a, a, a + later))
+    assert bottom_up(root, rule) is fixed
+    assert calls == [a, b, a + later, c, d + a, fixed]
+
+    # A dynamic pass finishes that sibling immediately and reuses its result.
+    resolved = a + (d + a)
+    dynamic = tensor((resolved, d + a, a, resolved))
+    calls.clear()
+    assert rewrite(root, rule) is dynamic
+    assert calls == [a, b, c, d, d + a, resolved, dynamic]
+
+
+def test_replacement_cannot_request_an_original_ancestor():
+    a, b = num(1), num(2)
+    root = a + b
+    with pytest.raises(ValueError, match="rewrite cycle") as exc:
+        rewrite(root, lambda node: root if node is b else node)
+    assert exc.value.args[1] is root
+
+
 def test_replacement_cycles_raise():
     with pytest.raises(ValueError, match="rewrite cycle"):
         rewrite(num(1), lambda e: num(2) if e == num(1) else num(1))
