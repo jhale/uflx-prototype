@@ -7,31 +7,19 @@ import numpy as np
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative, divergence, integral
 from uflx.forms import form, function
-from uflx.geometry import push_forward
-from uflx.nodes import AbstractFunctionSpace, EuclideanSpace, Mesh, ScalarType
+from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
 from uflx.tensors import broadcast_to
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import local_space, real_scalar_space
 from uflx_jax_compiler import trace
-
-
-class RealScalar(AbstractFunctionSpace):
-    """Space of spatially constant real scalars."""
-
-    identifier = "mixed_poisson.RealScalar"
-    domain = None
-    value_shape = ()
-    argument_spaces = ()
-    scalar_type = ScalarType.real
-
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
 P2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 x = function(local_space(T, P2, shape=(2,)), "x")
-mesh = Mesh(x, EuclideanSpace(2))
+mesh = create_mesh(x, euclidean_space(2))
 
 # Basix degree 2 Raviart-Thomas and discontinuous degree 1 Lagrange.
 RT = basix.create_element(basix.ElementFamily.RT, triangle, 2)
@@ -51,7 +39,7 @@ u = push_forward(u_ref, mesh, Q.law)
 
 # For -div(kappa grad u) = 1 with homogeneous Dirichlet data, sigma = kappa grad u.
 # The positive diffusivity kappa is supplied at runtime.
-kappa = function(RealScalar(), "kappa")
+kappa = function(real_scalar_space(), "kappa")
 half = num(1) / num(2)
 flux_energy = (half / kappa) * (sigma @ sigma)
 # The multiplier u enforces div(sigma) + 1 = 0.

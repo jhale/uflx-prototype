@@ -4,8 +4,8 @@ from functools import reduce
 from operator import add
 
 from uflx.calculus import integral
-from uflx.geometry import domain_map, pull_back, push_forward, transformation_law
-from uflx.nodes import AbstractExpression, CellMap, EuclideanSpace, Function, Mesh, PullBack
+from uflx.geometry import domain_map, euclidean_space, pull_back, push_forward, transformation_law
+from uflx.nodes import AbstractExpression, CellMap, Function, Mesh, PullBack
 from uflx.tensors import component_tensor, index, index_sum
 
 from .nodes import BasixBasis, BasixSpace, table
@@ -105,7 +105,7 @@ def _interpolate_cell(f, V, cell):
 
     # Basix columns run over points within each value component.
     weights = E.interpolation_matrix.reshape(E.dim, *E.value_shape, len(E.points))
-    point_domain = EuclideanSpace(0)
+    point_domain = euclidean_space(0)
 
     def sample(q, point):
         directions = push_forward(table(weights[..., q]), cell.parent, dual_law)

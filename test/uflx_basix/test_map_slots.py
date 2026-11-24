@@ -11,7 +11,7 @@ from uflx._src.rules.restriction import side_cell
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, integral
 from uflx.forms import function
-from uflx.geometry import cell_map, domain_map, mesh, pull_back, side_map
+from uflx.geometry import cell_map, create_mesh, domain_map, pull_back, side_map
 from uflx.nodes import EuclideanSpace, ScalarType
 from uflx.passes import expand_integrals, expand_pull_backs
 from uflx.tensors import index, tensor
@@ -38,7 +38,7 @@ def test_cell_slots_have_no_indices_and_reconstruct_the_same_selection():
     K, _, T, _ = configuration()
     V = space("coordinates", (2,), T, ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
-    D, E = mesh(x, EuclideanSpace(2)), mesh(y, EuclideanSpace(2))
+    D, E = create_mesh(x, EuclideanSpace(2)), create_mesh(y, EuclideanSpace(2))
     C = D[1]
     assert C is cell_map(parent=D, cell_slot=1)
     assert T[1] is cell_map(T, 1)
@@ -59,7 +59,7 @@ def test_cell_slots_have_no_indices_and_reconstruct_the_same_selection():
 def test_cell_slot_bounds(select, slot):
     _, _, T, _ = configuration()
     x = function(space("coordinates", (2,), T, ScalarType.real), "x")
-    for parent in (T, mesh(x, EuclideanSpace(2))):
+    for parent in (T, create_mesh(x, EuclideanSpace(2))):
         with pytest.raises(ValueError, match="invalid cell slot"):
             select(parent, slot)
 
@@ -67,7 +67,7 @@ def test_cell_slot_bounds(select, slot):
 def test_cell_selection_rejects_array_indices_and_nonreference_cells():
     _, _, T, _ = configuration()
     x = function(space("coordinates", (2,), T, ScalarType.real), "x")
-    for parent in (T, mesh(x, EuclideanSpace(2))):
+    for parent in (T, create_mesh(x, EuclideanSpace(2))):
         for slot in (index("cell"), slice(None), (0,), True):
             with pytest.raises(TypeError):
                 parent[slot]
@@ -85,7 +85,7 @@ def test_side_map_accepts_mixed_endpoints_and_validates_entries():
     K, _F, T, S = configuration()
     x = function(space("coordinates", (2,), T, ScalarType.real), "x")
     y = function(space("side-coordinates", (2,), S, ScalarType.real), "y")
-    D, E = mesh(x, EuclideanSpace(2)), mesh(y, EuclideanSpace(2))
+    D, E = create_mesh(x, EuclideanSpace(2)), create_mesh(y, EuclideanSpace(2))
     A, _ = side_data(S, 0, "+")
     for parent, source in ((D, S), (T, E), (D, E), (T, S)):
         relation = side_map(source, (parent[0], A))
@@ -101,7 +101,7 @@ def test_side_map_accepts_mixed_endpoints_and_validates_entries():
     with pytest.raises(ValueError, match="inclusion source"):
         side_map(S, (T[0], domain_map(K, coordinate(K), K)))
     sm = side_map(E, (D[0], A))
-    other = mesh(num(2) * y, EuclideanSpace(2))
+    other = create_mesh(num(2) * y, EuclideanSpace(2))
     assert side_cell(sm, cell_map(E, 0)) == 0
     assert side_cell(sm, cell_map(other, 0)) is None
 
@@ -113,7 +113,7 @@ def test_coordinate_map_families_keep_array_indices_but_mesh_expansion_has_no_ce
     A = domain_map(K, psi, EuclideanSpace(2))
     assert A.free_indices == ((i, 2),)
     x = function(space("coordinates", (2,), T, ScalarType.real), "x")
-    D = mesh(x, EuclideanSpace(2))
+    D = create_mesh(x, EuclideanSpace(2))
     f = tensor((num(2), num(7)))[i]
     out = expand_integrals(integral(f, D))
     assert out.free_indices == ((i, 2),)

@@ -6,8 +6,7 @@ import numpy as np
 
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import push_forward
-from uflx.nodes import EuclideanSpace, Mesh
+from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
@@ -20,7 +19,7 @@ T = topology(triangle)
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
 X = local_space(T, p1, shape=(2,))
 x = function(X, "x")
-mesh = Mesh(x, EuclideanSpace(2))
+mesh = create_mesh(x, euclidean_space(2))
 
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 V = local_space(T, p2)
@@ -37,6 +36,7 @@ a_ref = lower(a)
 L_ref = lower(L)
 
 # On an affine triangle both integrands are quadratic, so degree 2 is exact.
+# This would eventually be done via a degree estimation algorithm. 
 rule = basix.make_quadrature(triangle, degree=2)
 # Discretise the continuous integral with quadrature
 a_quadrature = apply_quadrature(a_ref, *rule)

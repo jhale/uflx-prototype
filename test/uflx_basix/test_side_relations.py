@@ -7,7 +7,7 @@ from uflx._src.algorithms.substitution import substitute
 from uflx._src.nodes import AbstractTopology, SideMap
 from uflx.arithmetic import num
 from uflx.calculus import coordinate
-from uflx.geometry import cell_map, conormal, domain_map, mesh, side_domain, side_map
+from uflx.geometry import cell_map, conormal, create_mesh, domain_map, side_domain, side_map
 from uflx.tensors import index, tensor
 from uflx_basix.nodes import BasixCell
 
@@ -83,7 +83,7 @@ def test_side_factory_uses_cell_handles_and_requires_a_common_parent():
     source = TabulatedTopology("three-source-slots", (F, F, F))
     relation = side_map(source, (right, A1), (left, A0), (right, A1))
     assert relation is SideMap(D, source, ((1, A1), (0, A0), (1, A1)))
-    other = mesh(num(2) * D.coordinate_function, D.ambient_domain)
+    other = create_mesh(num(2) * D.coordinate_function, D.ambient_domain)
     for wrong_parent in (T[0], other[0]):
         with pytest.raises(ValueError, match="common parent"):
             side_map(source, (left, A0), (wrong_parent, A0), (right, A1))

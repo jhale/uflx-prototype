@@ -165,14 +165,14 @@ def test_basix_second_derivatives_come_from_basis_tabulation():
 
 
 def test_second_spatial_derivative_on_a_curved_mesh():
-    from uflx.geometry import mesh
+    from uflx.geometry import create_mesh
 
     from ..uflx.library import static_topology
     from ..uflx_basix.cells import reference_simplex
 
     T = static_topology((reference_simplex(1),), ((0, 1),))
     t = function(field_space("parameter", domain=T, scalar_type="real"), "t")
-    curve = mesh(tensor((t, t * t)), EuclideanSpace(2))
+    curve = create_mesh(tensor((t, t * t)), EuclideanSpace(2))
     x = coordinate(curve)[0]
     # grad(x) = (1, 2t) / (1 + 4t**2). Differentiate along the curve at t = 1/2.
     actual = trace(gradient(gradient(x, curve), curve), t, curve)(lambda p: p[0], [0.5, 0.25])

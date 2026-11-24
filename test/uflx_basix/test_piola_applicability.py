@@ -9,7 +9,7 @@ from uflx._src.passes.contracts import _allowed_in_core_normal_form
 from uflx._src.rules.coordinates import piola_law
 from uflx.calculus import curl, divergence
 from uflx.forms import function
-from uflx.geometry import mesh, pull_back, transformation_law
+from uflx.geometry import create_mesh, pull_back, transformation_law
 from uflx.nodes import EuclideanSpace, ScalarType
 from uflx.passes import apply_gradients, expand_pull_backs
 
@@ -24,7 +24,7 @@ def mapped(k, n, variance, weight):
     x = function(
         space("piola-coordinates", value_shape=(n,), domain=T, scalar_type=ScalarType.real), "x"
     )
-    D = mesh(x, EuclideanSpace(n))
+    D = create_mesh(x, EuclideanSpace(n))
     f = function(space("piola-field", value_shape=(k,), domain=T), "f")
     return D, push_forward(f, D, transformation_law((variance,), weight))
 

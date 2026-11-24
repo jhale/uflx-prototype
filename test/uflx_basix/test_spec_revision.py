@@ -6,7 +6,7 @@ import pytest
 
 from uflx.algorithms import replace
 from uflx.forms import function
-from uflx.geometry import cell_map, mesh
+from uflx.geometry import cell_map, create_mesh
 from uflx.nodes import EuclideanSpace, ScalarType, Zero
 from uflx.tensors import gathered_index, index, indexed
 
@@ -31,7 +31,7 @@ def test_mesh_cells_retain_selection_after_geometry_substitution():
     T = grouped_topology((reference_simplex(1),), (((0, 1), (2, 3)),), ())
     V = space("coordinates", (1,), T, ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
-    D, E = mesh(x, EuclideanSpace(1)), mesh(y, EuclideanSpace(1))
+    D, E = create_mesh(x, EuclideanSpace(1)), create_mesh(y, EuclideanSpace(1))
     C = cell_map(D, 1)
     assert C.cell_slot == 1 and C.free_indices == ()
     assert C.parameterisation.map is cell_map(T, 1)

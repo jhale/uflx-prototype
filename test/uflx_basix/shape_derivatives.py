@@ -3,7 +3,7 @@ import basix
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import function
-from uflx.geometry import mesh
+from uflx.geometry import create_mesh
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import tensor
 from uflx_basix.cells import cell
@@ -18,7 +18,7 @@ BOUNDARY = grouped_topology((I,), (((0, 1), (1, 2), (2, 3), (0, 3)),), ((("insid
 X = local_space(T, basix.create_element(P, K.cell_type, 1))
 x0, x1 = function(X, "x0"), function(X, "x1")
 v0, v1 = function(X, "v0"), function(X, "v1")
-D = mesh(tensor((x0, x1)), EuclideanSpace(2))
+D = create_mesh(tensor((x0, x1)), EuclideanSpace(2))
 
 
 def functionals():

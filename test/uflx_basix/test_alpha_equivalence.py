@@ -6,7 +6,7 @@ from uflx._src.algorithms.binding import alpha_equivalent
 from uflx.arithmetic import num
 from uflx.calculus import integral
 from uflx.forms import form, function, rebind
-from uflx.geometry import mesh
+from uflx.geometry import create_mesh
 from uflx.nodes import EuclideanSpace
 
 from ..uflx.spaces import space
@@ -19,7 +19,7 @@ def geometry():
     topology = grouped_topology((K,), (((0, 1),),), ())
     X = space("alpha-coordinates", value_shape=(1,), domain=topology, scalar_type="real")
     x, y = function(X, "x"), function(X, "y")
-    V = space("alpha-physical", domain=mesh(x, EuclideanSpace(1)), scalar_type="real")
+    V = space("alpha-physical", domain=create_mesh(x, EuclideanSpace(1)), scalar_type="real")
     return x, y, function(V, "c")
 
 

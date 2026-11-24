@@ -24,7 +24,9 @@ def cell_map(parent: AbstractTopology | Mesh, cell_slot: int) -> CellMap:
     return CellMap(parent, cell_slot)
 
 
-def mesh(coordinate_function: AbstractExpression, ambient_domain: AbstractCoordinateDomain) -> Mesh:
+def create_mesh(
+    coordinate_function: AbstractExpression, ambient_domain: AbstractCoordinateDomain
+) -> Mesh:
     return Mesh(coordinate_function, ambient_domain)
 
 
@@ -58,7 +60,7 @@ def side_map(
 
 
 def side_domain(parent: Mesh, source: AbstractTopology, *entries: tuple[int, DomainMap]) -> Mesh:
-    return mesh(
+    return create_mesh(
         PullBack(parent.coordinate_function, SideMap(parent.topology, source, entries)),
         parent.ambient_domain,
     )

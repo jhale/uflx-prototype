@@ -22,11 +22,11 @@ def nodes(e):
 
 def test_constant_gradient_preserves_embedding_shape():
     from uflx._src.nodes import Zero
-    from uflx.geometry import cell_map, mesh
+    from uflx.geometry import cell_map, create_mesh
     from uflx.passes import expand_pull_backs
     from uflx.tensors import tensor
 
-    embedded = mesh(
+    embedded = create_mesh(
         tensor((D.coordinate_function[0], D.coordinate_function[1], num(0))), EuclideanSpace(3)
     )
     original = pull_back(gradient(num(2j), embedded), cell_map(embedded, 0))

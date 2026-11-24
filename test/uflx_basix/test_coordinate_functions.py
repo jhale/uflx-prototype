@@ -4,7 +4,7 @@ import numpy as np
 from uflx._src.meshes import is_cell
 from uflx._src.nodes import CellMap
 from uflx.forms import function
-from uflx.geometry import cell_map, mesh, pull_back
+from uflx.geometry import cell_map, create_mesh, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import tensor
 from uflx_basix.cells import cell
@@ -31,7 +31,7 @@ def p1_mesh():
     X, x0, x1, x = coordinates(1)
     assert X.cell_dofs == ((0, 1, 2), (3, 4, 5))
     packed = VERTICES[np.asarray(T.cells).ravel()]
-    return mesh(x, EuclideanSpace(2)), {x0: packed[:, 0], x1: packed[:, 1]}
+    return create_mesh(x, EuclideanSpace(2)), {x0: packed[:, 0], x1: packed[:, 1]}
 
 
 def test_a_mesh_from_a_coordinate_function_has_the_topology_and_the_cells_of_the_draft():

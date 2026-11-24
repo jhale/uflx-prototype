@@ -21,7 +21,7 @@ def test_later_compiler_capabilities_are_not_checked():
 def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
     import basix
 
-    from uflx._src.meshes import mesh
+    from uflx._src.meshes import create_mesh
     from uflx_basix.cells import cell
 
     from .meshes import square
@@ -31,7 +31,7 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
         space("coordinates", value_shape=(2,), domain=D.topology, scalar_type=ScalarType.real), "q"
     )
     coordinates = directional_derivative(q, q, D.coordinate_function, q)
-    geometry = mesh(coordinates, D.ambient_domain)
+    geometry = create_mesh(coordinates, D.ambient_domain)
     u = function(space("geometry-contract", domain=geometry), "u")
     assert not derivatives_expanded(u)
     assert not core_normal_form(u)

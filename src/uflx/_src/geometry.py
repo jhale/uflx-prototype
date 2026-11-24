@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .nodes import Gradient, SquareRoot
+from .nodes import EuclideanSpace, Gradient, SquareRoot
 from .tensors import determinant, matrix_product, transpose
 
 if TYPE_CHECKING:
@@ -10,6 +10,11 @@ if TYPE_CHECKING:
     from .nodes.expressions import AbstractExpression
     from .nodes.maps import DomainMap
     from .nodes.meshes import CellMap
+
+
+def euclidean_space(dimension: int) -> EuclideanSpace:
+    """Return the Euclidean coordinate domain of the given dimension."""
+    return EuclideanSpace(dimension)
 
 
 def jacobian(map: DomainMap | CellMap) -> AbstractExpression:

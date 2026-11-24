@@ -71,6 +71,17 @@ class BasixTopology(AbstractTopology):
 
 
 @final
+class RealScalarSpace(AbstractFunctionSpace):
+    """Space of domain-independent real scalars."""
+
+    identifier = "uflx_basix.RealScalarSpace"
+    domain = None
+    value_shape = ()
+    argument_spaces = ()
+    scalar_type = ScalarType.real
+
+
+@final
 class BasixSpace(AbstractFunctionSpace):
     """A Basix finite element on a reference cell, a mesh cell, or a topology."""
 

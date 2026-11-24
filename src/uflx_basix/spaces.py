@@ -3,7 +3,12 @@ from basix.finite_element import FiniteElement
 from uflx.nodes import AbstractTopology, CellMap, ScalarType
 
 from ._elements import element_data
-from .nodes import BasixCell, BasixSpace
+from .nodes import BasixCell, BasixSpace, RealScalarSpace
+
+
+def real_scalar_space() -> RealScalarSpace:
+    """Return the space of spatially constant real scalars."""
+    return RealScalarSpace()
 
 
 def local_space(

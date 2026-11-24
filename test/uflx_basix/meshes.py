@@ -5,7 +5,7 @@ import numpy as np
 
 import uflx.geometry as geometry
 from uflx.forms import function
-from uflx.geometry import mesh
+from uflx.geometry import create_mesh
 from uflx.nodes import EuclideanSpace, Mesh
 from uflx_basix.cells import cell, topology
 from uflx_basix.nodes import BasixCell
@@ -19,7 +19,7 @@ def single_cell_mesh(cell_type):
     T = topology(cell_type)
     P1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
     x = function(local_space(T, P1, shape=(T.dimension,)), "x")
-    return mesh(x, EuclideanSpace(T.dimension))
+    return create_mesh(x, EuclideanSpace(T.dimension))
 
 
 def vertex_mesh(T, vertices, *, label="x"):
@@ -48,7 +48,7 @@ def vertex_mesh(T, vertices, *, label="x"):
             return lambda point: origin + point @ edges
 
         bindings = {x: {j: chart(row) for j, row in enumerate(T.cells)}}
-    return mesh(x, EuclideanSpace(shape[0])), bindings
+    return create_mesh(x, EuclideanSpace(shape[0])), bindings
 
 
 def push_forward(f, domain, law=None):
@@ -74,7 +74,9 @@ def side_map(domain, source, selection=None):
 
 def side_domain(domain, topology, selection=None):
     relation = side_map(domain.topology, topology, selection)
-    result = mesh(geometry.pull_back(domain.coordinate_function, relation), domain.ambient_domain)
+    result = create_mesh(
+        geometry.pull_back(domain.coordinate_function, relation), domain.ambient_domain
+    )
     _fixture_sides[result] = dict(_fixture_sides[topology])
     return result
 

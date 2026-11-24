@@ -21,8 +21,7 @@ from _interior_facet import interior_facet
 from uflx.arithmetic import num
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import pull_back, push_forward
-from uflx.nodes import EuclideanSpace, Mesh
+from uflx.geometry import create_mesh, euclidean_space, pull_back, push_forward
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
@@ -42,7 +41,7 @@ patch_topology = topology(triangle, triangle, quadrilateral)
 coordinate_degrees = (1, 2, 2)
 
 family = basix.ElementFamily.P
-plane = EuclideanSpace(2)
+plane = euclidean_space(2)
 elements_by_cell = []
 for cell, degree in zip(patch_topology.cell_types, coordinate_degrees, strict=True):
     coordinate_element = basix.create_element(family, cell.cell_type, degree)
@@ -62,7 +61,7 @@ for cell_key in cell_keys:
     T = topology(cell_type)
     X = local_space(T, coordinate_element, shape=(2,))
     x = function(X, "x")
-    mesh = Mesh(x, plane)
+    mesh = create_mesh(x, plane)
     
     V = local_space(T, field_element)
     u_ref = function(V, "u")
@@ -101,7 +100,7 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     X = local_space(T, (plus_geometry, minus_geometry), shape=(2,))
     
     x = function(X, "x")
-    mesh = Mesh(x, plane)
+    mesh = create_mesh(x, plane)
     
     V = local_space(T, (plus_field, minus_field))
     

@@ -11,7 +11,7 @@ from uflx._src.passes.pullbacks import pull_backs_expanded
 from uflx.arithmetic import add, multiply, num
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import function
-from uflx.geometry import mesh, pull_back
+from uflx.geometry import create_mesh, pull_back
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
 
@@ -47,7 +47,7 @@ def deform(z):
 
 
 # The same curved surface written as a mesh, with the cells of M deformed, so it has sides.
-C = mesh(deform(FOLD), R3)
+C = create_mesh(deform(FOLD), R3)
 
 
 def sides(D):

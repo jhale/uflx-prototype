@@ -12,8 +12,7 @@ import numpy as np
 from uflx.arithmetic import num
 from uflx.calculus import gradient, integral
 from uflx.forms import function
-from uflx.geometry import pull_back, push_forward
-from uflx.nodes import EuclideanSpace, Mesh
+from uflx.geometry import create_mesh, euclidean_space, pull_back, push_forward
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.interpolation import interpolate
@@ -28,7 +27,7 @@ P2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 N1E = basix.create_element(basix.ElementFamily.N1E, triangle, 1)
 
 x_ref = function(local_space(T, P1, shape=(2,)), "x")
-mesh = Mesh(x_ref, EuclideanSpace(2))
+mesh = create_mesh(x_ref, euclidean_space(2))
 W = local_space(T, P1)
 R = local_space(T, P2, shape=(2,))
 shear_space = local_space(T, N1E)
