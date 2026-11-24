@@ -100,6 +100,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 
 - [Poisson on a triangle](examples/poisson.py) builds the cell stiffness matrix
   and load vector for Poisson’s equation with a unit source.
+- [Runtime quadrature](examples/runtime_quadrature.py) passes quadrature
+  points, weights and Basix basis tables to a P2 triangle stiffness kernel.
 - [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
   a discontinuous scalar on a curved triangle.
 - [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
@@ -128,7 +130,7 @@ from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import basis_tables, trace
+from uflx_jax_compiler import trace
 
 # A linear (P1) coordinate map places the reference triangle in the physical plane.
 triangle = basix.CellType.triangle
@@ -171,26 +173,6 @@ print("Cell stiffness matrix", A)
 The six entries of the load vector sum to the area of this triangle, 5.5,
 and the stiffness matrix is symmetric and 6 × 6. The same kernels can be
 called with new vertex coordinates to evaluate another triangle.
-
-The same stiffness form can take its quadrature rule at runtime. [Runnable Poisson example](examples/poisson.py)
-
-```python
-from uflx_extensions.runtime_arrays import RuntimeArray, RuntimeExtent
-
-n = RuntimeExtent("n")
-points_input = RuntimeArray("points", (n, 2))
-weights_input = RuntimeArray("weights", (n,))
-weighted_sum = apply_quadrature(stiffness_integral, points_input, weights_input)
-runtime_form = form(weighted_sum, (v_ref, u_ref))
-tables = basis_tables(runtime_form)
-runtime_stiffness = jax.jit(trace(runtime_form, x, points_input, weights_input, *tables))
-
-for degree in (2, 4):
-    points, weights = basix.make_quadrature(triangle, degree)
-    values = [table.element.tabulate(table.order, points) for table in tables]
-    matrix = runtime_stiffness(vertices, points, weights, *values)
-    np.testing.assert_allclose(matrix, A, rtol=1e-5, atol=1e-6)
-```
 
 ## Implementation
 
