@@ -3,8 +3,15 @@
 # This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
 #
 # SPDX-License-Identifier:    MIT
-"""Mixed Poisson cell matrix and load vector on a curved quadratic triangle."""
 
+# %% [markdown]
+"""# Mixed Poisson
+
+Couple a Raviart–Thomas flux with a discontinuous scalar on a curved triangle.
+Differentiate the mixed energy to obtain the cell matrix and load vector.
+"""
+
+# %%
 import basix
 import jax
 import numpy as np
@@ -26,7 +33,11 @@ P2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 x = function(local_space(T, P2, shape=(2,)), "x")
 mesh = create_mesh(x, euclidean_space(2))
 
-# Basix degree 2 Raviart-Thomas and discontinuous degree 1 Lagrange.
+# %% [markdown]
+# Pair a degree-two Raviart–Thomas flux space (Basix convention) with a
+# discontinuous degree-one Lagrange space.
+
+# %%
 RT = basix.create_element(basix.ElementFamily.RT, triangle, 2)
 P1_DG = basix.create_element(basix.ElementFamily.P, triangle, 1, discontinuous=True)
 
@@ -55,7 +66,11 @@ def residual(at):
     return directional_derivative(energy, state, at, test)
 
 
-# R(w) = A w - b, so differentiating R gives A and evaluating -R(0) gives b.
+# %% [markdown]
+# The residual satisfies `R(w) = A w - b`. Differentiating it gives the cell
+# matrix, and evaluating `-R(0)` gives the load vector.
+
+# %%
 zero_state = (broadcast_to(num(0), V.value_shape), num(0))
 hessian = directional_derivative(residual(state), state, zero_state, trial_direction)
 
@@ -78,7 +93,10 @@ cell_matrix = jax.jit(trace(a, x, kappa))
 # The residual at zero retains kappa in terms that evaluate to zero.
 cell_load = jax.jit(trace(L, x, kappa))
 
-# Sample the coordinate map (s, t) -> (s, t + 0.4*s*t) at the six P2 nodes.
+# %% [markdown]
+# Sample the coordinate map `(s, t) → (s, t + 0.4 s t)` at the six P2 nodes.
+
+# %%
 s, t = P2.points.T
 coordinates = np.column_stack((s, t + 0.4 * s * t))
 diffusivity = 2.0

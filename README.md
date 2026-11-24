@@ -45,7 +45,9 @@ python -m pip install -e '.[docs]'
 python -m sphinx -W -b html docs build/docs
 ```
 
-Open `build/docs/index.html` in a browser.
+Open `build/docs/index.html` in a browser. Edit the example pages in
+`examples/*.py`, using `# %% [markdown]` for MyST prose and `# %%` for Python
+cells. Sphinx converts the scripts with Jupytext during the build.
 
 ## Headline features
 
@@ -90,12 +92,25 @@ Open `build/docs/index.html` in a browser.
   language extensions. External operators and a complex derivative helper is
   currently implemented as language extensions.
 
-## Hello world - Poisson on a triangle
+## Examples
 
-[The Poisson example](examples/poisson.py) builds the cell stiffness matrix
-and load vector for Poisson’s equation with a unit source. The quadratic basis
-functions and quadrature are defined on the reference triangle. At runtime,
-the three vertices passed to the kernels determine the physical triangle.
+- [Poisson on a triangle](examples/poisson.py) builds the cell stiffness matrix
+  and load vector for Poisson’s equation with a unit source.
+- [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
+  a discontinuous scalar on a curved triangle.
+- [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
+  and facet kernels for a mesh with mixed cell types and geometries.
+- [PDE-constrained optimisation](examples/pde_constrained.py) differentiates a
+  reaction–diffusion Lagrangian to build tangent, adjoint and Hessian forms.
+- [Durán–Liberman shear reduction](examples/duran_liberman.py) interpolates
+  the rotation along triangle edges to compute the reduced Reissner–Mindlin
+  shear energy.
+
+### Hello world - Poisson on a triangle
+
+The quadratic basis functions and quadrature are defined on the reference
+triangle. At runtime, the three vertices passed to the kernels determine the
+physical triangle.
 
 ```python
 import basix
@@ -160,18 +175,6 @@ print("Cell stiffness matrix", A)
 The six entries of the load vector sum to the area of this triangle, 5.5,
 and the stiffness matrix is symmetric and 6 × 6. The same kernels can be
 called with new vertex coordinates to evaluate another triangle.
-
-## Further examples
-
-- [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
-  a discontinuous scalar on a curved triangle.
-- [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
-  and facet kernels for a mesh with mixed cell types and geometries.
-- [PDE-constrained optimisation](examples/pde_constrained.py) differentiates a
-  reaction–diffusion Lagrangian to build tangent, adjoint and Hessian forms.
-- [Durán–Liberman shear reduction](examples/duran_liberman.py) interpolates
-  the rotation along triangle edges to compute the reduced Reissner–Mindlin
-  shear energy.
 
 ## Implementation
 

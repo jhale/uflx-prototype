@@ -3,7 +3,11 @@
 # This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
 #
 # SPDX-License-Identifier:    MIT
-"""Tabulate cell and interior facet tensors for the symmetric interior penalty DG Poisson form.
+
+# %% [markdown]
+"""# Discontinuous Galerkin Poisson
+
+Tabulate cell and interior facet tensors for the symmetric interior penalty DG Poisson form.
 
 The topology has two triangular cells and one quadrilateral cell. In cell order,
 their coordinate elements are P1, P2 and Q2. The triangles share a straight
@@ -14,8 +18,13 @@ discontinuous P1 on the triangles and discontinuous Q1 on the quadrilateral.
 
 The example builds all six interior facet kernels and checks the energy of
 u(x, y) = x on the three cells and two interior facets of this patch.
+
+Pull the fields back from both sides of each shared facet to form jumps and
+average fluxes. To run the downloaded script, save
+{download}`_interior_facet.py <../examples/_interior_facet.py>` beside it.
 """
 
+# %%
 from itertools import combinations_with_replacement
 
 import basix
@@ -56,8 +65,10 @@ for cell, degree in zip(patch_topology.cell_types, coordinate_degrees, strict=Tr
 # Cells with the same coordinate and field elements share a kernel key.
 cell_keys = tuple(dict.fromkeys(elements_by_cell))
 
-# Cell kernels
+# %% [markdown]
+# ## Cell kernels
 
+# %%
 cell_kernels = {}
 for cell_key in cell_keys:
     coordinate_element, field_element = cell_key
@@ -85,8 +96,12 @@ for cell_key in cell_keys:
     evaluate_cell = trace(cell_form, x)
     cell_kernels[cell_key] = jax.jit(evaluate_cell)
 
-# Interior facet kernels, using cell_keys order for the plus and minus sides
+# %% [markdown]
+# ## Interior facet kernels
+#
+# Use the order of `cell_keys` to choose the plus and minus sides.
 
+# %%
 local_facets = index_table("entity_local_index", shape=(2,))
 permutations = index_table("quadrature_permutation", shape=(2,))
 
@@ -146,8 +161,10 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
 # Typical form compiler would hand off cell_kernels and facet_kernels to
 # assembler at this point
 
-# Mesh geometry
+# %% [markdown]
+# ## Mesh geometry
 
+# %%
 # Set interface_offset to zero for a straight P2/Q2 facet. The other offsets
 # are independent.
 boundary_offset = 0.15
@@ -186,8 +203,10 @@ interior_facets = (
     ((1, 2), (2, 0), (0, 1)),
 )
 
-# Tabulate the tensors and evaluate the patch energy for u(x, y) = x.
+# %% [markdown]
+# Tabulate the tensors and evaluate the patch energy for `u(x, y) = x`.
 
+# %%
 patch_energy = 0.0
 x_dofs = []
 for cell_index, (cell_key, dofs) in enumerate(cell_data):

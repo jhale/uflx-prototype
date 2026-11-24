@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-docs = ["sphinx", "pydata-sphinx-theme"]
+docs = ["sphinx", "pydata-sphinx-theme", "jupytext", "myst-parser"]
 test = ["pytest", "pytest-xdist", "coverage"]
 lint = ["ruff", "pyright"]
 

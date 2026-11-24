@@ -3,7 +3,11 @@
 # This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
 #
 # SPDX-License-Identifier:    MIT
-"""Forms for control of a reaction coefficient on the unit interval.
+
+# %% [markdown]
+"""# PDE-constrained optimisation
+
+Forms for control of a reaction coefficient on the unit interval.
 
 A unit source drives a reaction-diffusion equation with zero flux at both ends.
 We optimise the positive reaction coefficient m to bring the state u close to
@@ -12,8 +16,12 @@ the target value one.
 Directional derivatives can be nested symbolically. To inspect the expanded
 form, call apply_derivatives on the final expression. The standard lowering
 pass also performs this expansion.
+
+Differentiate the Lagrangian to obtain tangent, adjoint and Hessian forms.
+Check the reduced gradient and Hessian action against JAX automatic differentiation.
 """
 
+# %%
 import basix
 import jax
 import numpy as np
@@ -37,7 +45,10 @@ m = function(control_space, "m")  # Reaction coefficient (control)
 v = function(state_space, "v")  # Test function (state)
 u = function(state_space, "u")  # Forward solution (state)
 
-# The state satisfies the PDE when its residual F vanishes for every test function v.
+# %% [markdown]
+# The state satisfies the PDE when its residual `F` vanishes for every test function `v`.
+
+# %%
 diffusion = gradient(u, interval) @ gradient(v, interval)
 state_integral = integral(diffusion + m * u * v - v, interval)
 F = form(state_integral, (v,))
@@ -54,7 +65,10 @@ u_k = function(state_space, "u_k")  # Tangent linear solution for k
 u_hk = function(state_space, "u_hk")  # Mixed second-order tangent linear solution for h and k
 second_tangent = directional_derivative(tangent, (u, m, u_h), (u_k, k, u_hk))
 
-# Choose p so that varying the state makes no first-order change to the Lagrangian.
+# %% [markdown]
+# Choose the adjoint `p` so that varying the state makes no first-order change to the Lagrangian.
+
+# %%
 p = function(state_space, "p")  # Adjoint solution
 L = J - apply(F, (p,))
 adjoint = form(directional_derivative(L, u, v), (v,))
@@ -111,7 +125,12 @@ np.testing.assert_allclose(gradient_values, ad_gradient, rtol=1e-6)
 np.testing.assert_allclose(hessian_values, ad_hessian_action, rtol=1e-6)
 print("JAX AD verified the reduced gradient and Hessian action for h = 1.")
 
-# Full Newton treats the state, control and adjoint as independent unknowns.
+# %% [markdown]
+# ## Full Newton
+#
+# Treat the state, control and adjoint as independent unknowns.
+
+# %%
 # One product test argument collects the adjoint, control and state equations in that order.
 q = function(state_space, "q")  # Adjoint test function
 kkt_test = (v, k, q)
@@ -134,7 +153,12 @@ with np.printoptions(precision=4, suppress=True):
     print("Newton matrix (state, control, adjoint)", newton_matrix, sep="\n")
     print("Newton right-hand side", newton_rhs)
 
-# Gauss-Newton linearises the tracking error and the PDE before forming the step.
+# %% [markdown]
+# ## Gauss–Newton
+#
+# Linearise the tracking error and the PDE before forming the step.
+
+# %%
 # The tracking error u - 1 varies by delta_u. Its least-squares term gives the state mass block.
 delta_u, delta_m, delta_p = newton_step
 tracking_mass = integral(delta_u * v, interval)

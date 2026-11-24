@@ -3,8 +3,16 @@
 # This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
 #
 # SPDX-License-Identifier:    MIT
-"""Second-order Poisson cell tensors on an affine triangle."""
 
+# %% [markdown]
+"""# Poisson on a triangle
+
+Build a cell stiffness matrix and load vector for Poisson’s equation with a
+unit source. Define the quadratic basis functions and quadrature on the
+reference triangle, then pass the physical vertices to the compiled kernels.
+"""
+
+# %%
 import basix
 import jax
 import numpy as np
@@ -32,16 +40,20 @@ u_ref, v_ref = function(V, "u"), function(V, "v")
 u = push_forward(u_ref, mesh, V.law)
 v = push_forward(v_ref, mesh, V.law)
 
-# We write integrals on the physical mesh using the pushed forward functions
+# %% [markdown]
+# Write the stiffness and load integrals on the physical mesh.
+
+# %%
 a = integral(gradient(u, mesh) @ gradient(v, mesh), mesh)
 L = integral(v, mesh)
-# and lower then brings them to core normal form i.e. differentiated and
-# pulled back to reference cells.
+# Lower to core normal form on the reference cell.
 a_ref = lower(a)
 L_ref = lower(L)
 
-# On an affine triangle both integrands are quadratic, so degree 2 is exact.
-# This would eventually be done via a degree estimation algorithm. 
+# %% [markdown]
+# Degree-two quadrature is exact for both integrands on an affine triangle.
+
+# %%
 rule = basix.make_quadrature(triangle, degree=2)
 # Discretise the continuous integral with quadrature
 a_quadrature = apply_quadrature(a_ref, *rule)
@@ -57,7 +69,11 @@ L = form(L_quadrature, (v_ref,))
 load = jax.jit(trace(L, x))
 stiffness = jax.jit(trace(a, x))
 
-# Evaluate both kernels on a physical triangle.
+# %% [markdown]
+# Evaluate both kernels on a physical triangle. For a unit source, the six load
+# entries sum to its area, 5.5.
+
+# %%
 vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])
 b = load(vertices)  # cell load vector
 A = stiffness(vertices)  # cell stiffness matrix

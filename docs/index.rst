@@ -21,6 +21,6 @@ To install the prototype, run these commands with Python 3.11 or later.
 .. toctree::
    :maxdepth: 1
 
-   poisson
+   examples
    api
    nodes
