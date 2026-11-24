@@ -16,10 +16,10 @@ from .base import Base
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
-    from ..typing.nodes import ArgumentSpaces, BindingEntry
+    from ..typing.nodes import ArgumentSpaces, BindingEntry, IndexEntry
     from .domains import AbstractDomain
     from .forms import Function
-    from .indices import AbstractExtent, GatheredIndex, Index
+    from .indices import AbstractExtent, Index
     from .topology import AbstractTopology
 
 
@@ -28,7 +28,7 @@ class AbstractExpression(Base):
     commuting: ClassVar[tuple[str, ...]] = ()
 
     def __post_init__(self) -> None:
-        from .structure import expression_operands
+        from .structure import common_operand_domain, expression_operands
         from .validation import merge_indices, require
 
         super().__post_init__()
@@ -37,11 +37,10 @@ class AbstractExpression(Base):
         merge_indices(*(x.free_indices for x in operands))
         if self.scalar_type == ScalarType.boolean:
             require(not self.argument_spaces, "Boolean expressions cannot take arguments")
-        if self.matching_domains:
-            domains = [x.domain for x in operands if x.domain is not None]
-            require(not domains or all(D == domains[0] for D in domains), "operand domains differ")
+        if self.requires_matching_domains:
+            common_operand_domain(self)
 
-    matching_domains: ClassVar[bool] = False
+    requires_matching_domains: ClassVar[bool] = False
 
     # Every concrete class states its static type, so the abstract class has no defaults.
     @property
@@ -117,9 +116,7 @@ class AbstractExpression(Base):
 
         return absolute(self)
 
-    def __getitem__(
-        self, entries: int | Index | GatheredIndex | tuple[int | Index | GatheredIndex, ...]
-    ) -> AbstractExpression:
+    def __getitem__(self, entries: IndexEntry | tuple[IndexEntry, ...]) -> AbstractExpression:
         from ..tensors import component
 
         return component(self, argument_members(entries))

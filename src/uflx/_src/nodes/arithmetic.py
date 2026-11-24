@@ -12,6 +12,7 @@ from ..typing import NumericalScalarType
 from .caching import cached
 from .expressions import AbstractExpression
 from .scalar_types import ScalarType, common_scalar_type, numerical_type
+from .structure import common_operand_domain
 from .validation import require
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 
 @final
 class Sum(AbstractExpression):
-    matching_domains = True
+    requires_matching_domains = True
     value_fields = ("first", "second")
     identifier = "uflx.Sum"
     first: AbstractExpression
@@ -50,9 +51,8 @@ class Sum(AbstractExpression):
         return numerical_type(common_scalar_type(self.first, self.second))
 
     @property
-    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.second.domain or self.first.domain
+        return common_operand_domain(self)
 
     def _validate(self) -> None:
         require(self.first.value_shape == self.second.value_shape, "sum value shapes differ")
@@ -63,7 +63,7 @@ class Sum(AbstractExpression):
 
 @final
 class Product(AbstractExpression):
-    matching_domains = True
+    requires_matching_domains = True
     value_fields = ("first", "second")
     identifier = "uflx.Product"
     first: AbstractExpression
@@ -90,9 +90,8 @@ class Product(AbstractExpression):
         return numerical_type(common_scalar_type(self.first, self.second))
 
     @property
-    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.second.domain or self.first.domain
+        return common_operand_domain(self)
 
     def _validate(self) -> None:
         require(
@@ -103,7 +102,7 @@ class Product(AbstractExpression):
 
 @final
 class Division(AbstractExpression):
-    matching_domains = True
+    requires_matching_domains = True
     value_fields = ("numerator", "denominator")
     identifier = "uflx.Division"
     numerator: AbstractExpression
@@ -130,9 +129,8 @@ class Division(AbstractExpression):
         return numerical_type(common_scalar_type(self.numerator, self.denominator))
 
     @property
-    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.denominator.domain or self.numerator.domain
+        return common_operand_domain(self)
 
     def _validate(self) -> None:
         require(not self.denominator.value_shape, "division requires a scalar denominator")
@@ -141,7 +139,7 @@ class Division(AbstractExpression):
 
 @final
 class Power(AbstractExpression):
-    matching_domains = True
+    requires_matching_domains = True
     value_fields = ("base", "exponent")
     identifier = "uflx.Power"
     base: AbstractExpression
@@ -168,9 +166,8 @@ class Power(AbstractExpression):
         return numerical_type(common_scalar_type(self.base, self.exponent))
 
     @property
-    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.exponent.domain or self.base.domain
+        return common_operand_domain(self)
 
     def _validate(self) -> None:
         require(

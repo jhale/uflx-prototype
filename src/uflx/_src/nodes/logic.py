@@ -13,6 +13,7 @@ from ..typing import ExpressionScalarType
 from .caching import cached
 from .expressions import AbstractExpression
 from .scalar_types import common_scalar_type
+from .structure import common_operand_domain
 from .validation import require
 
 if TYPE_CHECKING:
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 class LessThan(AbstractExpression):
     identifier = "uflx.LessThan"
     value_fields = ("first", "second")
-    matching_domains = True
+    requires_matching_domains = True
     first: AbstractExpression
     second: AbstractExpression
 
@@ -43,9 +44,8 @@ class LessThan(AbstractExpression):
         return ()
 
     @property
-    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.first.domain or self.second.domain
+        return common_operand_domain(self)
 
     @property
     @cached
@@ -66,7 +66,7 @@ class LessThan(AbstractExpression):
 class Conditional(AbstractExpression):
     identifier = "uflx.Conditional"
     value_fields = ("predicate", "true_value", "false_value")
-    matching_domains = True
+    requires_matching_domains = True
     predicate: AbstractExpression
     true_value: AbstractExpression
     false_value: AbstractExpression
@@ -85,9 +85,8 @@ class Conditional(AbstractExpression):
         return self.true_value.argument_spaces
 
     @property
-    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return self.predicate.domain or self.true_value.domain or self.false_value.domain
+        return common_operand_domain(self)
 
     @property
     @cached

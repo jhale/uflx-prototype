@@ -13,6 +13,7 @@ from .caching import cached
 from .expressions import AbstractExpression, BindingExpression
 from .indices import Index
 from .scalar_types import common_scalar_type, numerical_type
+from .structure import common_operand_domain
 from .validation import require
 
 if TYPE_CHECKING:
@@ -73,7 +74,7 @@ class BroadcastTo(AbstractExpression):
 
 @final
 class Tensor(AbstractExpression):
-    matching_domains = True
+    requires_matching_domains = True
     value_fields = ("entries",)
     identifier = "uflx.Tensor"
     entries: tuple[AbstractExpression, ...]
@@ -101,9 +102,8 @@ class Tensor(AbstractExpression):
         return common_scalar_type(*self.entries)
 
     @property
-    @cached
     def domain(self) -> AbstractDomain | AbstractTopology | None:
-        return next((x.domain for x in reversed(self.entries) if x.domain), None)
+        return common_operand_domain(self)
 
     def _validate(self) -> None:
         from .validation import require

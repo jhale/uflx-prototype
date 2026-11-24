@@ -11,10 +11,13 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, cast
 
 from .base import Base
+from .caching import cached
 from .expressions import AbstractExpression
 
 if TYPE_CHECKING:
     from ..typing.nodes import Construction
+    from .domains import AbstractDomain
+    from .topology import AbstractTopology
 
 
 def operands(e: Base, names: Sequence[str] | None = None) -> list[Base]:
@@ -48,3 +51,13 @@ def nodes_in(e: Base, names: Sequence[str]) -> tuple[Base, ...]:
 def expression_operands(e: Base) -> list[AbstractExpression]:
     """Return expression operands in the node's declared value fields."""
     return [x for x in nodes_in(e, e.value_fields) if isinstance(x, AbstractExpression)]
+
+
+@cached
+def common_operand_domain(e: AbstractExpression) -> AbstractDomain | AbstractTopology | None:
+    """Return the shared domain of the value operands that have one."""
+    domains = {operand.domain for operand in expression_operands(e)}
+    domains.discard(None)
+    if len(domains) > 1:
+        raise ValueError("operand domains differ")
+    return next(iter(domains), None)

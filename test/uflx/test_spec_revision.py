@@ -13,6 +13,7 @@ import pytest
 
 from uflx._src.nodes import Base, Function, Index, Indexed
 from uflx.algorithms import replace
+from uflx.arithmetic import add, conditional, divide, less_than, multiply, power
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import conjugate_space, dual_space, form, function
 from uflx.nodes import EuclideanSpace, Float, Integer, ScalarType
@@ -60,6 +61,33 @@ def test_empty_index_factories_and_nonempty_nodes():
         Indexed(f, ())
     with pytest.raises(TypeError):
         indexed(A, [0])
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        add,
+        multiply,
+        divide,
+        power,
+        less_than,
+        pytest.param(lambda a, b: tensor((a, b)), id="tensor"),
+        pytest.param(
+            lambda a, b: conditional(less_than(a, Integer(0)), Integer(1), b), id="conditional"
+        ),
+    ],
+)
+def test_common_operand_domain(build):
+    domain = EuclideanSpace(2)
+    f = function(space("V", domain=domain, scalar_type="real"), "f")
+    g = function(space("W", domain=EuclideanSpace(3), scalar_type="real"), "g")
+    literal = Integer(1)
+    assert build(literal, literal).domain is None
+    assert build(literal, f).domain is domain
+    assert build(f, literal).domain is domain
+    assert build(f, f).domain is domain
+    with pytest.raises(ValueError, match="operand domains differ"):
+        build(f, g)
 
 
 def test_calculus_domain_is_the_result_domain():
