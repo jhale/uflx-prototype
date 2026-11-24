@@ -30,7 +30,6 @@ class _Interned(ABCMeta):
     """Intern fully initialized, validated nodes; never reinitialize a cache hit."""
 
     def __call__(cls: type[_Node], *args: Construction) -> _Node:
-
         node_class = cast("type[Base]", cls)
 
         if "identifier" not in node_class.__dict__:
@@ -39,12 +38,11 @@ class _Interned(ABCMeta):
             raise TypeError(
                 f"{node_class.__name__} takes the arguments {node_class.argument_names}"
             )
-        _construction_arguments(args)
         digest = _digest_of(node_class.identifier, args)
         key = (node_class, digest)
         node = _table.get(key)
         if node is None:
-            node = cast("Base", ABCMeta.__call__(cast("ABCMeta", cls), *args))
+            node = cast("Base", super().__call__(*args))
             vars(node).update(construction_arguments=args, digest=digest)
             _table[key] = node
         return cast("_Node", node)
@@ -132,31 +130,19 @@ def construction_equal(left: Construction, right: Construction) -> bool:
 
 
 def construction_encoding(value: Construction) -> str:
-    """Encode construction data with exact scalar types and opaque node identities."""
-    return _encode(value)
-
-
-def _encode(value: Construction) -> str:
-    if isinstance(value, tuple):
-        return "(" + ",".join(map(_encode, value)) + ")"
-    return (
-        f"#{value.digest:032x}" if isinstance(value, Base) else f"{type(value).__name__}:{value!r}"
-    )
+    """Validate and encode construction data with exact scalar types and opaque node identities."""
+    if isinstance(value, Base):
+        return f"#{value.digest:032x}"
+    if type(value) is tuple:
+        return "(" + ",".join(map(construction_encoding, value)) + ")"
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("construction floats must be finite")
+    elif type(value) not in (bool, int, str):
+        raise TypeError(f"invalid construction argument type: {type(value).__name__}")
+    return f"{type(value).__name__}:{value!r}"
 
 
 def _digest_of(identifier: str, values: tuple[Construction, ...]) -> int:
-    data = _encode((identifier, values)).encode()
+    data = construction_encoding((identifier, values)).encode()
     return int.from_bytes(hashlib.blake2b(data, digest_size=16).digest(), "big")
-
-
-def _construction_arguments(args: tuple[object, ...]) -> None:
-    for value in args:
-        if isinstance(value, Base):
-            continue
-        if type(value) is tuple:
-            _construction_arguments(cast("tuple[object, ...]", value))
-        elif type(value) is float:
-            if not math.isfinite(value):
-                raise ValueError("construction floats must be finite")
-        elif type(value) not in (bool, int, str):
-            raise TypeError(f"invalid construction argument type: {type(value).__name__}")

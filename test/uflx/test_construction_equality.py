@@ -9,7 +9,7 @@ import pytest
 
 from uflx._src.algorithms.binding import alpha_equivalent
 from uflx._src.algorithms.traversal import rebuild
-from uflx._src.nodes.base import _encode, construction_equal
+from uflx._src.nodes.base import construction_encoding, construction_equal
 from uflx.forms import form, function
 from uflx.tensors import index
 
@@ -30,7 +30,9 @@ from .spaces import space
     ],
 )
 def test_agrees_with_construction_encoding(left, right):
-    assert construction_equal(left, right) == (_encode(left) == _encode(right))
+    assert construction_equal(left, right) == (
+        construction_encoding(left) == construction_encoding(right)
+    )
     assert construction_equal(right, left) == construction_equal(left, right)
 
 
