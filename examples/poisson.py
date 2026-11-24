@@ -57,7 +57,8 @@ L = form(L_quadrature, (v_ref,))
 load = jax.jit(trace(L, x))
 stiffness = jax.jit(trace(a, x))
 
-vertices = np.array([(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)])
+# Evaluate both kernels on a physical triangle.
+vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])
 b = load(vertices)  # cell load vector
 A = stiffness(vertices)  # cell stiffness matrix
 

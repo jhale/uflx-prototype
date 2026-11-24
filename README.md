@@ -81,9 +81,9 @@ Dependencies are `numpy`, `jax` and `fenics-basix`.
 ## Hello world - Poisson on a triangle
 
 [The Poisson example](examples/poisson.py) builds the cell stiffness matrix
-and load vector for Poisson’s equation with a unit source. The three vertices
-set the geometry, and the six quadratic basis functions give one row and column
-per degree of freedom.
+and load vector for Poisson’s equation with a unit source. The quadratic basis
+functions and quadrature are defined on the reference triangle. At runtime,
+the three vertices passed to the kernels determine the physical triangle.
 
 ```python
 import basix
@@ -136,7 +136,8 @@ L = form(L_quadrature, (v_ref,))
 load = jax.jit(trace(L, x))
 stiffness = jax.jit(trace(a, x))
 
-vertices = np.array([(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)])
+# Evaluate both kernels on a physical triangle.
+vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])
 b = load(vertices)
 A = stiffness(vertices)
 
@@ -144,8 +145,9 @@ print("Cell load vector", b)
 print("Cell stiffness matrix", A)
 ```
 
-On the unit triangle, the six entries of the load vector sum to the cell area,
-0.5, and the stiffness matrix is symmetric and 6 × 6.
+The six entries of the load vector sum to the area of this triangle, 5.5,
+and the stiffness matrix is symmetric and 6 × 6. The same kernels can be
+called with new vertex coordinates to evaluate another triangle.
 
 ## Further examples
 
