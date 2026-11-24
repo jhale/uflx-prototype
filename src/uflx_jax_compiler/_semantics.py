@@ -195,6 +195,12 @@ def _evaluate(node, bindings, site, arguments, memo):
                     return base**node.exponent.value
                 if isinstance(node.exponent, Float) and node.exponent.value == 0:
                     return jnp.ones_like(base)
+            if node.scalar_type == "complex":
+                # The principal argument of a negative real is +pi for either signed zero.
+                # abs at zero preserves the imaginary tangent on the real axis.
+                imag = base.imag
+                base = jax.lax.complex(base.real, jnp.where(imag == 0, jnp.abs(imag), imag))
+            if isinstance(node, Power):
                 return jnp.power(base, cast(operand(node.exponent)))
             return jnp.sqrt(base) if isinstance(node, SquareRoot) else jnp.log(base)
         case Determinant(a) | Inverse(a):

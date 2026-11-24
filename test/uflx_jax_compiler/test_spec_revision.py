@@ -7,12 +7,13 @@
 
 from __future__ import annotations
 
+import jax
 import numpy as np
 import pytest
 
 from uflx._src.nodes import Determinant
 from uflx._src.nodes.structure import expression_operands
-from uflx.arithmetic import conjugate
+from uflx.arithmetic import conjugate, logarithm, square_root
 from uflx.calculus import coordinate, directional_derivative, gradient
 from uflx.forms import apply, form, function
 from uflx.nodes import Complex, EuclideanSpace, Float, Integer, ScalarType, Zero
@@ -52,6 +53,24 @@ def test_action_conjugation_and_real_to_complex_embedding():
     f = apply(form(u ** Float(0.5), (u,)), (Integer(-1),))
     assert lower(f).scalar_type is ScalarType.complex
     assert np.isclose(trace(lower(f))(), 1j)
+
+
+@pytest.mark.parametrize(
+    ("operator", "reference"),
+    [(square_root, np.sqrt), (logarithm, np.log), (lambda z: z ** Float(0.5), np.sqrt)],
+    ids=["sqrt", "log", "power"],
+)
+def test_principal_complex_branch(operator, reference):
+    z = function(space("V", None), "z")
+    kernel = trace(operator(z), z)
+    points = np.array([complex(-1, 0.0), complex(-1, -0.0), -1 + 1e-6j, -1 - 1e-6j])
+    expected = reference(points)
+    expected[1] = expected[0]  # Both signed zeros denote the same point on the cut.
+    np.testing.assert_allclose(jax.jit(jax.vmap(kernel))(points), expected, atol=1e-14)
+
+    # All three functions have derivative 1/4 at 4, including in the imaginary direction.
+    _, tangent = jax.jvp(kernel, (complex(4, -0.0),), (1j,))
+    np.testing.assert_allclose(tangent, 0.25j)
 
 
 def test_derivative_substitutes_the_point_but_leaves_the_direction_alone():
