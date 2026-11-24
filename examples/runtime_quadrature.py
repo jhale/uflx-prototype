@@ -23,7 +23,7 @@ from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_extensions.runtime_arrays import RuntimeArray, RuntimeExtent
+from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 from uflx_jax_compiler import basis_tables, trace
 
 triangle = basix.CellType.triangle
@@ -39,9 +39,9 @@ v = push_forward(v_ref, mesh, V.law)
 a_ref = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
 
 # %%
-n = RuntimeExtent("n")
-points_input = RuntimeArray("points", (n, 2))
-weights_input = RuntimeArray("weights", (n,))
+n = runtime_extent("n")
+points_input = runtime_array("points", (n, 2))
+weights_input = runtime_array("weights", (n,))
 weighted_sum = apply_quadrature(a_ref, points_input, weights_input)
 a = form(weighted_sum, (v_ref, u_ref))
 tables = basis_tables(a)

@@ -46,3 +46,9 @@ Extension nodes
 
 .. autoclass:: uflx_extensions.index_tables.IndexTable
    :members:
+
+.. autoclass:: uflx_extensions.runtime_arrays.RuntimeArray
+   :members:
+
+.. autoclass:: uflx_extensions.runtime_arrays.RuntimeExtent
+   :members:

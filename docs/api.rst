@@ -142,4 +142,4 @@ Extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: uflx_extensions.runtime_arrays
-   :members: RuntimeArray, RuntimeExtent
+   :members: runtime_array, runtime_extent

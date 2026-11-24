@@ -5,6 +5,7 @@
 # SPDX-License-Identifier:    MIT
 """Named real arrays supplied at evaluation time."""
 
+from collections.abc import Sequence
 from typing import Literal, final
 
 from typing_extensions import override
@@ -12,7 +13,7 @@ from typing_extensions import override
 from uflx.nodes import AbstractExpression, AbstractExtent, ScalarType
 from uflx.typing import Extent
 
-__all__ = ["RuntimeArray", "RuntimeExtent"]
+__all__ = ["RuntimeArray", "RuntimeExtent", "runtime_array", "runtime_extent"]
 
 
 @final
@@ -61,3 +62,13 @@ class RuntimeArray(AbstractExpression):
                 raise TypeError("expected an integer or an abstract extent")
             if n < 0:
                 raise ValueError("array extents must be nonnegative")
+
+
+def runtime_extent(label: str) -> RuntimeExtent:
+    """Declare a named axis length shared by runtime arrays."""
+    return RuntimeExtent(label)
+
+
+def runtime_array(label: str, shape: Sequence[Extent]) -> RuntimeArray:
+    """Declare a real array input with the given shape."""
+    return RuntimeArray(label, tuple(shape))

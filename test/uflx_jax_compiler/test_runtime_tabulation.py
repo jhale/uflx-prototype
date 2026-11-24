@@ -21,7 +21,7 @@ from uflx_basix.nodes import BasixBasis
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 from uflx_extensions.external_operators import external_operator
-from uflx_extensions.runtime_arrays import RuntimeArray, RuntimeExtent
+from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 from uflx_jax_compiler import basis_tables, trace
 
 from ..uflx_extensions.operations import Energy
@@ -219,9 +219,9 @@ def test_symbolic_rule_uses_caller_arrays_and_infers_point_count():
     space = local_space(triangle, element)
     u, v = (function(space, label) for label in ("u", "v"))
     reference = integral(gradient(u, triangle) @ gradient(v, triangle), triangle)
-    count = RuntimeExtent("quadrature count")
-    points = RuntimeArray("points", (count, 2))
-    weights = RuntimeArray("weights", (count,))
+    count = runtime_extent("n")
+    points = runtime_array("points", (count, 2))
+    weights = runtime_array("weights", (count,))
     a = form(apply_quadrature(reference, points, weights), (v, u))
     (table,) = basis_tables(a)
     assert table.point_source == points and table.order == 1
@@ -236,7 +236,7 @@ def test_symbolic_rule_uses_caller_arrays_and_infers_point_count():
         kernel(np.ones((3, 2)), np.ones(4), np.zeros((3, 3, element.dim, 1)))
     with pytest.raises(ValueError, match="shape"):
         apply_quadrature(
-            reference, points, RuntimeArray("other weights", (RuntimeExtent("other count"),))
+            reference, points, runtime_array("other weights", (runtime_extent("other count"),))
         )
     with pytest.raises(ValueError, match="domain-independent"):
         apply_quadrature(reference, coordinate(triangle), weights)
@@ -248,8 +248,8 @@ def test_symbolic_quadrature_mixed_fixed_operands_and_vector_integrands():
     vec = BasixBasis(local_space(interval, element), 0)
     expr = integral(vec, interval)
     points, weights = basix.make_quadrature(interval.cell_type, 2)
-    p = RuntimeArray("p", points.shape)
-    w = RuntimeArray("w", weights.shape)
+    p = runtime_array("p", points.shape)
+    w = runtime_array("w", weights.shape)
     values = 3 * element.tabulate(0, points)
     for points_operand, weights_operand, key, data in (
         (p, weights, p, points),
