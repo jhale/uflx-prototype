@@ -20,7 +20,7 @@ from ..nodes import (
     GatheredIndex,
     Index,
 )
-from . import Argument
+from .base import Argument
 
 # Values stored on nodes and their index signatures.
 Construction: TypeAlias = Base | int | float | str | tuple["Construction", ...]
