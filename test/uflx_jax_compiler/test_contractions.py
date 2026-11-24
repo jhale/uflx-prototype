@@ -80,7 +80,7 @@ def test_family_of_pullbacks_and_lazy_conditionals():
     np.testing.assert_array_equal(trace(selected, a)(values), [-1.0, 2.0, 3.0])
     field = conditional(less_than(x, num(10)), x, missing)
     np.testing.assert_array_equal(trace(pull_back(field, points), a)(values), [-1.0, 2.0, 3.0])
-    u = function(space("field", domain=line, scalar_type="real"), "u")
+    u = function(space("field", line, scalar_type="real"), "u")
     np.testing.assert_array_equal(
         trace(pull_back(u, points), a, u)(values, field), [-1.0, 2.0, 3.0]
     )
@@ -118,7 +118,7 @@ def test_real_contraction_of_integer_storage():
 
 def test_contracted_forms_receive_their_own_slots():
     i = index("i")
-    V = space("scalar", scalar_type="real")
+    V = space("scalar", None, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     a = RuntimeArray("weights", (3,))
     left, right = form(a[i] * u, (u,)), form(v, (v,))

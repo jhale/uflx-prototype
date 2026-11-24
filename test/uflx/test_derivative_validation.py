@@ -20,7 +20,7 @@ from .spaces import space
 
 @pytest.fixture
 def variables():
-    V = space("validation")
+    V = space("validation", None)
     return tuple(function(V, label) for label in ("u", "v", "w", "z"))
 
 
@@ -43,7 +43,7 @@ def test_rejected_derivative_inputs(variables, arguments, message):
 
 def test_real_variable_rejects_complex_point_but_mixed_variables_are_valid(variables):
     u, _, w, _ = variables
-    R = space("real-validation", scalar_type="real")
+    R = space("real-validation", None, scalar_type="real")
     r, s = function(R, "r"), function(R, "s")
     with pytest.raises(ValueError, match="scalar type"):
         directional_derivative(r, r, num(1j), s)
@@ -70,9 +70,9 @@ def test_directions_are_expressions_not_declarations(variables):
 
 
 def test_point_support_and_no_support():
-    V = space("supported", domain=EuclideanSpace(2))
+    V = space("supported", EuclideanSpace(2))
     u, w = function(V, "u"), function(V, "w")
-    other = function(space("other-domain", domain=EuclideanSpace(3)), "a")
+    other = function(space("other-domain", EuclideanSpace(3)), "a")
     with pytest.raises(ValueError, match="domain"):
         directional_derivative(u, u, other, w)
     for point in (num(2), function(V, "a")):
@@ -142,6 +142,6 @@ def test_only_one_derivative_primitive_is_exported():
 
 def test_different_slots_may_have_different_scalar_types(variables):
     u, _, _, _ = variables
-    r = function(space("real-slot", scalar_type="real"), "r")
+    r = function(space("real-slot", None, scalar_type="real"), "r")
     f = form(u * r, (u, r))
     assert f.argument_spaces == (u.space, r.space)

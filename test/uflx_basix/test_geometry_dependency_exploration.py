@@ -23,7 +23,7 @@ def test_geometry_dependence_is_detected_even_with_value_dependence():
 
 
 def test_unknown_geometry_dependent_space_is_rejected():
-    u = function(space("unknown-physical", domain=D, scalar_type="real"), "u")
+    u = function(space("unknown-physical", D, scalar_type="real"), "u")
     with pytest.raises(ValueError, match="unresolved geometry or space dependence"):
         apply_derivatives(directional_derivative(u, x0, x0, v0))
     # An unused declaration still carries its parameter-space dependency.
@@ -31,14 +31,14 @@ def test_unknown_geometry_dependent_space_is_rejected():
 
 
 def test_ordinary_coefficient_derivative_preserves_geometry():
-    V = space("physical-coefficient", domain=D, scalar_type="real")
+    V = space("physical-coefficient", D, scalar_type="real")
     u, w = function(V, "u"), function(V, "w")
     assert not occurs_in_metadata(u, u * u)
     assert apply_derivatives(directional_derivative(u * u, u, u, w)) is w * u + u * w
 
 
 def test_dependent_binder_spaces_are_explicitly_unsupported():
-    u = function(space("dependent-parameter", domain=D, scalar_type="real"), "u")
+    u = function(space("dependent-parameter", D, scalar_type="real"), "u")
     with pytest.raises(ValueError, match="argument space depends"):
         form(u, (x0, u))
     with pytest.raises(ValueError, match="variable spaces must be independent"):
@@ -57,6 +57,6 @@ def test_nested_hidden_geometry_derivative_is_resolved_inside_out():
 
 
 def test_dependent_inherited_slots_are_also_rejected():
-    u = function(space("dependent-inner-parameter", domain=D, scalar_type="real"), "u")
+    u = function(space("dependent-inner-parameter", D, scalar_type="real"), "u")
     with pytest.raises(ValueError, match="argument space depends"):
         form(form(u, (u,)), (x0,))

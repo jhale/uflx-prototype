@@ -38,7 +38,7 @@ def test_agrees_with_construction_encoding(left, right):
 
 @pytest.mark.parametrize(("first", "second"), [(1, 1.0), (0.0, -0.0)])
 def test_rebuild_does_not_discard_identity_changes(first, second):
-    V = space("construction-equality", scalar_type="real")
+    V = space("construction-equality", None, scalar_type="real")
     original = function(V, ("label", first))
     expected = function(V, ("label", second))
     assert original is not expected
@@ -47,7 +47,7 @@ def test_rebuild_does_not_discard_identity_changes(first, second):
 
 
 def test_embedded_nodes_are_not_alpha_normalised():
-    V = space("opaque-construction", scalar_type="real")
+    V = space("opaque-construction", None, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     a, b = form(u, (u,)), form(v, (v,))
     assert alpha_equivalent(a, b)

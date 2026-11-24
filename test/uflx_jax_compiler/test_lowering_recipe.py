@@ -20,7 +20,7 @@ from ..uflx.spaces import space
 
 
 def test_actions_exposed_by_binding_are_finished():
-    V = space("nested-actions")
+    V = space("nested-actions", None)
     u, v = function(V, "u"), function(V, "v")
     l = function(dual_space(V), "l")
     # Substituting a form for the functional exposes an action on that form.
@@ -32,7 +32,7 @@ def test_actions_exposed_by_binding_are_finished():
 
 
 def test_derivative_finishes_actions_created_by_dual_direction():
-    V = space("dual-direction")
+    V = space("dual-direction", None)
     u, v = function(V, "u"), function(V, "v")
     l = function(dual_space(V), "l")
     direction = form(num(2) * conjugate(v), (conjugate(v),))
@@ -44,7 +44,7 @@ def test_derivative_finishes_actions_created_by_dual_direction():
 
 
 def test_point_substitution_exposes_action_and_another_derivative():
-    V = space("point-actions")
+    V = space("point-actions", None)
     u, v, h = (function(V, name) for name in ("u", "v", "h"))
     l = function(dual_space(V), "l")
     point = form(directional_derivative(conjugate(v) * u, u, u, h), (conjugate(v),))
@@ -56,7 +56,7 @@ def test_point_substitution_exposes_action_and_another_derivative():
 
 
 def test_lowering_a_derivative_in_a_geometry_direction():
-    x, h = (function(space("shape-recipe"), name) for name in ("x", "h"))
+    x, h = (function(space("shape-recipe", None), name) for name in ("x", "h"))
     e = directional_derivative(x * x, x, x, h)
     out = lower(e)
     assert not core_normal_form(out)

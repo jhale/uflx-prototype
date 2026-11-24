@@ -26,7 +26,7 @@ def test_zero_rejects_invalid_scalar_type(bad):
 @pytest.mark.parametrize("scalar_type", (ScalarType.real, ScalarType.complex))
 def test_constant_derivative_preserves_output_type_not_direction_type(scalar_type):
     k = index("derivative-family")
-    V = space("complex-variable")
+    V = space("complex-variable", None)
     u = function(V, "u")
     h = function(V, "h")
     z = zero((2,), ((k, 3),), (), scalar_type)

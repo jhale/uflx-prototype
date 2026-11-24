@@ -25,7 +25,7 @@ from ..uflx_basix.test_pullback_contractions import geometry
 @pytest.mark.parametrize("vector", [False, True])
 def test_gradient_pullback_uses_covariant_law_for_scalar_and_vector_fields(vector):
     _, x, _, D = geometry()
-    u = function(space("physical-field", value_shape=(2,) if vector else (), domain=D), "u")
+    u = function(space("physical-field", D, value_shape=(2,) if vector else ()), "u")
     C = cell_map(D, 0)
     original = pull_back(gradient(u, D), C)
     actual = expand_pull_backs(original)

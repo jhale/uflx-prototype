@@ -26,7 +26,7 @@ from .cells import reference_simplex
 def setup():
     P, K = EuclideanSpace(1), reference_simplex(1)
     x, t = coordinate(P)[0], coordinate(K)[0]
-    v = function(space("spatial-argument", domain=P, scalar_type=ScalarType.real), "v")
+    v = function(space("spatial-argument", P, scalar_type=ScalarType.real), "v")
     A = form(x * v, (v,))
     psi = domain_map(K, tensor((num(1) + num(2) * t,)), P)
     return P, K, x, v, A, psi
@@ -42,7 +42,7 @@ def test_side_pullback_transforms_output_before_deferral_and_keeps_tuple_family(
     D, E, _, _ = square(cell(basix.CellType.triangle))
     sm = side_map(D, E)
     assert isinstance(sm, SideMap)
-    V = space("tuple-input", domain=D, scalar_type=ScalarType.real)
+    V = space("tuple-input", D, scalar_type=ScalarType.real)
     A = function(OperatorSpace(D, ((V, V),)), "tuple-operator")
     u, v = function(V, "u"), function(V, "v")
     k = index("argument-family")

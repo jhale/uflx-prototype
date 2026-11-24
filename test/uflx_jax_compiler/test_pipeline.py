@@ -34,7 +34,7 @@ from uflx_jax_compiler import trace
 from ..testutil import assert_clean, check_types, form_with_fixed_argument
 from ..uflx.spaces import space
 
-V, Vd = space("V"), dual_space(space("V"))
+V, Vd = space("V", None), dual_space(space("V", None))
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
 l = function(Vd, "l")
 C = multiply(u, w)

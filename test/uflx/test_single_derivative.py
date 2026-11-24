@@ -18,7 +18,7 @@ from .spaces import space
 
 
 def test_derivative_at_the_variable_is_the_same_node():
-    V = space("shorthand", scalar_type=ScalarType.real)
+    V = space("shorthand", None, scalar_type=ScalarType.real)
     u, v, a, h, k = (function(V, name) for name in "uvahk")
     body = u * v
     for variable, point, direction in ((u, a, h), ((u, v), (a, v), (h, k))):
@@ -39,7 +39,7 @@ def test_derivative_at_the_variable_is_the_same_node():
 
 @pytest.mark.parametrize("complex_", [False, True])
 def test_factory_is_interned_and_point_substitution_commutes(complex_):
-    V = space("factory", scalar_type=ScalarType.complex if complex_ else ScalarType.real)
+    V = space("factory", None, scalar_type=ScalarType.complex if complex_ else ScalarType.real)
     u, a, b, w = (function(V, label) for label in ("u", "a", "b", "w"))
     F = u * u
     e = form(directional_derivative(F, u, a, w), (w,))
@@ -51,7 +51,7 @@ def test_factory_is_interned_and_point_substitution_commutes(complex_):
 
 @pytest.mark.parametrize("conjugated", [False, True])
 def test_duplicate_tuple_direction_binders_are_rejected(conjugated):
-    V = space("tuple")
+    V = space("tuple", None)
     u, v, w = (function(V, label) for label in ("u", "v", "w"))
     entry = conjugate(w) if conjugated else w
     with pytest.raises(ValueError, match="form binders must be distinct"):

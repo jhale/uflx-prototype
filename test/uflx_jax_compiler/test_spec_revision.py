@@ -45,7 +45,7 @@ def test_determinants_require_fixed_dimensions_and_accept_empty_shapes():
 
 
 def test_action_conjugation_and_real_to_complex_embedding():
-    V = space("V")
+    V = space("V", None)
     u = function(V, "u")
     e = apply(conjugate(form(u, (u,))), (Complex(Integer(2), Integer(3)),))
     assert trace(lower(e))() == 2 + 3j
@@ -55,7 +55,7 @@ def test_action_conjugation_and_real_to_complex_embedding():
 
 
 def test_derivative_substitutes_the_point_but_leaves_the_direction_alone():
-    V = space("R", scalar_type=ScalarType.real)
+    V = space("R", None, scalar_type=ScalarType.real)
     u = function(V, "u")
     e = directional_derivative(u * u, u, Integer(3), u)
     assert np.isclose(trace(lower(e), u)(2), 12)

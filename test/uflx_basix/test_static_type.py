@@ -17,7 +17,7 @@ from ..uflx.spaces import space
 from .integrals import D, K
 from .integrals import u as on_D
 
-V = space("V")
+V = space("V", None)
 u, h = function(V, "u"), function(V, "h")
 
 

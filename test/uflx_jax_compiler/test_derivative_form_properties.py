@@ -20,7 +20,7 @@ from uflx_jax_compiler import trace
 from ..testutil import assert_clean, check_types, ill_typed
 from ..uflx.spaces import space
 
-C, R = space("C"), space("R", scalar_type=ScalarType.real)
+C, R = space("C", None), space("R", None, scalar_type=ScalarType.real)
 
 
 # A load in each dual space, linear in its argument like every action.

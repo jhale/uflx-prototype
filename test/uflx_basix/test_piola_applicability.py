@@ -27,10 +27,10 @@ def mapped(k, n, variance, weight):
     K = reference_simplex(k)
     T = grouped_topology((K,), ((tuple(range(k + 1)),),), ())
     x = function(
-        space("piola-coordinates", value_shape=(n,), domain=T, scalar_type=ScalarType.real), "x"
+        space("piola-coordinates", T, value_shape=(n,), scalar_type=ScalarType.real), "x"
     )
     D = create_mesh(x, EuclideanSpace(n))
-    f = function(space("piola-field", value_shape=(k,), domain=T), "f")
+    f = function(space("piola-field", T, value_shape=(k,)), "f")
     return D, push_forward(f, D, transformation_law((variance,), weight))
 
 

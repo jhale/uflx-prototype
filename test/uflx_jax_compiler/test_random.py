@@ -21,9 +21,9 @@ from uflx_jax_compiler import trace
 from ..testutil import assert_clean, check_types, contains, form_with_fixed_argument, pairing
 from ..uflx.spaces import space
 
-V = space("V")
+V = space("V", None)
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
-U = function(space("W", value_shape=(2,)), "U")
+U = function(space("W", None, value_shape=(2,)), "U")
 POOL = [u, v, w, z, h, q]
 BOUND = [v, q, function(V, "y1"), function(V, "y2"), function(V, "y3")]
 i = index("i")

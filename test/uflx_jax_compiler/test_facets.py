@@ -40,7 +40,7 @@ sides_int = {s: side_map(D, E_int, s) for s in ("+", "-")}
 E_bnd = side_domain(D, BOUNDARY)
 sides_bnd = {"inside": side_map(D, E_bnd, "inside")}
 
-V = space("V", domain=D)
+V = space("V", D)
 u, w = function(V, "u"), function(V, "w")
 
 

@@ -21,7 +21,7 @@ from ..uflx_basix.cells import reference_simplex
 
 
 def test_evaluation_reads_current_bindings_and_form_arguments():
-    V = field_space("coefficient", scalar_type="real")
+    V = field_space("coefficient", None, scalar_type="real")
     u = function(V, "u")
     kernel = trace(u + u, u)
     assert kernel(lambda: 3) == 6
@@ -38,7 +38,7 @@ def test_cell_point_and_free_index_are_explicit_inputs():
     from ..uflx.spaces import space as field_space
     from ..uflx_basix.integrals import SQUARE
 
-    V = field_space("vector", (2,), domain=SQUARE)
+    V = field_space("vector", SQUARE, (2,))
     u = function(V, "field")
     i = index("component")
     point = [0.2, 0.3]
@@ -57,7 +57,7 @@ def test_cell_point_and_free_index_are_explicit_inputs():
 def test_callback_reentry_uses_its_explicit_point():
     P = EuclideanSpace(1)
     x = coordinate(P)[0]
-    u = function(field_space("field", domain=P, scalar_type="real"), "u")
+    u = function(field_space("field", P, scalar_type="real"), "u")
 
     def shifted(point):
         with pytest.raises(KeyError):
@@ -107,7 +107,7 @@ def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
     vertices[1:, 0] = 1
     vertices[2, 1] = height
     mesh, geometry = vertex_mesh(topology, vertices)
-    xi = function(field_space("reference coordinate", domain=topology, scalar_type="real"), "xi")
+    xi = function(field_space("reference coordinate", topology, scalar_type="real"), "xi")
     area = integral(num(1), mesh)
     measure = trace(area, area, *geometry)
     rule = topology.cell_types[0].quadrature(1)
@@ -185,7 +185,7 @@ def test_basix_form_slot_accepts_an_applied_field():
 def test_applied_field_reads_the_cell_where_the_form_samples_it():
     from ..uflx_basix.integrals import GEOMETRY, D
 
-    V = field_space("piecewise", domain=D, scalar_type="real")
+    V = field_space("piecewise", D, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     mass = integral(v, D)
     expression = apply(form(mass, (v,)), (u,))

@@ -22,9 +22,9 @@ from uflx.tensors import index, index_sum, matrix_product, transpose
 from .spaces import space
 
 P = EuclideanSpace(2)
-V = space("identity-matrix", value_shape=(2, 2), domain=P)
+V = space("identity-matrix", P, value_shape=(2, 2))
 A, B, C = (function(V, label) for label in ("A", "B", "C"))
-W = space("identity-coordinate", value_shape=(2,), domain=P, scalar_type=ScalarType.real)
+W = space("identity-coordinate", P, value_shape=(2,), scalar_type=ScalarType.real)
 x, y = function(W, "x"), function(W, "y")
 D, E = domain_map(P, x, P), domain_map(P, y, P)
 
@@ -59,8 +59,8 @@ def test_geometry_identity_follows_parameterisation(factory):
     [
         (
             lambda a: gradient(a * a, P),
-            function(space("scalar", domain=P), "u"),
-            function(space("scalar", domain=P), "v"),
+            function(space("scalar", P), "u"),
+            function(space("scalar", P), "v"),
         ),
         (lambda a: gradient(transpose(a), P), A, B),
         (lambda a: jacobian(domain_map(P, a, P)), x, y),
@@ -87,7 +87,7 @@ def test_independent_intermediate_construction_shares_nodes():
 
 
 def test_capture_renaming_is_repeatable_and_then_fixed():
-    V = space("identity-scalar")
+    V = space("identity-scalar", None)
     u, v, w = (function(V, name) for name in ("u", "v", "w"))
     expression = form(u * v, (v,))
     renamed = substitute(expression, {u: v})
@@ -103,7 +103,7 @@ def test_capture_renaming_is_repeatable_and_then_fixed():
 
 
 def test_substitution_freshens_only_the_term_with_a_match():
-    V = space("R", scalar_type=ScalarType.real)
+    V = space("R", None, scalar_type=ScalarType.real)
     x, w, z = (function(V, name) for name in "xwz")
     F, H = form(x, (x,)), form(w * x, (x,))
     assert replace(F, {w: x}) is F
@@ -117,7 +117,7 @@ def test_substitution_freshens_only_the_term_with_a_match():
 
 
 def test_substitution_uses_only_eligible_outermost_matches_in_scope():
-    V = space("R", scalar_type=ScalarType.real)
+    V = space("R", None, scalar_type=ScalarType.real)
     x, w, z = (function(V, name) for name in "xwz")
     body = w + z
     assert replace(form(x * body, (x,)), {body: num(3), w: x}) is form(x * num(3), (x,))
@@ -128,7 +128,7 @@ def test_substitution_uses_only_eligible_outermost_matches_in_scope():
 
 
 def test_label_reconstruction_and_original_matches_under_a_binder():
-    V = space("R", scalar_type=ScalarType.real)
+    V = space("R", None, scalar_type=ScalarType.real)
     x, w = (function(V, name) for name in "xw")
     tagged_w = function(V, ("tag", w))
     tagged_x = function(V, ("tag", x))

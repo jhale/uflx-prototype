@@ -15,7 +15,7 @@ from ..uflx.library import runtime_array
 from ..uflx.spaces import space
 from .integrals import D, K, u
 
-V = space("V")
+V = space("V", None)
 v, w = function(V, "v"), function(V, "w")
 l = function(dual_space(V), "l")
 cells = cell_map(D, 0)

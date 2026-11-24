@@ -158,7 +158,7 @@ def test_coefficient_gradient_uses_only_its_dependent_axes(degree):
 def test_material_axis_stays_independent_of_quadrature():
     K = cell(basix.CellType.triangle)
     i = index("material")
-    c = function(space("materials", (2,), scalar_type="real"), "c")
+    c = function(space("materials", None, (2,), scalar_type="real"), "c")
     moment = integral(coordinate(K)[0] * logarithm(c[i]), K)
     sampled = apply_quadrature(moment, *basix.make_quadrature(K.cell_type, 4))
     kernel = trace(sampled, c)

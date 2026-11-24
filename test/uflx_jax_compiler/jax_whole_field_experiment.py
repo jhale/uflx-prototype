@@ -149,9 +149,9 @@ def library_bindings(saved=None):
 
 
 def test_whole_field_against_oracle():
-    V = space("cell field", domain=D, scalar_type="real")
+    V = space("cell field", D, scalar_type="real")
     u, h, v = (function(V, name) for name in ("u", "h", "v"))
-    a = function(space("scale", scalar_type="real"), "a")
+    a = function(space("scale", None, scalar_type="real"), "a")
     energy = external_operator(SampleProduct(0), (v * v, a))
     value = apply(form(energy, (v,)), (u,))
     first = directional_derivative(value, (u, a), (u, a), (h, num(3)))
@@ -205,7 +205,7 @@ def test_independent_operand_needs_no_action():
 
 
 def test_stationary_scalar_operand_without_a_derivative_binding():
-    a = function(space("scalar", scalar_type="real"), "a")
+    a = function(space("scalar", None, scalar_type="real"), "a")
     expr = external_operator(Energy(), (a * a, num(2)))
     derivative = directional_derivative(expr, a, num(0), num(1))
     library = {Energy(): operator.mul}

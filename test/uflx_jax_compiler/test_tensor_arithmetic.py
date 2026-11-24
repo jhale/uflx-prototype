@@ -71,8 +71,8 @@ def test_symbolic_axes_and_free_indices_survive_expansion():
 
 
 def test_tensor_product_derivative_and_action():
-    x = function(space("scalar", scalar_type="real"), "x")
-    v = function(space("vector", (2,), scalar_type="real"), "v")
+    x = function(space("scalar", None, scalar_type="real"), "x")
+    v = function(space("vector", None, (2,), scalar_type="real"), "v")
     expression = x * v
     derivative = apply_derivatives(directional_derivative(expression, x, num(2), num(1)))
     values = {v: np.array([3.0, 5.0])}

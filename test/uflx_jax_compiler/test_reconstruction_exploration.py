@@ -20,7 +20,7 @@ from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 
-V = space("Hermite-independent-data", scalar_type="real")
+V = space("Hermite-independent-data", None, scalar_type="real")
 length, s, q0, m0, q1, m1 = (function(V, name) for name in ("L", "s", "q0", "m0", "q1", "m1"))
 # x = L*s. Reference slopes must be L times the supplied physical slopes.
 p = (

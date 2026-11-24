@@ -16,7 +16,7 @@ from ..uflx.spaces import space
 
 @pytest.mark.parametrize("grouped", [False, True])
 def test_projection_expands_into_core_derivatives(grouped):
-    V = space("C", scalar_type="complex")
+    V = space("C", None, scalar_type="complex")
     x, y, a, b, h, k = (function(V, name) for name in "xyabhk")
     i = Complex(Integer(0), Integer(1))
     variables, points, direction = ((x, y), (a, b), (h, k)) if grouped else (x, a, h)
@@ -29,6 +29,6 @@ def test_projection_expands_into_core_derivatives(grouped):
 
 
 def test_projection_requires_complex_variables():
-    r = function(space("R", scalar_type="real"), "r")
+    r = function(space("R", None, scalar_type="real"), "r")
     with pytest.raises(ValueError, match="complex variable"):
         complex_derivative_parts(r * r, r, r, r)

@@ -20,7 +20,7 @@ from .spaces import space
 
 
 def test_derivative_restores_unused_point_indices_before_rebuilding_parent():
-    u = function(space("family-point"), "u")
+    u = function(space("family-point", None), "u")
     k = index("k")
     a = tensor((num(2), num(3)))[k]
     derivative = directional_derivative(u, u, a, num(1))
@@ -48,7 +48,7 @@ def test_completion_rejects_incompatible_replacements(kind):
         "extra": Zero((), ((j, 2),), (), ScalarType.real),
         "extent": Zero((), ((i, 3),), (), ScalarType.real),
         "shape": Zero((2,), ((i, 2),), (), ScalarType.real),
-        "arity": Zero((), ((i, 2),), (space("slot"),), ScalarType.real),
+        "arity": Zero((), ((i, 2),), (space("slot", None),), ScalarType.real),
     }[kind]
     with pytest.raises(ValueError):
         complete_indices(original, replacement)

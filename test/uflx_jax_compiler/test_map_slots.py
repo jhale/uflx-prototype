@@ -19,7 +19,7 @@ from ..uflx_basix.test_map_slots import configuration
 
 def test_side_map_resolves_both_parent_slots_without_indices():
     K, F, T, S = configuration()
-    f = function(space("field", domain=T), "f")
+    f = function(space("field", T), "f")
     for side, slot, expected in (("+", 0, (0.6, 0.4)), ("-", 1, (0.0, 0.4))):
         A, _ = side_data(S, 0, side)
         sm = side_map(S, (T[slot], A))

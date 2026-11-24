@@ -14,6 +14,6 @@ from .spaces import space
 
 
 def test_lowering_is_idempotent():
-    x = function(space("lower-idempotent"), "x")
+    x = function(space("lower-idempotent", None), "x")
     out = lower(directional_derivative(x * x, x, x, num(1)))
     assert lower(out) is out

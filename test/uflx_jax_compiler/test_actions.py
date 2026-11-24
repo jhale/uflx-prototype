@@ -18,7 +18,7 @@ from ..testutil import ill_typed
 from ..uflx.spaces import space
 
 rng = np.random.default_rng(1)
-V, Vd = space("V"), dual_space(space("V"))
+V, Vd = space("V", None), dual_space(space("V", None))
 u, v, w, z, h = (function(V, n) for n in "uvwzh")
 l = function(Vd, "l")
 i, j = index("i"), index("j")

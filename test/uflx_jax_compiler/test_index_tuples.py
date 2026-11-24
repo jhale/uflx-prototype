@@ -50,7 +50,7 @@ def test_one_index_per_axis_retains_extents_in_order():
 
 
 def test_a_directional_derivative_through_index_tuples():
-    x, h = function(space("V"), "x"), function(space("V"), "h")
+    x, h = function(space("V", None), "x"), function(space("V", None), "h")
     F = component_tensor(multiply(x, multiply(x, indexed(array(T), r))), r)
     f = index_sum(multiply(indexed(F, r), indexed(F, r)), r)
     e = directional_derivative(f, x, x, h)
@@ -62,7 +62,7 @@ def test_a_directional_derivative_through_index_tuples():
 
 def test_substitution_renames_a_bound_index_tuple():
     # The replacement brings a free r, which the binder of r must not capture.
-    y = function(space("V"), "y")
+    y = function(space("V", None), "y")
     e = component_tensor(multiply(y, indexed(array(T), r)), r)
     out = substitute(e, {y: indexed(array(U), (r[0],))})
     assert out.value_shape == (2, 3, 2) and out.free_indices == ((r[0], 2),)

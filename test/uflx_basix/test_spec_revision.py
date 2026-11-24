@@ -34,7 +34,7 @@ def test_gathered_indices_follow_direct_indices_in_static_order():
 
 def test_mesh_cells_retain_selection_after_geometry_substitution():
     T = grouped_topology((reference_simplex(1),), (((0, 1), (2, 3)),), ())
-    V = space("coordinates", (1,), T, ScalarType.real)
+    V = space("coordinates", T, (1,), ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
     D, E = create_mesh(x, EuclideanSpace(1)), create_mesh(y, EuclideanSpace(1))
     C = cell_map(D, 1)

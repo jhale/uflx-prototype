@@ -26,7 +26,7 @@ def lower(e):
 
 @pytest.mark.parametrize("body", [conjugate, lambda u: u * conjugate(u)])
 def test_both_complex_parts_reconstruct_the_real_differential(body):
-    V = space("complex")
+    V = space("complex", None)
     u, w, h = (function(V, label) for label in ("u", "w", "h"))
     F = body(u)
     plus = form(complex_derivative_parts(F, u, u, w)[0], (w,))
@@ -44,7 +44,7 @@ def test_both_complex_parts_reconstruct_the_real_differential(body):
 
 
 def test_new_argument_follows_existing_form_arguments():
-    V = space("real", scalar_type=ScalarType.real)
+    V = space("real", None, scalar_type=ScalarType.real)
     u, v, w, h = (function(V, label) for label in ("u", "v", "w", "h"))
     F = form(u * u * v, (v,))
     e = form(directional_derivative(F, u, w), (w,))
@@ -55,7 +55,7 @@ def test_new_argument_follows_existing_form_arguments():
 
 
 def test_substitution_avoids_capturing_a_form_direction():
-    V = space("capture", scalar_type=ScalarType.real)
+    V = space("capture", None, scalar_type=ScalarType.real)
     u, z, w = (function(V, label) for label in ("u", "z", "w"))
     e = form(directional_derivative(u * z, u, u, w), (w,))
     changed = substitute(e, {z: w})
@@ -64,7 +64,7 @@ def test_substitution_avoids_capturing_a_form_direction():
 
 
 def test_third_complex_derivative_has_the_expected_multilinear_value():
-    V = space("higher")
+    V = space("higher", None)
     u = function(V, "u")
     e = u * u * u * u
     for n in range(3):
@@ -76,7 +76,7 @@ def test_third_complex_derivative_has_the_expected_multilinear_value():
 
 
 def test_point_dependencies_remain_free_when_binding_a_fresh_direction():
-    V = space("point", scalar_type=ScalarType.real)
+    V = space("point", None, scalar_type=ScalarType.real)
     u, w, h = (function(V, name) for name in ("u", "w", "h"))
     e = form(directional_derivative(u * u, u, w + num(1), h), (h,))
     assert np.isclose(trace(lower(e), w)(2, 3), 18)

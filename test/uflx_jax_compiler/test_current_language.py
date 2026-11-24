@@ -68,14 +68,14 @@ def test_conditional_derivatives_and_pullback():
         assert np.allclose(trace(g, P)([point]), [expected])
     phi = domain_map(P, tensor((num(-2),)), P)
     assert value(lower(pull_back(f, phi))) == 4
-    V = space("R", scalar_type="real")
+    V = space("R", None, scalar_type="real")
     v = function(V, "v")
     f = conditional(less_than(v, num(0)), v * v, v)
     assert value(lower(directional_derivative(f, v, num(-2), num(3)))) == -12
 
 
 def test_full_application_and_family_completion():
-    V = space("R", scalar_type="real")
+    V = space("R", None, scalar_type="real")
     x, y = (function(V, n) for n in ("x", "y"))
     f = form(x * y, (x, y))
     call = apply(f, (y, x))
@@ -97,7 +97,7 @@ def test_full_application_and_family_completion():
 
 
 def test_derivative_of_full_terminal_application():
-    V = space("R", scalar_type="real")
+    V = space("R", None, scalar_type="real")
     x = function(V, "x")
     # Distinct input names declare an ordered bilinear map.
     y = function(V, "y")
@@ -118,7 +118,7 @@ def test_derivative_of_full_terminal_application():
 
 
 def test_external_derivative_and_expanded_action_agree():
-    x = function(space("R", scalar_type="real"), "x")
+    x = function(space("R", None, scalar_type="real"), "x")
     f = external_operator(Energy(), (x, x))
     derivative = directional_derivative(f, x, x, num(3))
     assert value(derivative, {x: 2, Energy(): lambda a, b: a * b}) == 12

@@ -23,7 +23,7 @@ from .meshes import grouped_topology, vertex_mesh
 def test_mesh_identity_and_geometry_follow_coordinate_replacement():
     K = reference_simplex(1)
     T = grouped_topology((K,), (((0, 1),),), ())
-    V = space("coordinate", value_shape=(1,), domain=T, scalar_type=ScalarType.real)
+    V = space("coordinate", T, value_shape=(1,), scalar_type=ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
     D, E = create_mesh(x, EuclideanSpace(1)), create_mesh(y, EuclideanSpace(1))
     assert isinstance(D, Mesh)
@@ -46,7 +46,7 @@ def test_mesh_rejects_free_coordinate_indices_but_keeps_symbolic_coordinates():
     with pytest.raises(ValueError, match="no free indices"):
         Mesh(coordinates, EuclideanSpace(1))
     # A symbolic scalar parameter is fine; only an unbound family index is excluded.
-    scale = function(space("scale", scalar_type=ScalarType.real), "scale")
+    scale = function(space("scale", None, scalar_type=ScalarType.real), "scale")
     symbolic = create_mesh(scale * D.coordinate_function, EuclideanSpace(1))
     assert substitute(symbolic, {scale: num(2)}) is create_mesh(
         num(2) * D.coordinate_function, EuclideanSpace(1)

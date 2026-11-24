@@ -33,7 +33,7 @@ def assert_same(left, right):
 
 @pytest.mark.parametrize("kind", ["form", "tensor", "sum", "derivative"])
 def test_all_binders(kind):
-    V = space("hash-real", scalar_type="real")
+    V = space("hash-real", None, scalar_type="real")
     u, v, w = (function(V, s) for s in ("u", "v", "w"))
     i, j = index("i"), index("j")
     a = tensor((num(2), num(3)))
@@ -52,7 +52,7 @@ def test_all_binders(kind):
 
 
 def test_shadowing_grouping_conjugation_and_free_identity():
-    V = space("hash-complex", scalar_type="complex")
+    V = space("hash-complex", None, scalar_type="complex")
     u, v, w, p = (function(V, s) for s in ("u", "v", "w", "p"))
     left = form(form(u, (v,)) + form(u, (u,)), (u,))
     right = form(form(w, (p,)) + form(p, (p,)), (w,))
@@ -74,7 +74,7 @@ def test_shadowing_grouping_conjugation_and_free_identity():
 
 @pytest.mark.parametrize("labels", [(1, 1.0), (0.0, -0.0)])
 def test_opaque_labels_preserve_numeric_types(labels):
-    V = space("hash-labels", scalar_type="real")
+    V = space("hash-labels", None, scalar_type="real")
     a, b = (function(V, ("label", label)) for label in labels)
     assert alpha_hash(a) != alpha_hash(b)
     assert_same(form(a, (a,)), form(b, (b,)))
@@ -84,7 +84,7 @@ def test_opaque_labels_preserve_numeric_types(labels):
 
 
 def test_deep_dag_and_clear(monkeypatch):
-    V = space("hash-deep", scalar_type="real")
+    V = space("hash-deep", None, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     a, b = u, v
     for _ in range(2000):
@@ -136,7 +136,7 @@ def test_dependency_sets_match_python_sets_and_preserve_snapshots():
 
 
 def test_dependency_and_irrelevant_scope_scaling(monkeypatch):
-    V = space("hash-scaling", scalar_type="real")
+    V = space("hash-scaling", None, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
 
     created = 0
@@ -169,7 +169,7 @@ def test_cross_process_determinism():
 from uflx._src.algorithms.alpha import alpha_hash
 from uflx.forms import form, function
 from test.uflx.spaces import space
-v = function(space('hash', scalar_type='real'), 'v')
+v = function(space('hash', None, scalar_type='real'), 'v')
 print(alpha_hash(form(v * v, (v,))))
 """
     outputs = set()
@@ -197,7 +197,7 @@ def test_tuple_cache_keys_preserve_identity_and_hold_references():
 
 @pytest.mark.parametrize("kind", ["simple", "swap", "group", "conjugate", "shadow"])
 def test_rebind_form_fingerprints(kind):
-    V = space("hash-rebind", scalar_type="complex")
+    V = space("hash-rebind", None, scalar_type="complex")
     u, v, w, p = (function(V, name) for name in ("u", "v", "w", "p"))
     match kind:
         case "simple":
@@ -223,7 +223,7 @@ def test_rebind_index_fingerprints(constructor):
 
 
 def test_rebind_changed_opaque_label_preserves_free_identity():
-    V = space("hash-rebind-label", scalar_type="real")
+    V = space("hash-rebind-label", None, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     c = function(V, ("library.coefficient", u))
     original = form(c, (u,))

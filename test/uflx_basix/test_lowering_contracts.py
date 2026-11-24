@@ -33,11 +33,11 @@ def test_contract_stops_at_stored_geometry_and_reports_mesh_integrals():
 
     D = square(cell(basix.CellType.triangle))[0]
     q = function(
-        space("coordinates", value_shape=(2,), domain=D.topology, scalar_type=ScalarType.real), "q"
+        space("coordinates", D.topology, value_shape=(2,), scalar_type=ScalarType.real), "q"
     )
     coordinates = directional_derivative(q, q, D.coordinate_function, q)
     geometry = create_mesh(coordinates, D.ambient_domain)
-    u = function(space("geometry-contract", domain=geometry), "u")
+    u = function(space("geometry-contract", geometry), "u")
     assert not derivatives_expanded(u)
     assert not core_normal_form(u)
     assert derivatives_expanded(coordinates)

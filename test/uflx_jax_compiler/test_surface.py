@@ -68,7 +68,7 @@ def sides(D):
 
 EDGES = {M: sides(M), C: sides(C)}
 
-u = function(space("V", domain=M), "u")
+u = function(space("V", M), "u")
 x = coordinate(M)
 ENV = GEOMETRY | {u: {0: num(1) + x[0] + num(2) * x[1] - x[2], 1: num(3) - x[0] * x[2] + x[1]}}
 

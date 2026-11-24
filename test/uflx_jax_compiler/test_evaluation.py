@@ -61,7 +61,7 @@ def test_external_operator_can_sample_its_field_after_the_call():
     from ..uflx.spaces import space
     from ..uflx_basix.integrals import D
 
-    V = space("cell field", domain=D, scalar_type="real")
+    V = space("cell field", D, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     fields = []
 

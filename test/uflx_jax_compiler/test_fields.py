@@ -27,7 +27,7 @@ from ..uflx_basix.integrals import GEOMETRY, K
 from ..uflx_basix.integrals import D as MESH
 from .quadrature import integrate_at
 
-VD = space("VD", domain=MESH)
+VD = space("VD", MESH)
 u, w, h = (function(VD, n) for n in "uwh")
 BOUND = [function(VD, n) for n in ("v", "y0", "y1", "y2")]
 i = index("i")

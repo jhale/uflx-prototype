@@ -17,7 +17,7 @@ from .operations import Energy, EnergyTangent
 
 
 def test_derivative_action_receives_points_then_directions():
-    V = space("R", scalar_type="real")
+    V = space("R", None, scalar_type="real")
     x, y, a, b, h, k = (function(V, name) for name in "xyabhk")
     energy = external_operator(Energy(), (x, y))
     derivative = directional_derivative(energy, (x, y), (a, b), (h, k))

@@ -79,8 +79,8 @@ def test_empty_index_factories_and_nonempty_nodes():
 )
 def test_common_operand_domain(build):
     domain = EuclideanSpace(2)
-    f = function(space("V", domain=domain, scalar_type="real"), "f")
-    g = function(space("W", domain=EuclideanSpace(3), scalar_type="real"), "g")
+    f = function(space("V", domain, scalar_type="real"), "f")
+    g = function(space("W", EuclideanSpace(3), scalar_type="real"), "g")
     literal = Integer(1)
     assert build(literal, literal).domain is None
     assert build(literal, f).domain is domain
@@ -103,8 +103,8 @@ def test_calculus_domain_is_the_result_domain():
 
 
 def test_space_factories_and_substitution_keep_canonical_forms():
-    V = space("V")
-    R = space("R", scalar_type=ScalarType.real)
+    V = space("V", None)
+    R = space("R", None, scalar_type=ScalarType.real)
     assert conjugate_space(conjugate_space(V)) is V
     assert dual_space(dual_space(V)) is V
     assert dual_space(dual_space((V, V))) == (V, V)
@@ -114,7 +114,7 @@ def test_space_factories_and_substitution_keep_canonical_forms():
 
 
 def test_replacement_is_simultaneous_and_dictionary_order_independent():
-    V = space("R", scalar_type=ScalarType.real)
+    V = space("R", None, scalar_type=ScalarType.real)
     u, v, w = (function(V, name) for name in ("u", "v", "w"))
     assert replace(u, {u: v, v: w}) is v
     assert replace(u + v, {u + v: w, u: Integer(1)}) is w

@@ -45,7 +45,7 @@ def vertex_mesh(T, vertices, *, label="x"):
         bindings = {f"coefficients:{label}": values}
     else:
         # ReferenceSimplex fixtures supply an affine field on each reference cell.
-        x = function(field_space("geometry", shape, T, scalar_type="real"), label)
+        x = function(field_space("geometry", T, shape, scalar_type="real"), label)
 
         def chart(row):
             origin = vertices[row[0]]

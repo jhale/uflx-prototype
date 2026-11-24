@@ -19,8 +19,8 @@ from ..testutil import ill_typed
 from ..uflx.spaces import space
 
 rng = np.random.default_rng(2)
-V, Vd, Q = space("V"), dual_space(space("V")), space("Q")
-W, Wd = space("W", value_shape=(2,)), dual_space(space("W", value_shape=(2,)))
+V, Vd, Q = space("V", None), dual_space(space("V", None)), space("Q", None)
+W, Wd = space("W", None, value_shape=(2,)), dual_space(space("W", None, value_shape=(2,)))
 u, v, w, z, h = (function(V, n) for n in "uvwzh")
 q, r = function(Q, "q"), function(Q, "r")
 U, Y, T, U2 = (function(W, n) for n in ("U", "Y", "T", "U2"))

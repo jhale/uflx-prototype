@@ -21,15 +21,15 @@ from uflx._src.nodes.base import _digest_of
 
 from .spaces import space
 
-V = space("V")
+V = space("V", None)
 
 
 def test_equal_constructions_are_one_object():
     u = Function(V, "u")
-    assert Sum(Integer(1), u) is Sum(Integer(1), Function(space("V"), "u"))
+    assert Sum(Integer(1), u) is Sum(Integer(1), Function(space("V", None), "u"))
     X = Tensor((Integer(1), Integer(2)))
     assert Index(("matmul", X, u, 0)) is Index(("matmul", Tensor((Integer(1), Integer(2))), u, 0))
-    assert space("V") is space("V")
+    assert space("V", None) is space("V", None)
 
 
 def test_literals_take_exact_types():
@@ -61,7 +61,7 @@ def test_hash_is_the_same_in_every_process():
         "from test.uflx.spaces import space\n"
         "from uflx._src.nodes import "
         "Float, Function, Indexed, Integer, Sum, Tensor\n"
-        "u = Function(space('V'), ('label', 'with', 'strings'))\n"
+        "u = Function(space('V', None), ('label', 'with', 'strings'))\n"
         "print(hash(Sum(Indexed(Tensor((u, Float(2.5))), (1,)), u)))\n"
     )
     hashes = set()

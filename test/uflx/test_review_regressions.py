@@ -49,7 +49,7 @@ def test_unknown_library_operation_is_not_a_terminal():
 
 
 def test_construction_dependencies_and_value_operands_are_distinct():
-    V = space("dependencies")
+    V = space("dependencies", None)
     source = function(V, "source")
     f = function(V, ("derived", source))
     assert operands(f) == [V, source]

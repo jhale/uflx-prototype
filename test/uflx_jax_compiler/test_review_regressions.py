@@ -19,7 +19,7 @@ from ..uflx.spaces import space
 
 
 def test_at_point_derivative_does_not_substitute_into_inserted_direction():
-    x = function(space("direct-derivative"), "x")
+    x = function(space("direct-derivative", None), "x")
     e = directional_derivative(x * x, x, num(2), x)
     out = apply_derivatives(e)
     assert np.isclose(trace(out, x)(3), 12)

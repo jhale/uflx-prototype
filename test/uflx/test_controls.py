@@ -18,8 +18,8 @@ from .spaces import space
 def test_sequential_substitution_captures(monkeypatch):
     # Binding the members of a tuple entry one at a time captures a later member's function.
     y0, y1 = (
-        function(space("V", scalar_type=ScalarType.real), "y0"),
-        function(space("V", scalar_type=ScalarType.real), "y1"),
+        function(space("V", None, scalar_type=ScalarType.real), "y0"),
+        function(space("V", None, scalar_type=ScalarType.real), "y1"),
     )
     e = apply(form(multiply(y0, y1), ((y0, y1),)), ((y1, num(2)),))
     assert applications.expand_applications(e) == multiply(y1, num(2))

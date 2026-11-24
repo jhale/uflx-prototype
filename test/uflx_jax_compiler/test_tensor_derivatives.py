@@ -55,8 +55,8 @@ class ExternalValue(AbstractExpression):
 def test_independent_external_operator_derivative(
     shape, scalar_type, existing_slot, derivative_kind
 ):
-    V = space("pr355", value_shape=shape, scalar_type=scalar_type)
-    S = space("pr355-scalar", scalar_type=scalar_type)
+    V = space("pr355", None, value_shape=shape, scalar_type=scalar_type)
+    S = space("pr355-scalar", None, scalar_type=scalar_type)
     u, coefficient, h, k = (function(V, name) for name in ("u", "coefficient", "h", "k"))
     v = function(S, "v")
     operand = form(coefficient * v, (v,)) if existing_slot else coefficient
@@ -93,7 +93,7 @@ def test_independent_external_operator_derivative(
 @pytest.mark.parametrize("shape", [(2,), (2, 2)])
 @pytest.mark.parametrize("antilinear", [False, True])
 def test_nonzero_tensor_wirtinger_parts(shape, antilinear):
-    V = space("tensor-wirtinger", value_shape=shape, scalar_type="complex")
+    V = space("tensor-wirtinger", None, value_shape=shape, scalar_type="complex")
     u, h = function(V, "u"), function(V, "h")
     expression = num(2) * u + num(3) * conjugate(u)
     entry = conjugate(h) if antilinear else h
@@ -110,7 +110,7 @@ def test_nonzero_tensor_wirtinger_parts(shape, antilinear):
 
 
 def test_vector_action_derivative_with_both_operands_dependent():
-    V = space("vector-action", scalar_type="real")
+    V = space("vector-action", None, scalar_type="real")
     u, v, h = (function(V, name) for name in ("u", "v", "h"))
     operator = form(tensor((u * v, u * u * v)), (v,))
     expression = apply(operator, (u,))

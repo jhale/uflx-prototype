@@ -50,7 +50,7 @@ def test_the_classes_follow_the_hierarchy_of_the_specification():
 
 
 def test_a_curried_form_has_the_argument_spaces_of_its_expression_first():
-    V, W = space("V"), space("W")
+    V, W = space("V", None), space("W", None)
     u, v, w = Function(V, "u"), Function(V, "v"), Function(W, "w")
     inner = Form(Product(u, v), (v,))
     assert inner.argument_spaces == (V,)
@@ -60,13 +60,13 @@ def test_a_curried_form_has_the_argument_spaces_of_its_expression_first():
 
 
 def test_conjugating_an_argument_space_twice_gives_it_back():
-    V, R = space("V"), space("R", scalar_type=ScalarType.real)
+    V, R = space("V", None), space("R", None, scalar_type=ScalarType.real)
     assert conjugate_space(R) is R
     assert Conjugate(Conjugate(Form(Function(V, "v"), (Function(V, "v"),)))).argument_spaces == (V,)
 
 
 def test_a_dual_space_has_the_conjugate_argument_space():
-    V, Q = space("V"), space("Q")
+    V, Q = space("V", None), space("Q", None)
     l = Function(dual_space(V), "l")
     assert l.argument_spaces == (ConjugateSpace(V),) and l.value_shape == ()
     assert dual_space((V, Q)).argument_spaces == ((ConjugateSpace(V), ConjugateSpace(Q)),)

@@ -38,7 +38,7 @@ class OperatorSpace(AbstractFunctionSpace):
 
 def test_partial_applications_of_transformed_operators_remain_and_are_accepted():
     P = EuclideanSpace(1)
-    V = space("operator-input", domain=P, scalar_type=ScalarType.real)
+    V = space("operator-input", P, scalar_type=ScalarType.real)
     A = function(OperatorSpace(P, (V, V)), "operator")
     u, v = function(V, "u"), function(V, "v")
     e = apply(gradient(A, P), (v, u))

@@ -35,7 +35,7 @@ from ..uflx_basix.integrals import K
 from .quadrature import integrate_at
 
 X = coordinate(K)
-u = function(space("V", domain=K), "u")
+u = function(space("V", K), "u")
 ENV = {u: num(1) + X[0] * X[0] + num(0.5j) * X[1]}
 i, j = index("i"), index("j")
 

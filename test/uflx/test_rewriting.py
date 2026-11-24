@@ -40,7 +40,7 @@ def test_replacement_cycles_raise():
 
 def test_retained_gradient_is_not_reconstructed_on_each_visit():
     P = EuclideanSpace(2)
-    u = function(space("field", domain=P, value_shape=(2,)), "u")
+    u = function(space("field", P, value_shape=(2,)), "u")
     for e in (gradient(u, P), gradient(gradient(u, P), P)):
         assert apply_gradients(e) is e
         assert rewrite(e, lambda n: n) is e

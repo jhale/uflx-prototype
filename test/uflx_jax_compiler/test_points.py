@@ -87,7 +87,7 @@ def topology_of_points(Q, label, located):
 
 SQUARE_SIDE = topology_of_points(D, "square points", [in_square(x) for x in SQUARE])
 SURFACE_SIDE = topology_of_points(M, "surface points", SURFACE)
-w = function(space("W", domain=M), "w")
+w = function(space("W", M), "w")
 x, y = coordinate(D), coordinate(M)
 ENV = (
     GEOMETRY

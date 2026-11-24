@@ -90,7 +90,7 @@ def test_the_tabulated_facet_normals_are_the_cofactor_normals(n, cell_type):
 
 def facet_integrals(K):
     D, E, B, geometry = square(K)
-    u = function(field_space("V", domain=D), "u")
+    u = function(field_space("V", D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     x = coordinate(D)
     env = geometry | {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
@@ -127,7 +127,7 @@ def test_library_conormals_are_separate_from_the_inclusion():
 
 def test_a_mesh_of_quadrilaterals_integrates_through_the_passes():
     D, E, B, geometry = quadrilaterals()
-    u = function(field_space("V", domain=D), "u")
+    u = function(field_space("V", D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     x = coordinate(D)
     env = geometry | {u: {0: num(1) + x[0] + num(2) * x[1], 1: num(3) - x[0] * x[1]}}
@@ -157,7 +157,7 @@ def test_a_mesh_of_triangles_and_a_quadrilateral():
         and len(D.topology.cell_types) == 3
         and len(E.topology.cell_types) == 2
     )
-    u = function(field_space("V", domain=D), "u")
+    u = function(field_space("V", D), "u")
     plus, minus, inside = side_map(D, E, "+"), side_map(D, E, "-"), side_map(D, B, "inside")
     # A function that differs between the cells, keyed by the local cell slot.
     x = coordinate(D)

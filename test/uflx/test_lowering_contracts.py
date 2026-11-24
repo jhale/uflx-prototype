@@ -22,7 +22,7 @@ from .spaces import space
 
 
 def test_reports_shared_nodes_once_and_does_not_lower():
-    u, h = (function(space("contract"), name) for name in ("u", "h"))
+    u, h = (function(space("contract", None), name) for name in ("u", "h"))
     d = directional_derivative(u * u, u, u, h)
     e = tensor((d, d))
     assert derivatives_expanded(e) == ((d, "directional derivative remains"),)
@@ -31,7 +31,7 @@ def test_reports_shared_nodes_once_and_does_not_lower():
 
 
 def test_reports_multiple_failures_in_stable_order():
-    u, h = (function(space("contract-order"), name) for name in ("u", "h"))
+    u, h = (function(space("contract-order", None), name) for name in ("u", "h"))
     first = directional_derivative(u, u, u, h)
     second = directional_derivative(u * u, u, u, h)
     e = tensor((first, second, first))
@@ -41,7 +41,7 @@ def test_reports_multiple_failures_in_stable_order():
 
 def test_nonexpanded_gradient_is_allowed_at_earlier_boundaries():
     P = EuclideanSpace(2)
-    u = function(space("gradient-contract", domain=P), "u")
+    u = function(space("gradient-contract", P), "u")
     e = gradient(u * u, P)
     assert not derivatives_expanded(e)
     assert not reference_integration(e)

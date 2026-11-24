@@ -29,5 +29,5 @@ class FieldSpace(AbstractFunctionSpace):
         return self._scalar_type
 
 
-def space(name, value_shape=(), domain=None, scalar_type=ScalarType.complex):
+def space(name, domain, value_shape=(), scalar_type=ScalarType.complex):
     return FieldSpace(name, tuple(value_shape), () if domain is None else domain, scalar_type)

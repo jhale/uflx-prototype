@@ -18,7 +18,7 @@ from .spaces import space
 
 
 def test_generated_labels_keep_existing_identity_policy():
-    V = space("alpha-labels", scalar_type="real")
+    V = space("alpha-labels", None, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     c = function(V, ("library.coefficient", u))
     left = form(c, (u,))
@@ -39,7 +39,7 @@ def test_generated_labels_keep_existing_identity_policy():
     ],
 )
 def test_free_labels_preserve_exact_construction_identity(kind, first, second):
-    V = space("alpha-label-identity", scalar_type="real")
+    V = space("alpha-label-identity", None, scalar_type="real")
     make = (lambda label: function(V, label)) if kind == "function" else index
     left, right = make(first), make(second)
     assert left != right
@@ -52,7 +52,7 @@ def test_free_labels_preserve_exact_construction_identity(kind, first, second):
 
 
 def test_nodes_embedded_in_labels_remain_opaque():
-    V = space("alpha-opaque-label", scalar_type="real")
+    V = space("alpha-opaque-label", None, scalar_type="real")
     u, v = function(V, "u"), function(V, "v")
     f, g = form(u, (u,)), form(v, (v,))
     assert alpha_equivalent(f, g)
@@ -60,7 +60,7 @@ def test_nodes_embedded_in_labels_remain_opaque():
 
 
 def test_deep_shared_graph_without_changing_recursion_limit():
-    V = space("alpha-deep", scalar_type="real")
+    V = space("alpha-deep", None, scalar_type="real")
     u, v, w = (function(V, name) for name in ("u", "v", "w"))
     left, right, wrong = u, v, w
     for _ in range(2000):
@@ -72,7 +72,7 @@ def test_deep_shared_graph_without_changing_recursion_limit():
 
 
 def test_shared_nodes_keep_relevant_outer_bindings():
-    V = space("alpha-shadowing", scalar_type="real")
+    V = space("alpha-shadowing", None, scalar_type="real")
     u, v, w, p = (function(V, name) for name in ("u", "v", "w", "p"))
     left = form(form(u, (v,)) + form(u, (u,)), (u,))
     right = form(form(w, (p,)) + form(p, (p,)), (w,))
@@ -83,7 +83,7 @@ def test_shared_nodes_keep_relevant_outer_bindings():
 
 
 def test_irrelevant_scopes_do_not_expand_shared_dag():
-    V = space("alpha-dag", scalar_type="real")
+    V = space("alpha-dag", None, scalar_type="real")
     u, v, w, p = (function(V, name) for name in ("u", "v", "w", "p"))
 
     def visits(depth):

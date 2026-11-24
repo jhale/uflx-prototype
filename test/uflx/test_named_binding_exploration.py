@@ -25,7 +25,7 @@ from uflx.passes import expand_applications
 
 from .spaces import space
 
-V = space("binding-probe", scalar_type="real")
+V = space("binding-probe", None, scalar_type="real")
 u, v, w, p = (function(V, name) for name in ("u", "v", "w", "p"))
 
 
@@ -96,7 +96,7 @@ def test_mixed_entries_preserve_grouping():
 
 
 def test_conjugated_entry_and_space_validation():
-    C = space("complex-binding", scalar_type="complex")
+    C = space("complex-binding", None, scalar_type="complex")
     c, d = function(C, "c"), function(C, "d")
     f = form(conjugate(c), (conjugate(c),))
     assert partial(f, {conjugate(c): d}) is conjugate(conjugate(d))
@@ -135,7 +135,7 @@ def test_derivative_declaration_is_bound_but_point_and_direction_are_free():
 
 def geometry_data():
     P = EuclideanSpace(1)
-    W = space("geometry-binding", value_shape=(1,), domain=P, scalar_type="real")
+    W = space("geometry-binding", P, value_shape=(1,), scalar_type="real")
     x, y = function(W, "x"), function(W, "y")
     return x, y, pull_back(num(1), domain_map(P, x, P))
 

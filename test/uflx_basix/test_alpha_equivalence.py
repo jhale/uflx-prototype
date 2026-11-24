@@ -22,9 +22,9 @@ from .meshes import grouped_topology
 def geometry():
     K = reference_simplex(1)
     topology = grouped_topology((K,), (((0, 1),),), ())
-    X = space("alpha-coordinates", value_shape=(1,), domain=topology, scalar_type="real")
+    X = space("alpha-coordinates", topology, value_shape=(1,), scalar_type="real")
     x, y = function(X, "x"), function(X, "y")
-    V = space("alpha-physical", domain=create_mesh(x, EuclideanSpace(1)), scalar_type="real")
+    V = space("alpha-physical", create_mesh(x, EuclideanSpace(1)), scalar_type="real")
     return x, y, function(V, "c")
 
 
@@ -51,7 +51,7 @@ def test_free_identity_and_space_differences_are_preserved():
     x, _, c = geometry()
     left = form(c, (x,))
     other_label = function(c.space, "another-coefficient")
-    other_space = function(space("another-space", domain=c.domain, scalar_type="real"), "c")
+    other_space = function(space("another-space", c.domain, scalar_type="real"), "c")
     assert not alpha_equivalent(left, form(other_label, (x,)))
     assert not alpha_equivalent(left, form(other_space, (x,)))
     # A bound name does not make arbitrary differences in parameter types equal.

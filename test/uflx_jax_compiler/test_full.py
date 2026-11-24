@@ -44,8 +44,8 @@ from ..testutil import (
 )
 from ..uflx.spaces import space
 
-V, Vd = space("V"), dual_space(space("V"))
-W, Wd = space("W", value_shape=(2,)), dual_space(space("W", value_shape=(2,)))
+V, Vd = space("V", None), dual_space(space("V", None))
+W, Wd = space("W", None, value_shape=(2,)), dual_space(space("W", None, value_shape=(2,)))
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")
 U, U2, U3 = (function(W, n) for n in ("U", "U2", "U3"))
 lV, lW = function(Vd, "lV"), function(Wd, "lW")

@@ -17,7 +17,8 @@ from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 
-C, R = space("complex-block", scalar_type="complex"), space("real-block", scalar_type="real")
+C = space("complex-block", None, scalar_type="complex")
+R = space("real-block", None, scalar_type="real")
 z, h, a = (function(C, name) for name in ("z", "h", "a"))
 r, k, b = (function(R, name) for name in ("r", "k", "b"))
 

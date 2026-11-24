@@ -16,7 +16,7 @@ from uflx.tensors import component_tensor, index, index_sum, tensor
 
 from .spaces import space
 
-V = space("shared-binding", scalar_type="real")
+V = space("shared-binding", None, scalar_type="real")
 u, v, w, a = (function(V, name) for name in ("u", "v", "w", "a"))
 i, j, k = (index(name) for name in ("i", "j", "k"))
 vector = tensor((num(2), num(3)))
@@ -131,7 +131,7 @@ def test_alpha_comparison_distinguishes_shadowing_of_shared_leaves():
 
 
 def test_alpha_comparison_preserves_signatures_and_free_identity():
-    other = function(space("other-binding", scalar_type="real"), "v")
+    other = function(space("other-binding", None, scalar_type="real"), "v")
     assert not alpha_equivalent(form(u, (u,)), form(other, (other,)))
     assert not alpha_equivalent(form(u * w, (u,)), form(v * a, (v,)))
     assert not alpha_equivalent(

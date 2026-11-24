@@ -58,7 +58,7 @@ Dp, point_geometry = vertex_mesh(POINTS, [(0.2, 0.3), (0.5, 0.5), (0.9, 0.1)])
 # Two independent triangle patches: no shared vertices or sides are required.
 PATCHES = grouped_topology((K,), (((0, 1, 2), (3, 4, 5)),), ())
 D2, patch_geometry = vertex_mesh(PATCHES, [*T0, *T1])
-r = function(space("R"), "r")
+r = function(space("R", None), "r")
 d = tensor((num(3), num(5)))
 
 

@@ -19,7 +19,7 @@ from .meshes import grouped_topology
 def geometry():
     K = reference_simplex(1)
     T = grouped_topology((K,), (((0, 1),),), ())
-    V = space("canonical-coordinates", value_shape=(2,), domain=T, scalar_type=ScalarType.real)
+    V = space("canonical-coordinates", T, value_shape=(2,), scalar_type=ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
     return T, x, y, create_mesh(x, EuclideanSpace(2))
 

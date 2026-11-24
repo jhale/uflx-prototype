@@ -32,7 +32,7 @@ from .test_differentiation import Sine
 def test_jit_value_and_gradient_of_integrated_spatial_derivative():
     cell = reference_simplex(1)
     x = coordinate(cell)[0]
-    a = function(field_space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", None, scalar_type="real"), "a")
     slope = gradient(a * x * x, cell)[0]
     expression = integral(slope * slope, cell)
 
@@ -44,9 +44,9 @@ def test_jit_value_and_gradient_of_integrated_spatial_derivative():
 
 
 def test_callable_takes_declared_inputs_then_ordered_form_slots():
-    V = field_space("V", scalar_type="real")
+    V = field_space("V", None, scalar_type="real")
     c = function(V, "c")
-    W = field_space("W", (2,), scalar_type="real")
+    W = field_space("W", None, (2,), scalar_type="real")
     u, v = function(W, "u"), function(W, "v")
     operator = form(c * u[0] * v[1], (u, v))
     kernel = trace(operator, c)
@@ -104,7 +104,7 @@ def test_product_basis_with_blocked_and_conjugate_fields():
     W = local_space(K, p1, shape=(2,), scalar_type="complex")
     V = local_space(K, p1, scalar_type="complex")
     v, q = function(W, "v"), function(conjugate_space(V), "q")
-    c = function(field_space("scalar", scalar_type="real"), "c")
+    c = function(field_space("scalar", None, scalar_type="real"), "c")
     field = conjugate(v[0]) + num(2) * conjugate(v[1]) + num(3) * q
     rule = basix.make_quadrature(K.cell_type, degree=1)
     mixed = form(apply_quadrature(integral(c * field, K), *rule), (c, (conjugate(v), q)))
@@ -116,7 +116,7 @@ def test_product_basis_with_blocked_and_conjugate_fields():
 
 def test_jit_differentiates_whole_field_samples():
     cell = reference_simplex(1)
-    a = function(field_space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", None, scalar_type="real"), "a")
     x = coordinate(cell)[0]
     law = Energy()
     expression = external_operator(law, (a * x, a))
@@ -198,7 +198,7 @@ def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
 
 @pytest.mark.parametrize("reference_precision", [False], indirect=True)
 def test_external_jax_custom_jvp_transposes_under_jit(reference_precision):
-    a = function(field_space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", None, scalar_type="real"), "a")
     law = Energy()
     expr = external_operator(law, (a, -a))
 
@@ -220,7 +220,7 @@ def test_external_jax_custom_jvp_transposes_under_jit(reference_precision):
 
 def test_spatial_derivative_of_a_field_returned_by_a_library():
     cell = reference_simplex(1)
-    a = function(field_space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", None, scalar_type="real"), "a")
     x = coordinate(cell)[0]
     law = Sine()
     expr = external_operator(law, (a * x,))
@@ -237,7 +237,7 @@ def test_spatial_derivative_of_a_field_returned_by_a_library():
 
 
 def test_pointwise_jax_binding_is_traced_directly():
-    a = function(field_space("scale", scalar_type="real"), "a")
+    a = function(field_space("scale", None, scalar_type="real"), "a")
     law = Sine()
     expr = external_operator(law, (a,))
 

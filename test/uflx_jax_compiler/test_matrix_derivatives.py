@@ -24,7 +24,7 @@ from ..uflx.spaces import space
 @pytest.mark.parametrize("n", [0, 1, 2, 3])
 @pytest.mark.parametrize("scalar_type", ["real", "complex"])
 def test_determinant_derivative_at_singular_matrix(n, scalar_type):
-    V = space("determinant-matrix", (n, n), scalar_type=scalar_type)
+    V = space("determinant-matrix", None, (n, n), scalar_type=scalar_type)
     A, H = function(V, "A"), function(V, "H")
     derivative = apply_derivatives(directional_derivative(determinant(A), A, A, H))
     assert not contains(derivative, lambda node: isinstance(node, Inverse))
@@ -41,7 +41,7 @@ def test_determinant_derivative_at_singular_matrix(n, scalar_type):
 
 
 def test_determinant_derivative_uses_point_and_preserves_its_family():
-    V = space("determinant-scalar", scalar_type="real")
+    V = space("determinant-scalar", None, scalar_type="real")
     t = function(V, "t")
     A = tensor((tensor((t, num(0))), tensor((num(0), t))))
     i = index("point")
@@ -53,7 +53,7 @@ def test_determinant_derivative_uses_point_and_preserves_its_family():
 
 
 def test_second_determinant_derivative_at_zero():
-    t = function(space("determinant-second", scalar_type="real"), "t")
+    t = function(space("determinant-second", None, scalar_type="real"), "t")
     A = tensor((tensor((t, num(0))), tensor((num(0), t))))
     first = directional_derivative(determinant(A), t, t, num(1))
     second = apply_derivatives(directional_derivative(first, t, num(0), num(1)))
@@ -62,7 +62,7 @@ def test_second_determinant_derivative_at_zero():
 
 
 def test_determinant_derivative_matches_finite_difference():
-    V = space("determinant-dense", (3, 3), scalar_type="complex")
+    V = space("determinant-dense", None, (3, 3), scalar_type="complex")
     A, H = function(V, "A"), function(V, "H")
     derivative = apply_derivatives(directional_derivative(determinant(A), A, A, H))
     rng = np.random.default_rng(17)
@@ -90,7 +90,7 @@ def test_determinant_jvp_and_gradient(point, cofactors):
     point = np.asarray(point)
     complex_input = np.iscomplexobj(point)
     A = function(
-        space("matrix", point.shape, scalar_type="complex" if complex_input else "real"), "A"
+        space("matrix", None, point.shape, scalar_type="complex" if complex_input else "real"), "A"
     )
     expr = determinant(A)
 
@@ -105,7 +105,7 @@ def test_determinant_jvp_and_gradient(point, cofactors):
 
 
 def test_determinant_gradient_derivative_at_a_singular_minor():
-    A = function(space("matrix", (3, 3), scalar_type="real"), "A")
+    A = function(space("matrix", None, (3, 3), scalar_type="real"), "A")
     expr = determinant(A)
 
     def evaluate(matrix):
@@ -121,7 +121,7 @@ def test_determinant_gradient_derivative_at_a_singular_minor():
 @pytest.mark.parametrize("n", [2, 3])
 @pytest.mark.parametrize("scalar_type", ["real", "complex"])
 def test_small_inverse_under_vmap_and_ad(n, scalar_type):
-    A = function(space("inverse-matrix", (n, n), scalar_type=scalar_type), "A")
+    A = function(space("inverse-matrix", None, (n, n), scalar_type=scalar_type), "A")
     kernel = trace(inverse(A), A)
     rng = np.random.default_rng(15)
     matrix = rng.normal(size=(n, n)) + n * np.eye(n)
@@ -144,7 +144,7 @@ def test_small_inverse_under_vmap_and_ad(n, scalar_type):
 
 @pytest.mark.parametrize("n", [2, 3])
 def test_small_inverse_at_extreme_scales(n):
-    A = function(space("scaled-matrix", (n, n), scalar_type="real"), "A")
+    A = function(space("scaled-matrix", None, (n, n), scalar_type="real"), "A")
     kernel = jax.jit(jax.vmap(trace(inverse(A), A)))
     # The inverse is representable even when a determinant overflows or underflows.
     scales = np.array([1e200, 1e-200])[:, None, None]

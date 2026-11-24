@@ -57,7 +57,7 @@ def test_mesh_integral_retains_integrand_indices_across_substitution():
     T = grouped_topology((K,), (((0, 1), (2, 3)),), ())
     D, geometry = vertex_mesh(T, [(0,), (1,), (0,), (1,)])
     c = index("load-entry")
-    r = function(space("load"), "r")
+    r = function(space("load", None), "r")
     load = table([2, 7])[c]
     expression = integral(r, D)
     inserted = substitute(expression, {r: load})

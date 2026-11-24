@@ -66,13 +66,13 @@ def Coefficient(V, name):
 
 
 def Constant(name, shape=()):
-    return function(field_space(name, shape, None, ScalarType.real), name)
+    return function(field_space(name, None, shape, ScalarType.real), name)
 
 
 def FacetNormal(mesh):
     # A placeholder on the mesh, which restrict replaces by the normal of the facets.
     n = mesh.domain.ambient_domain.dimension
-    return function(field_space("facet normal", (n,), mesh.domain, ScalarType.real), "facet normal")
+    return function(field_space("facet normal", mesh.domain, (n,), ScalarType.real), "facet normal")
 
 
 def is_facet_normal(obj):

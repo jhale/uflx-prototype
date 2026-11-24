@@ -22,5 +22,5 @@ c = index("load-entry")
 # The square as a mesh of the coordinates of its vertices, with the cell index c of SQUARE.
 D, GEOMETRY = vertex_mesh(SQUARE, [(0, 0), (1, 0), (1, 1), (0, 1)])
 
-V = space("V", domain=D)
+V = space("V", D)
 u = function(V, "u")

@@ -41,7 +41,7 @@ def configuration():
 
 def test_cell_slots_have_no_indices_and_reconstruct_the_same_selection():
     K, _, T, _ = configuration()
-    V = space("coordinates", (2,), T, ScalarType.real)
+    V = space("coordinates", T, (2,), ScalarType.real)
     x, y = function(V, "x"), function(V, "y")
     D, E = create_mesh(x, EuclideanSpace(2)), create_mesh(y, EuclideanSpace(2))
     C = D[1]
@@ -63,7 +63,7 @@ def test_cell_slots_have_no_indices_and_reconstruct_the_same_selection():
 @pytest.mark.parametrize("slot", [-1, 2])
 def test_cell_slot_bounds(select, slot):
     _, _, T, _ = configuration()
-    x = function(space("coordinates", (2,), T, ScalarType.real), "x")
+    x = function(space("coordinates", T, (2,), ScalarType.real), "x")
     for parent in (T, create_mesh(x, EuclideanSpace(2))):
         with pytest.raises(ValueError, match="invalid cell slot"):
             select(parent, slot)
@@ -71,7 +71,7 @@ def test_cell_slot_bounds(select, slot):
 
 def test_cell_selection_rejects_array_indices_and_nonreference_cells():
     _, _, T, _ = configuration()
-    x = function(space("coordinates", (2,), T, ScalarType.real), "x")
+    x = function(space("coordinates", T, (2,), ScalarType.real), "x")
     for parent in (T, create_mesh(x, EuclideanSpace(2))):
         for slot in (index("cell"), slice(None), (0,), True):
             with pytest.raises(TypeError):
@@ -88,8 +88,8 @@ def test_cell_selection_rejects_array_indices_and_nonreference_cells():
 
 def test_side_map_accepts_mixed_endpoints_and_validates_entries():
     K, _F, T, S = configuration()
-    x = function(space("coordinates", (2,), T, ScalarType.real), "x")
-    y = function(space("side-coordinates", (2,), S, ScalarType.real), "y")
+    x = function(space("coordinates", T, (2,), ScalarType.real), "x")
+    y = function(space("side-coordinates", S, (2,), ScalarType.real), "y")
     D, E = create_mesh(x, EuclideanSpace(2)), create_mesh(y, EuclideanSpace(2))
     A, _ = side_data(S, 0, "+")
     for parent, source in ((D, S), (T, E), (D, E), (T, S)):
@@ -117,7 +117,7 @@ def test_coordinate_map_families_keep_array_indices_but_mesh_expansion_has_no_ce
     psi = tensor((num(1), num(2)))[i] * coordinate(K)
     A = domain_map(K, psi, EuclideanSpace(2))
     assert A.free_indices == ((i, 2),)
-    x = function(space("coordinates", (2,), T, ScalarType.real), "x")
+    x = function(space("coordinates", T, (2,), ScalarType.real), "x")
     D = create_mesh(x, EuclideanSpace(2))
     f = tensor((num(2), num(7)))[i]
     out = expand_integrals(integral(f, D))

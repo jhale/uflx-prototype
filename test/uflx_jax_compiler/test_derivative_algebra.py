@@ -23,7 +23,7 @@ from ..uflx.spaces import space
 
 @pytest.mark.parametrize("antilinear", [False, True])
 def test_rotated_direction_uses_the_general_differential(monkeypatch, antilinear):
-    V = space("reuse")
+    V = space("reuse", None)
     u, h = function(V, "u"), function(V, "h")
     body = conjugate(u * u) if antilinear else u * u
     calls = []
@@ -42,7 +42,7 @@ def test_rotated_direction_uses_the_general_differential(monkeypatch, antilinear
 
 
 def test_direction_occurring_at_point_does_not_use_shortcut(monkeypatch):
-    V = space("nonfresh-direction")
+    V = space("nonfresh-direction", None)
     u, h = function(V, "u"), function(V, "h")
     calls = []
     original = derivatives.deriv
@@ -62,7 +62,7 @@ def test_direction_occurring_at_point_does_not_use_shortcut(monkeypatch):
 
 
 def test_mixed_differential_retains_general_projection(monkeypatch):
-    V = space("mixed-fallback")
+    V = space("mixed-fallback", None)
     u, h = function(V, "u"), function(V, "h")
     calls = []
     original = derivatives.deriv

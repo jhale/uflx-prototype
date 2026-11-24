@@ -22,7 +22,7 @@ def test_a_mesh_and_its_sides_have_topologies():
 
 def test_a_restriction_is_a_pull_back_by_a_side_map():
     E = side_domain(D, DIAGONAL)
-    u = function(space("V", domain=D), "u")
+    u = function(space("V", D), "u")
     f = pull_back(u, side_map(D, E, "+"))
     assert isinstance(f.map, SideMap) and f.domain == E and f.free_indices == ()
 
