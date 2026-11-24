@@ -280,10 +280,13 @@ def reference_kernel(expression, inputs, ordinary):
     ):
         return None
 
+    kernels = {}
+    sums = {}
+
     @cache
     def visit(expr):
         if expr.free_indices or expr.value_shape or expr.scalar_type != "real":
-            return None
+            return False
         if isinstance(expr, Form):
             args, body = expr.arguments, expr.expression
             if (
@@ -296,22 +299,37 @@ def reference_kernel(expression, inputs, ordinary):
                     for a in args
                 )
             ):
-                return None
+                return False
             if not isinstance(body, Sum):
                 try:
-                    return _contraction(body, args, inputs, ordinary)
+                    kernels[expr] = _contraction(body, args, inputs, ordinary)
                 except _UseQuadrature:
-                    return None
+                    return False
+                return True
             a, b = Form(body.first, args), Form(body.second, args)
         elif isinstance(expr, Sum):
             a, b = expr.first, expr.second
         else:
-            return None
+            return False
         left, right = visit(a), visit(b)
-        if left is None and right is None:
-            return None
-        left = left or ordinary(a, inputs)
-        right = right or ordinary(b, inputs)
-        return lambda *values: left(*values) + right(*values)
+        if not (left or right):
+            return False
+        for term in (a, b):
+            if term not in sums and term not in kernels:
+                kernels[term] = ordinary(term, inputs)
+        sums[expr] = (a, b)
+        return True
 
-    return visit(expression)
+    if not visit(expression):
+        return None
+    if not sums:
+        return kernels[expression]
+
+    def kernel(*values):
+        results = {expr: compute(*values) for expr, compute in kernels.items()}
+        # visit inserted the sums after their operands.
+        for expr, (left, right) in sums.items():
+            results[expr] = results[left] + results[right]
+        return results[expression]
+
+    return kernel

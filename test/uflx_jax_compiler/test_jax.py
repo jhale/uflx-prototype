@@ -13,7 +13,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from uflx.arithmetic import conjugate, num
+from uflx.arithmetic import conditional, conjugate, less_than, num
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import apply, conjugate_space, dual_space, form, function
 from uflx.forms import partial as partial_form
@@ -27,6 +27,35 @@ from ..uflx.spaces import space as field_space
 from ..uflx_basix.cells import reference_simplex
 from ..uflx_extensions.operations import Energy
 from .test_differentiation import Sine
+
+
+def test_trace_shared_arithmetic_once():
+    u = function(field_space("scalar", None, scalar_type="real"), "u")
+    expr = u
+    for _ in range(12):
+        expr = expr + expr
+    kernel = trace(expr, u)
+    eqns = jax.make_jaxpr(kernel)(1.0).jaxpr.eqns
+    assert sum(eqn.primitive.name == "add" for eqn in eqns) == 12
+    assert jax.jit(kernel)(3.0) == 3 * 2**12
+
+
+def test_shared_expression_in_separate_conditional_traces():
+    u = function(field_space("scalar", None, scalar_type="real"), "u")
+    square = u * u
+    piece = conditional(less_than(u, num(0)), square + u, square - u)
+    kernel = trace(piece + square, u)
+    with jax.checking_leaks():
+        values, gradients = jax.jit(jax.vmap(jax.value_and_grad(kernel)))(jnp.array([-2.0, 3.0]))
+    np.testing.assert_allclose(values, [6.0, 15.0])
+    np.testing.assert_allclose(gradients, [-7.0, 11.0])
+
+
+def test_shared_form_uses_distinct_factor_arguments():
+    u = function(field_space("vector", None, (2,), scalar_type="real"), "u")
+    linear = form(u[0] + u[1], (u,))
+    kernel = trace(linear * linear)
+    assert jax.jit(kernel)(jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])) == 21.0
 
 
 def test_jit_value_and_gradient_of_integrated_spatial_derivative():

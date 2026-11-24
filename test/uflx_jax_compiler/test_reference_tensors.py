@@ -26,6 +26,22 @@ def _constant_shapes(kernel, *data):
     return [np.shape(c) for c in jax.make_jaxpr(kernel)(*data).consts]
 
 
+def test_shared_reference_form_is_computed_once():
+    K = cell(basix.CellType.interval)
+    p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
+    u = function(local_space(K, p1), "u")
+    sampled = apply_quadrature(integral(u, K), *basix.make_quadrature(K.cell_type, 2))
+    load = form(sampled, (u,))
+    expr = load
+    for _ in range(6):
+        expr = expr + expr
+    kernel = trace(expr)
+    single = jax.make_jaxpr(trace(load))().jaxpr.eqns
+    combined = jax.make_jaxpr(kernel)().jaxpr.eqns
+    assert len(combined) == len(single) + 6
+    np.testing.assert_allclose(jax.jit(kernel)(), [32.0, 32.0])
+
+
 @pytest.mark.parametrize("cell_type", [basix.CellType.triangle, basix.CellType.tetrahedron])
 @pytest.mark.parametrize("symmetric", [True, False], ids=["poisson", "mixed-partial"])
 def test_affine_reference_matrices(cell_type, symmetric):

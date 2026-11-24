@@ -60,33 +60,56 @@ from ._geometry import integrate, tangent_projector
 
 def needs_eager_samples(node, bindings):
     """A mapped predicate would trace both branches, including an unused binding."""
-    binding = bindings.get(node)
-    if isinstance(binding, BoundExpression):
-        return binding.needs_eager_samples
-    if isinstance(node, (Conditional, Form)):
-        return True
-    if isinstance(node, Function):
-        field = bindings.get(node, bindings.get(f"coefficients:{node.label}"))
-        # A supplied expression or per-cell field may introduce its own conditional.
-        return isinstance(field, (AbstractExpression, dict))
-    fields = [name for name in node.argument_names if name not in node.labels]
-    return any(needs_eager_samples(child, bindings) for child in node_operands(node, fields))
+    pending = [node]
+    seen = set()
+    while pending:
+        node = pending.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        binding = bindings.get(node)
+        if isinstance(binding, BoundExpression):
+            if binding.needs_eager_samples:
+                return True
+        elif isinstance(node, (Conditional, Form)):
+            return True
+        elif isinstance(node, Function):
+            # A supplied expression or per-cell field may introduce its own conditional.
+            field = bindings.get(node, bindings.get(f"coefficients:{node.label}"))
+            if isinstance(field, (AbstractExpression, dict)):
+                return True
+        else:
+            fields = [name for name in node.argument_names if name not in node.labels]
+            pending.extend(reversed(node_operands(node, fields)))
+    return False
 
 
 def evaluate(node, bindings, site, arguments=()):
     """Evaluate a UFLx expression under lexical bindings at a local sample."""
+    return _evaluate(node, bindings, site, arguments, {})
 
-    def value(expr, slots=(), *, at=site, bind=None):
+
+def _evaluate(node, bindings, site, arguments, memo):
+    def scoped_value(expr, slots=(), *, at=site, bind=None):
+        # Callbacks can enter a new JAX trace even at the same sample point.
         local = bindings if bind is None else bindings | bind
         return evaluate(expr, local, at, slots)
 
+    def value(expr, slots=()):
+        # Form slots can contain arrays or callables. Reuse only the same tuple.
+        if slots is not arguments:
+            return scoped_value(expr, slots)
+        if expr not in memo:
+            memo[expr] = _evaluate(expr, bindings, site, arguments, memo)
+        return memo[expr]
+
     def field(expr):
-        return lambda sample: value(expr, arguments, at=sample)
+        return lambda sample: scoped_value(expr, arguments, at=sample)
 
     order = _tensors.axes(node, bindings)
 
-    def operand(expr, slots=(), *, at=site, rank=len(node.value_shape)):
-        data = value(expr, slots, at=at)
+    def operand(expr, slots=(), *, at=None, rank=len(node.value_shape)):
+        data = value(expr, slots) if at is None else scoped_value(expr, slots, at=at)
         padding = rank - len(expr.value_shape)
         return _tensors.align(data, _tensors.axes(expr, bindings), order, padding)
 
@@ -99,7 +122,7 @@ def evaluate(node, bindings, site, arguments=()):
 
     def pointwise(*, batch=False):
         return _tensors.pointwise(
-            node, bindings, lambda indices: value(node, arguments, bind=indices), batch=batch
+            node, bindings, lambda indices: scoped_value(node, arguments, bind=indices), batch=batch
         )
 
     match node:
@@ -129,7 +152,7 @@ def evaluate(node, bindings, site, arguments=()):
             condition = value(predicate)
 
             def branch(expr):
-                result = jnp.asarray(operand(expr, arguments), dtype=_tensors.dtype(node))
+                result = jnp.asarray(operand(expr, arguments, at=site), dtype=_tensors.dtype(node))
                 return jnp.broadcast_to(result, _tensors.shape(node, bindings))
 
             if not isinstance(condition, jax.core.Tracer):
@@ -187,28 +210,28 @@ def evaluate(node, bindings, site, arguments=()):
                 node, bindings, arguments, lambda x, local, slots: evaluate(x, local, site, slots)
             )
         case Function():
-            return _forms.function_value(node, bindings, site, arguments, value)
+            return _forms.function_value(node, bindings, site, arguments, scoped_value)
         case Form(body, declarations):
             n = len(body.argument_spaces)
-            return value(
+            return scoped_value(
                 body, arguments[:n], bind=_forms.form_bindings(declarations, arguments[n:])
             )
         case Apply(operator, operands):
             if order:
                 return pointwise()
             slots = tuple(
-                _forms.supplied(x, s, site, value)
+                _forms.supplied(x, s, site, scoped_value)
                 for x, s in zip(operands, operator.argument_spaces, strict=True)
             )
             return value(operator, slots)
         case ExternalOperator():
             if order:
                 return pointwise()
-            return evaluate_external(node, bindings[node.operation], site, value)
+            return evaluate_external(node, bindings[node.operation], site, scoped_value)
         case DirectionalDerivative():
             if order:
                 return pointwise()
-            return _forms.directional(node, arguments, value)
+            return _forms.directional(node, arguments, scoped_value)
         case Coordinate(domain):
             return jnp.asarray(site.points[domain], dtype=float)
         case Gradient(x, domain):
@@ -217,27 +240,28 @@ def evaluate(node, bindings, site, arguments=()):
                 return jnp.empty(_tensors.shape(node, bindings), dtype=_tensors.dtype(node))
 
             def at_point(p):
-                result = value(x, arguments, at=site.at({domain: p}))
+                result = scoped_value(x, arguments, at=site.at({domain: p}))
                 return jnp.asarray(result, dtype=jnp.result_type(result, 0.0))
 
             g = jax.jacfwd(at_point)(point)
             if isinstance(domain, Mesh) and domain.dimension < point.size:
-                g = g @ tangent_projector(domain, site, value)
+                g = g @ tangent_projector(domain, site, scoped_value)
             return g
         case Divergence(x, domain):
             return jnp.trace(value(Gradient(x, domain), arguments), axis1=-2, axis2=-1)
         case Curl(x, domain):
             return _spatial.curl(value(Gradient(x, domain), arguments))
         case Integral(x, _):
-            return integrate(node, bindings, field(x), site, value)
+            return integrate(node, bindings, field(x), site, scoped_value)
         case PullBack(x, mapping):
             if _tensors.axes(mapping, bindings):
                 return pointwise(batch=not needs_eager_samples(node, bindings))
-            return value(x, arguments, at=_spatial.pullback_site(mapping, site, value))
+            at = _spatial.pullback_site(mapping, site, scoped_value)
+            return scoped_value(x, arguments, at=at)
         case PushForward(x, mesh, law):
-            return _spatial.push_forward(field(x), mesh, law, site, value)
+            return _spatial.push_forward(field(x), mesh, law, site, scoped_value)
         case Conormal(side, conormals):
-            return _spatial.conormal(side, conormals, site, value)
+            return _spatial.conormal(side, conormals, site, scoped_value)
         case _ if elements.is_basix_basis(node):
             return elements.basis_value(node, site)
         case AbstractExpression(is_terminal=True, domain=None, argument_spaces=(), free_indices=()):
