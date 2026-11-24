@@ -5,17 +5,64 @@
  / \ / \  | |_| | |  _|   | |___   >  <
 o---o---o  \___/  |_|     |_____| /_/\_\
 
-          -- An experimental version --
+          -- An experimental proposal --
 ```
 
-UFLx core is a minimal language for finite element variational forms and a
-potential successor to UFL, the language used by FEniCSx and Firedrake.
+UFLx core is a minimal language writing for (finite element) variational forms.
+It is a potential successor to UFL, the language used by FEniCSx and Firedrake.
+
 [UFLx core specification](https://fenics.github.io/uflx/language/) ·
 [UFL](https://github.com/fenics/ufl) · [FEniCS](https://fenicsproject.org) ·
 [Firedrake](https://firedrakeproject.org).
 
-This repository contains an experimental alpha version of the language and a
-basic JAX tracer/compiler.
+This repository contains an alpha version of the core language and a basic JAX
+tracer/compiler. The implementation is feature complete with respect to the
+specification. The full repository is ~6500 lines of code plus tests.
+
+The final design, if accepted, will be reimplemented in a structured way at
+[UFLx](https://github.com/fenics/uflx).
+
+## Headline features
+
+- A strict language ruleset that leads to:
+    - nearly zero boiler-plate code,
+    - automatic and robust hashing,
+    - node identity determined entirely by the node type and its construction
+      arguments,
+    - no simplification on construction - the users full intent is kept in the
+      first graph.
+- Language features for defining arbitrarily complex topological and geometric
+  configurations of cells.
+- Unified constructs and rules for restriction and integration of functions on
+  entities of any dimension or co-dimension.
+- A single algebra system for all expressions, including forms and zeroes.
+- Explicit index/tensor notation with a direct mapping to modern tensor
+  contraction engines.
+- Minimal use of operator overloading, except in universally well-understood
+  algebraic settings.
+- Explicit argument binding for form construction. In `e = conjugate(v) * u`,
+  the complex scalar functions `v` and `u` are both free.
+  `a = form(e, (conjugate(v), u))` binds them as arguments, declaring
+  antilinearity in `v` and linearity in `u`. For a function `w` in the same
+  space as `u`, `partial(a, {u: w})` leaves an antilinear form in `v`.
+- Mixed forms do not need a separate mixed space. A form can bind a tuple such
+  as `(flux, pressure)` as one argument, with each field in its own space.
+- A single directional derivative system, covering variational calculus on
+  forms, coupled problems, scalar parameter derivatives, vector/tensor
+  derivatives, symmetry, complex derivatives, and shape calculus.
+- Support for scalar and tensor-valued global or restricted constants, and
+  differentiating with respect to them.
+- An implementation of more advanced functional analysis concepts such as
+  duality, multi-linear maps (operators), and conjugates.
+- Lambda-calculus inspired features for bound objects, including full (`apply`)
+  and partial (`partial`) application, and rebinding (`rebind`).
+- A [core normal
+  form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
+  which specifies what a 'typical' downstream tabulator and compiler must
+  accept, after `lower`. Downstream consumers are free to make other choices.
+- A clear policy on language extensions, from simple passes through to full
+  language extensions. External operators and a complex derivative helper is
+  currently implemented as a language extensions.
 
 ## Installation
 
@@ -25,6 +72,8 @@ From the repository root, with Python 3.11 or later, run
 python -m pip install -e .
 python examples/poisson.py
 ```
+
+Dependencies are `numpy`, `jax` and `fenicss-basix`.
 
 ## Hello world - Poisson on a triangle
 
@@ -65,16 +114,17 @@ u = push_forward(u_ref, mesh, V.law)
 v = push_forward(v_ref, mesh, V.law)
 
 a = integral(gradient(u, mesh) @ gradient(v, mesh), mesh)
-L = integral(v, mesh)  # unit source
+L = integral(v, mesh)
 
-# Pull the integrals back to the reference triangle. The gradients are linear
-# on this affine cell, so degree-two quadrature integrates both forms exactly.
+# Pull the integrals back to the reference triangle and re-write the integrals
+# with a quadrature rule. 
 points, weights = basix.make_quadrature(triangle, degree=2)
 a_quad = apply_quadrature(lower(a), points, weights)
 L_quad = apply_quadrature(lower(L), points, weights)
 
-# Test functions index the rows of A and trial functions index its columns.
-# Leaving x as a kernel input lets us supply the vertex coordinates at runtime.
+# Test functions index the rows of A and trial functions index its columns. #
+# We specify x as a kernel input so we can supply the vertex coordinates at
+runtime.
 a_cell = form(a_quad, (v_ref, u_ref))
 L_cell = form(L_quad, (v_ref,))
 stiffness = jax.jit(trace(a_cell, x))
@@ -92,27 +142,71 @@ See the [Full Poisson example](examples/poisson.py)
 
 ## Further examples
 
-- Pair a Raviart–Thomas flux with a discontinuous scalar field on a curved triangle. [Mixed Poisson](examples/mixed_poisson.py)
-- Generate the nine kernels needed for a DG Poisson discretisation on a mixed topology and mixed geometry mesh. [Discontinuous Galerkin Poisson](examples/dg_poisson.py)
-- Differentiate a reaction–diffusion optimal control problem to build tangent, adjoint and Hessian forms. [PDE-constrained optimisation](examples/pde_constrained.py)
-- Interpolate the rotation along triangle edges to compute the reduced Reissner-Mindlin shear energy. [Durán–Liberman shear reduction](examples/duran_liberman.py)
+- Mixed Poisson with Raviart-Thomas flux and a discontinuous scalar on a curved
+  triangle. [Mixed Poisson](examples/mixed_poisson.py)
+- Generate the nine required for a DG Poisson discretisation on a mixed
+  topology and mixed geometry mesh. [Discontinuous Galerkin
+  Poisson](examples/dg_poisson.py)
+- Differentiate a reaction–diffusion optimal control problem to build tangent,
+  adjoint and Hessian forms from the Lagrangian. [PDE-constrained
+  optimisation](examples/pde_constrained.py)
+- Interpolate the rotation along triangle edges to compute the reduced
+  Reissner-Mindlin shear energy. [Durán–Liberman shear
+  reduction](examples/duran_liberman.py).
 
 ## Implementation
 
-- `uflx` implements the full core language specification and lowers expressions to the representation a downstream form compiler consumes. [Core normal form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
-- `uflx_basix` supplies finite elements, basis tabulations and oriented reference facet maps. [Basix](https://github.com/fenics/basix)
-- `uflx_jax_compiler` traces both original and lowered expressions to JAX callables. This gives compiler authors a reference result and lets the tests check symbolic derivatives against JAX automatic differentiation. The compiler is feature complete, but benchmarks typically run about an order of magnitude slower than FFCx. PRs related to compiler performance will not be merged.
-- `uflx_extensions` exercises the core extension mechanism with complex differentiation and external operators.
+- `uflx` implements the full core language specification and lowers expressions
+  to the representation a typical downstream form compiler can consume. [Core
+  normal
+  form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
+- `uflx_basix` supplies finite elements, basis tabulations and oriented
+  reference facet maps. [Basix](https://github.com/fenics/basix)
+- `uflx_jax_compiler` traces both original and lowered expressions to JAX
+  callables. It gives a reference result and tests UFLx's symbolic derivatives
+  against JAX's automatic differentiation. The compiler is feature complete,
+  but benchmarks typically run about an order of magnitude slower than FFCx.
+  PRs related to compiler performance will not be merged.
+- `uflx_extensions` exercises the core extension mechanism with complex
+  differentiation and external operators.
+
+## Filing issues
+
+Open an issue in this repository with the smallest example you can give.
+
+In-scope:
+
+- For an interpreter issue, include a minimal working example and the
+  commit you tested (`git rev-parse --short HEAD`). Give the result you
+  expected and why, alongside the value or traceback you received.
+- For a specification issue, write down the mathematical expression and point
+  to the rule that seems ambiguous, contradictory or missing. If two readings
+  give different answers, show both. [UFLx core
+  specification](https://fenics.github.io/uflx/language/).
+- Naming and vocabulary suggestions are encouraged.
+- Issues related to API consistency and granularity.
+- Discussions on language design with respect to its efficient and easy
+  translation to languages used by form compilers (MLIR, JAX, C/C++ etc.).
+
+Out-of-scope:
+
+- No pull requests. File an issue, we then modify the language specification,
+  if needed, and then we can implement the change together.
+- Issues related to the compiler performance.
+- Algorithms related to transformations for generating optimised form compiler
+  output.
+- Requests to add 'trivial' features (e.g. more elementary functions, pretty
+  differential calculus constructions).
 
 ### Hashing modulo alpha-equivalence
 
 Consider two symbolic indices with `i = index("i")` and `j = index("j")`,
-using `index` from `uflx.tensors`. For a vector `a`, form the sums
+constructed using `index` from `uflx.tensors`. For a vector `a`, form the sums
 `s_i = index_sum(a[i], (i,))` and `s_j = index_sum(a[j], (j,))`.
 
-In the implementation, `s_i is s_j` is `False` because the two expressions
-contain distinct index nodes, `i is not j`, i.e. they are not structurally
-equal. 
+In the implementation, `s_i is s_j` evaluates to `False` because the two
+expressions contain distinct index nodes, `i is not j`, i.e. they are not
+structurally equal. 
 
 However, `s_i` and `s_j` are alpha-equivalent, because they differ only by the
 names of their bound variables - changing the names of the variables does not
@@ -135,44 +229,61 @@ port](src/uflx/_src/algorithms/_alpha_summary.py)
 
 ## Statistics
 
-As of 23rd November 2026.
+Measured on 24 November 2026 at commit `587d360bef` using Radon 6.0.1 on the
+four Python packages under `src/`.
 
 ### Lines of code
 
 | Package | Source lines |
 |---|---:|
-| uflx | 4,853 |
-| uflx_basix | 330 |
-| uflx_extensions | 100 |
-| uflx_jax_compiler | 668 |
-| Total | 5,951 |
+| uflx | 4,859 |
+| uflx_basix | 473 |
+| uflx_extensions | 140 |
+| uflx_jax_compiler | 1,075 |
+| Total | 6,547 |
 
 ### Complexity
 
-Radon is a static analysis tool that measures cyclomatic complexity of Python
-code. `uflx_jax_compiler` makes heavy use of `match` when tracing, which
-perhaps unfairly scores its cyclomatic complexity.
+Radon measures the cyclomatic complexity of Python code. 
+
+The distribution counts functions and methods, including nested definitions,
+and skips ellipsis-only stubs.
 
 Functions with cyclomatic complexity above 15 should be carefully considered.
 
+Note that `uflx_jax_compiler` makes heavy use of `match` when tracing, which
+unfairly scores its cyclomatic complexity.
+
 | Radon score | uflx | uflx_basix | uflx_extensions | uflx_jax_compiler | Total | Distribution |
 |---|---:|---:|---:|---:|---:|:---|
-| 1 | 308 | 15 | 9 | 28 | 360 | ██████████████████ |
-| 2 | 87 | 5 | 2 | 19 | 113 | █████▋ |
-| 3 | 43 | 0 | 0 | 6 | 49 | ██▌ |
-| 4 | 30 | 1 | 0 | 5 | 36 | █▊ |
-| 5 | 13 | 1 | 0 | 8 | 22 | █▏ |
-| 6–10 | 32 | 4 | 1 | 5 | 42 | ██▏ |
-| 11–20 | 12 | 2 | 0 | 1 | 15 | ▊ |
-| 21–40 | 2 | 0 | 0 | 0 | 2 | ▏ |
+| 1 | 309 | 15 | 12 | 31 | 367 | ██████████████████ |
+| 2 | 87 | 11 | 4 | 21 | 123 | ██████ |
+| 3 | 43 | 2 | 0 | 11 | 56 | ██▊ |
+| 4 | 30 | 2 | 0 | 4 | 36 | █▊ |
+| 5 | 13 | 2 | 0 | 9 | 24 | █▏ |
+| 6–10 | 31 | 6 | 2 | 13 | 52 | ██▌ |
+| 11–20 | 13 | 1 | 0 | 7 | 21 | █ |
+| 21–40 | 2 | 1 | 0 | 1 | 4 | ▎ |
 | 41+ | 0 | 0 | 0 | 1 | 1 | ▏ |
-| Total | 527 | 28 | 12 | 73 | 640 |  |
+| Total | 528 | 40 | 18 | 98 | 684 |  |
 
-## Caveats
+## LLM statement
 
-This is an alpha release and is not designed for production use. The UFLx core
-language is intentionally minimal - higher level layers will be added once the
-core language is further developed.
+OpenAI Astra 6.1 and Astra 6.2 have been used in medium and xhigh thinking
+modes.
+
+- `uflx` has been built carefully and most of the code has been reviewed,
+  edited, and adjusted by hand. The majority of the complexity is in
+  `uflx.algorithms`. `uflx.rules` and `uflx.passes` are pretty easy to follow,
+  unlike the core language specification description.
+- `uflx_basix` is LLM-generated, with some manual work done to get
+  `interpolate` implemented elegantly. 
+- `uflx_jax_compiler` is LLM-generated with some passes to get the API looking
+  'JAX-like' and some basic performance work (vectorisation, precomputed basis
+  data, reference tensors, tensor contractions, hoisting of constant terms).
+- The tests. Don't look at the tests - there are lots of them, some of them are
+  good, a lot are probably noise. None of them are written in a consistent or
+  good style.
 
 ## License
 
