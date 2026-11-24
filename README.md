@@ -248,8 +248,7 @@ unfairly scores its cyclomatic complexity.
 
 ## LLM statement
 
-OpenAI Astra 6.1 and Astra 6.2 have been used in medium and xhigh thinking
-modes.
+I used OpenAI Astra 6.1, OpenAI Astra 6.2, and Claude Opus 5.5.
 
 - `uflx` has been built carefully and most of the code has been reviewed,
   edited, and adjusted by hand. The majority of the complexity is in
