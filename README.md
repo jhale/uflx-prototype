@@ -80,9 +80,10 @@ Dependencies are `numpy`, `jax` and `fenics-basix`.
 
 ## Hello world - Poisson on a triangle
 
-Build the cell stiffness matrix and load vector for Poisson’s equation with a
-unit source. The three vertices set the geometry, and the six quadratic basis
-functions give one row and column per degree of freedom.
+[The Poisson example](examples/poisson.py) builds the cell stiffness matrix
+and load vector for Poisson’s equation with a unit source. The three vertices
+set the geometry, and the six quadratic basis functions give one row and column
+per degree of freedom.
 
 ```python
 import basix
@@ -145,21 +146,18 @@ print("Cell stiffness matrix", A)
 
 On the unit triangle, the six entries of the load vector sum to the cell area,
 0.5, and the stiffness matrix is symmetric and 6 × 6.
-[Runnable Poisson example](examples/poisson.py)
 
 ## Further examples
 
-- Mixed Poisson with Raviart-Thomas flux and a discontinuous scalar on a curved
-  triangle. [Mixed Poisson](examples/mixed_poisson.py)
-- Generate the nine required for a DG Poisson discretisation on a mixed
-  topology and mixed geometry mesh. [Discontinuous Galerkin
-  Poisson](examples/dg_poisson.py)
-- Differentiate a reaction–diffusion optimal control problem to build tangent,
-  adjoint and Hessian forms from the Lagrangian. [PDE-constrained
-  optimisation](examples/pde_constrained.py)
-- Interpolate the rotation along triangle edges to compute the reduced
-  Reissner-Mindlin shear energy. [Durán–Liberman shear
-  reduction](examples/duran_liberman.py).
+- [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
+  a discontinuous scalar on a curved triangle.
+- [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
+  and facet kernels for a mesh with mixed cell types and geometries.
+- [PDE-constrained optimisation](examples/pde_constrained.py) differentiates a
+  reaction–diffusion Lagrangian to build tangent, adjoint and Hessian forms.
+- [Durán–Liberman shear reduction](examples/duran_liberman.py) interpolates
+  the rotation along triangle edges to compute the reduced Reissner–Mindlin
+  shear energy.
 
 ## Implementation
 
