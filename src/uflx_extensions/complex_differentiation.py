@@ -9,14 +9,8 @@ from __future__ import annotations
 
 from uflx.algorithms import argument_leaves, map_argument
 from uflx.calculus import directional_derivative
-from uflx.nodes import (
-    AbstractExpression,
-    Argument,
-    Complex,
-    Function,
-    Integer,
-    ScalarType,
-)
+from uflx.nodes import AbstractExpression, Complex, Function, Integer, ScalarType
+from uflx.typing import Argument
 
 __all__ = ["complex_derivative_parts"]
 

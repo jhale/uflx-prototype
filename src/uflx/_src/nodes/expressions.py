@@ -10,18 +10,13 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, ClassVar, Generic, Never, TypeVar, cast
 
-from .arguments import (
-    Argument,
-    ArgumentSpaces,
-    BindingEntry,
-    argument_leaves,
-    argument_members,
-    binding_name,
-)
+from ..typing import Argument, ExpressionScalarType
+from .arguments import argument_leaves, argument_members, binding_name
 from .base import Base
-from .scalar_types import ExpressionScalarType, ScalarType
+from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
+    from ..typing.nodes import ArgumentSpaces, BindingEntry
     from .domains import AbstractDomain
     from .forms import Function
     from .indices import AbstractExtent, GatheredIndex, Index

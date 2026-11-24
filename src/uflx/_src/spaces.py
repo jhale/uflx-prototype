@@ -9,7 +9,8 @@ from __future__ import annotations
 from typing import overload
 
 from .nodes import AbstractFunctionSpace, ConjugateSpace, DualSpace, ScalarType
-from .nodes.arguments import Argument, argument_leaves
+from .nodes.arguments import argument_leaves
+from .typing import Argument
 
 
 def trivial_conjugation(space: AbstractFunctionSpace) -> bool:

@@ -11,8 +11,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from ..nodes import AbstractExpression, Zero
-from ..nodes.arguments import ArgumentSpaces
 from ..nodes.static import free_indices
+from ..typing.nodes import ArgumentSpaces
 from .traversal import map_values
 
 if TYPE_CHECKING:

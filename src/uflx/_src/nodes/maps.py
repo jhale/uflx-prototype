@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, final
 
-from .arguments import ArgumentSpaces
+from ..typing import ExpressionScalarType
 from .base import Base
 from .caching import cached
 from .expressions import AbstractExpression
-from .scalar_types import ExpressionScalarType, ScalarType
+from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
+    from ..typing.nodes import ArgumentSpaces
     from .domains import AbstractCoordinateDomain, AbstractDomain
     from .indices import AbstractExtent, Index
     from .meshes import CellMap, SideMap

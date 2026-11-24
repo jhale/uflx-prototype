@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from functools import cache
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING
 
 from ..algorithms.rewriting import complete_indices, promote, zero_like
 from ..algorithms.substitution import occurs_in_values, substitute_values
@@ -34,8 +34,10 @@ from ..nodes import (
     SquareRoot,
     Zero,
 )
-from ..nodes.arguments import Argument, argument_leaves, map_argument
+from ..nodes.arguments import argument_leaves, map_argument
 from ..tensors import tensor, transpose
+from ..typing import Argument
+from ..typing.nodes import Construction, DerivativeRule
 from .linearity import linear_fields
 from .structural import commute, structural_fields
 
@@ -43,13 +45,6 @@ if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
     from ..nodes.forms import Function
     from ..nodes.indices import Index
-    from ..nodes.types import Construction
-
-
-Transform: TypeAlias = Callable[[AbstractExpression], AbstractExpression]
-DerivativeRule: TypeAlias = Callable[
-    [AbstractExpression, Transform, Transform], AbstractExpression | None
-]
 
 
 def derivative_of_node(

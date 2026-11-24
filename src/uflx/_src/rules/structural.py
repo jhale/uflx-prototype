@@ -26,13 +26,13 @@ from ..nodes import (
     PushForward,
 )
 from ..nodes.static import field_terminal
+from ..typing.nodes import Construction
 from .coordinates import chained, piola_law
 
 if TYPE_CHECKING:
     from ..nodes.domains import AbstractDomain
     from ..nodes.expressions import AbstractExpression
     from ..nodes.indices import Index
-    from ..nodes.types import Construction
 
 
 def commute(

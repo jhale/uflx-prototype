@@ -15,9 +15,9 @@ from dataclasses import Field, dataclass, fields
 from typing import TYPE_CHECKING, ClassVar, TypeVar, cast, dataclass_transform
 
 from .caching import cached
-from .types import Construction
 
 if TYPE_CHECKING:
+    from ..typing.nodes import Construction
     from .forms import Function
     from .indices import Index
 

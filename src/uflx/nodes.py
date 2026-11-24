@@ -64,8 +64,7 @@ from ._src.nodes import (
     TransformationLaw,
     Zero,
 )
-from ._src.nodes.arguments import Argument
-from ._src.nodes.scalar_types import ExpressionScalarType
+from ._src.typing import Argument, ExpressionScalarType
 
 __all__ = [
     "Absolute",

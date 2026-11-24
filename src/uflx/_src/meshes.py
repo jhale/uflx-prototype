@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, TypeGuard, cast
+from typing import TYPE_CHECKING, TypeGuard, cast
 
 from uflx._src.nodes import (
     AbstractTopology,
@@ -18,6 +18,8 @@ from uflx._src.nodes import (
     SideMap,
     TransformationLaw,
 )
+
+from .typing import Variance
 
 if TYPE_CHECKING:
     from uflx._src.nodes.expressions import AbstractExpression
@@ -36,9 +38,7 @@ def create_mesh(
     return Mesh(coordinate_function, ambient_domain)
 
 
-def transformation_law(
-    variances: tuple[Literal["covariant", "contravariant"], ...], weight: int
-) -> TransformationLaw:
+def transformation_law(variances: tuple[Variance, ...], weight: int) -> TransformationLaw:
     return TransformationLaw(variances, weight)
 
 

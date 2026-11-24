@@ -38,6 +38,15 @@ from uflx.nodes import (
 )
 from uflx.passes import lower
 from uflx.tensors import tensor
+from uflx.typing import Argument
+
+
+def state_and_control(u: Function, p: Function, m: Function) -> Argument[Function]:
+    return ((u, p), m)
+
+
+def invalid_state_and_control(u: Function, p: Function) -> Argument[Function]:
+    return ((u, p), num(1))  # expect: reportReturnType
 
 
 def valid(f: Function, g: Function) -> None:

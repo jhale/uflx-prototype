@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from .arguments import Argument, ArgumentSpaces, argument_leaves, map_argument
+from ..typing import Argument, NumericalScalarType
+from .arguments import argument_leaves, map_argument
 from .caching import cached
 from .expressions import AbstractExpression, BindingExpression
-from .scalar_types import NumericalScalarType, ScalarType, numerical_type
+from .scalar_types import ScalarType, numerical_type
 
 if TYPE_CHECKING:
+    from ..typing.nodes import ArgumentSpaces
     from .domains import AbstractDomain
     from .forms import Function
     from .indices import AbstractExtent, Index

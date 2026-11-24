@@ -62,15 +62,14 @@ from ..nodes.structure import expression_operands
 from ..rules.coordinates import piola_law
 from ..rules.pullback_algebra import pullback_remains
 from ..rules.structural import application_retained, gradient_remains
-
-_Violation = tuple[AbstractExpression, str]
+from ..typing.nodes import ContractViolation
 
 
 def _violations(
     expression: AbstractExpression, rule: Callable[[AbstractExpression], str | None]
-) -> tuple[_Violation, ...]:
+) -> tuple[ContractViolation, ...]:
     seen: set[AbstractExpression] = set()
-    found: list[_Violation] = []
+    found: list[ContractViolation] = []
 
     def visit(node: AbstractExpression) -> None:
         if node in seen:
@@ -98,7 +97,7 @@ def _reference_integral(node: AbstractExpression) -> str | None:
     return None
 
 
-def derivatives_expanded(expression: AbstractExpression) -> tuple[_Violation, ...]:
+def derivatives_expanded(expression: AbstractExpression) -> tuple[ContractViolation, ...]:
     """Check that no directional derivatives remain in expression operands.
 
     Actions, spatial operators and mesh integrals are permitted. This does not
@@ -107,7 +106,7 @@ def derivatives_expanded(expression: AbstractExpression) -> tuple[_Violation, ..
     return _violations(expression, _derivative)
 
 
-def reference_integration(expression: AbstractExpression) -> tuple[_Violation, ...]:
+def reference_integration(expression: AbstractExpression) -> tuple[ContractViolation, ...]:
     """Check the derivative-free boundary after mesh integral expansion.
 
     No mesh integrals or directional derivatives may remain. Other core integral
@@ -118,7 +117,7 @@ def reference_integration(expression: AbstractExpression) -> tuple[_Violation, .
     return _violations(expression, _reference_integral)
 
 
-def core_normal_form(expression: AbstractExpression) -> tuple[_Violation, ...]:
+def core_normal_form(expression: AbstractExpression) -> tuple[ContractViolation, ...]:
     """Diagnose violations of the interpreter's existing core normal form.
 
     Delegate allowed-node patterns to the existing predicate. Accepted terminal

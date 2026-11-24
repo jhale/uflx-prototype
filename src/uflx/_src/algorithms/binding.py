@@ -8,15 +8,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import NamedTuple, TypeAlias
+from typing import NamedTuple
 
 from ..nodes import AbstractExpression, Base, Function, Index
 from ..nodes.base import construction_equal
 from ..nodes.structure import operands
-from ..nodes.types import Construction
-
-Names: TypeAlias = tuple[Function | Index, ...]
-Bindings: TypeAlias = tuple[tuple[Function | Index, tuple[int, int]], ...]
+from ..typing.nodes import Bindings, Construction, Names
 
 
 class _Comparison(NamedTuple):

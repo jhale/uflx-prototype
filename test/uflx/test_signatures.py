@@ -13,7 +13,7 @@ from typing import get_overloads
 
 import pytest
 
-from uflx import algorithms, arithmetic, calculus, forms, geometry, nodes, passes, tensors
+from uflx import algorithms, arithmetic, calculus, forms, geometry, nodes, passes, tensors, typing
 
 LANGUAGE_MODULES = (arithmetic, calculus, forms, geometry, passes, tensors)
 
@@ -122,10 +122,16 @@ def facade_declarations(source):
     return set(exports)
 
 
-@pytest.mark.parametrize("module", [*LANGUAGE_MODULES, algorithms, nodes])
+@pytest.mark.parametrize("module", [*LANGUAGE_MODULES, algorithms, nodes, typing])
 def test_facade_imports_match_its_declared_exports(module):
     path = Path(module.__file__)
     assert facade_declarations(path.read_text()) == set(module.__all__)
+
+
+def test_nodes_exports_the_same_argument_and_scalar_types_as_typing():
+    assert nodes.Argument is typing.Argument
+    assert nodes.ExpressionScalarType is typing.ExpressionScalarType
+    assert nodes.ScalarType is typing.ScalarType
 
 
 @pytest.mark.parametrize(

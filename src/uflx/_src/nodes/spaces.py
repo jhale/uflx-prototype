@@ -9,12 +9,12 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, final
 
-from .arguments import Argument, ArgumentSpaces
+from ..typing import Argument, NumericalScalarType
 from .base import Base
 from .caching import cached
-from .scalar_types import NumericalScalarType
 
 if TYPE_CHECKING:
+    from ..typing.nodes import ArgumentSpaces
     from .domains import AbstractDomain
     from .indices import AbstractExtent
     from .topology import AbstractTopology

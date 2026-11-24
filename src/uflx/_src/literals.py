@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from .nodes import Complex, Float, Integer, Zero
-from .nodes.arguments import ArgumentSpaces
+from .typing.nodes import ArgumentSpaces
 
 if TYPE_CHECKING:
     from .nodes.expressions import AbstractExpression

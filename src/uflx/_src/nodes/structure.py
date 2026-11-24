@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from .base import Base
 from .expressions import AbstractExpression
-from .types import Construction
+
+if TYPE_CHECKING:
+    from ..typing.nodes import Construction
 
 
 def operands(e: Base, names: Sequence[str] | None = None) -> list[Base]:

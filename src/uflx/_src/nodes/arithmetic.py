@@ -8,13 +8,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from .arguments import ArgumentSpaces
+from ..typing import NumericalScalarType
 from .caching import cached
 from .expressions import AbstractExpression
-from .scalar_types import NumericalScalarType, ScalarType, numerical_type
+from .scalar_types import ScalarType, numerical_type
 from .validation import require
 
 if TYPE_CHECKING:
+    from ..typing.nodes import ArgumentSpaces
     from .domains import AbstractDomain
     from .indices import AbstractExtent, Index
     from .topology import AbstractTopology

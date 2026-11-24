@@ -22,9 +22,9 @@ from ..nodes import (
     IndexSum,
     Zero,
 )
-from ..nodes.arguments import BindingEntry, FormEntry, argument_pairs, binding_name
+from ..nodes.arguments import argument_pairs, binding_name
 from ..nodes.structure import operands
-from ..nodes.types import Construction
+from ..typing.nodes import BindingEntry, Construction, FormEntry, Renames
 from .binding import binding_signature, scoped_body_fields
 from .traversal import map_construction, map_fields, rebuild
 
@@ -34,9 +34,8 @@ if TYPE_CHECKING:
 
 _T = TypeVar("_T", bound=Base)
 _K = TypeVar("_K", bound=Base)
-_Entry = TypeVar("_Entry", bound=BindingEntry)
+_Entry = TypeVar("_Entry", bound="BindingEntry")
 _IndexBinder = TypeVar("_IndexBinder", ComponentTensor, IndexSum)
-_Renames = tuple[tuple[Base, Function | Index], ...]
 
 
 def occurs(target: Base, node: Construction) -> bool:
@@ -118,7 +117,7 @@ def _rename(node: Base, name: Index | Function, avoid: Sequence[Construction]) -
     return Function(name.space, label)
 
 
-def _fresh_names(node: Base, avoid: Sequence[Construction]) -> _Renames:
+def _fresh_names(node: Base, avoid: Sequence[Construction]) -> Renames:
     return tuple(
         (name, _rename(node, name, avoid))
         for name in node.bound()
@@ -248,7 +247,7 @@ def _substitute(
                     found.update(matches(child, active))
         return frozenset(found)
 
-    def scope_renames(node: Base, keys: frozenset[Base], renames: _Renames) -> _Renames:
+    def scope_renames(node: Base, keys: frozenset[Base], renames: Renames) -> Renames:
         inherited = tuple(pair for pair in renames if not _bound_in(pair[0], node))
         if not any(occurs(name, mapping[key]) for name in node.bound() for key in keys):
             return inherited
@@ -258,7 +257,7 @@ def _substitute(
         return inherited + _fresh_names(node, avoid)
 
     @cache
-    def visit(node: Base, keys: frozenset[Base], renames: _Renames) -> Construction:
+    def visit(node: Base, keys: frozenset[Base], renames: Renames) -> Construction:
         # Match the original node before applying any enclosing binder's renames.
         if node in keys:
             return mapping[node]

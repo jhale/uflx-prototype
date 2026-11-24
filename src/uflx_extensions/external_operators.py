@@ -19,9 +19,9 @@ from uflx.nodes import (
     AbstractExtent,
     AbstractTopology,
     Base,
-    ExpressionScalarType,
     Index,
 )
+from uflx.typing import ExpressionScalarType
 
 __all__ = [
     "AbstractOperation",

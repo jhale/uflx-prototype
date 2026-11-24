@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from .arguments import ArgumentSpaces
+from ..typing import ExpressionScalarType
 from .caching import cached
 from .expressions import AbstractExpression
-from .scalar_types import ExpressionScalarType
 from .validation import require
 
 if TYPE_CHECKING:
+    from ..typing.nodes import ArgumentSpaces
     from .domains import AbstractDomain
     from .indices import AbstractExtent, Index
     from .topology import AbstractTopology

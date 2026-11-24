@@ -10,16 +10,17 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Literal, cast, final
 
-from .arguments import ArgumentSpaces
+from ..typing import NumericalScalarType, Variance
 from .base import Base
 from .caching import cached
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
 from .expressions import AbstractExpression
 from .indices import Index
-from .scalar_types import NumericalScalarType, ScalarType, numerical_type
+from .scalar_types import ScalarType, numerical_type
 from .topology import AbstractTopology
 
 if TYPE_CHECKING:
+    from ..typing.nodes import ArgumentSpaces
     from .indices import AbstractExtent
     from .maps import DomainMap
 
@@ -166,15 +167,12 @@ class SideMap(Base):
             require(not A.free_indices, "side inclusions must have no free indices")
 
 
-_Variance = Literal["covariant", "contravariant"]
-
-
 @final
 class TransformationLaw(Base):
     identifier = "uflx.TransformationLaw"
     # The transformation law of a tensor density: a variance for each of the last axes, the
     # others unchanged, and a weight.
-    variances: tuple[_Variance, ...]
+    variances: tuple[Variance, ...]
     weight: int
 
     def _validate(self) -> None:

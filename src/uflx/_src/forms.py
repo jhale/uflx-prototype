@@ -18,13 +18,14 @@ from .nodes import (
     Form,
     Function,
 )
-from .nodes.arguments import Argument, FormEntry, argument_leaves, argument_pairs
+from .nodes.arguments import argument_leaves, argument_pairs
 from .nodes.forms import entry_function
 from .nodes.validation import admissible, merge_indices
+from .typing import Argument
+from .typing.nodes import Construction, FormEntry
 
 if TYPE_CHECKING:
     from .nodes.spaces import AbstractFunctionSpace
-    from .nodes.types import Construction
 
 
 def function(space: AbstractFunctionSpace, label: str | tuple[Construction, ...]) -> Function:

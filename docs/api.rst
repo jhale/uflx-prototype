@@ -44,6 +44,11 @@ Core language
    :members:
    :undoc-members:
 
+``uflx.typing``
+~~~~~~~~~~~~~~~
+
+.. automodule:: uflx.typing
+
 Rewriting and lowering
 ----------------------
 

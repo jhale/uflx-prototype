@@ -20,17 +20,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import NamedTuple, TypeAlias
+from typing import NamedTuple
 
 from ..nodes import Base, Function, Index
 from ..nodes.base import construction_encoding
-from ..nodes.types import Construction
+from ..typing.nodes import AlphaEnvironment, AlphaKey, Construction
 from ._alpha_dependencies import Dependency, contains, singleton, union, without
 from ._alpha_summary import Summary, bind, constructor, variable
 from .binding import binding_signature, construction_nodes
-
-_Environment: TypeAlias = tuple[tuple[Function | Index, int], ...]
-_Key: TypeAlias = tuple[object, ...]
 
 
 @dataclass(frozen=True, eq=False, slots=True)
@@ -53,8 +50,8 @@ class _NodeInfo(NamedTuple):
 
 class _Request(NamedTuple):
     value: Construction
-    environment: _Environment
-    key: _Key
+    environment: AlphaEnvironment
+    key: AlphaKey
 
 
 class _Recipe(NamedTuple):
@@ -64,7 +61,7 @@ class _Recipe(NamedTuple):
     scoped_count: int
 
 
-def _key(value: Construction, environment: _Environment) -> _Key:
+def _key(value: Construction, environment: AlphaEnvironment) -> AlphaKey:
     """Build a side-effect-free key from an already projected environment."""
     if isinstance(value, Base):
         return ("node", value, environment)
@@ -124,7 +121,7 @@ class AlphaHasher:
     def __init__(self) -> None:
         self._info: dict[Base, _NodeInfo] = {}
         self._names: dict[Function | Index, int] = {}
-        self._memo: dict[_Key, Summary] = {}
+        self._memo: dict[AlphaKey, Summary] = {}
         self._tokens = 0
 
     def clear(self) -> None:
@@ -159,7 +156,7 @@ class AlphaHasher:
                 signature, _node_dependencies(node, signature, self._names, self._info)
             )
 
-    def _request(self, value: Construction, environment: _Environment) -> _Request:
+    def _request(self, value: Construction, environment: AlphaEnvironment) -> _Request:
         if isinstance(value, Base):
             deps = self._info[value].dependencies
             environment = tuple(
@@ -167,7 +164,7 @@ class AlphaHasher:
             )
         return _Request(value, environment, _key(value, environment))
 
-    def _recipe(self, value: Base | tuple[Construction, ...], env: _Environment) -> _Recipe:
+    def _recipe(self, value: Base | tuple[Construction, ...], env: AlphaEnvironment) -> _Recipe:
         if isinstance(value, tuple):
             return _Recipe(("tuple",), tuple(self._request(child, env) for child in value), None, 0)
         names = value.bound()

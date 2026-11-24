@@ -9,12 +9,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .arguments import Argument, argument_pairs
+from ..typing import Argument, NumericalScalarType
+from .arguments import argument_pairs
 
 if TYPE_CHECKING:
     from .expressions import AbstractExpression
     from .indices import AbstractExtent, GatheredIndex, Index
-    from .scalar_types import NumericalScalarType
     from .spaces import AbstractFunctionSpace
 
 

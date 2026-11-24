@@ -8,18 +8,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, final
 
-from .arguments import Argument, ArgumentSpaces, FormEntry, argument_leaves, map_argument
+from ..typing import Argument, NumericalScalarType
+from .arguments import argument_leaves, map_argument
 from .arithmetic import Conjugate
 from .caching import cached
 from .expressions import AbstractExpression, BindingExpression
-from .scalar_types import NumericalScalarType, numerical_type
+from .scalar_types import numerical_type
 from .spaces import AbstractFunctionSpace
 
 if TYPE_CHECKING:
+    from ..typing.nodes import ArgumentSpaces, Construction, FormEntry
     from .domains import AbstractDomain
     from .indices import AbstractExtent, Index
     from .topology import AbstractTopology
-    from .types import Construction
 
 
 def entry_function(m: Function | Conjugate) -> Function:

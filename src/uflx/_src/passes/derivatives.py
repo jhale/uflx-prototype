@@ -15,11 +15,11 @@ from ..algorithms.traversal import everywhere
 from ..nodes import DirectionalDerivative
 from ..nodes.arguments import argument_leaves
 from ..rules.differentiation import deriv
+from ..typing.nodes import DerivativeRule
 from .applications import expand_applications
 
 if TYPE_CHECKING:
     from ..nodes.expressions import AbstractExpression
-    from ..rules.differentiation import DerivativeRule
 
 
 def apply_derivatives(f: AbstractExpression) -> AbstractExpression:

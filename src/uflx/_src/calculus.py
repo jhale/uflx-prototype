@@ -21,8 +21,8 @@ from .nodes import (
     IndexSum,
     Integral,
 )
-from .nodes.arguments import Argument
 from .tensors import permutation_tensor
+from .typing import Argument
 
 if TYPE_CHECKING:
     from .nodes.domains import AbstractDomain

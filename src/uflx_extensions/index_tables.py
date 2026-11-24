@@ -7,13 +7,11 @@
 
 from typing import final
 
-from uflx.nodes import AbstractExtent, AbstractIndexTable, GatheredIndex, Index
+from uflx.nodes import AbstractExtent, AbstractIndexTable, GatheredIndex
 from uflx.tensors import gathered_index
+from uflx.typing import Extent, IndexEntry
 
 __all__ = ["IndexArray", "IndexTable", "index_table"]
-
-_Extent = int | AbstractExtent
-_Entry = int | Index | GatheredIndex
 
 
 class IndexArray(AbstractIndexTable):
@@ -21,17 +19,17 @@ class IndexArray(AbstractIndexTable):
 
     identifier = "uflx_extensions.IndexArray"
     label: str
-    _shape: tuple[_Extent, ...]
+    _shape: tuple[Extent, ...]
 
     @property
-    def shape(self) -> tuple[_Extent, ...]:
+    def shape(self) -> tuple[Extent, ...]:
         return self._shape
 
     @property
-    def extent(self) -> _Extent | None:
+    def extent(self) -> Extent | None:
         return None
 
-    def __getitem__(self, key: _Entry | tuple[_Entry, ...]) -> GatheredIndex:
+    def __getitem__(self, key: IndexEntry | tuple[IndexEntry, ...]) -> GatheredIndex:
         entries = key if isinstance(key, tuple) else (key,)
         return gathered_index(self, entries)
 
@@ -50,16 +48,14 @@ class IndexTable(IndexArray):
     """An index array whose entries all target axes of the declared extent."""
 
     identifier = "uflx_extensions.IndexTable"
-    _extent: _Extent
+    _extent: Extent
 
     @property
-    def extent(self) -> _Extent:
+    def extent(self) -> Extent:
         return self._extent
 
 
-def index_table(
-    label: str, shape: tuple[_Extent, ...], extent: _Extent | None = None
-) -> IndexArray:
+def index_table(label: str, shape: tuple[Extent, ...], extent: Extent | None = None) -> IndexArray:
     """Declare a runtime integer array. Supply extent to check target axes at construction."""
     if extent is None:
         return IndexArray(label, shape)

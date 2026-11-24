@@ -7,12 +7,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from ..nodes import Index
-
-if TYPE_CHECKING:
-    from ..nodes.types import Construction
+from ..typing.nodes import Construction
 
 
 def derived_index(purpose: str, *dependencies: Construction) -> Index:

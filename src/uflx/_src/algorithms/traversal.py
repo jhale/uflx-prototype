@@ -11,10 +11,10 @@ from collections.abc import Callable, Sequence
 from typing import Concatenate, ParamSpec, TypeVar, cast
 
 from ..nodes import AbstractExpression, AbstractFunctionSpace, Base
-from ..nodes.arguments import Argument
 from ..nodes.base import construction_equal
 from ..nodes.structure import expression_operands
-from ..nodes.types import Construction
+from ..typing import Argument
+from ..typing.nodes import Construction
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")

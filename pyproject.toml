@@ -21,6 +21,9 @@ lint = ["ruff", "pyright"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+uflx = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["test"]
 pythonpath = ["."]

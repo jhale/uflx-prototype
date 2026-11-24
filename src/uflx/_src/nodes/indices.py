@@ -13,7 +13,7 @@ from .base import Base
 from .caching import cached
 
 if TYPE_CHECKING:
-    from .types import Construction
+    from ..typing.nodes import Construction
 
 
 class AbstractExtent(Base):

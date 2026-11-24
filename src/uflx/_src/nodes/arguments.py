@@ -3,28 +3,24 @@
 # This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
 #
 # SPDX-License-Identifier:    MIT
-"""Handle a single argument or a tuple of argument members."""
+"""Walk, map and pair the leaves of product arguments."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, TypeVar
+
+from ..typing import Argument
 
 if TYPE_CHECKING:
     from .arithmetic import Conjugate
     from .base import Base
     from .forms import Function
     from .indices import Index
-    from .spaces import AbstractFunctionSpace
 
 _T = TypeVar("_T", bound="Base | int")
 _U = TypeVar("_U", bound="Base | int")
 _R = TypeVar("_R", bound="Base | int")
-
-Argument: TypeAlias = _T | tuple["Argument[_T]", ...]
-ArgumentSpaces: TypeAlias = "tuple[Argument[AbstractFunctionSpace], ...]"
-FormEntry: TypeAlias = "Argument[Function | Conjugate]"
-BindingEntry: TypeAlias = "FormEntry | Index"
 
 
 def map_argument(fn: Callable[[_T], _R], argument: Argument[_T]) -> Argument[_R]:

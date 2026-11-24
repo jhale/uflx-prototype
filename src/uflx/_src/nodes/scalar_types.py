@@ -7,10 +7,9 @@
 
 from __future__ import annotations
 
-from typing import Final, Literal, TypeAlias
+from typing import Final
 
-NumericalScalarType: TypeAlias = Literal["real", "complex"]
-ExpressionScalarType: TypeAlias = Literal["boolean"] | NumericalScalarType
+from ..typing import ExpressionScalarType, NumericalScalarType
 
 
 class ScalarType:
