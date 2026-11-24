@@ -180,6 +180,17 @@ The six entries of the load vector sum to the area of this triangle, 5.5,
 and the stiffness matrix is symmetric and 6 × 6. The same kernels can be
 called with new vertex coordinates to evaluate another triangle.
 
+To supply the quadrature rule and reference basis at runtime, trace the
+lowered integral and declare the tabulation for its space. Both form slots in
+`V` use the same table. Basix derivative order 1 supplies the reference
+gradients used by the stiffness matrix.
+
+```python
+stiffness = jax.jit(trace(form(a_ref, (v_ref, u_ref)), x, a_ref, (a_ref, V)))
+points, weights = rule
+A = stiffness(vertices, (points, weights), p2.tabulate(1, points))
+```
+
 ## Implementation
 
 - `uflx` implements the full core language specification and lowers expressions

@@ -11,6 +11,8 @@ import jax.numpy as jnp
 from uflx.nodes import AbstractCoordinateDomain, Mesh
 
 from . import _tensors
+from ._context import PointTabulation
+from ._finite_elements import quadrature_tables
 
 
 def chart_of(piece, site, value):
@@ -82,9 +84,19 @@ def integrate(integral, bindings, fn, site, value):
         points, weights = jnp.asarray(points, dtype=float), jnp.asarray(weights)
         if weights.ndim != 1 or points.shape != (weights.size, cell.dimension):
             raise ValueError("quadrature needs one reference point per weight", integral)
+        tables = quadrature_tables(integral, cell, bindings, weights.size)
         if not weights.size:
             return jnp.zeros(_tensors.shape(integral, bindings), dtype=_tensors.dtype(integral))
-        samples = jax.vmap(lambda p: integrand(site.at({cell: p})))(points)
+
+        def sample(point, *rows):
+            at_point = (
+                {cell: PointTabulation(point, dict(zip(tables, rows, strict=True)))}
+                if tables
+                else None
+            )
+            return integrand(site.at({cell: point}, tabulations=at_point))
+
+        samples = jax.vmap(sample)(points, *tables.values())
         return jnp.tensordot(weights, samples, axes=1)
 
     if isinstance(domain, AbstractCoordinateDomain):

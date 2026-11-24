@@ -137,7 +137,7 @@ def _evaluate(node, bindings, site, arguments, memo):
             # Use the primal inputs for the comparison. A derivative written
             # inside an operand still has its ordinary mathematical meaning.
             points = {d: jax.lax.stop_gradient(p) for d, p in site.points.items()}
-            at = site.at(points)
+            at = site.at(points, tabulations=site.tabulations)
 
             def compare():
                 with jax.ensure_compile_time_eval():
@@ -240,7 +240,7 @@ def _evaluate(node, bindings, site, arguments, memo):
                 return jnp.empty(_tensors.shape(node, bindings), dtype=_tensors.dtype(node))
 
             def at_point(p):
-                result = scoped_value(x, arguments, at=site.at({domain: p}))
+                result = scoped_value(x, arguments, at=site.differentiating(domain, p))
                 return jnp.asarray(result, dtype=jnp.result_type(result, 0.0))
 
             g = jax.jacfwd(at_point)(point)

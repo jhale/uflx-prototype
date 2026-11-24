@@ -37,11 +37,13 @@ def pullback_site(mapping, site, value):
         return site.at({parent: point}, cells={parent: slot})
     if isinstance(mapping, CellMap):
         parent = mapping.parent
-        point = (
-            site.points[mapping.reference_cell]
-            if isinstance(parent, AbstractTopology)
-            else jnp.real(value(mapping.parameterisation))
-        )
+        if isinstance(parent, AbstractTopology):
+            cell = mapping.reference_cell
+            tables = {parent: site.tabulations[cell]} if cell in site.tabulations else None
+            return site.at(
+                {parent: site.points[cell]}, cells={parent: mapping.cell_slot}, tabulations=tables
+            )
+        point = jnp.real(value(mapping.parameterisation))
         return site.at({parent: point}, cells={parent: mapping.cell_slot})
     point = jnp.real(value(mapping.parameterisation))
     return site.at({mapping.ambient_domain: point})

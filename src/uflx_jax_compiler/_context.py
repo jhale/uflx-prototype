@@ -6,7 +6,7 @@
 """Sampling locations and the boundary between interpreted operands and callbacks."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
 from uflx.nodes import AbstractExpression, AbstractFunctionSpace, AbstractTopology, Mesh
 
@@ -19,14 +19,39 @@ def lookup(bindings, node, label=None):
 
 
 @dataclass(frozen=True, eq=False)
+class PointTabulation:
+    center: object
+    rows: dict
+    derivative_order: int = 0
+
+
+@dataclass(frozen=True, eq=False)
 class Sample:
     """Coordinates and local cell slots supplied for each domain."""
 
     points: dict
     cells: dict
+    tabulations: dict = field(default_factory=dict)
 
-    def at(self, points, *, cells=None):
-        return Sample(self.points | points, self.cells if cells is None else self.cells | cells)
+    def at(self, points, *, cells=None, tabulations=None):
+        # Moving to a different point invalidates the old quadrature rows for that domain.
+        tables = self.tabulations
+        if tables:
+            tables = {
+                d: t for d, t in tables.items() if d not in points or points[d] is self.points[d]
+            }
+        if tabulations:
+            tables = tables | tabulations
+        return Sample(
+            self.points | points, self.cells if cells is None else self.cells | cells, tables
+        )
+
+    def differentiating(self, domain, point):
+        table = self.tabulations.get(domain)
+        tables = (
+            {domain: replace(table, derivative_order=table.derivative_order + 1)} if table else None
+        )
+        return self.at({domain: point}, tabulations=tables)
 
     def slot(self, domain):
         if domain in self.cells:

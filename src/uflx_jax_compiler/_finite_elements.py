@@ -5,11 +5,14 @@
 # SPDX-License-Identifier:    MIT
 """Finite-element tabulation for the JAX backend."""
 
+from itertools import combinations_with_replacement
+from math import comb, factorial, prod
+
 import jax
 import jax.numpy as jnp
 import numpy as np
 
-from uflx.nodes import AbstractExpression, ConjugateSpace
+from uflx.nodes import AbstractExpression, AbstractTopology, ConjugateSpace
 
 from ._context import BoundExpression, lookup
 from ._tensors import dtype
@@ -63,6 +66,75 @@ def is_basix_basis(node):
     return basix is not None and isinstance(node, BasixBasis)
 
 
+def tabulation_space(selector):
+    return selector.space if is_basix_basis(selector) else basix_space(selector)
+
+
+def quadrature_tables(integral, cell, bindings, npoints):
+    """Collect the Basix tables declared for this integral, in point-major order."""
+    tables = {}
+    for key, data in bindings.items():
+        if not (isinstance(key, tuple) and len(key) == 2 and key[0] == integral):
+            continue
+        selector = key[1]
+        space = tabulation_space(selector)
+        if space is None:
+            continue
+        domain = space.domain
+        cells = domain.cell_types if isinstance(domain, AbstractTopology) else (domain,)
+        slots = [i for i, K in enumerate(cells) if K == cell]
+        if is_basix_basis(selector):
+            slot = 0 if space.cell is not None else selector.cell_slot
+            slots = [slot] if slot in slots else []
+        if not slots:
+            raise ValueError("the tabulated space does not use the integration cell")
+        if len({space.element_data[i] for i in slots}) != 1:
+            raise ValueError(
+                "select a BasixBasis(space, slot) for different elements on the same cell"
+            )
+        element = space.element(slots[0])
+        table = jnp.asarray(data)
+        if (
+            table.ndim != 4
+            or table.shape[0] < 1
+            or table.shape[1:] != (npoints, element.dim, element.value_size)
+            or not jnp.issubdtype(table.dtype, jnp.floating)
+        ):
+            raise ValueError(
+                f"expected a floating Basix tabulation with shape "
+                f"(derivatives, {npoints}, {element.dim}, {element.value_size})"
+            )
+        for slot in slots:
+            if (space, slot) in tables:
+                raise ValueError("duplicate tabulation for the same space and cell slot")
+            tables[space, slot] = jnp.swapaxes(table, 0, 1)
+    return tables
+
+
+def _basis_at(space, slot, domain, site):
+    point = site.points[domain]
+    tabulation = site.tabulations.get(domain)
+    rows = tabulation.rows.get((space, slot)) if tabulation else None
+    if rows is None:
+        return tabulate(space.element(slot), point)
+    order = tabulation.derivative_order
+    if not order:
+        return rows[0]
+    dim = point.shape[0]
+    if rows.shape[0] < comb(dim + order, order):
+        raise ValueError(f"runtime basis tabulation needs derivatives through order {order}")
+    # Spatial AD evaluates this Taylor polynomial at its center. Each partial is
+    # supplied by the caller, including mixed derivatives in Basix ordering.
+    delta = point - tabulation.center
+    result = rows[0] + jnp.tensordot(delta, rows[1 : dim + 1], axes=1)
+    for degree in range(2, order + 1):
+        for axes in combinations_with_replacement(range(dim), degree):
+            powers = tuple(axes.count(i) for i in range(dim))
+            scale = prod(delta[i] for i in axes) / prod(factorial(n) for n in powers)
+            result = result + scale * rows[basix.index(*powers)]
+    return result
+
+
 def field_value(node, space, bindings, site, value):
     topology = space.domain
     coefficients = lookup(bindings, node, f"coefficients:{node.label}")
@@ -86,7 +158,7 @@ def field_value(node, space, bindings, site, value):
 
 
 def _local_value(space, slot, site, local):
-    basis = tabulate(space.element(slot), site.points[space.domain])
+    basis = _basis_at(space, slot, space.domain, site)
     if space.block_shape:
         return jnp.tensordot(basis[:, 0], local.reshape(-1, *space.block_shape), axes=1)
     return (local @ basis).reshape(space.value_shape)
@@ -95,5 +167,6 @@ def _local_value(space, slot, site, local):
 def basis_value(node, site):
     if site.slot(node.domain) != node.cell_slot:
         return np.zeros(node.value_shape)
-    basis = tabulate(node.element, site.points[node.domain])
+    slot = 0 if node.space.cell is not None else node.cell_slot
+    basis = _basis_at(node.space, slot, node.domain, site)
     return basis.reshape(node.value_shape)
