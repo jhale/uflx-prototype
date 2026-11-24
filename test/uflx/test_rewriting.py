@@ -8,7 +8,7 @@
 import pytest
 
 from uflx._src.algorithms.rewriting import rewrite
-from uflx._src.algorithms.traversal import rebuild
+from uflx._src.algorithms.traversal import map_construction, rebuild
 from uflx._src.passes import lowering, spatial
 from uflx.arithmetic import num
 from uflx.calculus import gradient
@@ -18,6 +18,24 @@ from uflx.passes import apply_gradients
 from uflx.tensors import tensor
 
 from .spaces import space
+
+
+def test_mapping_nested_operands_reuses_unchanged_tuples():
+    a, b = num(1), num(2)
+    shared = (a, a)
+    arguments = (shared, (b, shared))
+    assert map_construction(arguments, lambda node: node) is arguments
+
+    visits = []
+
+    def replace(node):
+        visits.append(node)
+        return a if node is b else node
+
+    result = map_construction(arguments, replace)
+    assert result == (shared, (a, shared))
+    assert result[0] is result[1][1] is shared
+    assert visits == [a, a, b, a, a]
 
 
 def test_replacement_operands_are_processed_and_shared_nodes_reused():

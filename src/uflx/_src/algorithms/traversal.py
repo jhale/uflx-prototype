@@ -41,7 +41,14 @@ def map_construction(value: Construction, fn: Callable[[Base], Construction]) ->
     if isinstance(value, Base):
         return fn(value)
     if isinstance(value, tuple):
-        return tuple(map_construction(item, fn) for item in value)
+        items = None
+        for i, item in enumerate(value):
+            mapped = map_construction(item, fn)
+            if mapped is not item:
+                if items is None:
+                    items = list(value)
+                items[i] = mapped
+        return value if items is None else tuple(items)
     return value
 
 
@@ -50,7 +57,17 @@ def map_fields(
 ) -> Construction:
     """Apply fn to nodes in the named construction fields, or in all fields by default."""
     names = e.argument_names if names is None else names
-    return rebuild(e, **{n: map_construction(construction_field(e, n), fn) for n in names})
+    changes: dict[str, Construction] | None = None
+    for name in names:
+        value = construction_field(e, name)
+        mapped = map_construction(value, fn)
+        if changes is None:
+            # An unknown field must still go through rebuild's constructor check.
+            if mapped is value and name in e.argument_names:
+                continue
+            changes = {}
+        changes[name] = mapped
+    return e if changes is None else rebuild(e, **changes)
 
 
 def memoized(rule: Callable[Concatenate[Callable[_P, _R], _P], _R]) -> Callable[_P, _R]:
