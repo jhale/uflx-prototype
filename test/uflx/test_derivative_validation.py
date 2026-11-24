@@ -112,6 +112,16 @@ def test_family_extents_are_checked_between_body_points_and_directions(variables
     assert directional_derivative(u * a, u, a, w).free_indices == ((k, 2),)
 
 
+def test_free_indices_follow_first_occurrence_in_nested_operands(variables):
+    u, v, w, _ = variables
+    i, j, k, l = (index(name) for name in ("i", "j", "k", "l"))
+    a = tensor((num(1), num(2)))
+    point = ((a[j], a[k]), a[i])
+    direction = ((a[i], a[l]), a[j])
+    derivative = directional_derivative(u * a[k], ((u, v), w), point, direction)
+    assert derivative.free_indices == ((k, 2), (j, 2), (i, 2), (l, 2))
+
+
 def test_explicit_binding_adds_slots_after_existing_slots(variables):
     u, v, w, z = variables
     F = form(u * w, (w,))

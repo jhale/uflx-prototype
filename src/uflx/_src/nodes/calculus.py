@@ -41,14 +41,10 @@ class DirectionalDerivative(BindingExpression["Function"]):
     @property
     @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        edges = (
-            self.expression,
-            *argument_leaves(self.point),
-            *argument_leaves(self.direction),
-        )
         from .static import free_indices
+        from .structure import expression_operands
 
-        return free_indices(*edges)
+        return free_indices(*expression_operands(self))
 
     @property
     @cached
