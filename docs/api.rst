@@ -137,3 +137,9 @@ Extensions
 .. automodule:: uflx_extensions.index_tables
    :members: index_table
    :undoc-members:
+
+``uflx_extensions.runtime_arrays``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: uflx_extensions.runtime_arrays
+   :members: RuntimeArray, RuntimeExtent

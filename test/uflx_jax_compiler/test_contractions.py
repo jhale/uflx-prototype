@@ -15,9 +15,10 @@ from uflx.forms import form, function
 from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace, GatheredIndex
 from uflx.tensors import broadcast_to, component_tensor, index, index_sum, tensor
+from uflx_extensions.runtime_arrays import RuntimeArray, RuntimeExtent
 from uflx_jax_compiler import trace
 
-from ..uflx.library import IndexTable, RuntimeArray, RuntimeExtent
+from ..uflx.library import IndexTable
 from ..uflx.spaces import space
 
 

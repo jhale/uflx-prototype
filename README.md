@@ -172,25 +172,25 @@ The six entries of the load vector sum to the area of this triangle, 5.5,
 and the stiffness matrix is symmetric and 6 × 6. The same kernels can be
 called with new vertex coordinates to evaluate another triangle.
 
-For runtime quadrature, let `points_operand` and `weights_operand` be your
-application's domain-independent real UFLx expressions with shapes `(n, 2)`
-and `(n,)`. The point count `n` can be an integer or a shared symbolic extent.
-Use the same quadrature operation and bind the operands in the kernel signature.
+The same stiffness form can take its quadrature rule at runtime. [Runnable Poisson example](examples/poisson.py)
 
 ```python
-weighted_sum = apply_quadrature(stiffness_integral, points_operand, weights_operand)
-a = form(weighted_sum, (v_ref, u_ref))
-tables = basis_tables(a)
-kernel = trace(a, x, points_operand, weights_operand, *tables)
+from uflx_extensions.runtime_arrays import RuntimeArray, RuntimeExtent
 
-values = [table.element.tabulate(table.order, points) for table in tables]
-A = jax.jit(kernel)(vertices, points, weights, *values)
+n = RuntimeExtent("n")
+points_input = RuntimeArray("points", (n, 2))
+weights_input = RuntimeArray("weights", (n,))
+weighted_sum = apply_quadrature(stiffness_integral, points_input, weights_input)
+runtime_form = form(weighted_sum, (v_ref, u_ref))
+tables = basis_tables(runtime_form)
+runtime_stiffness = jax.jit(trace(runtime_form, x, points_input, weights_input, *tables))
+
+for degree in (2, 4):
+    points, weights = basix.make_quadrature(triangle, degree)
+    values = [table.element.tabulate(table.order, points) for table in tables]
+    matrix = runtime_stiffness(vertices, points, weights, *values)
+    np.testing.assert_allclose(matrix, A, rtol=1e-5, atol=1e-6)
 ```
-
-The P2 test and trial share a table and the P1 coordinate map uses another.
-Each supplied table uses the same point order as its points operand. The kernel
-infers a symbolic point count from the array shapes. The same form can serve
-several counts, and ordinary JAX JIT specializes to each distinct input shape.
 
 ## Implementation
 

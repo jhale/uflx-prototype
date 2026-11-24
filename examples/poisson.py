@@ -7,7 +7,7 @@
 # %% [markdown]
 """# Poisson on a triangle
 
-Build a cell stiffness matrix and load vector for Poisson’s equation with a
+Build a cell stiffness matrix and load vector for Poisson's equation with a
 unit source. Define the quadratic basis functions and quadrature on the
 reference triangle, then pass the physical vertices to the compiled kernels.
 """
@@ -24,7 +24,8 @@ from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
+from uflx_extensions.runtime_arrays import RuntimeArray, RuntimeExtent
+from uflx_jax_compiler import basis_tables, trace
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -80,3 +81,21 @@ A = stiffness(vertices)  # cell stiffness matrix
 
 print("Cell load vector", b)
 print("Cell stiffness matrix", A)
+
+# %% [markdown]
+# ## Pass the quadrature rule at runtime
+
+# %%
+n = RuntimeExtent("n")
+points_input = RuntimeArray("points", (n, 2))
+weights_input = RuntimeArray("weights", (n,))
+weighted_sum = apply_quadrature(a_ref, points_input, weights_input)
+runtime_form = form(weighted_sum, (v_ref, u_ref))
+tables = basis_tables(runtime_form)
+runtime_stiffness = jax.jit(trace(runtime_form, x, points_input, weights_input, *tables))
+
+for degree in (2, 4):
+    points, weights = basix.make_quadrature(triangle, degree)
+    values = [table.element.tabulate(table.order, points) for table in tables]
+    matrix = runtime_stiffness(vertices, points, weights, *values)
+    np.testing.assert_allclose(matrix, A, rtol=1e-5, atol=1e-6)
