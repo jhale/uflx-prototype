@@ -102,8 +102,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   and load vector for Poisson’s equation with a unit source.
 - [Runtime quadrature](examples/runtime_quadrature.py) passes quadrature
   points, weights and Basix basis tables to a P2 triangle stiffness kernel.
-- [Precomputed geometry](examples/precomputed_geometry.py) reuses the inverse
-  Jacobians and integration densities at quadrature points on a curved triangle.
+- [Precomputed geometry](examples/precomputed_geometry.py) assembles a curved
+  triangle's stiffness matrix from inverse Jacobians and integration densities.
 - [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
   a discontinuous scalar on a curved triangle.
 - [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
