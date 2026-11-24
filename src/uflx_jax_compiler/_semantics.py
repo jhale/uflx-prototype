@@ -270,7 +270,17 @@ def _evaluate(node, bindings, site, arguments, memo):
         case Divergence(x, domain):
             return jnp.trace(value(Gradient(x, domain), arguments), axis1=-2, axis2=-1)
         case Curl(x, domain):
-            return _spatial.curl(value(Gradient(x, domain), arguments))
+            g = value(Gradient(x, domain), arguments)
+            if g.shape[-1] == 2:
+                return g[..., 1, 0] - g[..., 0, 1]
+            return jnp.stack(
+                (
+                    g[..., 2, 1] - g[..., 1, 2],
+                    g[..., 0, 2] - g[..., 2, 0],
+                    g[..., 1, 0] - g[..., 0, 1],
+                ),
+                axis=-1,
+            )
         case Integral(x, _):
             return integrate(node, bindings, field(x), site, scoped_value)
         case PullBack(x, mapping):
