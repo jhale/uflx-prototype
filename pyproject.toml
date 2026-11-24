@@ -16,7 +16,7 @@ dependencies = [
 [project.optional-dependencies]
 docs = ["sphinx", "pydata-sphinx-theme", "jupytext", "myst-parser"]
 test = ["pytest", "pytest-xdist", "coverage"]
-lint = ["ruff", "pyright"]
+lint = ["ruff", "pyrefly"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -48,9 +48,8 @@ ignore = ["E731", "E741"]
 [tool.ruff.lint.isort]
 known-first-party = ["uflx", "uflx_basix", "uflx_extensions", "uflx_jax_compiler"]
 
-[tool.pyright]
-include = ["src/uflx", "src/uflx_extensions"]
-exclude = ["src/uflx_jax_compiler", "src/uflx_basix", "test"]
-typeCheckingMode = "strict"
-pythonVersion = "3.11"
-reportUnnecessaryTypeIgnoreComment = "error"
+[tool.pyrefly]
+preset = "all"
+project-includes = ["src/uflx", "src/uflx_extensions"]
+search-path = ["src"]
+python-version = "3.11"
