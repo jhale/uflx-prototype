@@ -17,6 +17,7 @@ import basix
 import jax
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import create_mesh, euclidean_space, push_forward
@@ -24,7 +25,6 @@ from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -63,11 +63,10 @@ L_quadrature = apply_quadrature(L_ref, *rule)
 a = form(a_quadrature, (v_ref, u_ref))
 L = form(L_quadrature, (v_ref,))
 
-# Trace to JAX and JIT compile. All standard JAX transforms are supported on
-# the trace, e.g. differentiation, mapping etc.
+# The resulting kernels support JAX transforms such as jit, grad and vmap.
 # Performance is one-order of magnitude slower than FFCx.
-load = jax.jit(trace(L, x))
-stiffness = jax.jit(trace(a, x))
+load = jax.jit(uflx_jax_compiler.trace(L, x))
+stiffness = jax.jit(uflx_jax_compiler.trace(a, x))
 
 # %% [markdown]
 # Evaluate both kernels on a physical triangle. For a unit source, the six load

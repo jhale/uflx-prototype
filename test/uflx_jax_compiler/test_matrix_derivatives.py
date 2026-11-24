@@ -9,13 +9,13 @@ import jax
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx._src.nodes import Inverse
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx.tensors import component_tensor, determinant, index, inverse, tensor
-from uflx_jax_compiler import trace
 
 from ..testutil import contains
 from ..uflx.spaces import space
@@ -37,7 +37,9 @@ def test_determinant_derivative_at_singular_matrix(n, scalar_type):
         direction = direction * (1 + 2j)
     # At diag(0, 1, ...), only the (0, 0) cofactor is nonzero.
     expected = direction[0, 0] if n else 0
-    np.testing.assert_allclose(trace(derivative, A, H)(point, direction), expected)
+    np.testing.assert_allclose(
+        uflx_jax_compiler.trace(derivative, A, H)(point, direction), expected
+    )
 
 
 def test_determinant_derivative_uses_point_and_preserves_its_family():
@@ -49,7 +51,7 @@ def test_determinant_derivative_uses_point_and_preserves_its_family():
     derivative = apply_derivatives(
         component_tensor(directional_derivative(determinant(A), t, points, num(1)), (i,))
     )
-    np.testing.assert_allclose(trace(derivative)(), [0, 6])
+    np.testing.assert_allclose(uflx_jax_compiler.trace(derivative)(), [0, 6])
 
 
 def test_second_determinant_derivative_at_zero():
@@ -58,7 +60,7 @@ def test_second_determinant_derivative_at_zero():
     first = directional_derivative(determinant(A), t, t, num(1))
     second = apply_derivatives(directional_derivative(first, t, num(0), num(1)))
     assert not contains(second, lambda node: isinstance(node, Inverse))
-    np.testing.assert_allclose(trace(second)(), 2)
+    np.testing.assert_allclose(uflx_jax_compiler.trace(second)(), 2)
 
 
 def test_determinant_derivative_matches_finite_difference():
@@ -72,7 +74,9 @@ def test_determinant_derivative_matches_finite_difference():
     expected = (
         np.linalg.det(point + step * direction) - np.linalg.det(point - step * direction)
     ) / (2 * step)
-    np.testing.assert_allclose(trace(derivative, A, H)(point, direction), expected, rtol=1e-8)
+    np.testing.assert_allclose(
+        uflx_jax_compiler.trace(derivative, A, H)(point, direction), expected, rtol=1e-8
+    )
 
 
 @pytest.mark.parametrize(
@@ -95,7 +99,7 @@ def test_determinant_jvp_and_gradient(point, cofactors):
     expr = determinant(A)
 
     def evaluate(matrix):
-        return trace(expr, A)(matrix)
+        return uflx_jax_compiler.trace(expr, A)(matrix)
 
     direction = np.arange(2, 2 + point.size, dtype=point.dtype).reshape(point.shape)
     grad = jax.jit(jax.grad(evaluate, holomorphic=complex_input))(point)
@@ -109,7 +113,7 @@ def test_determinant_gradient_derivative_at_a_singular_minor():
     expr = determinant(A)
 
     def evaluate(matrix):
-        return trace(expr, A)(matrix)
+        return uflx_jax_compiler.trace(expr, A)(matrix)
 
     # At diag(2t, 3, 0) the only nonzero cofactor is the final diagonal entry, 6t.
     point = np.diag([0.0, 3.0, 0.0])
@@ -122,7 +126,7 @@ def test_determinant_gradient_derivative_at_a_singular_minor():
 @pytest.mark.parametrize("scalar_type", ["real", "complex"])
 def test_small_inverse_under_vmap_and_ad(n, scalar_type):
     A = function(space("inverse-matrix", None, (n, n), scalar_type=scalar_type), "A")
-    kernel = trace(inverse(A), A)
+    kernel = uflx_jax_compiler.trace(inverse(A), A)
     rng = np.random.default_rng(15)
     matrix = rng.normal(size=(n, n)) + n * np.eye(n)
     direction = rng.normal(size=(n, n))
@@ -145,7 +149,7 @@ def test_small_inverse_under_vmap_and_ad(n, scalar_type):
 @pytest.mark.parametrize("n", [2, 3])
 def test_small_inverse_at_extreme_scales(n):
     A = function(space("scaled-matrix", None, (n, n), scalar_type="real"), "A")
-    kernel = jax.jit(jax.vmap(trace(inverse(A), A)))
+    kernel = jax.jit(jax.vmap(uflx_jax_compiler.trace(inverse(A), A)))
     # The inverse is representable even when a determinant overflows or underflows.
     scales = np.array([1e200, 1e-200])[:, None, None]
     matrix = (np.eye(n) + np.triu(np.ones((n, n))))[::-1]

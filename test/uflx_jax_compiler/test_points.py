@@ -9,6 +9,7 @@ import sys
 
 import numpy as np
 
+import uflx_jax_compiler
 from uflx._src.nodes import CellMap, Coordinate, Function, Gradient, PullBack
 from uflx._src.passes import integrals, pullbacks
 from uflx._src.passes.contracts import in_core_normal_form
@@ -21,7 +22,6 @@ from uflx.geometry import cell_map, domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_arithmetic
 from uflx.tensors import component_tensor, index, indexed
-from uflx_jax_compiler import trace
 
 from ..testutil import assert_clean, check_types, contains, keeps_static_type, table
 from ..uflx.spaces import space
@@ -179,7 +179,10 @@ def main(trials):
         else:
             has_function = contains(e, lambda n: isinstance(n, Function))
             bad["unlocated"] += has_function and not contains(out, stays_for_the_mesh_library)
-        before, after = trace(e, *ENV)(*ENV.values()), trace(out, *ENV)(*ENV.values())
+        before, after = (
+            uflx_jax_compiler.trace(e, *ENV)(*ENV.values()),
+            uflx_jax_compiler.trace(out, *ENV)(*ENV.values()),
+        )
         if not np.allclose(before, after, rtol=1e-4, atol=1e-5):
             bad["value"] += 1
             if bad["value"] <= 3:

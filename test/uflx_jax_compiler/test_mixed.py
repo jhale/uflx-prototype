@@ -8,6 +8,7 @@ import basix
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx._src.nodes import Conjugate
 from uflx._src.nodes.forms import entry_function
 from uflx._src.passes import applications, derivatives
@@ -19,7 +20,6 @@ from uflx.passes import apply_derivatives
 from uflx_basix.cells import cell
 from uflx_basix.spaces import local_space
 from uflx_extensions.complex_differentiation import complex_derivative_parts
-from uflx_jax_compiler import trace
 
 from ..testutil import ill_typed, keeps_static_type
 from ..uflx.spaces import space
@@ -41,7 +41,7 @@ def test_a_tuple_variable_moves_every_member_to_the_point():
     e = directional_derivative(multiply(u, p), (u, p), (a0, a1), (h0, h1))
     expected = ENV[h0] * ENV[a1] + ENV[a0] * ENV[h1]
     for f in (e, passes(e)):
-        assert np.isclose(trace(f, *ENV)(*ENV.values()), expected)
+        assert np.isclose(uflx_jax_compiler.trace(f, *ENV)(*ENV.values()), expected)
     assert not np.isclose(expected, ENV[h0] * ENV[p] + ENV[u] * ENV[h1])
 
 
@@ -55,8 +55,8 @@ def check(F, x, entry, values):
     out = passes(e)
     assert keeps_static_type(e, out)
     before, after = (
-        trace(e, *ENV)(*ENV.values(), values),
-        trace(out, *ENV)(*ENV.values(), values),
+        uflx_jax_compiler.trace(e, *ENV)(*ENV.values(), values),
+        uflx_jax_compiler.trace(out, *ENV)(*ENV.values(), values),
     )
     assert np.isclose(before, after, rtol=1e-6), (before, after)
     return after
@@ -91,7 +91,7 @@ def test_a_mixed_derivative_that_is_not_holomorphic():
 
 def test_a_constant_point_and_direction():
     e = directional_derivative(multiply(u, p), (u, p), (num(2), num(3)), (num(1), num(0)))
-    assert np.isclose(trace(passes(e), *ENV)(*ENV.values()), 3)
+    assert np.isclose(uflx_jax_compiler.trace(passes(e), *ENV)(*ENV.values()), 3)
 
 
 def test_mixed_scalar_variables_are_valid_but_a_mixed_product_slot_is_not():
@@ -99,7 +99,7 @@ def test_mixed_scalar_variables_are_valid_but_a_mixed_product_slot_is_not():
     d = directional_derivative(u * lam, (u, lam), (u, lam), (v, mu))
     data = {u: 0.3 + 0.2j, lam: 0.4, v: 0.5 - 0.1j, mu: -0.2}
     expected = data[v] * data[lam] + data[u] * data[mu]
-    assert np.isclose(trace(passes(d), *data)(*data.values()), expected)
+    assert np.isclose(uflx_jax_compiler.trace(passes(d), *data)(*data.values()), expected)
     with pytest.raises(ValueError, match="one scalar type"):
         form(d, ((v, mu),))
 
@@ -127,7 +127,9 @@ def test_nested_velocity_pressure_control_residual_and_jacobian():
     def assemble(x, v, dx):
         residual = form(directional_derivative(energy, x, v), (v,))
         jacobian = form(directional_derivative(residual, x, dx), (dx,))
-        return tuple(trace(f, energy, *state)(rule, *dofs) for f in (residual, jacobian))
+        return tuple(
+            uflx_jax_compiler.trace(f, energy, *state)(rule, *dofs) for f in (residual, jacobian)
+        )
 
     def group(values):
         return (values[0], values[1]), values[2]
@@ -157,4 +159,6 @@ def test_nested_complex_derivative_and_symbolic_lowering():
     for part, value in zip((linear, antilinear), expected, strict=True):
         for body in (part, apply_derivatives(part)):
             operands = (*directions[0], directions[1])
-            np.testing.assert_allclose(trace(body, *operands)(*step[0], step[1]), value, atol=1e-6)
+            np.testing.assert_allclose(
+                uflx_jax_compiler.trace(body, *operands)(*step[0], step[1]), value, atol=1e-6
+            )

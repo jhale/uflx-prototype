@@ -11,12 +11,12 @@ The four independent data are endpoint values and physical endpoint slopes.
 
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.algorithms import replace
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
-from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 
@@ -33,7 +33,7 @@ DATA = {length: 1.7, s: 0.37, q0: 0.4, m0: -0.2, q1: 1.3, m1: 0.8}
 
 
 def scalar(e, data):
-    return trace(e, *data)(*data.values())
+    return uflx_jax_compiler.trace(e, *data)(*data.values())
 
 
 def test_reconstruction_preserves_physical_endpoint_dofs():

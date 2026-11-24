@@ -7,10 +7,10 @@
 
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.forms import function
 from uflx.geometry import cell_map, pull_back, side_map
 from uflx.passes import expand_pull_backs
-from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 from ..uflx_basix.meshes import side_data
@@ -30,5 +30,5 @@ def test_side_map_resolves_both_parent_slots_without_indices():
         assert mapped.domain is S
         out = expand_pull_backs(pull_back(mapped, cell_map(S, 0)))
         assert out is pull_back(pull_back(f, cell_map(T, slot)), A)
-        value = trace(A.parameterisation, F)(np.array([0.4]))
+        value = uflx_jax_compiler.trace(A.parameterisation, F)(np.array([0.4]))
         np.testing.assert_allclose(value, expected)

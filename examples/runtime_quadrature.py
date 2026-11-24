@@ -16,6 +16,7 @@ import basix
 import jax
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import create_mesh, euclidean_space, push_forward
@@ -24,7 +25,7 @@ from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
-from uflx_jax_compiler import basis_tables, trace
+from uflx_jax_compiler import basis_tables
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -47,7 +48,7 @@ weights_input = runtime_array("weights", (n,))
 weighted_sum = apply_quadrature(a_ref, points_input, weights_input)
 a = form(weighted_sum, (v_ref, u_ref))
 tables = basis_tables(a)
-stiffness = jax.jit(trace(a, x, points_input, weights_input, *tables))
+stiffness = jax.jit(uflx_jax_compiler.trace(a, x, points_input, weights_input, *tables))
 
 # %% [markdown]
 # The stiffness integrand is quadratic on an affine triangle, so both rules
@@ -55,7 +56,7 @@ stiffness = jax.jit(trace(a, x, points_input, weights_input, *tables))
 
 # %%
 fixed_sum = apply_quadrature(a_ref, *basix.make_quadrature(triangle, degree=2))
-expected = trace(form(fixed_sum, (v_ref, u_ref)), x)(vertices)
+expected = uflx_jax_compiler.trace(form(fixed_sum, (v_ref, u_ref)), x)(vertices)
 
 for degree in (2, 4):
     points, weights = basix.make_quadrature(triangle, degree)

@@ -7,13 +7,13 @@
 
 import numpy as np
 
+import uflx_jax_compiler
 from uflx._src.algorithms.traversal import everywhere
 from uflx._src.nodes import Curl, Divergence, PullBack
 from uflx.calculus import coordinate, curl, divergence
 from uflx.nodes import EuclideanSpace
 from uflx.passes import apply_gradients
 from uflx.tensors import tensor
-from uflx_jax_compiler import trace
 
 
 def test_ordinary_divergence_and_curl_expand_without_any_pullback():
@@ -26,5 +26,5 @@ def test_ordinary_divergence_and_curl_expand_without_any_pullback():
     for original, expected in cases:
         out = apply_gradients(original)
         assert everywhere(out, lambda node: not isinstance(node, Divergence | Curl | PullBack))
-        actual = trace(out, P)(np.array([0.3, 0.7]))
+        actual = uflx_jax_compiler.trace(out, P)(np.array([0.3, 0.7]))
         np.testing.assert_allclose(actual, expected)

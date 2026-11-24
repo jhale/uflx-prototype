@@ -10,6 +10,7 @@ import sys
 
 import numpy as np
 
+import uflx_jax_compiler
 from uflx._src.passes import applications, derivatives
 from uflx._src.passes.applications import applications_expanded
 from uflx._src.passes.derivatives import _derivatives_complete
@@ -29,7 +30,6 @@ from uflx.arithmetic import (
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function
 from uflx.tensors import index, index_sum, indexed, tensor
-from uflx_jax_compiler import trace
 
 from ..testutil import assert_clean, check_types, form_with_fixed_argument
 from ..uflx.spaces import space
@@ -137,8 +137,8 @@ def main(trials):
         check_types(counts, e, out1, out2)
         vals = tuple(0.3 * complex(*rng.normal(size=2)) for _ in range(len(e.argument_spaces)))
         before, after = (
-            trace(e, *env)(*env.values(), *vals),
-            trace(out2, *env)(*env.values(), *vals),
+            uflx_jax_compiler.trace(e, *env)(*env.values(), *vals),
+            uflx_jax_compiler.trace(out2, *env)(*env.values(), *vals),
         )
         if not np.allclose(before, after, rtol=1e-3, atol=1e-4):
             counts["changed"] += 1

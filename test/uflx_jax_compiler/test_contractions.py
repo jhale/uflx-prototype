@@ -9,6 +9,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.arithmetic import conditional, less_than, num
 from uflx.calculus import coordinate, gradient
 from uflx.forms import form, function
@@ -16,7 +17,6 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace, GatheredIndex
 from uflx.tensors import broadcast_to, component_tensor, index, index_sum, tensor
 from uflx_extensions.runtime_arrays import RuntimeArray, RuntimeExtent
-from uflx_jax_compiler import trace
 
 from ..uflx.library import IndexTable
 from ..uflx.spaces import space
@@ -29,15 +29,17 @@ def test_contraction_retains_free_axes_in_order_and_differentiates():
     expr = index_sum(A[i, j] * B[k, j] * b[j], (j,))
     a, m, v = jnp.arange(6.0).reshape(2, 3), jnp.arange(12.0).reshape(4, 3), jnp.arange(3.0)
     expected = jnp.einsum("ij,kj,j->ik", a, m, v)
-    np.testing.assert_allclose(trace(expr, A, B, b)(a, m, v), expected)
-    np.testing.assert_allclose(trace(expr, A, B, b, k)(a, m, v, 2), expected[:, 2])
+    np.testing.assert_allclose(uflx_jax_compiler.trace(expr, A, B, b)(a, m, v), expected)
+    np.testing.assert_allclose(
+        uflx_jax_compiler.trace(expr, A, B, b, k)(a, m, v, 2), expected[:, 2]
+    )
     # Rebinding i as a tensor axis shadows the caller's selection.
     np.testing.assert_allclose(
-        trace(component_tensor(expr, (i,)), A, B, b, i)(a, m, v, 1), expected.T
+        uflx_jax_compiler.trace(component_tensor(expr, (i,)), A, B, b, i)(a, m, v, 1), expected.T
     )
 
     def evaluate(v):
-        return trace(expr, A, B, b)(a, m, v)
+        return uflx_jax_compiler.trace(expr, A, B, b)(a, m, v)
 
     np.testing.assert_allclose(jax.jit(jax.jacrev(evaluate))(v), jnp.einsum("ij,kj->ikj", a, m))
 
@@ -51,10 +53,10 @@ def test_value_axes_follow_free_axes_during_broadcasts_and_gathers():
     expected = np.empty((3, 2, 4, 2))
     for y, x in np.ndindex(3, 2):
         expected[y, x] = (y + 3) * np.array([x + 1, y + 3])
-    np.testing.assert_array_equal(trace(scaled, a, b)(first, second), expected)
+    np.testing.assert_array_equal(uflx_jax_compiler.trace(scaled, a, b)(first, second), expected)
     reversed_i = GatheredIndex(IndexTable((1, 0), 2), (i,))
     np.testing.assert_array_equal(
-        trace(pair[reversed_i], a, b)(first, second), [[3, 4, 5], [2, 2, 2]]
+        uflx_jax_compiler.trace(pair[reversed_i], a, b)(first, second), [[3, 4, 5], [2, 2, 2]]
     )
 
 
@@ -63,8 +65,8 @@ def test_empty_runtime_contraction_does_not_read_the_body():
     n = RuntimeExtent("n")
     a = RuntimeArray("a", (3, n))
     expr = a[i, j] * a[i, j]
-    np.testing.assert_array_equal(trace(index_sum(expr, (j,)), n)(0), np.zeros(3))
-    assert trace(component_tensor(expr, (j, i)), n)(0).shape == (0, 3)
+    np.testing.assert_array_equal(uflx_jax_compiler.trace(index_sum(expr, (j,)), n)(0), np.zeros(3))
+    assert uflx_jax_compiler.trace(component_tensor(expr, (j, i)), n)(0).shape == (0, 3)
 
 
 def test_family_of_pullbacks_and_lazy_conditionals():
@@ -75,15 +77,17 @@ def test_family_of_pullbacks_and_lazy_conditionals():
     x = coordinate(line)[0]
     expr = pull_back(gradient(x * x, line), points)
     values = [-1.0, 2.0, 3.0]
-    np.testing.assert_allclose(trace(expr, a)(values), [[-2.0], [4.0], [6.0]])
+    np.testing.assert_allclose(uflx_jax_compiler.trace(expr, a)(values), [[-2.0], [4.0], [6.0]])
     missing = RuntimeArray("unused", ())
     selected = conditional(less_than(a[i], num(10)), a[i], missing)
-    np.testing.assert_array_equal(trace(selected, a)(values), [-1.0, 2.0, 3.0])
+    np.testing.assert_array_equal(uflx_jax_compiler.trace(selected, a)(values), [-1.0, 2.0, 3.0])
     field = conditional(less_than(x, num(10)), x, missing)
-    np.testing.assert_array_equal(trace(pull_back(field, points), a)(values), [-1.0, 2.0, 3.0])
+    np.testing.assert_array_equal(
+        uflx_jax_compiler.trace(pull_back(field, points), a)(values), [-1.0, 2.0, 3.0]
+    )
     u = function(space("field", line, scalar_type="real"), "u")
     np.testing.assert_array_equal(
-        trace(pull_back(u, points), a, u)(values, field), [-1.0, 2.0, 3.0]
+        uflx_jax_compiler.trace(pull_back(u, points), a, u)(values, field), [-1.0, 2.0, 3.0]
     )
 
 
@@ -98,7 +102,7 @@ def test_indexed_pullback_preserves_shared_axes_under_jit_and_ad():
     locations, weights = jnp.arange(6.0).reshape(2, 3), jnp.arange(12.0).reshape(4, 3)
 
     def sample(locations):
-        return trace(expr, a, b)(locations, weights)
+        return uflx_jax_compiler.trace(expr, a, b)(locations, weights)
 
     # Field axes (k, j), then the additional map axis i, then the two components.
     w, p = weights[:, :, None], locations.T[None, :, :]
@@ -106,7 +110,7 @@ def test_indexed_pullback_preserves_shared_axes_under_jit_and_ad():
     np.testing.assert_allclose(jax.jit(sample)(locations), expected)
     derivative = jax.grad(lambda a: sample(a).sum())(locations)
     np.testing.assert_allclose(derivative, jnp.broadcast_to((weights + 1).sum(axis=0), (2, 3)))
-    partial = trace(expr, a, b, j)(locations, weights, 1)
+    partial = uflx_jax_compiler.trace(expr, a, b, j)(locations, weights, 1)
     np.testing.assert_allclose(partial, expected[:, 1])
 
 
@@ -114,7 +118,7 @@ def test_real_contraction_of_integer_storage():
     i = index("i")
     a = RuntimeArray("a", (3,))
     values = np.full(3, 8, dtype=np.int8)
-    assert trace(index_sum(a[i] * a[i], (i,)), a)(values) == 192.0
+    assert uflx_jax_compiler.trace(index_sum(a[i] * a[i], (i,)), a)(values) == 192.0
 
 
 def test_contracted_forms_receive_their_own_slots():
@@ -124,4 +128,4 @@ def test_contracted_forms_receive_their_own_slots():
     a = RuntimeArray("weights", (3,))
     left, right = form(a[i] * u, (u,)), form(v, (v,))
     total = index_sum(left * right, (i,))
-    assert trace(total, a)([1.0, 2.0, 3.0], 2.0, 5.0) == 60.0
+    assert uflx_jax_compiler.trace(total, a)([1.0, 2.0, 3.0], 2.0, 5.0) == 60.0

@@ -10,6 +10,7 @@ import basix
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx._src.passes import integrals
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx._src.passes.lowering import lower_spatial
@@ -21,7 +22,6 @@ from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell
 from uflx_basix.interpolation import interpolate
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
 
 from ..testutil import table
 from ..uflx.inclusions import affine_map, reference_normal
@@ -41,7 +41,7 @@ from .quadrature import integrate_at
 
 def value(e, P=None, X=()):
     points = {P: X} if P is not None else {}
-    return np.real(trace(e, *points)(*points.values()))
+    return np.real(uflx_jax_compiler.trace(e, *points)(*points.values()))
 
 
 def test_interpolation_uses_the_element_sampling_points():
@@ -50,7 +50,7 @@ def test_interpolation_uses_the_element_sampling_points():
     V = local_space(mesh.topology, P1)
     x = coordinate(mesh)[0]
     interpolant = interpolate(x * x, V, cell=mesh[0])
-    at = trace(interpolant, mesh.coordinate_function, mesh)
+    at = uflx_jax_compiler.trace(interpolant, mesh.coordinate_function, mesh)
     assert at([[0, 0], [2, 0], [0, 1]], (0.5, 0.5)) == pytest.approx(1.0)
 
 
@@ -197,7 +197,9 @@ def test_custom_element_supplies_its_own_interpolation_functional():
     assert left is not right
     x = coordinate(mesh)[0]
     for V, expected in ((left, 1.5), (right, 2.5)):
-        at = trace(interpolate(x, V, cell=mesh[0]), mesh.coordinate_function, mesh)
+        at = uflx_jax_compiler.trace(
+            interpolate(x, V, cell=mesh[0]), mesh.coordinate_function, mesh
+        )
         assert at([[1.0], [3.0]], (2.0,)) == pytest.approx(expected)
 
 
@@ -211,5 +213,5 @@ def test_oracle_tabulates_each_custom_elements_own_basis():
         u = function(V, "u")
         weights = np.array([0.0, 1.0])
         expected = element.tabulate(0, point)[0, 0, :, 0] @ weights
-        actual = trace(u, u, V.domain)(weights, point[0])
+        actual = uflx_jax_compiler.trace(u, u, V.domain)(weights, point[0])
         assert actual == pytest.approx(expected, abs=1e-15, rel=0)

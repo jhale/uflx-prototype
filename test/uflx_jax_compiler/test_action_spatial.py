@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx._src.nodes import Apply
 from uflx._src.passes.contracts import core_normal_form
 from uflx._src.passes.lowering import lower_spatial
@@ -17,13 +18,12 @@ from uflx.calculus import gradient
 from uflx.forms import apply
 from uflx.geometry import pull_back
 from uflx.passes import apply_gradients, expand_pull_backs, lower
-from uflx_jax_compiler import trace
 
 from ..uflx_basix.test_action_spatial import setup
 
 
 def value(e, domain, point):
-    return np.asarray(trace(e, domain)(np.array([point]))).real
+    return np.asarray(uflx_jax_compiler.trace(e, domain)(np.array([point]))).real
 
 
 def test_pullback_keeps_the_original_field_argument_and_value():

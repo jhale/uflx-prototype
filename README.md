@@ -125,6 +125,7 @@ import basix
 import jax
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import create_mesh, euclidean_space, push_forward
@@ -132,7 +133,6 @@ from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
 
 # A linear (P1) coordinate map places the reference triangle in the physical plane.
 triangle = basix.CellType.triangle
@@ -159,10 +159,10 @@ points, weights = rule
 
 # Fix the load rule on the reference integral.
 L = form(apply_quadrature(load_integral, points, weights), (v_ref,))
-load = jax.jit(trace(L, x))
+load = jax.jit(uflx_jax_compiler.trace(L, x))
 
 a = form(apply_quadrature(stiffness_integral, points, weights), (v_ref, u_ref))
-stiffness = jax.jit(trace(a, x))
+stiffness = jax.jit(uflx_jax_compiler.trace(a, x))
 
 vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])
 b = load(vertices)

@@ -21,6 +21,7 @@ import basix
 import jax
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.arithmetic import num
 from uflx.calculus import gradient, integral
 from uflx.forms import function
@@ -30,7 +31,6 @@ from uflx_basix.cells import topology
 from uflx_basix.interpolation import interpolate
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -62,11 +62,11 @@ energy_ref = lower(shear_energy)
 # On an affine triangle the reduced shear is affine, so degree 2 integrates its energy exactly.
 rule = basix.make_quadrature(triangle, degree=2)
 energy_quadrature = apply_quadrature(energy_ref, *rule)
-cell_energy = jax.jit(trace(energy_quadrature, x_ref, w_ref, theta_ref))
+cell_energy = jax.jit(uflx_jax_compiler.trace(energy_quadrature, x_ref, w_ref, theta_ref))
 
 cell = mesh[0]
 shear_ref = lower(pull_back(reduced_shear, cell))
-shear_at = jax.jit(trace(shear_ref, x_ref, w_ref, theta_ref, cell.reference_cell))
+shear_at = jax.jit(uflx_jax_compiler.trace(shear_ref, x_ref, w_ref, theta_ref, cell.reference_cell))
 
 
 # The cell map is (r, s) -> (2r + 2s, s). Supply physical nodal values

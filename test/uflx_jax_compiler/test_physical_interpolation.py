@@ -10,6 +10,7 @@ import jax
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx.arithmetic import logarithm, num
 from uflx.calculus import coordinate
 from uflx.forms import function
@@ -20,7 +21,6 @@ from uflx.tensors import tensor
 from uflx_basix.cells import topology
 from uflx_basix.interpolation import interpolate
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
 
 
 @pytest.mark.parametrize(
@@ -59,7 +59,7 @@ def test_curved_reversed_triangle_matches_basix(family):
     reference = dofs @ E.tabulate(0, point)[0, 0]
     expected = E.push_forward(reference[None, None, :], *geometry(point)).reshape(V.value_shape)
     value = lower(pull_back(interpolant, mesh[0]))
-    actual = jax.jit(trace(value, x, u, K))(coords, coeffs.ravel(), point[0])
+    actual = jax.jit(uflx_jax_compiler.trace(value, x, u, K))(coords, coeffs.ravel(), point[0])
     np.testing.assert_allclose(actual, expected, atol=1e-11)
 
 
@@ -78,7 +78,7 @@ def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
     for slot, expected in enumerate((2.0, 2.5**2)):
         result = interpolate(X * X, V, cell=mesh[slot])
         value = lower(pull_back(result, mesh[slot]))
-        np.testing.assert_allclose(trace(value, x, K)(coords, [0.5]), expected)
+        np.testing.assert_allclose(uflx_jax_compiler.trace(value, x, K)(coords, [0.5]), expected)
         cell = mesh[slot]
         on_cell = V.on_cell(cell)
         assert on_cell is local_space(cell, V.element(slot))
@@ -90,7 +90,9 @@ def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
             interpolate(restricted, local_space(K, V.element(slot))),
         ):
             assert local.domain is K
-            np.testing.assert_allclose(trace(lower(local), x, K)(coords, [0.5]), expected)
+            np.testing.assert_allclose(
+                uflx_jax_compiler.trace(lower(local), x, K)(coords, [0.5]), expected
+            )
 
     with pytest.raises(ValueError, match="different cells"):
         interpolate(pull_back(field, mesh[0]), V.on_cell(mesh[1]))
@@ -118,7 +120,7 @@ def test_cell_bound_rotation_supplies_the_piece_on_a_two_triangle_mesh():
     X = 2 * (r + s)
     nodal_values = np.column_stack((X**2 - s, X))
     for expr in (result, lower(result)):
-        value = jax.jit(trace(expr, x, theta, cell.reference_cell))
+        value = jax.jit(uflx_jax_compiler.trace(expr, x, theta, cell.reference_cell))
         np.testing.assert_allclose(value(coords, nodal_values, [0.25, 0.5]), [0.5, 1.5])
 
 
@@ -136,7 +138,7 @@ def test_interpolation_only_samples_the_selected_cell():
     for cell, f in zip(mesh, (logarithm(X), logarithm(-X)), strict=True):
         restriction = interpolate(f, V.on_cell(cell))
         for expression in (restriction, lower(restriction)):
-            midpoint = jax.jit(trace(expression, x, K))(coords, np.array([0.5]))
+            midpoint = jax.jit(uflx_jax_compiler.trace(expression, x, K))(coords, np.array([0.5]))
             np.testing.assert_allclose(midpoint, np.log(2) / 2)
 
 
@@ -154,7 +156,9 @@ def test_constant_ambient_vector_interpolated_into_surface_nedelec():
     # The tangent plane is spanned by (1, 0, 0) and (0, 1, 1).
     coords = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 1.0]])
     value = lower(pull_back(result, mesh[0]))
-    np.testing.assert_allclose(trace(value, x, K)(coords, [0.2, 0.3]), [1, 3, 3], atol=1e-12)
+    np.testing.assert_allclose(
+        uflx_jax_compiler.trace(value, x, K)(coords, [0.2, 0.3]), [1, 3, 3], atol=1e-12
+    )
 
 
 def test_blocked_density_dofs_on_a_curved_interval():
@@ -188,4 +192,4 @@ def test_blocked_density_dofs_on_a_curved_interval():
     coordinates = 2 - r - r**2
     t = 0.25
     expected = (1 - t) * np.array([2.0, 4.0]) / (1 + 2 * t)
-    np.testing.assert_allclose(trace(result, x, K)(coordinates, [t]), expected)
+    np.testing.assert_allclose(uflx_jax_compiler.trace(result, x, K)(coordinates, [t]), expected)

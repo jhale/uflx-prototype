@@ -6,6 +6,7 @@
 
 import numpy as np
 
+import uflx_jax_compiler
 from uflx._src.algorithms.substitution import substitute
 from uflx._src.passes import derivatives
 from uflx._src.passes.contracts import in_core_normal_form
@@ -13,7 +14,6 @@ from uflx.arithmetic import multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
-from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 
@@ -37,7 +37,7 @@ A, B, T = RNG.normal(size=(2, 3)), RNG.normal(size=(3, 2)), RNG.normal(size=(2, 
 
 def value(e, ienv=None):
     ienv = {} if ienv is None else ienv
-    return np.real(np.asarray(trace(e, *ienv)(*ienv.values())))
+    return np.real(np.asarray(uflx_jax_compiler.trace(e, *ienv)(*ienv.values())))
 
 
 def test_one_index_per_axis_retains_extents_in_order():
@@ -56,8 +56,14 @@ def test_a_directional_derivative_through_index_tuples():
     e = directional_derivative(f, x, x, h)
     out = derivatives.apply_derivatives(e)
     env = {x: 0.7, h: 0.3}
-    assert np.isclose(trace(e, *env)(*env.values()), trace(out, *env)(*env.values()), rtol=1e-6)
-    assert np.isclose(trace(out, *env)(*env.values()), 4 * 0.7**3 * 0.3 * np.sum(T * T))
+    assert np.isclose(
+        uflx_jax_compiler.trace(e, *env)(*env.values()),
+        uflx_jax_compiler.trace(out, *env)(*env.values()),
+        rtol=1e-6,
+    )
+    assert np.isclose(
+        uflx_jax_compiler.trace(out, *env)(*env.values()), 4 * 0.7**3 * 0.3 * np.sum(T * T)
+    )
 
 
 def test_substitution_renames_a_bound_index_tuple():
@@ -83,4 +89,6 @@ def test_a_gradient_of_a_tensor_built_with_index_tuples():
     out = gradients.apply_gradients(e)
     assert in_core_normal_form(out) and not in_core_normal_form(e)
     rule = K.quadrature(1)
-    assert np.isclose(trace(e, e)(rule), trace(out, out)(rule), rtol=1e-6)
+    assert np.isclose(
+        uflx_jax_compiler.trace(e, e)(rule), uflx_jax_compiler.trace(out, out)(rule), rtol=1e-6
+    )

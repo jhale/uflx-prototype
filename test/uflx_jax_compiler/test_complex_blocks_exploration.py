@@ -8,12 +8,12 @@
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx.arithmetic import conjugate, num, real_part
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.passes import apply_derivatives
 from uflx_extensions.complex_differentiation import complex_derivative_parts
-from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 
@@ -24,7 +24,7 @@ r, k, b = (function(R, name) for name in ("r", "k", "b"))
 
 
 def value(f, data):
-    return trace(apply_derivatives(f), *data)(*data.values())
+    return uflx_jax_compiler.trace(apply_derivatives(f), *data)(*data.values())
 
 
 @pytest.mark.parametrize("real_output", [False, True])

@@ -26,12 +26,12 @@ import basix
 import jax
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative, gradient, integral
 from uflx.forms import apply, form, function
 from uflx_basix.cells import cell
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
 
 interval = cell(basix.CellType.interval)
 
@@ -85,11 +85,13 @@ hessian_action = directional_derivative(reduced_gradient, fields, variation_h)  
 
 # Degree 5 integrates a P1 coefficient times two P2 fields exactly.
 rule = basix.make_quadrature(interval.cell_type, degree=5)
-# After the expression, trace takes an input for each quadrature rule and coefficient field.
-objective_kernel = jax.jit(trace(J, J, u))
-residual_kernel = jax.jit(trace(F, state_integral, u, m))
-gradient_kernel = jax.jit(trace(reduced_gradient, J, state_integral, *fields))
-hessian_kernel = jax.jit(trace(hessian_action, J, state_integral, *fields, *variation_h))
+# The inputs after the expression identify each quadrature rule and coefficient field.
+objective_kernel = jax.jit(uflx_jax_compiler.trace(J, J, u))
+residual_kernel = jax.jit(uflx_jax_compiler.trace(F, state_integral, u, m))
+gradient_kernel = jax.jit(uflx_jax_compiler.trace(reduced_gradient, J, state_integral, *fields))
+hessian_kernel = jax.jit(
+    uflx_jax_compiler.trace(hessian_action, J, state_integral, *fields, *variation_h)
+)
 
 # A constant control m0 gives constant state and adjoint solutions. For h = 1
 # their tangents follow by differentiating those values with respect to m0.
@@ -143,8 +145,8 @@ newton_step = (
 )
 kkt_jacobian = form(directional_derivative(kkt_residual, fields, newton_step), (newton_step,))
 
-kkt_residual_kernel = jax.jit(trace(kkt_residual, J, state_integral, *fields))
-kkt_jacobian_kernel = jax.jit(trace(kkt_jacobian, J, state_integral, *fields))
+kkt_residual_kernel = jax.jit(uflx_jax_compiler.trace(kkt_residual, J, state_integral, *fields))
+kkt_jacobian_kernel = jax.jit(uflx_jax_compiler.trace(kkt_jacobian, J, state_integral, *fields))
 
 # The Newton equation is K delta = -R. Both axes use P2 state, P1 control, P2 adjoint order.
 newton_matrix = kkt_jacobian_kernel(rule, rule, *values)
@@ -168,7 +170,9 @@ gauss_newton = form(
     tracking_mass - apply(pde_step, (q,)) - apply(pde_test, (delta_p,)),
     (kkt_test, newton_step),
 )
-gauss_newton_kernel = jax.jit(trace(gauss_newton, tracking_mass, state_integral, u, m))
+gauss_newton_kernel = jax.jit(
+    uflx_jax_compiler.trace(gauss_newton, tracking_mass, state_integral, u, m)
+)
 gauss_newton_matrix = gauss_newton_kernel(rule, rule, u_values, m_values)
 
 # The step uses newton_rhs. Only the two blocks from differentiating m * u twice drop out.

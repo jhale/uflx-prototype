@@ -16,6 +16,7 @@ import basix
 import jax
 import jax.numpy as jnp
 
+import uflx_jax_compiler
 from uflx.algorithms import substitute_values
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
@@ -25,7 +26,6 @@ from uflx.tensors import inverse
 from uflx_basix.cells import topology
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array
-from uflx_jax_compiler import trace
 
 triangle = basix.CellType.triangle
 cell_topology = topology(triangle)
@@ -46,8 +46,8 @@ stiffness_integral = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh)
 # %%
 inverse_jacobian = inverse(jacobian(cell_map))
 integration_density = density(cell_map)
-evaluate_inverse_jacobian = trace(inverse_jacobian, x, reference_cell)
-evaluate_density = trace(integration_density, x, reference_cell)
+evaluate_inverse_jacobian = uflx_jax_compiler.trace(inverse_jacobian, x, reference_cell)
+evaluate_density = uflx_jax_compiler.trace(integration_density, x, reference_cell)
 
 
 def geometry_at_point(coordinates, point):
@@ -63,7 +63,7 @@ integrand = substitute_values(
     stiffness_integral.expression,
     {inverse_jacobian: inverse_jacobian_input, integration_density: density_input},
 )
-evaluate_integrand = trace(
+evaluate_integrand = uflx_jax_compiler.trace(
     form(integrand, (v_ref, u_ref)), reference_cell, inverse_jacobian_input, density_input
 )
 

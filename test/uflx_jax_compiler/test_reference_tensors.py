@@ -10,6 +10,7 @@ import jax
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx.arithmetic import logarithm, num
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
@@ -19,7 +20,7 @@ from uflx.passes import lower
 from uflx_basix.cells import cell, topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import _finite_elements, _reference, trace
+from uflx_jax_compiler import _finite_elements, _reference
 
 
 def _constant_shapes(kernel, *data):
@@ -35,8 +36,8 @@ def test_shared_reference_form_is_computed_once():
     expr = load
     for _ in range(6):
         expr = expr + expr
-    kernel = trace(expr)
-    single = jax.make_jaxpr(trace(load))().jaxpr.eqns
+    kernel = uflx_jax_compiler.trace(expr)
+    single = jax.make_jaxpr(uflx_jax_compiler.trace(load))().jaxpr.eqns
     combined = jax.make_jaxpr(kernel)().jaxpr.eqns
     assert len(combined) == len(single) + 6
     np.testing.assert_allclose(jax.jit(kernel)(), [32.0, 32.0])
@@ -55,8 +56,8 @@ def test_affine_reference_matrices(cell_type, symmetric):
     gv, gu = (gradient(push_forward(f, mesh, V.law), mesh) for f in (v, u))
     a = lower(integral(gv @ gu if symmetric else gv[0] * gu[1], mesh))
     rule = basix.make_quadrature(cell_type, 2)
-    kernel = trace(form(apply_quadrature(a, *rule), (v, u)), x)
-    ordinary = trace(form(a, (v, u)), x, a)
+    kernel = uflx_jax_compiler.trace(form(apply_quadrature(a, *rule), (v, u)), x)
+    ordinary = uflx_jax_compiler.trace(form(a, (v, u)), x, a)
 
     coord = p1.points.copy()
     coord[:, 0] += 0.15 * coord[:, 1]
@@ -87,8 +88,8 @@ def test_nonlinear_coefficient_with_two_rules(degree):
     rule = (np.array([[0.12, 0.23], [0.41, 0.17]]), np.array([0.31, 0.29]))
     user_rule = basix.make_quadrature(K.cell_type, 4)
     a = apply_quadrature(mass, *rule)
-    combined = trace(form(a + weight, (v, u)), c, weight)
-    ordinary = trace(form(mass + weight, (v, u)), c, mass, weight)
+    combined = uflx_jax_compiler.trace(form(a + weight, (v, u)), c, weight)
+    ordinary = uflx_jax_compiler.trace(form(mass + weight, (v, u)), c, mass, weight)
     dofs = np.linspace(0.5, 1.3, E.dim)
     np.testing.assert_allclose(
         jax.jit(combined)(dofs, user_rule),
@@ -116,8 +117,8 @@ def test_reference_table_budget_and_precision(monkeypatch):
     rule = basix.make_quadrature(K.cell_type, 2)
     integral_v = integral(v, K)
     L = form(apply_quadrature(integral_v, *rule), (v,))
-    kernel = trace(L)
-    ordinary = trace(form(integral_v, (v,)), integral_v)
+    kernel = uflx_jax_compiler.trace(L)
+    ordinary = uflx_jax_compiler.trace(form(integral_v, (v,)), integral_v)
 
     def traced_basis(*args):
         pytest.fail("Fixed scalar basis values should be tabulated by Basix at quadrature points")
@@ -132,7 +133,7 @@ def test_reference_table_budget_and_precision(monkeypatch):
         np.testing.assert_allclose(result, expected, atol=1e-7 if not x64 else 1e-14)
 
     monkeypatch.setattr(_reference, "_MAX_ENTRIES", 1)
-    limited = trace(L)
+    limited = uflx_jax_compiler.trace(L)
     assert (1, p2.dim) not in _constant_shapes(limited)
     np.testing.assert_allclose(limited(), ordinary(rule), atol=1e-14)
 
@@ -145,6 +146,6 @@ def test_explicit_point_measure_in_a_sampled_form():
     sampled = apply_quadrature(integral(v, K), *rule)
     point_integral = sampled.expression.second
     L = form(sampled, (v,))
-    reweighted = trace(L, (point_integral, point_integral.integration_domain))
+    reweighted = uflx_jax_compiler.trace(L, (point_integral, point_integral.integration_domain))
     actual = reweighted((np.empty((2, 0)), [0.2, 0.3]))
-    np.testing.assert_allclose(actual, 0.5 * trace(L)(), atol=1e-14)
+    np.testing.assert_allclose(actual, 0.5 * uflx_jax_compiler.trace(L)(), atol=1e-14)

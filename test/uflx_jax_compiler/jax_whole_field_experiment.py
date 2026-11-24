@@ -17,6 +17,7 @@ import numpy as np
 import pytest
 from jax.tree_util import Partial
 
+import uflx_jax_compiler
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, directional_derivative
 from uflx.forms import apply, form, function
@@ -27,7 +28,6 @@ from uflx_extensions.external_operators import (
     OutputType,
     external_operator,
 )
-from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 from ..uflx_basix.integrals import D
@@ -178,7 +178,7 @@ def test_whole_field_against_oracle():
             for expr in (value, first, second):
                 result = evaluate(expr, env, library_bindings(saved))
                 assert float(result) == pytest.approx(
-                    trace(expr, u, h, a, *library)(
+                    uflx_jax_compiler.trace(expr, u, h, a, *library)(
                         num(2 * cell) + x, num(1) + x, 2.0, *library.values()
                     )
                 )
@@ -209,7 +209,11 @@ def test_stationary_scalar_operand_without_a_derivative_binding():
     expr = external_operator(Energy(), (a * a, num(2)))
     derivative = directional_derivative(expr, a, num(0), num(1))
     library = {Energy(): operator.mul}
-    assert trace(derivative, *library)(*library.values()) == evaluate(derivative, {}, library) == 0
+    assert (
+        uflx_jax_compiler.trace(derivative, *library)(*library.values())
+        == evaluate(derivative, {}, library)
+        == 0
+    )
     active = directional_derivative(expr, a, num(1), num(1))
     with pytest.raises(TypeError, match="missing evaluation for derivative action"):
         evaluate(active, {}, library)

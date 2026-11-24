@@ -7,6 +7,7 @@
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx._src.nodes import AbstractFunctionSpace, Apply, Conditional
 from uflx.arithmetic import conditional, less_than, num, square_root
 from uflx.calculus import coordinate, directional_derivative, gradient
@@ -16,7 +17,6 @@ from uflx.nodes import Boolean, EuclideanSpace
 from uflx.passes import expand_applications, lower
 from uflx.tensors import component_tensor, index, index_sum, tensor
 from uflx_extensions.external_operators import apply_external_derivatives, external_operator
-from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 from ..uflx_extensions.operations import Energy, EnergyTangent
@@ -24,7 +24,7 @@ from ..uflx_extensions.operations import Energy, EnergyTangent
 
 def value(expression, env=None, indices=None):
     bindings = (env or {}) | (indices or {})
-    return trace(expression, *bindings)(*bindings.values())
+    return uflx_jax_compiler.trace(expression, *bindings)(*bindings.values())
 
 
 def test_boolean_values_and_lazy_selection():
@@ -65,7 +65,7 @@ def test_conditional_derivatives_and_pullback():
     f = conditional(less_than(x, num(0)), x * x, x)
     g = lower(gradient(f, P))
     for point, expected in [(-2.0, -4.0), (2.0, 1.0)]:
-        assert np.allclose(trace(g, P)([point]), [expected])
+        assert np.allclose(uflx_jax_compiler.trace(g, P)([point]), [expected])
     phi = domain_map(P, tensor((num(-2),)), P)
     assert value(lower(pull_back(f, phi))) == 4
     V = space("R", None, scalar_type="real")

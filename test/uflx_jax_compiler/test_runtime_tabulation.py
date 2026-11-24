@@ -10,6 +10,7 @@ import jax
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import form, function
@@ -22,7 +23,7 @@ from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 from uflx_extensions.external_operators import external_operator
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
-from uflx_jax_compiler import basis_tables, trace
+from uflx_jax_compiler import basis_tables
 
 from ..uflx_extensions.operations import Energy
 
@@ -47,11 +48,11 @@ def test_mass_matrix_and_action_use_native_arrays(monkeypatch):
         pytest.fail("the supplied basis table should suffice")
 
     monkeypatch.setattr(type(p2), "tabulate", unexpected)
-    compiled = trace(matrix, mass, table)
+    compiled = uflx_jax_compiler.trace(matrix, mass, table)
     assert compiled.inputs == (mass, table)
     np.testing.assert_allclose(jax.jit(compiled)((points, weights), values), expected)
     coeffs = np.array([2.0, -1.0, 3.0])
-    kernel = trace(action, trial, mass, table)
+    kernel = uflx_jax_compiler.trace(action, trial, mass, table)
     fixed_basis = jax.jit(lambda coeffs, rule: kernel(coeffs, rule, values))
     np.testing.assert_allclose(fixed_basis(coeffs, (points, weights)), expected @ coeffs)
     with pytest.raises(ValueError, match="floating Basix table with shape"):
@@ -76,8 +77,8 @@ def test_curved_poisson_uses_one_table_for_fields_and_geometry():
     s, t = p2.points.T
     vertices = np.column_stack((s, t + 0.4 * s * t))
     points, weights = basix.make_quadrature(triangle, 2)
-    ordinary = trace(matrix, coords, stiffness)
-    kernel = trace(matrix, coords, stiffness, table)
+    ordinary = uflx_jax_compiler.trace(matrix, coords, stiffness)
+    kernel = uflx_jax_compiler.trace(matrix, coords, stiffness, table)
     compiled = jax.jit(kernel).lower(vertices, (points, weights), p2.tabulate(1, points)).compile()
     for p, w in ((points, weights), (points * 0.8, weights[::-1] * 0.7)):
         values = p2.tabulate(1, p)
@@ -109,7 +110,7 @@ def test_independent_integrals_can_start_with_identical_rules():
     points, weights = basix.make_quadrature(triangle.cell_type, 2)
     values = element.tabulate(2, points)
     left, right = 2 * values[:1], 3 * values
-    kernel = jax.jit(trace(linear, load, mixed, first, second))
+    kernel = jax.jit(uflx_jax_compiler.trace(linear, load, mixed, first, second))
     for lw, rw in ((weights, weights), (weights * 2, weights[::-1])):
         actual = kernel((points, lw), (points, rw), left, right)
         expected = lw @ left[0, :, :, 0] + rw @ (
@@ -120,7 +121,7 @@ def test_independent_integrals_can_start_with_identical_rules():
         left
     )
     np.testing.assert_allclose(derivative[0, :, :, 0], np.tile(weights[:, None], (1, element.dim)))
-    empty = trace(form(load, (v,)), load, first)
+    empty = uflx_jax_compiler.trace(form(load, (v,)), load, first)
     np.testing.assert_allclose(empty((points[:0], weights[:0]), left[:, :0]), np.zeros(element.dim))
 
 
@@ -136,7 +137,7 @@ def test_whole_field_operator_and_callable_keep_their_sampling_semantics():
     rule = (points, weights)
     basis = 2 * p1.tabulate(0, points)
     take_sample = lambda field, scale: field(np.array([0.25])) * scale
-    evaluate = trace(total, total, table, u, Energy())
+    evaluate = uflx_jax_compiler.trace(total, total, table, u, Energy())
     np.testing.assert_allclose(evaluate(rule, basis, np.array([0.0, 1.0]), take_sample), 1.25)
     np.testing.assert_allclose(
         evaluate(rule, basis, lambda p: p[0] ** 2, take_sample), 1 / 3 + 0.25**2
@@ -158,7 +159,9 @@ def test_tabulations_are_local_to_slot_and_sampling_coordinate():
     assert (ltab.element, rtab.element) == (first, second)
     points, weights = basix.make_quadrature(triangle.cell_type, 2)
     left, right = 2 * first.tabulate(0, points), 3 * second.tabulate(0, points)
-    actual = jax.jit(trace(linear, load, ltab, rtab))((points, weights), left, right)
+    actual = jax.jit(uflx_jax_compiler.trace(linear, load, ltab, rtab))(
+        (points, weights), left, right
+    )
     expected = np.concatenate([weights @ data[0, :, :, 0] for data in (left, right)])
     np.testing.assert_allclose(actual, expected, atol=1e-14)
 
@@ -169,7 +172,9 @@ def test_tabulations_are_local_to_slot_and_sampling_coordinate():
     (operand,) = basis_tables(total)
     coeffs = np.arange(1, rt.dim + 1)
     modified = 2 * rt.tabulate(0, points)
-    result = jax.jit(trace(total, f, total, operand))(coeffs, (points, weights), modified)
+    result = jax.jit(uflx_jax_compiler.trace(total, f, total, operand))(
+        coeffs, (points, weights), modified
+    )
     np.testing.assert_allclose(
         result,
         np.einsum("q,d,qdc->c", weights, coeffs, modified[0] + rt.tabulate(0, points / 2)[0]),
@@ -192,13 +197,13 @@ def test_explicit_basis_and_fixed_tables(monkeypatch):
         return tabulate(self, order, coords)
 
     monkeypatch.setattr(type(element), "tabulate", counted)
-    kernel = trace(ref, ref, operand)
+    kernel = uflx_jax_compiler.trace(ref, ref, operand)
     evaluate = jax.jit(lambda weights: kernel((points, weights), values))
     for w in (weights, weights[::-1] * 2):
         np.testing.assert_allclose(evaluate(w)[:, 0], w @ values[1, :, :, 0], atol=1e-13)
     assert calls == []
     with pytest.raises(ValueError, match="not requested"):
-        trace(integral(num(1), interval), operand, integral(num(1), interval))
+        uflx_jax_compiler.trace(integral(num(1), interval), operand, integral(num(1), interval))
 
 
 def test_table_for_a_point_integral_uses_its_declared_rule():
@@ -207,9 +212,11 @@ def test_table_for_a_point_integral_uses_its_declared_rule():
     expr = integral(BasixBasis(local_space(point, element), 0), point)
     (table,) = basis_tables(expr)
     with pytest.raises(ValueError, match="explicit quadrature rule"):
-        trace(expr, table)
+        uflx_jax_compiler.trace(expr, table)
     points = np.empty((1, 0))
-    result = trace(expr, expr, table)((points, np.ones(1)), 2 * element.tabulate(0, points))
+    result = uflx_jax_compiler.trace(expr, expr, table)(
+        (points, np.ones(1)), 2 * element.tabulate(0, points)
+    )
     np.testing.assert_allclose(result, [2.0])
 
 
@@ -225,7 +232,7 @@ def test_symbolic_rule_uses_caller_arrays_and_infers_point_count():
     a = form(apply_quadrature(reference, points, weights), (v, u))
     (table,) = basis_tables(a)
     assert table.point_source == points and table.order == 1
-    kernel = jax.jit(trace(a, points, weights, table))
+    kernel = jax.jit(uflx_jax_compiler.trace(a, points, weights, table))
     rng = np.random.default_rng(42)
     for n in (3, 5, 3, 0):
         data, w = rng.uniform(0.0, 0.45, size=(n, 2)), rng.uniform(-1, 1, size=n)
@@ -258,10 +265,11 @@ def test_symbolic_quadrature_mixed_fixed_operands_and_vector_integrands():
         g = apply_quadrature(expr, points_operand, weights_operand)
         (table,) = basis_tables(g)
         np.testing.assert_allclose(
-            jax.jit(trace(g, key, table))(data, values), weights @ values[0, :, :, 0]
+            jax.jit(uflx_jax_compiler.trace(g, key, table))(data, values),
+            weights @ values[0, :, :, 0],
         )
 
     combined = apply_quadrature(expr, p, w) + apply_quadrature(expr, p, w + w)
     (shared_table,) = basis_tables(combined)
-    kernel = jax.jit(trace(combined, p, w, shared_table))
+    kernel = jax.jit(uflx_jax_compiler.trace(combined, p, w, shared_table))
     np.testing.assert_allclose(kernel(points, weights, values), 3 * weights @ values[0, :, :, 0])

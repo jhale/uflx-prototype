@@ -8,6 +8,7 @@ import basix
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx._src.passes import integrals
 from uflx._src.passes.contracts import in_core_normal_form
 from uflx._src.passes.lowering import lower_spatial
@@ -17,7 +18,6 @@ from uflx.geometry import pull_back
 from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell, topology
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
 
 from ..uflx_basix.meshes import mixed, push_forward, side_map, square
 from .quadrature import integrate_at
@@ -109,7 +109,7 @@ def test_blocked_coefficients_accept_one_value_per_scalar_dof(shape):
     V = local_space(T, p1, shape=shape)
     u = function(V, "u")
     values = np.arange(V.num_dofs, dtype=float).reshape(-1, *shape)
-    sample = trace(pull_back(u, T[1]), u, T[1].reference_cell)
+    sample = uflx_jax_compiler.trace(pull_back(u, T[1]), u, T[1].reference_cell)
 
     for coefficients in (values, values.ravel()):
         result = sample(coefficients, p1.points[1])

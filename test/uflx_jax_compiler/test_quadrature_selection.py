@@ -9,6 +9,7 @@ import jax
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx.algorithms import bottom_up, substitute_values
 from uflx.arithmetic import logarithm, num
 from uflx.calculus import coordinate, gradient, integral
@@ -20,7 +21,6 @@ from uflx.tensors import index, tensor
 from uflx_basix.cells import cell, topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
 
 from ..testutil import contains
 from ..uflx.spaces import space
@@ -41,14 +41,15 @@ def test_choose_rules_for_distinct_integrals_on_the_same_cell():
     assert partial.entries[2] is c
     assert partial.entries[0] is partial.entries[3]
     np.testing.assert_allclose(
-        trace(partial, c)(basix.make_quadrature(K.cell_type, 4)), [1 / 16, 1 / 4, 1 / 5, 1 / 16]
+        uflx_jax_compiler.trace(partial, c)(basix.make_quadrature(K.cell_type, 4)),
+        [1 / 16, 1 / 4, 1 / 5, 1 / 16],
     )
 
     finished = substitute_values(
         partial, {c: apply_quadrature(c, *basix.make_quadrature(K.cell_type, 1))}
     )
     assert finished.entries[:2] == partial.entries[:2]
-    np.testing.assert_allclose(trace(finished)(), [1 / 16, 1 / 4, 1 / 16, 1 / 16])
+    np.testing.assert_allclose(uflx_jax_compiler.trace(finished)(), [1 / 16, 1 / 4, 1 / 16, 1 / 16])
 
 
 def test_trace_requires_a_rule_for_each_positive_dimensional_integral():
@@ -58,9 +59,9 @@ def test_trace_requires_a_rule_for_each_positive_dimensional_integral():
     moments = tensor((first, second))
     for declared in ((), (first,), (second,)):
         with pytest.raises(ValueError, match="explicit quadrature"):
-            trace(moments, *declared)
+            uflx_jax_compiler.trace(moments, *declared)
 
-    kernel = trace(moments, first, second)
+    kernel = uflx_jax_compiler.trace(moments, first, second)
     midpoint = ([[0.5]], [1.0])
     left = ([[0.25]], [1.0])
     np.testing.assert_allclose(kernel(midpoint, left), [0.5, 0.0625])
@@ -76,7 +77,7 @@ def test_one_integral_or_a_bottom_up_traversal_of_nested_integrals():
     outer = integral(inner * x, K)
     rule = ([[0.25]], [1.0])
     # Sampling just the outer integral leaves the inner integral equal to 1/3.
-    assert trace(apply_quadrature(outer, *rule), inner)(
+    assert uflx_jax_compiler.trace(apply_quadrature(outer, *rule), inner)(
         basix.make_quadrature(K.cell_type, 2)
     ) == pytest.approx(1 / 12)
 
@@ -85,7 +86,7 @@ def test_one_integral_or_a_bottom_up_traversal_of_nested_integrals():
             return apply_quadrature(node, *rule)
         return node
 
-    assert trace(bottom_up(outer, sample))() == pytest.approx(1 / 64)
+    assert uflx_jax_compiler.trace(bottom_up(outer, sample))() == pytest.approx(1 / 64)
 
 
 def test_point_evaluations_can_be_expanded_after_sampling():
@@ -95,7 +96,7 @@ def test_point_evaluations_can_be_expanded_after_sampling():
     assert contains(sampled, lambda node: isinstance(node, PullBack))
     expanded = expand_pull_backs(sampled)
     assert not contains(expanded, lambda node: isinstance(node, PullBack))
-    assert trace(expanded)() == pytest.approx(1 / 6)
+    assert uflx_jax_compiler.trace(expanded)() == pytest.approx(1 / 6)
 
 
 def test_custom_rule_preserves_tensor_and_free_axes():
@@ -108,18 +109,22 @@ def test_custom_rule_preserves_tensor_and_free_axes():
     assert (
         quadrature.value_shape == expr.value_shape and quadrature.free_indices == expr.free_indices
     )
-    np.testing.assert_allclose(trace(quadrature)(), [[1 / 6, 1 / 6], [1 / 3, 1 / 3]])
+    np.testing.assert_allclose(
+        uflx_jax_compiler.trace(quadrature)(), [[1 / 6, 1 / 6], [1 / 3, 1 / 3]]
+    )
     empty = apply_quadrature(expr, points[:0], weights[:0])
     assert empty.free_indices == expr.free_indices
-    np.testing.assert_array_equal(trace(empty)(), np.zeros((2, 2)))
-    np.testing.assert_array_equal(trace(expr, expr)((points[:0], weights[:0])), np.zeros((2, 2)))
+    np.testing.assert_array_equal(uflx_jax_compiler.trace(empty)(), np.zeros((2, 2)))
+    np.testing.assert_array_equal(
+        uflx_jax_compiler.trace(expr, expr)((points[:0], weights[:0])), np.zeros((2, 2))
+    )
 
 
 def test_explicit_weights_on_a_point_cell():
     expr = integral(num(3), cell(basix.CellType.point))
-    assert trace(expr)() == 3
+    assert uflx_jax_compiler.trace(expr)() == 3
     result = apply_quadrature(expr, np.empty((2, 0)), [0.5, 1.5])
-    assert trace(result)() == 6
+    assert uflx_jax_compiler.trace(result)() == 6
 
 
 @pytest.mark.parametrize("cell_type", [basix.CellType.quadrilateral, basix.CellType.hexahedron])
@@ -127,7 +132,7 @@ def test_basix_rule_on_a_tensor_product_cell(cell_type):
     K = cell(cell_type)
     x = coordinate(K)
     moment = integral(x[0] * x[0] + x[K.dimension - 1], K)
-    assert trace(
+    assert uflx_jax_compiler.trace(
         apply_quadrature(moment, *basix.make_quadrature(K.cell_type, 2))
     )() == pytest.approx(5 / 6)
 
@@ -142,7 +147,7 @@ def test_coefficient_gradient_uses_only_its_dependent_axes(degree):
     v = function(local_space(K, linear), "v")
     points, weights = basix.make_quadrature(K.cell_type, 4)
     moment = integral(v * logarithm(gradient(u, K)[0]), K)
-    kernel = trace(form(apply_quadrature(moment, points, weights), (v,)), u)
+    kernel = uflx_jax_compiler.trace(form(apply_quadrature(moment, points, weights), (v,)), u)
 
     x = element.points[:, 0]
     dofs = 2 * x + (degree - 1) * x**2
@@ -161,7 +166,7 @@ def test_material_axis_stays_independent_of_quadrature():
     c = function(space("materials", None, (2,), scalar_type="real"), "c")
     moment = integral(coordinate(K)[0] * logarithm(c[i]), K)
     sampled = apply_quadrature(moment, *basix.make_quadrature(K.cell_type, 4))
-    kernel = trace(sampled, c)
+    kernel = uflx_jax_compiler.trace(sampled, c)
     values = np.array([2.0, 3.0])
     np.testing.assert_allclose(jax.jit(kernel)(values), np.log(values) / 6)
     eqns = jax.make_jaxpr(kernel)(values).jaxpr.eqns
@@ -181,7 +186,7 @@ def test_poisson_stiffness_on_a_curved_triangle():
     gu, gv = (gradient(push_forward(f, mesh, V.law), mesh) for f in (u, v))
     points, weights = basix.make_quadrature(triangle, 4)
     sampled = apply_quadrature(lower(integral(gu @ gv, mesh)), points, weights)
-    stiffness = jax.jit(trace(form(sampled, (v, u)), x))
+    stiffness = jax.jit(uflx_jax_compiler.trace(form(sampled, (v, u)), x))
 
     # x(s, t) = (s + s², t), so J is diagonal with entries (1 + 2s, 1).
     coordinates = p2.points.copy()

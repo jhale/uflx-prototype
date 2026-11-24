@@ -32,6 +32,7 @@ import jax
 import numpy as np
 from _interior_facet import interior_facet
 
+import uflx_jax_compiler
 from uflx.arithmetic import num
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
@@ -41,7 +42,6 @@ from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 from uflx_extensions.index_tables import index_table
-from uflx_jax_compiler import trace
 
 # Topological cells of the patch
 
@@ -93,7 +93,7 @@ for cell_key in cell_keys:
     cell_rule = basix.make_quadrature(cell_type, degree=8)
     volume_sum = apply_quadrature(volume_ref, *cell_rule)
     cell_form = form(volume_sum, (v_ref, u_ref))
-    evaluate_cell = trace(cell_form, x)
+    evaluate_cell = uflx_jax_compiler.trace(cell_form, x)
     cell_kernels[cell_key] = jax.jit(evaluate_cell)
 
 # %% [markdown]
@@ -155,7 +155,7 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     facet_ref = lower(facet_integral)
     facet_sum = apply_quadrature(facet_ref, *facet_rule)
     interior_facet_form = form(facet_sum, (v_ref, u_ref))
-    evaluate_facet = trace(interior_facet_form, x, local_facets, permutations)
+    evaluate_facet = uflx_jax_compiler.trace(interior_facet_form, x, local_facets, permutations)
     facet_kernels[plus_key, minus_key] = jax.jit(evaluate_facet)
 
 # Typical form compiler would hand off cell_kernels and facet_kernels to

@@ -104,7 +104,8 @@ def basis_tables(expression):
     """Return the optional basis-table inputs of a reference-cell form in traversal order.
 
     Each request identifies the source of the points, a native Basix element
-    and the highest reference derivative needed there. Pass the desired requests to trace.
+    and the highest reference derivative needed there. Pass the desired requests to
+    ``uflx_jax_compiler.trace``.
     """
     orders = {}
     # Outside an integral, locate integral nodes. Inside, follow only paths

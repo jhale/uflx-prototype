@@ -8,6 +8,7 @@
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx._src.algorithms.substitution import substitute
 from uflx.arithmetic import conjugate, num
 from uflx.calculus import directional_derivative
@@ -15,7 +16,6 @@ from uflx.forms import apply, form, function, partial
 from uflx.nodes import ScalarType
 from uflx.passes import apply_derivatives, expand_applications
 from uflx_extensions.complex_differentiation import complex_derivative_parts
-from uflx_jax_compiler import trace
 
 from ..uflx.spaces import space
 
@@ -34,13 +34,14 @@ def test_both_complex_parts_reconstruct_the_real_differential(body):
     full = apply(plus, (h,)) + apply(minus, (conjugate(h),))
     env = {u: 0.7 + 0.4j, h: 0.2 - 0.6j}
     expected = np.conj(env[h]) if body is conjugate else 2 * np.real(np.conj(env[u]) * env[h])
-    assert np.isclose(trace(lower(full), *env)(*env.values()), expected)
+    assert np.isclose(uflx_jax_compiler.trace(lower(full), *env)(*env.values()), expected)
     direct = directional_derivative(F, u, u, h)
     assert np.isclose(
-        trace(lower(full), *env)(*env.values()), trace(lower(direct), *env)(*env.values())
+        uflx_jax_compiler.trace(lower(full), *env)(*env.values()),
+        uflx_jax_compiler.trace(lower(direct), *env)(*env.values()),
     )
     if body is conjugate:
-        assert np.isclose(trace(lower(apply(plus, (h,))), *env)(*env.values()), 0)
+        assert np.isclose(uflx_jax_compiler.trace(lower(apply(plus, (h,))), *env)(*env.values()), 0)
 
 
 def test_new_argument_follows_existing_form_arguments():
@@ -51,7 +52,7 @@ def test_new_argument_follows_existing_form_arguments():
     assert e.argument_spaces == (V, V)
     applied = lower(partial(e, {w: h}))
     assert applied.argument_spaces == (V,)
-    assert np.isclose(trace(applied, u, h)(2, 3, 5), 60)
+    assert np.isclose(uflx_jax_compiler.trace(applied, u, h)(2, 3, 5), 60)
 
 
 def test_substitution_avoids_capturing_a_form_direction():
@@ -60,7 +61,7 @@ def test_substitution_avoids_capturing_a_form_direction():
     e = form(directional_derivative(u * z, u, u, w), (w,))
     changed = substitute(e, {z: w})
     assert changed.arguments[0] is not w
-    assert np.isclose(trace(lower(changed), u, w)(2, 3, 7), 21)
+    assert np.isclose(uflx_jax_compiler.trace(lower(changed), u, w)(2, 3, 7), 21)
 
 
 def test_third_complex_derivative_has_the_expected_multilinear_value():
@@ -72,11 +73,11 @@ def test_third_complex_derivative_has_the_expected_multilinear_value():
     args = (0.2 + 0.1j, -0.3j, 0.7 - 0.1j)
     assert e.argument_spaces == (V, V, V)
     x = 0.7 + 0.2j
-    assert np.isclose(trace(lower(e), u)(x, *args), 24 * x * np.prod(args))
+    assert np.isclose(uflx_jax_compiler.trace(lower(e), u)(x, *args), 24 * x * np.prod(args))
 
 
 def test_point_dependencies_remain_free_when_binding_a_fresh_direction():
     V = space("point", None, scalar_type=ScalarType.real)
     u, w, h = (function(V, name) for name in ("u", "w", "h"))
     e = form(directional_derivative(u * u, u, w + num(1), h), (h,))
-    assert np.isclose(trace(lower(e), w)(2, 3), 18)
+    assert np.isclose(uflx_jax_compiler.trace(lower(e), w)(2, 3), 18)

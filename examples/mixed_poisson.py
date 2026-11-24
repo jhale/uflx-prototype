@@ -16,6 +16,7 @@ import basix
 import jax
 import numpy as np
 
+import uflx_jax_compiler
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative, divergence, integral
 from uflx.forms import form, function
@@ -25,7 +26,6 @@ from uflx.tensors import broadcast_to
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space, real_scalar_space
-from uflx_jax_compiler import trace
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -89,9 +89,9 @@ residual_quadrature = apply_quadrature(residual_ref, *load_rule)
 a = form(hessian_quadrature, (test, trial_direction))
 L = form(-residual_quadrature, (test,))
 
-cell_matrix = jax.jit(trace(a, x, kappa))
+cell_matrix = jax.jit(uflx_jax_compiler.trace(a, x, kappa))
 # The residual at zero retains kappa in terms that evaluate to zero.
-cell_load = jax.jit(trace(L, x, kappa))
+cell_load = jax.jit(uflx_jax_compiler.trace(L, x, kappa))
 
 # %% [markdown]
 # Sample the coordinate map `(s, t) → (s, t + 0.4 s t)` at the six P2 nodes.

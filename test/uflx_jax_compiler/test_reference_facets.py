@@ -10,10 +10,10 @@ import jax
 import numpy as np
 import pytest
 
+import uflx_jax_compiler
 from uflx_basix.cells import cell
 from uflx_basix.facets import reference_facet
 from uflx_extensions.index_tables import index_table
-from uflx_jax_compiler import trace
 
 
 @pytest.mark.parametrize(
@@ -33,11 +33,13 @@ def test_reference_facet_maps_vertices_in_ufcx_order(cell_type, facet, code, ord
     inclusion, normal = reference_facet(cell(cell_type), facet, code)
     F = inclusion.parameter_domain
     points = basix.cell.geometry(F.cell_type) if F.dimension else np.empty((1, 0))
-    mapped = jax.vmap(trace(inclusion.parameterisation, F))(points)
+    mapped = jax.vmap(uflx_jax_compiler.trace(inclusion.parameterisation, F))(points)
     vertices = basix.cell.topology(cell_type)[-2][facet]
     expected = basix.cell.geometry(cell_type)[vertices]
     np.testing.assert_allclose(mapped, expected[list(order)], atol=1e-7)
-    np.testing.assert_allclose(trace(normal)(), basix.cell.facet_outward_normals(cell_type)[facet])
+    np.testing.assert_allclose(
+        uflx_jax_compiler.trace(normal)(), basix.cell.facet_outward_normals(cell_type)[facet]
+    )
 
 
 def test_facet_and_permutation_can_be_supplied_at_runtime():
@@ -47,9 +49,11 @@ def test_facet_and_permutation_can_be_supplied_at_runtime():
     inclusion, normal = reference_facet(cell(triangle), facets[1], permutations[1])
     assert inclusion.free_indices == normal.free_indices == ()
     chart = jax.jit(
-        trace(inclusion.parameterisation, inclusion.parameter_domain, facets, permutations)
+        uflx_jax_compiler.trace(
+            inclusion.parameterisation, inclusion.parameter_domain, facets, permutations
+        )
     )
-    outward = jax.jit(trace(normal, facets))
+    outward = jax.jit(uflx_jax_compiler.trace(normal, facets))
     vertices = basix.cell.geometry(triangle)
     for f, edge in enumerate(basix.cell.topology(triangle)[1]):
         a, b = vertices[edge]
@@ -73,7 +77,7 @@ def test_one_facet_array_indexes_cells_with_different_numbers_of_facets():
     quadrilateral = basix.CellType.quadrilateral
     _, plus = reference_facet(cell(triangle), facets[0])
     _, minus = reference_facet(cell(quadrilateral), facets[1])
-    kernel = jax.jit(trace(plus - minus, facets))
+    kernel = jax.jit(uflx_jax_compiler.trace(plus - minus, facets))
     plus_normals = basix.cell.facet_outward_normals(triangle)
     minus_normals = basix.cell.facet_outward_normals(quadrilateral)
     for i in range(len(plus_normals)):

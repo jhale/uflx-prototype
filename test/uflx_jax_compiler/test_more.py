@@ -6,6 +6,7 @@
 
 import numpy as np
 
+import uflx_jax_compiler
 from uflx._src.literals import zero
 from uflx._src.passes import applications
 from uflx._src.passes.applications import applications_expanded
@@ -13,7 +14,6 @@ from uflx.arithmetic import add, conjugate, divide, multiply, num
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.nodes import ScalarType
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
-from uflx_jax_compiler import trace
 
 from ..testutil import ill_typed
 from ..uflx.spaces import space
@@ -42,8 +42,8 @@ def check(name, e, ienv=None, vals=None):
     n = len(e.argument_spaces)
     vals = vals if vals is not None else tuple(cplx() for _ in range(n))
     bindings = env | (ienv or {})
-    before = trace(e, *bindings)(*bindings.values(), *vals)
-    after = trace(out, *bindings)(*bindings.values(), *vals)
+    before = uflx_jax_compiler.trace(e, *bindings)(*bindings.values(), *vals)
+    after = uflx_jax_compiler.trace(out, *bindings)(*bindings.values(), *vals)
     assert np.allclose(before, after, atol=1e-5), name
     assert applications_expanded(out), name
     assert not (ill_typed(e) or ill_typed(out)), (name, ill_typed(e) or ill_typed(out))
