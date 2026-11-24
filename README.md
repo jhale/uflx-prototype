@@ -67,9 +67,11 @@ The final design, if accepted, will be reimplemented in a structured way at
 
 ## Installation
 
-From the repository root, with Python 3.11 or later, run
+With Python 3.11 or later, run
 
 ```bash
+git clone https://github.com/jhale/uflx-prototype.git
+cd uflx-prototype
 python -m pip install -e .
 python examples/poisson.py
 ```
@@ -78,8 +80,9 @@ Dependencies are `numpy`, `jax` and `fenicss-basix`.
 
 ## Hello world - Poisson on a triangle
 
-The example shows how generate the stiffness and load kernels for P2 Poisson on
-a triangle. 
+Build the cell stiffness matrix and load vector for Poisson’s equation with a
+unit source. The three vertices set the geometry, and the six quadratic basis
+functions give one row and column per degree of freedom.
 
 ```python
 import basix
@@ -95,50 +98,54 @@ from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 from uflx_jax_compiler import trace
 
-# The two components of x map the reference triangle into the physical plane.
-# A linear (P1) coordinate element means the three vertices determine the map.
+# A linear (P1) coordinate map places the reference triangle in the physical plane.
 triangle = basix.CellType.triangle
-
 T = topology(triangle)
-p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
 
+p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
 X = local_space(T, p1, shape=(T.dimension,))
 x = function(X, "x")
 mesh = create_mesh(x, euclidean_space(T.dimension))
 
-# Define quadratic (P2) trial and test functions on the reference triangle,
-# then push them forward so we can take gradients on the physical triangle.
+# Push the quadratic (P2) trial and test functions forward to the physical triangle.
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 V = local_space(T, p2)
 u_ref, v_ref = function(V, "u"), function(V, "v")
 u = push_forward(u_ref, mesh, V.law)
 v = push_forward(v_ref, mesh, V.law)
 
+# Integrate the gradient inner product for stiffness and the test function for a unit source.
 a = integral(gradient(u, mesh) @ gradient(v, mesh), mesh)
 L = integral(v, mesh)
 
-# Pull the integrals back to the reference triangle and re-write the integrals
-# with a quadrature rule. 
-points, weights = basix.make_quadrature(triangle, degree=2)
-a_quad = apply_quadrature(lower(a), points, weights)
-L_quad = apply_quadrature(lower(L), points, weights)
+# Lower the physical integrals to core normal form on the reference triangle.
+a_ref = lower(a)
+L_ref = lower(L)
 
-# We specify x as a kernel input so we can supply the vertex coordinates at
-runtime.
-a_cell = form(a_quad, (v_ref, u_ref))
-L_cell = form(L_quad, (v_ref,))
-stiffness = jax.jit(trace(a_cell, x))
-load = jax.jit(trace(L_cell, x))
+# Degree-two quadrature is exact for both integrands on this affine cell.
+rule = basix.make_quadrature(triangle, degree=2)
+a_quadrature = apply_quadrature(a_ref, *rule)
+L_quadrature = apply_quadrature(L_ref, *rule)
+
+# Bind the test function first (matrix rows) and the trial function second (columns).
+a = form(a_quadrature, (v_ref, u_ref))
+L = form(L_quadrature, (v_ref,))
+
+# Make the vertex coordinates a runtime input to both kernels.
+load = jax.jit(trace(L, x))
+stiffness = jax.jit(trace(a, x))
 
 vertices = np.array([(0.0, 0.0), (1.0, 0.0), (0.0, 1.0)])
-A = stiffness(vertices)
 b = load(vertices)
-print("Cell stiffness matrix", A)
+A = stiffness(vertices)
+
 print("Cell load vector", b)
+print("Cell stiffness matrix", A)
 ```
 
-The script prints the stiffness matrix and the load vector for a unit source.
-See the [Full Poisson example](examples/poisson.py)
+On the unit triangle, the six entries of the load vector sum to the cell area,
+0.5, and the stiffness matrix is symmetric and 6 × 6.
+[Runnable Poisson example](examples/poisson.py)
 
 ## Further examples
 
