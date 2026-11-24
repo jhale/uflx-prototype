@@ -22,6 +22,19 @@ specification. The full repository is ~6500 lines of code plus tests.
 The final design, if accepted, will be reimplemented in a structured way at
 [UFLx](https://github.com/fenics/uflx).
 
+## Installation
+
+With Python 3.11 or later, run
+
+```bash
+git clone https://github.com/jhale/uflx-prototype.git
+cd uflx-prototype
+python -m pip install -e .
+python examples/poisson.py
+```
+
+Dependencies are `numpy`, `jax` and `fenics-basix`.
+
 ## Headline features
 
 - A strict language ruleset that leads to:
@@ -64,19 +77,6 @@ The final design, if accepted, will be reimplemented in a structured way at
 - A clear policy on language extensions, from simple passes through to full
   language extensions. External operators and a complex derivative helper is
   currently implemented as language extensions.
-
-## Installation
-
-With Python 3.11 or later, run
-
-```bash
-git clone https://github.com/jhale/uflx-prototype.git
-cd uflx-prototype
-python -m pip install -e .
-python examples/poisson.py
-```
-
-Dependencies are `numpy`, `jax` and `fenicss-basix`.
 
 ## Hello world - Poisson on a triangle
 
