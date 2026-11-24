@@ -9,10 +9,10 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, final
 
-from .arguments import argument_members
+from .arguments import Argument, ArgumentSpaces
 from .base import Base
 from .caching import cached
-from .scalar_types import NumericalScalarType, ScalarType
+from .scalar_types import NumericalScalarType
 
 if TYPE_CHECKING:
     from .domains import AbstractDomain
@@ -35,9 +35,7 @@ class AbstractFunctionSpace(Base):
 
     @property
     @abstractmethod
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]: ...
+    def argument_spaces(self) -> ArgumentSpaces: ...
 
 
 @final
@@ -58,9 +56,7 @@ class ConjugateSpace(AbstractFunctionSpace):
         return self.space.scalar_type
 
     @property
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         from ..spaces import conjugated
 
         return tuple(conjugated(V) for V in self.space.argument_spaces)
@@ -79,7 +75,7 @@ class ConjugateSpace(AbstractFunctionSpace):
 class DualSpace(AbstractFunctionSpace):
     identifier = "uflx.DualSpace"
     # The antilinear forms on a space, or on the product of a tuple of spaces.
-    space: AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...]
+    space: Argument[AbstractFunctionSpace]
 
     @property
     def domain(self) -> None:
@@ -92,14 +88,13 @@ class DualSpace(AbstractFunctionSpace):
     @property
     @cached
     def scalar_type(self) -> NumericalScalarType:
-        is_complex = any(s.scalar_type == ScalarType.complex for s in argument_members(self.space))
-        return ScalarType.complex if is_complex else ScalarType.real
+        from .validation import product_scalar_type
+
+        return product_scalar_type(self.space)
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         # The free functions import the nodes, so the import is local.
         from ..spaces import conjugated
 
@@ -110,7 +105,6 @@ class DualSpace(AbstractFunctionSpace):
 
         require(not isinstance(self.space, DualSpace), "dual space is not canonical")
         if isinstance(self.space, tuple):
-            require(
-                len(self.space) >= 2 and len({V.scalar_type for V in self.space}) == 1,
-                "dual product needs at least two spaces with one scalar type",
-            )
+            from .validation import product_scalar_type
+
+            product_scalar_type(self.space)

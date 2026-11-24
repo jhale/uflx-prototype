@@ -7,6 +7,7 @@
 
 import pytest
 
+from uflx._src.algorithms.alpha import alpha_hash
 from uflx._src.algorithms.binding import alpha_equivalent
 from uflx._src.algorithms.substitution import (
     occurs,
@@ -19,7 +20,7 @@ from uflx.arithmetic import conjugate, num
 from uflx.calculus import directional_derivative, integral
 from uflx.forms import apply, dual_space, form, function, partial, rebind
 from uflx.geometry import domain_map, pull_back
-from uflx.nodes import EuclideanSpace
+from uflx.nodes import EuclideanSpace, Zero
 from uflx.passes import expand_applications
 
 from .spaces import space
@@ -165,3 +166,40 @@ def test_identity_labels_do_not_create_free_occurrences():
     labelled = function(V, ("derived", u))
     assert not occurs(u, labelled)
     assert not occurs_in_metadata(u, labelled)
+
+
+def test_nested_product_is_one_complete_slot():
+    x, y, z = (function(V, label) for label in ("x", "y", "z"))
+    slot = ((u, v), w)
+    values = ((x, y), z)
+    body = u + num(2) * v + num(3) * w
+    f = form(body, (slot,))
+    assert f.argument_spaces == (((V, V), V),)
+    assert f.bound() == (u, v, w)
+    assert dual_space(f.argument_spaces[0]).argument_spaces == f.argument_spaces
+    zero = Zero((), (), f.argument_spaces, "real")
+    assert expand_applications(apply(zero, (values,))).argument_spaces == ()
+    expected = x + num(2) * y + num(3) * z
+    assert partial(f, {slot: values}) is expand_applications(apply(f, (values,))) is expected
+    renamed = rebind(f, {slot: values})
+    assert renamed is form(expected, (values,))
+    assert alpha_equivalent(f, renamed)
+    assert alpha_hash(f) == alpha_hash(renamed)
+    regrouped = form(body, ((u, (v, w)),))
+    assert not alpha_equivalent(f, regrouped)
+    assert alpha_hash(f) != alpha_hash(regrouped)
+
+    with pytest.raises(ValueError, match="outer argument"):
+        partial(f, {(u, v): (x, y)})
+    with pytest.raises(ValueError, match="grouping"):
+        rebind(f, {slot: (x, (y, z))})
+    with pytest.raises(ValueError, match="grouping"):
+        apply(f, ((x, y, z),))
+    with pytest.raises(ValueError, match="grouping"):
+        directional_derivative(body, slot, values, (x, (y, z)))
+    with pytest.raises(ValueError, match="grouping"):
+        directional_derivative(body, slot, (x, (y, z)), values)
+    with pytest.raises(ValueError, match="distinct"):
+        form(body, (((u, v), u),))
+    with pytest.raises(ValueError, match="at least two"):
+        form(body, (((u,), v),))

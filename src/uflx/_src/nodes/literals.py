@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Literal, cast, final
 
+from .arguments import ArgumentSpaces
 from .caching import cached
 from .expressions import AbstractExpression
 from .scalar_types import NumericalScalarType, ScalarType
@@ -16,7 +17,6 @@ from .scalar_types import NumericalScalarType, ScalarType
 if TYPE_CHECKING:
     from .domains import AbstractDomain
     from .indices import AbstractExtent, Index
-    from .spaces import AbstractFunctionSpace
     from .topology import AbstractTopology
 
 
@@ -43,9 +43,7 @@ class Boolean(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     @property
@@ -82,9 +80,7 @@ class Integer(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     @property
@@ -123,9 +119,7 @@ class Float(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     @property
@@ -159,9 +153,7 @@ class Complex(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     @property
@@ -184,7 +176,7 @@ class Zero(AbstractExpression):
 
     _value_shape: tuple[int | AbstractExtent, ...]
     _free_indices: tuple[tuple[Index, int | AbstractExtent], ...]
-    _argument_spaces: tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]
+    _argument_spaces: ArgumentSpaces
     _scalar_type: NumericalScalarType
 
     @property
@@ -196,9 +188,7 @@ class Zero(AbstractExpression):
         return self._free_indices
 
     @property
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self._argument_spaces
 
     @property
@@ -218,7 +208,7 @@ class Zero(AbstractExpression):
             ScalarType.complex,
         ):
             raise TypeError("Zero takes a real or complex scalar type")
-        from .validation import extent, require
+        from .validation import extent, product_scalar_type, require
 
         for size in self.value_shape:
             extent(size)
@@ -229,9 +219,5 @@ class Zero(AbstractExpression):
             extent(size)
             require(i not in seen, "free index is repeated")
             seen.add(i)
-        for V in self.argument_spaces:
-            if isinstance(V, tuple):
-                require(
-                    len(V) >= 2 and len({s.scalar_type for s in V}) == 1,
-                    "product argument needs at least two spaces with one scalar type",
-                )
+        for space in self.argument_spaces:
+            product_scalar_type(space)

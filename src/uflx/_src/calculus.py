@@ -21,6 +21,7 @@ from .nodes import (
     IndexSum,
     Integral,
 )
+from .nodes.arguments import Argument
 from .tensors import permutation_tensor
 
 if TYPE_CHECKING:
@@ -48,25 +49,25 @@ def curl(expression: AbstractExpression, domain: AbstractDomain) -> AbstractExpr
 @overload
 def directional_derivative(
     expression: AbstractExpression,
-    variable: Function | tuple[Function, ...],
-    direction: AbstractExpression | tuple[AbstractExpression, ...],
+    variable: Argument[Function],
+    direction: Argument[AbstractExpression],
 ) -> DirectionalDerivative: ...
 
 
 @overload
 def directional_derivative(
     expression: AbstractExpression,
-    variable: Function | tuple[Function, ...],
-    point: AbstractExpression | tuple[AbstractExpression, ...],
-    direction: AbstractExpression | tuple[AbstractExpression, ...],
+    variable: Argument[Function],
+    point: Argument[AbstractExpression],
+    direction: Argument[AbstractExpression],
 ) -> DirectionalDerivative: ...
 
 
 def directional_derivative(
     expression: AbstractExpression,
-    variable: Function | tuple[Function, ...],
-    *values: AbstractExpression | tuple[AbstractExpression, ...],
-    **keywords: AbstractExpression | tuple[AbstractExpression, ...],
+    variable: Argument[Function],
+    *values: Argument[AbstractExpression],
+    **keywords: Argument[AbstractExpression],
 ) -> DirectionalDerivative:
     """Take the directional derivative at the variable itself or at an explicit point."""
     if len(values) == 1 and not keywords:
@@ -75,8 +76,8 @@ def directional_derivative(
         return DirectionalDerivative(expression, variable, variable, keywords["direction"])
 
     def at(
-        point: AbstractExpression | tuple[AbstractExpression, ...],
-        direction: AbstractExpression | tuple[AbstractExpression, ...],
+        point: Argument[AbstractExpression],
+        direction: Argument[AbstractExpression],
     ) -> DirectionalDerivative:
         return DirectionalDerivative(expression, variable, point, direction)
 

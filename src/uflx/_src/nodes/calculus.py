@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
-from .arguments import argument_members
+from .arguments import Argument, ArgumentSpaces, argument_leaves, map_argument
 from .caching import cached
 from .expressions import AbstractExpression, BindingExpression
 from .scalar_types import NumericalScalarType, ScalarType, numerical_type
@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from .domains import AbstractDomain
     from .forms import Function
     from .indices import AbstractExtent, Index
-    from .spaces import AbstractFunctionSpace
     from .topology import AbstractTopology
 
 
@@ -27,9 +26,9 @@ class DirectionalDerivative(BindingExpression["Function"]):
     identifier = "uflx.DirectionalDerivative"
     # The variable, the point and the direction are a function and two expressions, or tuples.
     expression: AbstractExpression
-    variable: Function | tuple[Function, ...]
-    point: AbstractExpression | tuple[AbstractExpression, ...]
-    direction: AbstractExpression | tuple[AbstractExpression, ...]
+    variable: Argument[Function]
+    point: Argument[AbstractExpression]
+    direction: Argument[AbstractExpression]
     scope = ("expression", "variable")
     binding_fields = ("variable",)
 
@@ -43,8 +42,8 @@ class DirectionalDerivative(BindingExpression["Function"]):
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         edges = (
             self.expression,
-            *argument_members(self.point),
-            *argument_members(self.direction),
+            *argument_leaves(self.point),
+            *argument_leaves(self.direction),
         )
         from .static import free_indices
 
@@ -52,9 +51,7 @@ class DirectionalDerivative(BindingExpression["Function"]):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     @property
@@ -71,24 +68,15 @@ class DirectionalDerivative(BindingExpression["Function"]):
         from ..algorithms.substitution import occurs
         from .validation import admissible, require
 
-        xs = argument_members(self.variable)
+        xs = argument_leaves(self.variable)
         require(len(set(xs)) == len(xs), "derivative variables must be distinct")
         require(
             not any(occurs(x, variable.space) for x in xs for variable in xs),
             "derivative variable spaces must be independent of the variables",
         )
-        require(
-            type(self.variable) is not tuple or len(xs) >= 2,
-            "tuple derivative needs at least two variables",
-        )
-        for values in (self.point, self.direction):
-            require(
-                isinstance(values, tuple) == isinstance(self.variable, tuple)
-                and len(argument_members(values)) == len(xs),
-                "derivative tuple structure differs",
-            )
-            for x, value in zip(xs, argument_members(values), strict=True):
-                admissible(x.space, value)
+        spaces = map_argument(lambda x: x.space, self.variable)
+        admissible(spaces, self.point)
+        admissible(spaces, self.direction)
 
 
 @final
@@ -120,9 +108,7 @@ class Coordinate(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     def _validate(self) -> None:
@@ -158,9 +144,7 @@ class Gradient(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
@@ -197,9 +181,7 @@ class Divergence(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
@@ -238,9 +220,7 @@ class Curl(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
@@ -277,9 +257,7 @@ class Integral(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     def _validate(self) -> None:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, final
 
-from .arguments import argument_members, map_argument
+from .arguments import Argument, ArgumentSpaces, FormEntry, argument_leaves, map_argument
 from .arithmetic import Conjugate
 from .caching import cached
 from .expressions import AbstractExpression, BindingExpression
@@ -30,9 +30,7 @@ def entry_function(m: Function | Conjugate) -> Function:
     return f
 
 
-def _entry_space(
-    entry: Function | Conjugate | tuple[Function | Conjugate, ...],
-) -> AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...]:
+def _entry_space(entry: FormEntry) -> Argument[AbstractFunctionSpace]:
     # The space of v, the conjugate of the space for conjugate(v), and a tuple for a tuple entry.
     from ..spaces import conjugated
 
@@ -59,9 +57,7 @@ class Function(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.space.argument_spaces
 
     @property
@@ -85,7 +81,7 @@ class Form(BindingExpression[Function]):
     value_fields = ("expression",)
     identifier = "uflx.Form"
     expression: AbstractExpression
-    arguments: tuple[Function | Conjugate | tuple[Function | Conjugate, ...], ...]
+    arguments: tuple[FormEntry, ...]
     scope = ("expression", "arguments")
     binding_fields = ("arguments",)
 
@@ -96,9 +92,7 @@ class Form(BindingExpression[Function]):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         # The arguments of the expression come first, then the entries.
         return self.expression.argument_spaces + tuple(map(_entry_space, self.arguments))
 
@@ -118,16 +112,11 @@ class Form(BindingExpression[Function]):
         return self.expression.domain
 
     def _validate(self) -> None:
-        from .validation import require
-
-        for a in self.arguments:
-            if type(a) is tuple:
-                require(len(a) >= 2, "product binder needs at least two functions")
-                require(
-                    len({entry_function(member).space.scalar_type for member in a}) == 1,
-                    "product binder requires one scalar type",
-                )
         from ..algorithms.substitution import occurs
+        from .validation import product_scalar_type, require
+
+        for space in self.argument_spaces[len(self.expression.argument_spaces) :]:
+            product_scalar_type(space)
 
         binders = self.bound()
         require(len(set(binders)) == len(binders), "form binders must be distinct")
@@ -142,7 +131,7 @@ class Apply(AbstractExpression):
     value_fields = ("form", "arguments")
     identifier = "uflx.Apply"
     form: AbstractExpression
-    arguments: tuple[AbstractExpression | tuple[AbstractExpression, ...], ...]
+    arguments: tuple[Argument[AbstractExpression], ...]
 
     @property
     @cached
@@ -151,15 +140,13 @@ class Apply(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     @property
     @cached
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
-        arguments = (m for slot in self.arguments for m in argument_members(slot))
+        arguments = (m for slot in self.arguments for m in argument_leaves(slot))
         from .static import free_indices
 
         return free_indices(self.form, *arguments)

@@ -13,7 +13,7 @@ from ..algorithms.rewriting import rewrite
 from ..algorithms.substitution import occurs_in_metadata
 from ..algorithms.traversal import everywhere
 from ..nodes import DirectionalDerivative
-from ..nodes.arguments import argument_members
+from ..nodes.arguments import argument_leaves
 from ..rules.differentiation import deriv
 from .applications import expand_applications
 
@@ -40,7 +40,7 @@ def expand_derivatives_with(
     def evaluate(e: AbstractExpression) -> AbstractExpression:
         match e:
             case DirectionalDerivative(g, x, a, h):
-                variables = argument_members(x)
+                variables = argument_leaves(x)
                 if any(occurs_in_metadata(variable, g) for variable in variables):
                     # The bottom-up rewrite has resolved inner derivatives.
                     # Expose only this body's geometry before selecting a

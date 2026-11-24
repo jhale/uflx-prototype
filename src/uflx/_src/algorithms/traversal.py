@@ -11,6 +11,7 @@ from collections.abc import Callable, Sequence
 from typing import Concatenate, ParamSpec, TypeVar, cast
 
 from ..nodes import AbstractExpression, AbstractFunctionSpace, Base
+from ..nodes.arguments import Argument
 from ..nodes.base import construction_equal
 from ..nodes.structure import expression_operands
 from ..nodes.types import Construction
@@ -32,9 +33,7 @@ def rebuild(e: Base, **changes: Construction) -> Construction:
     if isinstance(e, ConjugateSpace):
         return conjugate_space(cast("AbstractFunctionSpace", values["space"]))
     if isinstance(e, DualSpace):
-        return dual_space(
-            cast("AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...]", values["space"])
-        )
+        return dual_space(cast("Argument[AbstractFunctionSpace]", values["space"]))
     return type(e)(*values.values())
 
 

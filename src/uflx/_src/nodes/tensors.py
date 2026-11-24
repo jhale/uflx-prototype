@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, final
 
+from .arguments import ArgumentSpaces
 from .caching import cached
 from .expressions import AbstractExpression, BindingExpression
 from .indices import Index
@@ -17,7 +18,6 @@ from .validation import require
 if TYPE_CHECKING:
     from .domains import AbstractDomain
     from .indices import AbstractExtent, GatheredIndex
-    from .spaces import AbstractFunctionSpace
     from .topology import AbstractTopology
 
 
@@ -42,9 +42,7 @@ class BroadcastTo(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.value.argument_spaces
 
     @property
@@ -93,9 +91,7 @@ class Tensor(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.entries[0].argument_spaces
 
     @property
@@ -146,9 +142,7 @@ class Indexed(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     @property
@@ -192,9 +186,7 @@ class ComponentTensor(BindingExpression[Index]):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     @property
@@ -232,9 +224,7 @@ class IndexSum(BindingExpression[Index]):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     @property
@@ -269,9 +259,7 @@ class Inverse(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     @property
@@ -306,9 +294,7 @@ class Determinant(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     @property

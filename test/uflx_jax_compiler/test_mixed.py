@@ -4,6 +4,7 @@
 #
 # SPDX-License-Identifier:    MIT
 
+import basix
 import numpy as np
 import pytest
 
@@ -11,9 +12,12 @@ from uflx._src.nodes import Conjugate
 from uflx._src.nodes.forms import entry_function
 from uflx._src.passes import applications, derivatives
 from uflx.arithmetic import absolute, conjugate, multiply, num
-from uflx.calculus import directional_derivative
+from uflx.calculus import directional_derivative, integral
 from uflx.forms import form, function
 from uflx.nodes import ScalarType
+from uflx.passes import apply_derivatives
+from uflx_basix.cells import cell
+from uflx_basix.spaces import local_space
 from uflx_extensions.complex_differentiation import complex_derivative_parts
 from uflx_jax_compiler import trace
 
@@ -98,3 +102,59 @@ def test_mixed_scalar_variables_are_valid_but_a_mixed_product_slot_is_not():
     assert np.isclose(trace(passes(d), *data)(*data.values()), expected)
     with pytest.raises(ValueError, match="one scalar type"):
         form(d, ((v, mu),))
+
+
+def test_nested_velocity_pressure_control_residual_and_jacobian():
+    triangle = cell(basix.CellType.triangle)
+    p1 = basix.create_element(basix.ElementFamily.P, triangle.cell_type, 1)
+    velocity = local_space(triangle, p1, shape=(2,))
+    scalar = local_space(triangle, p1)
+
+    def fields(labels):
+        return tuple(
+            function(V, label) for V, label in zip((velocity, scalar, scalar), labels, strict=True)
+        )
+
+    u, p, m = state = fields(("u", "p", "m"))
+    test = fields(("v", "q", "h"))
+    trial = fields(("du", "dp", "dm"))
+    energy = integral((u @ u) * m + p * m + p * p, triangle)
+    dofs = tuple(
+        np.arange(V.num_dofs, dtype=float) + i for i, V in enumerate((velocity, scalar, scalar))
+    )
+    rule = basix.make_quadrature(triangle.cell_type, 3)
+
+    def assemble(x, v, dx):
+        residual = form(directional_derivative(energy, x, v), (v,))
+        jacobian = form(directional_derivative(residual, x, dx), (dx,))
+        return tuple(trace(f, energy, *state)(rule, *dofs) for f in (residual, jacobian))
+
+    def group(values):
+        return (values[0], values[1]), values[2]
+
+    flat = assemble(state, test, trial)
+    nested = assemble(group(state), group(test), group(trial))
+    n = velocity.num_dofs + 2 * scalar.num_dofs
+    assert nested[0].shape == (n,) and nested[1].shape == (n, n)
+    for actual, expected in zip(nested, flat, strict=True):
+        np.testing.assert_allclose(actual, expected)
+
+
+def test_nested_complex_derivative_and_symbolic_lowering():
+    z = function(C, "nested-z")
+    variables = ((u, p), z)
+    directions = ((h0, h1), function(C, "nested-h2"))
+    # Evaluate away from the declared variables. The first term is holomorphic,
+    # and the conjugate term couples the first and last leaves antilinearly.
+    expression = u * p + conjugate(z * u)
+    point = ((num(1 + 2j), num(2 - 1j)), num(-1j))
+    step = ((0.3j, 0.7), -0.2j)
+    linear, antilinear = complex_derivative_parts(expression, variables, point, directions)
+    expected = (
+        step[0][0] * (2 - 1j) + (1 + 2j) * step[0][1],
+        np.conj(step[1] * (1 + 2j) - 1j * step[0][0]),
+    )
+    for part, value in zip((linear, antilinear), expected, strict=True):
+        for body in (part, apply_derivatives(part)):
+            operands = (*directions[0], directions[1])
+            np.testing.assert_allclose(trace(body, *operands)(*step[0], step[1]), value, atol=1e-6)

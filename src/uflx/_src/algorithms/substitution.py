@@ -22,7 +22,7 @@ from ..nodes import (
     IndexSum,
     Zero,
 )
-from ..nodes.arguments import BindingEntry, FormEntry, argument_members, binding_name
+from ..nodes.arguments import BindingEntry, FormEntry, argument_pairs, binding_name
 from ..nodes.structure import operands
 from ..nodes.types import Construction
 from .binding import binding_signature, scoped_body_fields
@@ -187,9 +187,7 @@ def rebind(
     for source, target in mapping.items():
         if source not in entries:
             raise ValueError("unknown bound declaration")
-        if isinstance(source, tuple) != isinstance(target, tuple):
-            raise ValueError("rebind must preserve argument grouping")
-        for old, new in zip(argument_members(source), argument_members(target), strict=True):
+        for old, new in argument_pairs(source, target):
             if isinstance(old, Conjugate) != isinstance(new, Conjugate):
                 raise ValueError("rebind must preserve conjugation")
             renames[binding_name(old)] = binding_name(new)

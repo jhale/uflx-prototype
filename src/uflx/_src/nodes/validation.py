@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .arguments import Argument, argument_pairs
+
 if TYPE_CHECKING:
     from .expressions import AbstractExpression
     from .indices import AbstractExtent, GatheredIndex, Index
+    from .scalar_types import NumericalScalarType
     from .spaces import AbstractFunctionSpace
 
 
@@ -62,24 +65,27 @@ def entries(
     return merge_indices(tuple(direct), tuple(gathered))
 
 
+def product_scalar_type(space: Argument[AbstractFunctionSpace]) -> NumericalScalarType:
+    """Return the common scalar type of a space or a nested product of spaces."""
+    if not isinstance(space, tuple):
+        return space.scalar_type
+    require(len(space) >= 2, "a product needs at least two members")
+    types: set[NumericalScalarType] = {product_scalar_type(member) for member in space}
+    require(len(types) == 1, "a product requires one scalar type")
+    return types.pop()
+
+
 def admissible(
-    V: AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...],
-    value: AbstractExpression | tuple[AbstractExpression, ...],
+    V: Argument[AbstractFunctionSpace],
+    value: Argument[AbstractExpression],
 ) -> None:
     from . import ScalarType
 
-    if isinstance(V, tuple):
-        if not isinstance(value, tuple):
-            raise ValueError("argument tuple does not match")
-        require(len(value) == len(V), "argument tuple does not match")
-        for W, g in zip(V, value, strict=True):
-            admissible(W, g)
-        return
-    if isinstance(value, tuple):
-        raise ValueError("a single argument space requires a single expression")
-    require(value.value_shape == V.value_shape, "argument value shape does not match")
-    require(value.argument_spaces == V.argument_spaces, "argument spaces do not match")
-    require(
-        value.scalar_type in (ScalarType.real, V.scalar_type), "argument scalar type does not match"
-    )
-    require(value.domain in (None, V.domain), "argument domain does not match")
+    for space, member in argument_pairs(V, value):
+        require(member.value_shape == space.value_shape, "argument value shape does not match")
+        require(member.argument_spaces == space.argument_spaces, "argument spaces do not match")
+        require(
+            member.scalar_type in (ScalarType.real, space.scalar_type),
+            "argument scalar type does not match",
+        )
+        require(member.domain in (None, space.domain), "argument domain does not match")

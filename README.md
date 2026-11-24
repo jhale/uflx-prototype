@@ -76,8 +76,9 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   `a = form(e, (conjugate(v), u))` binds them as arguments, declaring
   antilinearity in `v` and linearity in `u`. For a function `w` in the same
   space as `u`, `partial(a, {u: w})` leaves an antilinear form in `v`.
-- Mixed forms do not need a separate mixed space. A form can bind a tuple such
-  as `(flux, pressure)` as one argument, with each field in its own space.
+- Mixed forms can bind a nested tuple such as `((velocity, pressure), control)`
+  as one argument. Each field keeps its own space and `apply` takes the same
+  grouping, with no separate mixed space to construct.
 - A single directional derivative system, covering variational calculus on
   forms, coupled problems, scalar parameter derivatives, vector/tensor
   derivatives, symmetry, complex derivatives, and shape calculus.

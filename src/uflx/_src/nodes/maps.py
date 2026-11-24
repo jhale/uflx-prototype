@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, final
 
+from .arguments import ArgumentSpaces
 from .base import Base
 from .caching import cached
 from .expressions import AbstractExpression
@@ -18,7 +19,6 @@ if TYPE_CHECKING:
     from .domains import AbstractCoordinateDomain, AbstractDomain
     from .indices import AbstractExtent, Index
     from .meshes import CellMap, SideMap
-    from .spaces import AbstractFunctionSpace
     from .topology import AbstractTopology
 
 
@@ -86,9 +86,7 @@ class PullBack(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     def _validate(self) -> None:

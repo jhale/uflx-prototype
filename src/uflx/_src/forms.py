@@ -18,7 +18,7 @@ from .nodes import (
     Form,
     Function,
 )
-from .nodes.arguments import FormEntry, argument_members
+from .nodes.arguments import Argument, FormEntry, argument_leaves, argument_pairs
 from .nodes.forms import entry_function
 from .nodes.validation import admissible, merge_indices
 
@@ -33,14 +33,14 @@ def function(space: AbstractFunctionSpace, label: str | tuple[Construction, ...]
 
 def form(
     expression: AbstractExpression,
-    arguments: tuple[Function | Conjugate | tuple[Function | Conjugate, ...], ...],
+    arguments: tuple[FormEntry, ...],
 ) -> Form:
     return Form(expression, arguments)
 
 
 def apply(
     form: AbstractExpression,
-    arguments: tuple[AbstractExpression | tuple[AbstractExpression, ...], ...],
+    arguments: tuple[Argument[AbstractExpression], ...],
 ) -> AbstractExpression:
     if not arguments and not form.argument_spaces:
         return form
@@ -48,7 +48,7 @@ def apply(
 
 
 def partial(
-    form: Form, mapping: Mapping[FormEntry, AbstractExpression | tuple[AbstractExpression, ...]]
+    form: Form, mapping: Mapping[FormEntry, Argument[AbstractExpression]]
 ) -> AbstractExpression:
     """Instantiate complete outer entries simultaneously; reject retained capture."""
     if not isinstance(cast("object", form), Form):
@@ -65,8 +65,8 @@ def partial(
             continue
         value = mapping[entry]
         admissible(space, value)
-        indices = merge_indices(indices, *(m.free_indices for m in argument_members(value)))
-        for member, supplied in zip(argument_members(entry), argument_members(value), strict=True):
+        indices = merge_indices(indices, *(m.free_indices for m in argument_leaves(value)))
+        for member, supplied in argument_pairs(entry, value):
             variable = entry_function(member)
             supplied = promote(variable, supplied)
             replacements[variable] = (
@@ -76,7 +76,7 @@ def partial(
     if any(
         occurs(entry_function(member), value)
         for entry in remaining
-        for member in argument_members(entry)
+        for member in argument_leaves(entry)
         for value in replacements.values()
     ):
         raise ValueError("partial would capture a retained argument; rebind it explicitly first")

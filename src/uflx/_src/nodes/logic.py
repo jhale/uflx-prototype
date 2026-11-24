@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
+from .arguments import ArgumentSpaces
 from .caching import cached
 from .expressions import AbstractExpression
 from .scalar_types import ExpressionScalarType
@@ -17,7 +18,6 @@ from .validation import require
 if TYPE_CHECKING:
     from .domains import AbstractDomain
     from .indices import AbstractExtent, Index
-    from .spaces import AbstractFunctionSpace
     from .topology import AbstractTopology
 
 
@@ -80,9 +80,7 @@ class Conditional(AbstractExpression):
         return self.true_value.value_shape
 
     @property
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.true_value.argument_spaces
 
     @property

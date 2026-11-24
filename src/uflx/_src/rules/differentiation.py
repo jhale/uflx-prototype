@@ -34,7 +34,7 @@ from ..nodes import (
     SquareRoot,
     Zero,
 )
-from ..nodes.arguments import argument_members, map_argument
+from ..nodes.arguments import Argument, argument_leaves, map_argument
 from ..tensors import tensor, transpose
 from .linearity import linear_fields
 from .structural import commute, structural_fields
@@ -71,7 +71,7 @@ def derivative_of_node(
             points = tuple(map_argument(at, slot) for slot in arguments)
             terms = [] if constant(form) else [Apply(d(form), points)]
             for i, slot in enumerate(arguments):
-                if not all(constant(member) for member in argument_members(slot)):
+                if not all(constant(member) for member in argument_leaves(slot)):
                     varied = (*points[:i], map_argument(d, slot), *points[i + 1 :])
                     terms.append(Apply(at(form), varied))
             return total(terms) if terms else zero_like(f, ())
@@ -144,13 +144,13 @@ def _literal_value(e: AbstractExpression) -> int | float | None:
 
 def deriv(
     f: AbstractExpression,
-    x: Function | tuple[Function, ...],
-    a: AbstractExpression | tuple[AbstractExpression, ...],
-    h: AbstractExpression | tuple[AbstractExpression, ...],
+    x: Argument[Function],
+    a: Argument[AbstractExpression],
+    h: Argument[AbstractExpression],
     extension_rule: DerivativeRule | None = None,
 ) -> AbstractExpression:
     # Evaluate undifferentiated operands at the point; inserted directions stay unchanged.
-    xs, points, directions = argument_members(x), argument_members(a), argument_members(h)
+    xs, points, directions = argument_leaves(x), argument_leaves(a), argument_leaves(h)
     points = tuple(promote(v, p) for v, p in zip(xs, points, strict=True))
     directions = tuple(promote(v, w) for v, w in zip(xs, directions, strict=True))
     mapping = dict(zip(xs, points, strict=True))

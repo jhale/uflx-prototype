@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Literal, cast, final
 
+from .arguments import ArgumentSpaces
 from .base import Base
 from .caching import cached
 from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReferenceCell
@@ -21,7 +22,6 @@ from .topology import AbstractTopology
 if TYPE_CHECKING:
     from .indices import AbstractExtent
     from .maps import DomainMap
-    from .spaces import AbstractFunctionSpace
 
 
 @final
@@ -221,9 +221,7 @@ class PushForward(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
@@ -275,9 +273,7 @@ class Conormal(AbstractExpression):
 
     @property
     @cached
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]:
+    def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
     def _validate(self) -> None:

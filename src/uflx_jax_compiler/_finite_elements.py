@@ -5,6 +5,7 @@
 # SPDX-License-Identifier:    MIT
 """Finite-element tabulation for the JAX backend."""
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -42,7 +43,7 @@ def _basis_field(space, dof):
 
 def local_basis(slot):
     """Return the dimension and indexed basis of a Basix form slot."""
-    members = slot if isinstance(slot, tuple) else (slot,)
+    members, structure = jax.tree.flatten(slot)
     spaces = tuple(basix_space(s) for s in members)
     if None in spaces:
         return None
@@ -53,7 +54,7 @@ def local_basis(slot):
             _basis_field(space, dof - start)
             for space, start in zip(spaces, offsets[:-1], strict=True)
         )
-        return fields if isinstance(slot, tuple) else fields[0]
+        return jax.tree.unflatten(structure, fields)
 
     return offsets[-1], basis
 

@@ -10,7 +10,14 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, ClassVar, Generic, Never, TypeVar, cast
 
-from .arguments import BindingEntry, argument_members, binding_name
+from .arguments import (
+    Argument,
+    ArgumentSpaces,
+    BindingEntry,
+    argument_leaves,
+    argument_members,
+    binding_name,
+)
 from .base import Base
 from .scalar_types import ExpressionScalarType, ScalarType
 
@@ -18,7 +25,6 @@ if TYPE_CHECKING:
     from .domains import AbstractDomain
     from .forms import Function
     from .indices import AbstractExtent, GatheredIndex, Index
-    from .spaces import AbstractFunctionSpace
     from .topology import AbstractTopology
 
 
@@ -53,9 +59,7 @@ class AbstractExpression(Base):
 
     @property
     @abstractmethod
-    def argument_spaces(
-        self,
-    ) -> tuple[AbstractFunctionSpace | tuple[AbstractFunctionSpace, ...], ...]: ...
+    def argument_spaces(self) -> ArgumentSpaces: ...
 
     @property
     @abstractmethod
@@ -67,10 +71,10 @@ class AbstractExpression(Base):
 
     @staticmethod
     def joined_scalar_type(
-        *operands: AbstractExpression | tuple[AbstractExpression, ...],
+        *operands: Argument[AbstractExpression],
     ) -> ExpressionScalarType:
         """Join Boolean values or promote numerical operands to a common scalar type."""
-        types = {member.scalar_type for slot in operands for member in argument_members(slot)}
+        types = {member.scalar_type for slot in operands for member in argument_leaves(slot)}
         if ScalarType.boolean in types:
             if len(types) != 1:
                 raise ValueError("Boolean and numerical values cannot be mixed")
@@ -162,6 +166,6 @@ class BindingExpression(AbstractExpression, Generic[_Name]):
         names = (
             binding_name(member)
             for entry in self.binding_entries()
-            for member in argument_members(entry)
+            for member in argument_leaves(entry)
         )
         return cast("tuple[_Name, ...]", tuple(names))

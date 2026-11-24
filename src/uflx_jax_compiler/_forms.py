@@ -14,10 +14,6 @@ from . import _finite_elements as elements
 from ._context import BoundExpression, as_argument
 
 
-def members(entry):
-    return entry if isinstance(entry, tuple) else (entry,)
-
-
 def conjugated(value):
     if isinstance(value, tuple):
         return tuple(conjugated(v) for v in value)
@@ -71,13 +67,18 @@ def supplied(operand, signature, site, value):
 
 def form_bindings(declarations, arguments):
     bindings = {}
+
+    def bind(entry, value):
+        if isinstance(entry, tuple):
+            for member, item in zip(entry, value, strict=True):
+                bind(member, item)
+        elif isinstance(entry, Conjugate):
+            bindings[entry.operand] = conjugated(value)
+        else:
+            bindings[entry] = value
+
     for entry, value in zip(declarations, arguments, strict=True):
-        values = value if isinstance(entry, tuple) else (value,)
-        for member, item in zip(members(entry), values, strict=True):
-            if isinstance(member, Conjugate):
-                bindings[member.operand] = conjugated(item)
-            else:
-                bindings[member] = item
+        bind(entry, value)
     return bindings
 
 
@@ -92,7 +93,10 @@ def directional(node, arguments, read):
         overrides = {
             variable: seed(variable, p, d)
             for variable, p, d in zip(
-                members(node.variable), members(node.point), members(node.direction), strict=True
+                jax.tree.leaves(node.variable),
+                jax.tree.leaves(node.point),
+                jax.tree.leaves(node.direction),
+                strict=True,
             )
         }
         value = read(node.expression, arguments, bind=overrides)
