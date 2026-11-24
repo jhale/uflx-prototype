@@ -77,8 +77,7 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   antilinearity in `v` and linearity in `u`. For a function `w` in the same
   space as `u`, `partial(a, {u: w})` leaves an antilinear form in `v`.
 - Mixed forms can bind a nested tuple such as `((velocity, pressure), control)`
-  as one argument. Each field keeps its own space and `apply` takes the same
-  grouping, with no separate mixed space to construct.
+  as one argument. There is no separate mixed space to construct.
 - A single directional derivative system, covering variational calculus on
   forms, coupled problems, scalar parameter derivatives, vector/tensor
   derivatives, symmetry, complex derivatives, and shape calculus.
