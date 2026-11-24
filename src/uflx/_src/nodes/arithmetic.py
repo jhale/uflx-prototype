@@ -13,7 +13,6 @@ from .caching import cached
 from .expressions import AbstractExpression
 from .scalar_types import ScalarType, common_scalar_type, numerical_type
 from .structure import common_operand_domain
-from .validation import require
 
 if TYPE_CHECKING:
     from ..typing.nodes import ArgumentSpaces
@@ -55,10 +54,10 @@ class Sum(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        require(self.first.value_shape == self.second.value_shape, "sum value shapes differ")
-        require(
-            self.first.argument_spaces == self.second.argument_spaces, "sum argument spaces differ"
-        )
+        if self.first.value_shape != self.second.value_shape:
+            raise ValueError("sum value shapes differ")
+        if self.first.argument_spaces != self.second.argument_spaces:
+            raise ValueError("sum argument spaces differ")
 
 
 @final
@@ -94,10 +93,8 @@ class Product(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        require(
-            not self.first.value_shape or not self.second.value_shape,
-            "product requires at least one scalar operand",
-        )
+        if self.first.value_shape and self.second.value_shape:
+            raise ValueError("product requires at least one scalar operand")
 
 
 @final
@@ -133,8 +130,10 @@ class Division(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        require(not self.denominator.value_shape, "division requires a scalar denominator")
-        require(not self.denominator.argument_spaces, "nonlinear operand has argument spaces")
+        if self.denominator.value_shape:
+            raise ValueError("division requires a scalar denominator")
+        if self.denominator.argument_spaces:
+            raise ValueError("nonlinear operand has argument spaces")
 
 
 @final
@@ -170,12 +169,12 @@ class Power(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        require(
-            not self.base.value_shape and not self.exponent.value_shape,
-            "power requires scalar operands",
-        )
-        require(not self.exponent.argument_spaces, "nonlinear operand has argument spaces")
-        require(not self.base.argument_spaces, "power base has argument spaces")
+        if self.base.value_shape or self.exponent.value_shape:
+            raise ValueError("power requires scalar operands")
+        if self.exponent.argument_spaces:
+            raise ValueError("nonlinear operand has argument spaces")
+        if self.base.argument_spaces:
+            raise ValueError("power base has argument spaces")
 
 
 @final
@@ -390,6 +389,7 @@ class Logarithm(AbstractExpression):
 
 def _scalar_operand(f: AbstractExpression, nonlinear: bool = True) -> None:
     numerical_type(f.scalar_type)
-    require(f.value_shape == (), "operation requires a scalar")
-    if nonlinear:
-        require(not f.argument_spaces, "nonlinear operand has argument spaces")
+    if f.value_shape:
+        raise ValueError("operation requires a scalar")
+    if nonlinear and f.argument_spaces:
+        raise ValueError("nonlinear operand has argument spaces")

@@ -63,14 +63,13 @@ class DirectionalDerivative(BindingExpression["Function"]):
 
     def _validate(self) -> None:
         from ..algorithms.substitution import occurs
-        from .validation import admissible, require
+        from .validation import admissible
 
         xs = argument_leaves(self.variable)
-        require(len(set(xs)) == len(xs), "derivative variables must be distinct")
-        require(
-            not any(occurs(x, variable.space) for x in xs for variable in xs),
-            "derivative variable spaces must be independent of the variables",
-        )
+        if len(set(xs)) != len(xs):
+            raise ValueError("derivative variables must be distinct")
+        if any(occurs(x, variable.space) for x in xs for variable in xs):
+            raise ValueError("derivative variable spaces must be independent of the variables")
         spaces = map_argument(lambda x: x.space, self.variable)
         admissible(spaces, self.point)
         admissible(spaces, self.direction)
@@ -263,7 +262,6 @@ class Integral(AbstractExpression):
 
 def _validate_calculus(e: Coordinate | Gradient | Divergence | Curl | Integral) -> None:
     from .meshes import Mesh
-    from .validation import require
 
     P = e.integration_domain if isinstance(e, Integral) else e.domain
     if isinstance(e, Coordinate):
@@ -274,15 +272,10 @@ def _validate_calculus(e: Coordinate | Gradient | Divergence | Curl | Integral) 
         if isinstance(e, Integral) and isinstance(P, Mesh)
         else (None, P)
     )
-    require(f.domain in domains, "expression and domain are not a valid pair")
+    if f.domain not in domains:
+        raise ValueError("expression and domain are not a valid pair")
     dim = P.ambient_coordinate_domain.dimension
-    if isinstance(e, Divergence):
-        require(
-            bool(f.value_shape) and f.value_shape[-1] == dim,
-            "divergence requires a last axis in the ambient frame",
-        )
-    if isinstance(e, Curl):
-        require(
-            dim in (2, 3) and f.value_shape == (dim,),
-            "curl requires a vector in dimension two or three",
-        )
+    if isinstance(e, Divergence) and (not f.value_shape or f.value_shape[-1] != dim):
+        raise ValueError("divergence requires a last axis in the ambient frame")
+    if isinstance(e, Curl) and (dim not in (2, 3) or f.value_shape != (dim,)):
+        raise ValueError("curl requires a vector in dimension two or three")

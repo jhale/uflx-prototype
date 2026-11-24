@@ -209,16 +209,18 @@ class Zero(AbstractExpression):
             ScalarType.complex,
         ):
             raise TypeError("Zero takes a real or complex scalar type")
-        from .validation import extent, product_scalar_type, require
+        from .validation import extent, product_scalar_type
 
         for size in self.value_shape:
             extent(size)
         seen: set[Index] = set()
         for pair in self.free_indices:
-            require(len(pair) == 2, "a free index is an index/extent pair")
+            if len(pair) != 2:
+                raise ValueError("a free index is an index/extent pair")
             i, size = pair
             extent(size)
-            require(i not in seen, "free index is repeated")
+            if i in seen:
+                raise ValueError("free index is repeated")
             seen.add(i)
         for space in self.argument_spaces:
             product_scalar_type(space)

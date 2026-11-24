@@ -36,20 +36,17 @@ class DomainMap(Base):
         return self.parameterisation.free_indices
 
     def _validate(self) -> None:
-        from .validation import require
-
         f = self.parameterisation
-        require(f.domain in (None, self.parameter_domain), "parameterisation domain differs")
-        require(
-            f.scalar_type == ScalarType.real
-            and (not f.argument_spaces)
-            and (f.value_shape == (self.ambient_domain.dimension,)),
-            "invalid coordinate expression",
-        )
-        require(
-            self.parameter_domain.dimension <= self.ambient_domain.dimension,
-            "map decreases ambient dimension",
-        )
+        if f.domain not in (None, self.parameter_domain):
+            raise ValueError("parameterisation domain differs")
+        if (
+            f.scalar_type != ScalarType.real
+            or f.argument_spaces
+            or f.value_shape != (self.ambient_domain.dimension,)
+        ):
+            raise ValueError("invalid coordinate expression")
+        if self.parameter_domain.dimension > self.ambient_domain.dimension:
+            raise ValueError("map decreases ambient dimension")
 
 
 @final
@@ -91,11 +88,9 @@ class PullBack(AbstractExpression):
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
-        from .validation import merge_indices, require
+        from .validation import merge_indices
 
         target = self.map.ambient_domain if isinstance(self.map, DomainMap) else self.map.parent
-        require(
-            self.expression.domain in (None, target),
-            "pull-back target differs from expression domain",
-        )
+        if self.expression.domain not in (None, target):
+            raise ValueError("pull-back target differs from expression domain")
         merge_indices(self.expression.free_indices, self.map.free_indices)

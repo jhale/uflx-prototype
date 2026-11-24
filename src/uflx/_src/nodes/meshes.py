@@ -57,26 +57,20 @@ class Mesh(AbstractDomain):
         return self.topology.dimension
 
     def _validate(self) -> None:
-        from .validation import require
-
         f = self.coordinate_function
         topology = self.topology
-        require(
-            all(isinstance(K, AbstractReferenceCell) for K in topology.cell_types),
-            "mesh cells must be reference cells",
-        )
-        require(not f.free_indices, "mesh coordinates must have no free indices")
-        require(
-            not f.free_indices
-            and (not f.argument_spaces)
-            and (f.scalar_type == ScalarType.real)
-            and (f.value_shape == (self.ambient_domain.dimension,)),
-            "invalid mesh coordinates",
-        )
-        require(
-            topology.dimension <= self.ambient_domain.dimension,
-            "mesh dimension exceeds ambient dimension",
-        )
+        if any(not isinstance(K, AbstractReferenceCell) for K in topology.cell_types):
+            raise ValueError("mesh cells must be reference cells")
+        if f.free_indices:
+            raise ValueError("mesh coordinates must have no free indices")
+        if (
+            f.argument_spaces
+            or f.scalar_type != ScalarType.real
+            or f.value_shape != (self.ambient_domain.dimension,)
+        ):
+            raise ValueError("invalid mesh coordinates")
+        if topology.dimension > self.ambient_domain.dimension:
+            raise ValueError("mesh dimension exceeds ambient dimension")
 
 
 @final
@@ -104,15 +98,12 @@ class CellMap(Base):
         return PullBack(self.parent.coordinate_function, CellMap(self.topology, self.cell_slot))
 
     def _validate(self) -> None:
-        from .validation import require
-
         if type(self.cell_slot) is not int:
             raise TypeError("cell slot must be an integer")
-        require(0 <= self.cell_slot < len(self.topology.cell_types), "invalid cell slot")
-        require(
-            isinstance(self.topology.cell_types[self.cell_slot], AbstractReferenceCell),
-            "cell must be a reference cell",
-        )
+        if not 0 <= self.cell_slot < len(self.topology.cell_types):
+            raise ValueError("invalid cell slot")
+        if not isinstance(self.topology.cell_types[self.cell_slot], AbstractReferenceCell):
+            raise ValueError("cell must be a reference cell")
 
 
 @final
@@ -134,37 +125,33 @@ class SideMap(Base):
 
     def _validate(self) -> None:
         from .maps import DomainMap
-        from .validation import require
 
-        require(
-            isinstance(cast("object", self.parent), (Mesh, AbstractTopology)), "invalid side parent"
-        )
-        require(
-            isinstance(cast("object", self.source), (Mesh, AbstractTopology)), "invalid side source"
-        )
+        if not isinstance(cast("object", self.parent), (Mesh, AbstractTopology)):
+            raise ValueError("invalid side parent")
+        if not isinstance(cast("object", self.source), (Mesh, AbstractTopology)):
+            raise ValueError("invalid side source")
         S, T = self.source_topology, self.parent_topology
-        require(
-            len(self.entries) == len(S.cell_types), "one side entry is required per source slot"
-        )
+        if len(self.entries) != len(S.cell_types):
+            raise ValueError("one side entry is required per source slot")
         for F, entry in zip(S.cell_types, self.entries, strict=True):
-            require(len(entry) == 2, "a side entry is a parent slot and an inclusion")
+            if len(entry) != 2:
+                raise ValueError("a side entry is a parent slot and an inclusion")
             j, A = entry
-            require(type(j) is int and 0 <= j < len(T.cell_types), "invalid parent cell slot")
-            require(isinstance(F, AbstractReferenceCell), "source cell must be a reference cell")
-            require(
-                isinstance(T.cell_types[j], AbstractReferenceCell),
-                "parent cell must be a reference cell",
-            )
-            require(isinstance(cast("object", A), DomainMap), "side inclusion must be a DomainMap")
-            require(
-                A.parameter_domain == cast("AbstractReferenceCell", F),
-                "side inclusion source differs from source reference cell",
-            )
-            require(
-                A.ambient_domain == cast("AbstractReferenceCell", T.cell_types[j]),
-                "side inclusion target differs from parent reference cell",
-            )
-            require(not A.free_indices, "side inclusions must have no free indices")
+            if type(j) is not int or not 0 <= j < len(T.cell_types):
+                raise ValueError("invalid parent cell slot")
+            if not isinstance(F, AbstractReferenceCell):
+                raise ValueError("source cell must be a reference cell")
+            parent_cell = T.cell_types[j]
+            if not isinstance(parent_cell, AbstractReferenceCell):
+                raise ValueError("parent cell must be a reference cell")
+            if not isinstance(cast("object", A), DomainMap):
+                raise ValueError("side inclusion must be a DomainMap")
+            if A.parameter_domain != F:
+                raise ValueError("side inclusion source differs from source reference cell")
+            if A.ambient_domain != parent_cell:
+                raise ValueError("side inclusion target differs from parent reference cell")
+            if A.free_indices:
+                raise ValueError("side inclusions must have no free indices")
 
 
 @final
@@ -176,11 +163,8 @@ class TransformationLaw(Base):
     weight: int
 
     def _validate(self) -> None:
-        from .validation import require
-
-        require(
-            all(v in ("covariant", "contravariant") for v in self.variances), "unknown variance"
-        )
+        if any(v not in ("covariant", "contravariant") for v in self.variances):
+            raise ValueError("unknown variance")
         if type(self.weight) is not int:
             raise TypeError("weight must be an integer")
 
@@ -223,18 +207,13 @@ class PushForward(AbstractExpression):
         return self.expression.argument_spaces
 
     def _validate(self) -> None:
-        from .validation import require
-
-        require(
-            self.expression.domain in (None, self.mesh.topology),
-            "push-forward source differs from the topology",
-        )
+        if self.expression.domain not in (None, self.mesh.topology):
+            raise ValueError("push-forward source differs from the topology")
         p = len(self.law.variances)
-        require(
-            len(self.expression.value_shape) >= p
-            and (not p or self.expression.value_shape[-p:] == (self.mesh.dimension,) * p),
-            "transformed axes have the wrong extent",
-        )
+        if len(self.expression.value_shape) < p or (
+            p and self.expression.value_shape[-p:] != (self.mesh.dimension,) * p
+        ):
+            raise ValueError("transformed axes have the wrong extent")
 
 
 @final
@@ -275,28 +254,20 @@ class Conormal(AbstractExpression):
         return ()
 
     def _validate(self) -> None:
-        from .validation import require
+        if (
+            not isinstance(self.side_map.parent, Mesh)
+            or self.side_map.source.dimension != self.side_map.parent.dimension - 1
+        ):
+            raise ValueError("conormal requires a codimension-one mesh side")
 
-        require(
-            isinstance(self.side_map.parent, Mesh)
-            and self.side_map.source.dimension == self.side_map.parent.dimension - 1,
-            "conormal requires a codimension-one mesh side",
-        )
-
-        require(
-            len(self.reference_conormals) == len(self.side_map.entries),
-            "one reference conormal is required per source slot",
-        )
+        if len(self.reference_conormals) != len(self.side_map.entries):
+            raise ValueError("one reference conormal is required per source slot")
         for (_, A), m in zip(self.side_map.entries, self.reference_conormals, strict=True):
-            require(
-                m.domain in (None, A.parameter_domain), "reference conormal has the wrong domain"
-            )
-            require(
-                m.value_shape == (A.ambient_domain.dimension,),
-                "reference conormal has the wrong shape",
-            )
-            require(
-                m.scalar_type == ScalarType.real and not m.argument_spaces,
-                "reference conormal must be a real field without arguments",
-            )
-            require(not m.free_indices, "reference conormals must have no free indices")
+            if m.domain not in (None, A.parameter_domain):
+                raise ValueError("reference conormal has the wrong domain")
+            if m.value_shape != (A.ambient_domain.dimension,):
+                raise ValueError("reference conormal has the wrong shape")
+            if m.scalar_type != ScalarType.real or m.argument_spaces:
+                raise ValueError("reference conormal must be a real field without arguments")
+            if m.free_indices:
+                raise ValueError("reference conormals must have no free indices")

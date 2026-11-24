@@ -14,7 +14,6 @@ from .caching import cached
 from .expressions import AbstractExpression
 from .scalar_types import common_scalar_type
 from .structure import common_operand_domain
-from .validation import require
 
 if TYPE_CHECKING:
     from ..typing.nodes import ArgumentSpaces
@@ -56,10 +55,8 @@ class LessThan(AbstractExpression):
 
     def _validate(self) -> None:
         for value in (self.first, self.second):
-            require(
-                value.scalar_type == "real" and not value.value_shape and not value.argument_spaces,
-                "comparison requires real scalar fields",
-            )
+            if value.scalar_type != "real" or value.value_shape or value.argument_spaces:
+                raise ValueError("comparison requires real scalar fields")
 
 
 @final
@@ -96,14 +93,14 @@ class Conditional(AbstractExpression):
         return free_indices(self.predicate, self.true_value, self.false_value)
 
     def _validate(self) -> None:
-        require(
-            self.predicate.scalar_type == "boolean"
-            and not self.predicate.value_shape
-            and not self.predicate.argument_spaces,
-            "selection requires a scalar Boolean predicate",
-        )
-        require(
-            self.true_value.value_shape == self.false_value.value_shape
-            and self.true_value.argument_spaces == self.false_value.argument_spaces,
-            "conditional branches must have equal shapes and argument spaces",
-        )
+        if (
+            self.predicate.scalar_type != "boolean"
+            or self.predicate.value_shape
+            or self.predicate.argument_spaces
+        ):
+            raise ValueError("selection requires a scalar Boolean predicate")
+        if (
+            self.true_value.value_shape != self.false_value.value_shape
+            or self.true_value.argument_spaces != self.false_value.argument_spaces
+        ):
+            raise ValueError("conditional branches must have equal shapes and argument spaces")

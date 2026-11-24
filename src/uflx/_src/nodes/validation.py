@@ -18,16 +18,11 @@ if TYPE_CHECKING:
     from .spaces import AbstractFunctionSpace
 
 
-def require(condition: bool, message: str) -> None:
-    if not condition:
-        raise ValueError(message)
-
-
 def extent(n: int | AbstractExtent) -> None:
     if type(n) is bool:
         raise TypeError("extent requires an exact integer")
-    if isinstance(n, int):
-        require(n >= 0, "extent must be nonnegative")
+    if isinstance(n, int) and n < 0:
+        raise ValueError("extent must be nonnegative")
 
 
 def merge_indices(
@@ -36,7 +31,8 @@ def merge_indices(
     out: dict[Index, int | AbstractExtent] = {}
     for group in groups:
         for i, n in group:
-            require(i not in out or out[i] == n, "one index has inconsistent extents")
+            if i in out and out[i] != n:
+                raise ValueError("one index has inconsistent extents")
             out[i] = n
     return tuple(out.items())
 
@@ -69,9 +65,11 @@ def product_scalar_type(space: Argument[AbstractFunctionSpace]) -> NumericalScal
     """Return the common scalar type of a space or a nested product of spaces."""
     if not isinstance(space, tuple):
         return space.scalar_type
-    require(len(space) >= 2, "a product needs at least two members")
+    if len(space) < 2:
+        raise ValueError("a product needs at least two members")
     types: set[NumericalScalarType] = {product_scalar_type(member) for member in space}
-    require(len(types) == 1, "a product requires one scalar type")
+    if len(types) != 1:
+        raise ValueError("a product requires one scalar type")
     return types.pop()
 
 
@@ -82,10 +80,11 @@ def admissible(
     from . import ScalarType
 
     for space, member in argument_pairs(V, value):
-        require(member.value_shape == space.value_shape, "argument value shape does not match")
-        require(member.argument_spaces == space.argument_spaces, "argument spaces do not match")
-        require(
-            member.scalar_type in (ScalarType.real, space.scalar_type),
-            "argument scalar type does not match",
-        )
-        require(member.domain in (None, space.domain), "argument domain does not match")
+        if member.value_shape != space.value_shape:
+            raise ValueError("argument value shape does not match")
+        if member.argument_spaces != space.argument_spaces:
+            raise ValueError("argument spaces do not match")
+        if member.scalar_type not in (ScalarType.real, space.scalar_type):
+            raise ValueError("argument scalar type does not match")
+        if member.domain not in (None, space.domain):
+            raise ValueError("argument domain does not match")

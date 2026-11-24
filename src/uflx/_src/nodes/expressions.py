@@ -29,14 +29,15 @@ class AbstractExpression(Base):
 
     def __post_init__(self) -> None:
         from .structure import common_operand_domain, expression_operands
-        from .validation import merge_indices, require
+        from .validation import merge_indices
 
         super().__post_init__()
-        require(not self.is_terminal or not self.value_fields, "a terminal has no value operands")
+        if self.is_terminal and self.value_fields:
+            raise ValueError("a terminal has no value operands")
         operands = expression_operands(self)
         merge_indices(*(x.free_indices for x in operands))
-        if self.scalar_type == ScalarType.boolean:
-            require(not self.argument_spaces, "Boolean expressions cannot take arguments")
+        if self.scalar_type == ScalarType.boolean and self.argument_spaces:
+            raise ValueError("Boolean expressions cannot take arguments")
         if self.requires_matching_domains:
             common_operand_domain(self)
 

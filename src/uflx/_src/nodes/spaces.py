@@ -63,12 +63,9 @@ class ConjugateSpace(AbstractFunctionSpace):
 
     def _validate(self) -> None:
         from ..spaces import trivial_conjugation
-        from .validation import require
 
-        require(
-            not trivial_conjugation(self.space) and (not isinstance(self.space, ConjugateSpace)),
-            "conjugate space is not canonical",
-        )
+        if trivial_conjugation(self.space) or isinstance(self.space, ConjugateSpace):
+            raise ValueError("conjugate space is not canonical")
 
 
 @final
@@ -101,9 +98,8 @@ class DualSpace(AbstractFunctionSpace):
         return (conjugated(self.space),)
 
     def _validate(self) -> None:
-        from .validation import require
-
-        require(not isinstance(self.space, DualSpace), "dual space is not canonical")
+        if isinstance(self.space, DualSpace):
+            raise ValueError("dual space is not canonical")
         if isinstance(self.space, tuple):
             from .validation import product_scalar_type
 

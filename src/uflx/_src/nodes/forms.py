@@ -113,17 +113,16 @@ class Form(BindingExpression[Function]):
 
     def _validate(self) -> None:
         from ..algorithms.substitution import occurs
-        from .validation import product_scalar_type, require
+        from .validation import product_scalar_type
 
         for space in self.argument_spaces[len(self.expression.argument_spaces) :]:
             product_scalar_type(space)
 
         binders = self.bound()
-        require(len(set(binders)) == len(binders), "form binders must be distinct")
-        require(
-            not any(occurs(name, self.argument_spaces) for name in binders),
-            "a form argument space depends on a bound function",
-        )
+        if len(set(binders)) != len(binders):
+            raise ValueError("form binders must be distinct")
+        if any(occurs(name, self.argument_spaces) for name in binders):
+            raise ValueError("a form argument space depends on a bound function")
 
 
 @final
@@ -162,11 +161,9 @@ class Apply(AbstractExpression):
         return self.form.domain
 
     def _validate(self) -> None:
-        from .validation import admissible, require
+        from .validation import admissible
 
-        require(
-            bool(self.arguments) and len(self.arguments) == len(self.form.argument_spaces),
-            "application must supply every argument slot",
-        )
+        if not self.arguments or len(self.arguments) != len(self.form.argument_spaces):
+            raise ValueError("application must supply every argument slot")
         for space, value in zip(self.form.argument_spaces, self.arguments, strict=True):
             admissible(space, value)

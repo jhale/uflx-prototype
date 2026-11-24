@@ -14,7 +14,6 @@ from .expressions import AbstractExpression, BindingExpression
 from .indices import Index
 from .scalar_types import common_scalar_type, numerical_type
 from .structure import common_operand_domain
-from .validation import require
 
 if TYPE_CHECKING:
     from ..typing.nodes import ArgumentSpaces
@@ -58,18 +57,20 @@ class BroadcastTo(AbstractExpression):
         return self.value.domain
 
     def _validate(self) -> None:
-        from .validation import extent, require
+        from .validation import extent
 
         for n in self.value_shape:
             extent(n)
         source = self.value.value_shape
-        require(len(source) <= len(self.value_shape), "broadcast target has too few axes")
+        if len(source) > len(self.value_shape):
+            raise ValueError("broadcast target has too few axes")
         aligned_axes = zip(reversed(source), reversed(self.value_shape))
         compatible = all(
             source_extent == target_extent or source_extent == 1
             for source_extent, target_extent in aligned_axes
         )
-        require(compatible, "broadcast axes must match or have source extent one")
+        if not compatible:
+            raise ValueError("broadcast axes must match or have source extent one")
 
 
 @final
@@ -106,17 +107,14 @@ class Tensor(AbstractExpression):
         return common_operand_domain(self)
 
     def _validate(self) -> None:
-        from .validation import require
-
-        require(bool(self.entries), "tensor entries must be nonempty")
-        require(
-            all(
-                f.value_shape == self.entries[0].value_shape
-                and f.argument_spaces == self.entries[0].argument_spaces
-                for f in self.entries
-            ),
-            "tensor entry types differ",
-        )
+        if not self.entries:
+            raise ValueError("tensor entries must be nonempty")
+        if any(
+            f.value_shape != self.entries[0].value_shape
+            or f.argument_spaces != self.entries[0].argument_spaces
+            for f in self.entries
+        ):
+            raise ValueError("tensor entry types differ")
 
 
 @final
@@ -157,9 +155,10 @@ class Indexed(AbstractExpression):
         return self.expression.domain
 
     def _validate(self) -> None:
-        from .validation import entries, merge_indices, require
+        from .validation import entries, merge_indices
 
-        require(bool(self.indices), "Indexed requires nonempty entries")
+        if not self.indices:
+            raise ValueError("Indexed requires nonempty entries")
         merge_indices(
             self.expression.free_indices, entries(self.expression.value_shape, self.indices)
         )
@@ -311,29 +310,21 @@ class Determinant(AbstractExpression):
 
 
 def _validate_index_binding(e: ComponentTensor | IndexSum) -> None:
-    from .validation import require
-
-    require(
-        bool(e.indices) and len(set(e.indices)) == len(e.indices),
-        "bound indices must be nonempty and distinct",
-    )
-    require(e.expression.value_shape == (), "index binding requires a scalar")
-    require(all(i in dict(e.expression.free_indices) for i in e.indices), "bound index is not free")
+    if not e.indices or len(set(e.indices)) != len(e.indices):
+        raise ValueError("bound indices must be nonempty and distinct")
+    if e.expression.value_shape:
+        raise ValueError("index binding requires a scalar")
+    if any(i not in dict(e.expression.free_indices) for i in e.indices):
+        raise ValueError("bound index is not free")
 
 
 def _matrix_operand(f: AbstractExpression, rectangular: bool = False) -> None:
-    require(not f.argument_spaces, "nonlinear operand has argument spaces")
-    require(len(f.value_shape) == 2, "matrix operand must have rank two")
+    if f.argument_spaces:
+        raise ValueError("nonlinear operand has argument spaces")
+    if len(f.value_shape) != 2:
+        raise ValueError("matrix operand must have rank two")
     a, b = f.value_shape
-    require(type(a) is int and type(b) is int, "matrix dimensions must be fixed integers")
-    require(
-        a == b
-        or (
-            rectangular
-            and isinstance(a, int)
-            and isinstance(b, int)
-            and b < a
-            and f.scalar_type == "real"
-        ),
-        "matrix dimensions or scalar type are invalid",
-    )
+    if type(a) is not int or type(b) is not int:
+        raise ValueError("matrix dimensions must be fixed integers")
+    if a != b and (not rectangular or b >= a or f.scalar_type != "real"):
+        raise ValueError("matrix dimensions or scalar type are invalid")

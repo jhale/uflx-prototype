@@ -49,11 +49,10 @@ class EuclideanSpace(AbstractCoordinateDomain):
         return self._dimension
 
     def _validate(self) -> None:
-        from .validation import require
-
         if type(self.dimension) is not int:
             raise TypeError("dimension must be an integer")
-        require(self.dimension >= 0, "dimension must be nonnegative")
+        if self.dimension < 0:
+            raise ValueError("dimension must be nonnegative")
 
 
 class AbstractReferenceCell(AbstractCoordinateDomain, AbstractCellType):
