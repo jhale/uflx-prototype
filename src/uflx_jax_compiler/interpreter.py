@@ -9,11 +9,19 @@ import jax
 import jax.numpy as jnp
 
 from uflx.algorithms import memoized, operands
-from uflx.nodes import AbstractDomain, AbstractExpression, AbstractReferenceCell, AbstractTopology, Integral, Mesh
+from uflx.nodes import (
+    AbstractDomain,
+    AbstractExpression,
+    AbstractExtent,
+    AbstractTopology,
+    Integral,
+    Mesh,
+)
 
+from ._basis_tables import BasisTable, basis_tables
 from ._context import Sample
 from ._external import Pointwise as Pointwise
-from ._finite_elements import local_basis, tabulation_space
+from ._finite_elements import local_basis
 from ._reference import reference_kernel
 from ._semantics import evaluate
 
@@ -29,30 +37,28 @@ def _tabulate_slot(action, position, dim, basis):
 
 
 def _check_quadrature(expression, inputs):
-    tabulated = {
-        key[0] for key in inputs
-        if isinstance(key, tuple) and len(key) == 2 and isinstance(key[0], Integral)
-        and tabulation_space(key[1]) is not None
-    }
-    if any(not isinstance(I.integration_domain, AbstractReferenceCell) for I in tabulated):
-        raise ValueError("declare runtime tabulations on lowered reference-cell integrals")
+    declared_tables = {key for key in inputs if isinstance(key, BasisTable)}
+    tabulated = {table.point_source for table in declared_tables}
 
     @memoized
     def visit(walk, node):
-        if isinstance(node, Integral) and (node.integration_domain.dimension or node in tabulated) and node not in inputs:
+        if (
+            isinstance(node, Integral)
+            and node not in inputs
+            and (node.integration_domain.dimension or node in tabulated)
+        ):
             domain = node.integration_domain
             cells = domain.topology.cell_types if isinstance(domain, Mesh) else (domain,)
             if any((node, cell) not in inputs for cell in cells):
                 raise ValueError("supply an explicit quadrature rule for each integral", node)
-        tabulated.discard(node)
         # Derived index labels can name the integral that quadrature already expanded.
         fields = [name for name in node.argument_names if name not in node.labels]
         for child in operands(node, fields):
             walk(child)
 
     visit(expression)
-    if tabulated:
-        raise ValueError("a runtime tabulation must refer to an integral in the expression")
+    if declared_tables and not declared_tables.issubset(basis_tables(expression)):
+        raise ValueError("basis table is not requested by this expression")
 
 
 def trace(expression: AbstractExpression, *inputs):
@@ -68,17 +74,15 @@ def trace(expression: AbstractExpression, *inputs):
     a domain input takes an evaluation point, and a free index takes its component.
     An index table input takes an integer array with the declared table shape.
 
-    Apply quadrature to each reference integral before tracing, or declare the
-    integral as an input and pass its (points, weights) on the reference cell.
+    With apply_quadrature, declare the runtime point and weight arrays as inputs.
+    Their shapes determine any shared symbolic extent. An unexpanded reference
+    integral can also take its (points, weights) pair as an input.
     For a mesh with different cell types, declare (integral, reference_cell)
     inputs for the respective rules. A point integral is evaluated exactly.
 
-    For a reference-cell integral I with runtime quadrature, declare (I, V)
-    as a further input to supply the Basix basis of space V at those points.
-    Pass element.tabulate(order, points), with axes (derivative, quadrature
-    point, local element DOF, value component). Supply at least the spatial
-    derivative order used by the integrand. Fields and form slots in V share
-    that table. Use (I, BasixBasis(V, slot)) to select an individual cell slot.
+    For explicit FE tables, pass selected requests from basis_tables(expression)
+    as inputs. For each request, supply request.element.tabulate(request.order, points).
+    Close over a fixed rule or precomputed table in a Python function before JIT.
 
     For separable real forms, fixed quadrature sums over reference basis functions
     are precomputed and contracted with the cell data at evaluation.
@@ -94,11 +98,25 @@ def trace(expression: AbstractExpression, *inputs):
     if len(keys) != len(inputs):
         raise ValueError("each input must be declared once")
     _check_quadrature(expression, keys)
-
-    return reference_kernel(expression, inputs, _kernel) or _kernel(expression, inputs)
+    kernel = reference_kernel(expression, inputs, _kernel) or _kernel(expression, inputs)
+    kernel.inputs = inputs
+    return kernel
 
 
 def _kernel(expression, inputs):
+    # Runtime extents are structural types. Bind them from array shapes while
+    # tracing, so array lengths do not become additional scalar JIT arguments.
+    shaped_inputs = [
+        (position, key)
+        for position, key in enumerate(inputs)
+        if isinstance(key, AbstractExpression)
+        and key.domain is None
+        and any(isinstance(extent, AbstractExtent) for extent in key.value_shape)
+        and not key.argument_spaces
+        and not key.free_indices
+        and not isinstance(key, Integral)
+    ]
+
     def action(*values):
         environment = {}
         points = {}
@@ -107,6 +125,34 @@ def _kernel(expression, inputs):
                 points[key] = jnp.asarray(value, dtype=float)
             else:
                 environment[key] = value
+        inferred = {}
+        for position, key in shaped_inputs:
+            data = values[position]
+            if callable(data) or isinstance(data, (AbstractExpression, dict)):
+                continue
+            shape = jnp.asarray(data).shape
+            if len(shape) != len(key.value_shape):
+                raise ValueError(f"expected array shape {key.value_shape}, got {shape}")
+            for extent, length in zip(key.value_shape, shape, strict=True):
+                expected = (
+                    inferred.setdefault(extent, length)
+                    if isinstance(extent, AbstractExtent)
+                    else extent
+                )
+                if length != expected:
+                    raise ValueError(
+                        f"inconsistent array extent: expected {expected}, got {length}"
+                    )
+        for extent, length in inferred.items():
+            if (
+                extent in environment
+                and isinstance(environment[extent], int)
+                and environment[extent] != length
+            ):
+                raise ValueError(
+                    f"inconsistent array extent: expected {length}, got {environment[extent]}"
+                )
+            environment.setdefault(extent, length)
         sample = Sample(points, {})
         return jnp.asarray(evaluate(expression, environment, sample, values[len(inputs) :]))
 

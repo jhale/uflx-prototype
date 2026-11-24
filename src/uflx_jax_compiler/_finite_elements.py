@@ -12,7 +12,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from uflx.nodes import AbstractExpression, AbstractTopology, ConjugateSpace
+from uflx.nodes import AbstractExpression, ConjugateSpace
 
 from ._context import BoundExpression, lookup
 from ._tensors import dtype
@@ -35,11 +35,21 @@ def basix_space(space):
     return space if basix is not None and isinstance(space, BasixSpace) else None
 
 
-def _basis_field(space, dof):
+def _basis_field(space, dof, whole_axis):
     def read(site, slots):
         slot = site.slot(space.domain)
-        local = (jnp.asarray(space.cell_dofs[slot]) == dof).astype(dtype(space))
-        return _local_value(space, slot, site, local)
+        # Cell DOFs are contiguous, including the interleaved block components.
+        local = dof if whole_axis else dof - space.cell_dofs[slot][0]
+        basis = _basis_at(space, slot, space.domain, site)
+        if space.block_shape:
+            column, component = divmod(local, space.block_size)
+            value = basis[column, 0] * (jnp.arange(space.block_size) == component)
+        else:
+            value = basis[local]
+        if not whole_axis:
+            active = (local >= 0) & (local < len(space.cell_dofs[slot]))
+            value = jnp.where(active, value, 0)
+        return value.reshape(space.value_shape).astype(dtype(space))
 
     return BoundExpression(space, read, needs_eager_samples=False)
 
@@ -52,9 +62,11 @@ def local_basis(slot):
         return None
     offsets = np.cumsum([0, *(s.num_dofs for s in spaces)])
 
+    whole_axis = len(spaces) == 1 and len(spaces[0].cell_dofs) == 1
+
     def basis(dof):
         fields = tuple(
-            _basis_field(space, dof - start)
+            _basis_field(space, dof - start, whole_axis)
             for space, start in zip(spaces, offsets[:-1], strict=True)
         )
         return jax.tree.unflatten(structure, fields)
@@ -66,55 +78,10 @@ def is_basix_basis(node):
     return basix is not None and isinstance(node, BasixBasis)
 
 
-def tabulation_space(selector):
-    return selector.space if is_basix_basis(selector) else basix_space(selector)
-
-
-def quadrature_tables(integral, cell, bindings, npoints):
-    """Collect the Basix tables declared for this integral, in point-major order."""
-    tables = {}
-    for key, data in bindings.items():
-        if not (isinstance(key, tuple) and len(key) == 2 and key[0] == integral):
-            continue
-        selector = key[1]
-        space = tabulation_space(selector)
-        if space is None:
-            continue
-        domain = space.domain
-        cells = domain.cell_types if isinstance(domain, AbstractTopology) else (domain,)
-        slots = [i for i, K in enumerate(cells) if K == cell]
-        if is_basix_basis(selector):
-            slot = 0 if space.cell is not None else selector.cell_slot
-            slots = [slot] if slot in slots else []
-        if not slots:
-            raise ValueError("the tabulated space does not use the integration cell")
-        if len({space.element_data[i] for i in slots}) != 1:
-            raise ValueError(
-                "select a BasixBasis(space, slot) for different elements on the same cell"
-            )
-        element = space.element(slots[0])
-        table = jnp.asarray(data)
-        if (
-            table.ndim != 4
-            or table.shape[0] < 1
-            or table.shape[1:] != (npoints, element.dim, element.value_size)
-            or not jnp.issubdtype(table.dtype, jnp.floating)
-        ):
-            raise ValueError(
-                f"expected a floating Basix tabulation with shape "
-                f"(derivatives, {npoints}, {element.dim}, {element.value_size})"
-            )
-        for slot in slots:
-            if (space, slot) in tables:
-                raise ValueError("duplicate tabulation for the same space and cell slot")
-            tables[space, slot] = jnp.swapaxes(table, 0, 1)
-    return tables
-
-
 def _basis_at(space, slot, domain, site):
     point = site.points[domain]
     tabulation = site.tabulations.get(domain)
-    rows = tabulation.rows.get((space, slot)) if tabulation else None
+    rows = tabulation.rows.get(space.element_data[slot]) if tabulation else None
     if rows is None:
         return tabulate(space.element(slot), point)
     order = tabulation.derivative_order

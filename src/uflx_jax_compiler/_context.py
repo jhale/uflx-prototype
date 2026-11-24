@@ -37,9 +37,7 @@ class Sample:
         # Moving to a different point invalidates the old quadrature rows for that domain.
         tables = self.tabulations
         if tables:
-            tables = {
-                d: t for d, t in tables.items() if d not in points or points[d] is self.points[d]
-            }
+            tables = {d: t for d, t in tables.items() if d not in points}
         if tabulations:
             tables = tables | tabulations
         return Sample(

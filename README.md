@@ -128,7 +128,7 @@ from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import trace
+from uflx_jax_compiler import basis_tables, trace
 
 # A linear (P1) coordinate map places the reference triangle in the physical plane.
 triangle = basix.CellType.triangle
@@ -146,28 +146,20 @@ u_ref, v_ref = function(V, "u"), function(V, "v")
 u = push_forward(u_ref, mesh, V.law)
 v = push_forward(v_ref, mesh, V.law)
 
-# Integrate the gradient inner product for stiffness and the test function for a unit source.
-a = integral(gradient(u, mesh) @ gradient(v, mesh), mesh)
-L = integral(v, mesh)
+# Map the stiffness and load integrals to the reference triangle.
+stiffness_integral = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
+load_integral = lower(integral(v, mesh))
 
-# Lower the physical integrals to core normal form on the reference triangle.
-a_ref = lower(a)
-L_ref = lower(L)
-
-# Degree-two quadrature is exact for both integrands on this affine cell.
 rule = basix.make_quadrature(triangle, degree=2)
-a_quadrature = apply_quadrature(a_ref, *rule)
-L_quadrature = apply_quadrature(L_ref, *rule)
+points, weights = rule
 
-# Bind the test function first (matrix rows) and the trial function second (columns).
-a = form(a_quadrature, (v_ref, u_ref))
-L = form(L_quadrature, (v_ref,))
-
-# Make the vertex coordinates a runtime input to both kernels.
+# Fix the load rule on the reference integral.
+L = form(apply_quadrature(load_integral, points, weights), (v_ref,))
 load = jax.jit(trace(L, x))
+
+a = form(apply_quadrature(stiffness_integral, points, weights), (v_ref, u_ref))
 stiffness = jax.jit(trace(a, x))
 
-# Evaluate both kernels on a physical triangle.
 vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])
 b = load(vertices)
 A = stiffness(vertices)
@@ -180,16 +172,25 @@ The six entries of the load vector sum to the area of this triangle, 5.5,
 and the stiffness matrix is symmetric and 6 × 6. The same kernels can be
 called with new vertex coordinates to evaluate another triangle.
 
-To supply the quadrature rule and reference basis at runtime, trace the
-lowered integral and declare the tabulation for its space. Both form slots in
-`V` use the same table. Basix derivative order 1 supplies the reference
-gradients used by the stiffness matrix.
+For runtime quadrature, let `points_operand` and `weights_operand` be your
+application's domain-independent real UFLx expressions with shapes `(n, 2)`
+and `(n,)`. The point count `n` can be an integer or a shared symbolic extent.
+Use the same quadrature operation and bind the operands in the kernel signature.
 
 ```python
-stiffness = jax.jit(trace(form(a_ref, (v_ref, u_ref)), x, a_ref, (a_ref, V)))
-points, weights = rule
-A = stiffness(vertices, (points, weights), p2.tabulate(1, points))
+weighted_sum = apply_quadrature(stiffness_integral, points_operand, weights_operand)
+a = form(weighted_sum, (v_ref, u_ref))
+tables = basis_tables(a)
+kernel = trace(a, x, points_operand, weights_operand, *tables)
+
+values = [table.element.tabulate(table.order, points) for table in tables]
+A = jax.jit(kernel)(vertices, points, weights, *values)
 ```
+
+The P2 test and trial share a table and the P1 coordinate map uses another.
+Each supplied table uses the same point order as its points operand. The kernel
+infers a symbolic point count from the array shapes. The same form can serve
+several counts, and ordinary JAX JIT specializes to each distinct input shape.
 
 ## Implementation
 

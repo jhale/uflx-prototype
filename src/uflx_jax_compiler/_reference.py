@@ -26,8 +26,6 @@ from uflx.nodes import (
     Coordinate,
     Determinant,
     Division,
-    DomainMap,
-    EuclideanSpace,
     Float,
     Form,
     Function,
@@ -48,6 +46,7 @@ from uflx.nodes import (
 )
 from uflx.tensors import indexed, tensor
 
+from ._basis_tables import sampled_quadrature
 from ._finite_elements import basix_space, is_basix_basis
 
 # Bound distributive expansion and the largest table (including its quadrature axis).
@@ -93,25 +92,11 @@ def _literal(node):
 
 def _sampled(body, inputs):
     """Recognize the actual weighted point evaluations, independently of index labels."""
-    match body:
-        case IndexSum(
-            Product(Indexed(weights, (w,)), Integral(PullBack(expr, mapping), domain) as sample),
-            (q,),
-        ):
-            match mapping:
-                case DomainMap(source, ComponentTensor(Indexed(points, (p, j)), (k,)), cell):
-                    if (
-                        q == w == p
-                        and j == k
-                        and q != j
-                        and domain == source == EuclideanSpace(0)
-                        and sample not in inputs
-                        and (sample, domain) not in inputs
-                        and not expr.free_indices
-                        and not expr.argument_spaces
-                        and not expr.value_shape
-                    ):
-                        return expr, cell, points, weights
+    sampled = sampled_quadrature(body, inputs)
+    if sampled is not None:
+        expr = sampled[0]
+        if not (expr.free_indices or expr.argument_spaces or expr.value_shape):
+            return sampled
     raise _UseQuadrature
 
 

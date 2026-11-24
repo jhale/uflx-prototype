@@ -9,7 +9,7 @@ import numpy as np
 
 from uflx.algorithms import derived_index, derived_indices
 from uflx.geometry import domain_map, euclidean_space, pull_back
-from uflx.nodes import Integral, Zero
+from uflx.nodes import AbstractExpression, Integral, ScalarType, Zero
 from uflx.tensors import component_tensor, index_sum, indexed
 
 from .nodes import BasixCell, table
@@ -18,7 +18,8 @@ from .nodes import BasixCell, table
 def apply_quadrature(integral, points, weights):
     """Sample one Basix reference-cell integral with an explicit quadrature rule.
 
-    points has shape (n, cell dimension) and weights has shape (n,).
+    Pass concrete arrays or domain-independent real expressions with shapes
+    (n, cell dimension) and (n,). The shared extent n may be symbolic.
     The result is a UFLx weighted sum with the same value shape and free indices.
     """
     if not isinstance(integral, Integral):
@@ -27,17 +28,32 @@ def apply_quadrature(integral, points, weights):
     if not isinstance(K, BasixCell):
         raise ValueError("expected an integral on a Basix reference cell")
     g = integral.expression
-    points, weights = np.asarray(points), np.asarray(weights)
-    if weights.ndim != 1 or points.shape != (weights.size, K.dimension):
+
+    def operand(data):
+        if isinstance(data, AbstractExpression):
+            if (
+                data.domain is not None
+                or data.argument_spaces
+                or data.free_indices
+                or data.scalar_type != ScalarType.real
+            ):
+                raise ValueError("quadrature operands must be domain-independent real arrays")
+            return data
+        array = np.asarray(data)
+        if np.iscomplexobj(array):
+            raise ValueError("quadrature operands must be real arrays")
+        return table(array)
+
+    points, weights = operand(points), operand(weights)
+    if len(weights.value_shape) != 1 or points.value_shape != (*weights.value_shape, K.dimension):
         raise ValueError("expected weights of shape (n,) and reference points of shape (n, tdim)")
-    if not weights.size:
+    if weights.value_shape == (0,):
         return Zero(
             integral.value_shape,
             integral.free_indices,
             integral.argument_spaces,
             integral.scalar_type,
         )
-    points, weights = table(points), table(weights)
     q = derived_index("uflx_basix.quadrature", integral, points, weights)
     # IndexSum acts on a scalar, leaving the integrand's value axes and free indices intact.
     axes = derived_indices("uflx_basix.quadrature_component", (g,), len(g.value_shape))

@@ -53,9 +53,10 @@ from uflx_extensions.external_operators import ExternalOperator
 
 from . import _finite_elements as elements
 from . import _forms, _spatial, _tensors
-from ._context import BoundExpression, lookup
+from ._basis_tables import keeps_quadrature_point, sampled_quadrature
+from ._context import BoundExpression, Sample, lookup
 from ._external import evaluate_external
-from ._geometry import integrate, tangent_projector
+from ._geometry import integrate, quadrature_sum, tangent_projector
 
 
 def needs_eager_samples(node, bindings):
@@ -90,6 +91,12 @@ def evaluate(node, bindings, site, arguments=()):
 
 
 def _evaluate(node, bindings, site, arguments, memo):
+    if site.tabulations and node.value_fields and not keeps_quadrature_point(node):
+        # A whole-field operation can sample its operands anywhere, even if the
+        # same field also has tabulated uses elsewhere in the integrand.
+        site = Sample(site.points, site.cells)
+        memo = {}
+
     def scoped_value(expr, slots=(), *, at=site, bind=None):
         # Callbacks can enter a new JAX trace even at the same sample point.
         local = bindings if bind is None else bindings | bind
@@ -206,6 +213,13 @@ def _evaluate(node, bindings, site, arguments, memo):
         case Indexed(x, _):
             return _tensors.indexed(node, value(x, arguments), bindings)
         case ComponentTensor() | IndexSum():
+            sampled = sampled_quadrature(node, bindings)
+            if sampled is not None:
+                expr, cell, points, weights = sampled
+                rule = (value(points), value(weights))
+                return quadrature_sum(
+                    node, cell, points, rule, field(expr), expr, site, bindings, scoped_value
+                )
             return _tensors.bind_indices(
                 node, bindings, arguments, lambda x, local, slots: evaluate(x, local, site, slots)
             )

@@ -8,11 +8,11 @@
 import jax
 import jax.numpy as jnp
 
-from uflx.nodes import AbstractCoordinateDomain, Mesh
+from uflx.nodes import AbstractCoordinateDomain, Mesh, Product
 
 from . import _tensors
+from ._basis_tables import quadrature_tables
 from ._context import PointTabulation
-from ._finite_elements import quadrature_tables
 
 
 def chart_of(piece, site, value):
@@ -71,6 +71,40 @@ def side_reference(side, site, value):
     return slot, parent_slot, inclusion, point, target
 
 
+def quadrature_sum(result, cell, point_source, rule, integrand, product, site, bindings, value):
+    """Evaluate reference samples and reduce their leading quadrature axis."""
+    points, weights = rule
+    points, weights = jnp.asarray(points, dtype=float), jnp.asarray(weights)
+    if weights.ndim != 1 or points.shape != (weights.size, cell.dimension):
+        raise ValueError("quadrature needs one reference point per weight", result)
+    tables = quadrature_tables(point_source, cell, bindings, weights.size)
+    if not weights.size:
+        return jnp.zeros(_tensors.shape(result, bindings), dtype=_tensors.dtype(result))
+
+    factorized = (
+        bool(tables)
+        and isinstance(product, Product)
+        and not (product.value_shape or product.free_indices or product.argument_spaces)
+    )
+
+    def sample(point, *rows):
+        at_point = (
+            {cell: PointTabulation(point, dict(zip(tables, rows, strict=True)))} if tables else None
+        )
+        at = site.at({cell: point}, tabulations=at_point)
+        if factorized:
+            return value(product.first, at=at), value(product.second, at=at)
+        return integrand(at)
+
+    samples = jax.vmap(sample)(points, *tables.values())
+    if factorized:
+        # vmap over independent test/trial slots turns this dot into a
+        # matrix product without forming a (test, trial, point) array.
+        left, right = samples
+        return jnp.dot(left, weights * right)
+    return jnp.tensordot(weights, samples, axes=1)
+
+
 def integrate(integral, bindings, fn, site, value):
     domain = integral.integration_domain
 
@@ -80,24 +114,17 @@ def integrate(integral, bindings, fn, site, value):
             if cell.dimension == 0:
                 return integrand(site.at({cell: jnp.empty(0)}))
             raise ValueError("supply an explicit quadrature rule for each integral", integral)
-        points, weights = rule
-        points, weights = jnp.asarray(points, dtype=float), jnp.asarray(weights)
-        if weights.ndim != 1 or points.shape != (weights.size, cell.dimension):
-            raise ValueError("quadrature needs one reference point per weight", integral)
-        tables = quadrature_tables(integral, cell, bindings, weights.size)
-        if not weights.size:
-            return jnp.zeros(_tensors.shape(integral, bindings), dtype=_tensors.dtype(integral))
-
-        def sample(point, *rows):
-            at_point = (
-                {cell: PointTabulation(point, dict(zip(tables, rows, strict=True)))}
-                if tables
-                else None
-            )
-            return integrand(site.at({cell: point}, tabulations=at_point))
-
-        samples = jax.vmap(sample)(points, *tables.values())
-        return jnp.tensordot(weights, samples, axes=1)
+        return quadrature_sum(
+            integral,
+            cell,
+            integral,
+            rule,
+            integrand,
+            integral.expression if cell == domain else None,
+            site,
+            bindings,
+            value,
+        )
 
     if isinstance(domain, AbstractCoordinateDomain):
         return on_reference_cell(domain, fn)

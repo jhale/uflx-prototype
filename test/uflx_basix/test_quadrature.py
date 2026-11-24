@@ -9,6 +9,7 @@ import pytest
 
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, integral
+from uflx.forms import form
 from uflx.nodes import EuclideanSpace
 from uflx_basix.cells import cell
 from uflx_basix.quadrature import apply_quadrature
@@ -20,6 +21,8 @@ def test_quadrature_requires_one_reference_integral():
     points, weights = basix.make_quadrature(K.cell_type, 2)
     with pytest.raises(TypeError, match="single Integral"):
         apply_quadrature(a + a, points, weights)
+    with pytest.raises(TypeError, match="single Integral"):
+        apply_quadrature(form(a, ()), points, weights)
     with pytest.raises(ValueError, match="reference cell"):
         apply_quadrature(integral(num(1), EuclideanSpace(1)), points, weights)
 
