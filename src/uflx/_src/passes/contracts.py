@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from ..algorithms.traversal import everywhere
+from ..algorithms.traversal import everywhere, preorder
 from ..nodes import (
     Absolute,
     AbstractExpression,
@@ -58,7 +58,6 @@ from ..nodes import (
     Zero,
 )
 from ..nodes.static import field_terminal
-from ..nodes.structure import expression_operands
 from ..rules.coordinates import piola_law
 from ..rules.pullback_algebra import pullback_remains
 from ..rules.structural import application_retained, gradient_remains
@@ -68,21 +67,9 @@ from ..typing.nodes import ContractViolation
 def _violations(
     expression: AbstractExpression, rule: Callable[[AbstractExpression], str | None]
 ) -> tuple[ContractViolation, ...]:
-    seen: set[AbstractExpression] = set()
-    found: list[ContractViolation] = []
-
-    def visit(node: AbstractExpression) -> None:
-        if node in seen:
-            return
-        seen.add(node)
-        reason = rule(node)
-        if reason is not None:
-            found.append((node, reason))
-        for child in expression_operands(node):
-            visit(child)
-
-    visit(expression)
-    return tuple(found)
+    return tuple(
+        (node, reason) for node in preorder(expression) if (reason := rule(node)) is not None
+    )
 
 
 def _derivative(node: AbstractExpression) -> str | None:

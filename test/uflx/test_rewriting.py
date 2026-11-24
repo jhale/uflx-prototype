@@ -10,11 +10,12 @@ import pytest
 from uflx._src.algorithms.rewriting import rewrite
 from uflx._src.algorithms.traversal import map_construction, rebuild
 from uflx._src.passes import lowering, spatial
+from uflx.algorithms import bottom_up, replace
 from uflx.arithmetic import num
 from uflx.calculus import gradient
-from uflx.forms import function
+from uflx.forms import form, function
 from uflx.nodes import EuclideanSpace
-from uflx.passes import apply_gradients
+from uflx.passes import apply_gradients, lower
 from uflx.tensors import tensor
 
 from .spaces import space
@@ -36,6 +37,46 @@ def test_mapping_nested_operands_reuses_unchanged_tuples():
     assert result == (shared, (a, shared))
     assert result[0] is result[1][1] is shared
     assert visits == [a, a, b, a, a]
+
+
+def test_deep_shared_graph_lowering_and_scoped_replacement():
+    V = space("deep", None, scalar_type="real")
+    x, y = function(V, "x"), function(V, "y")
+    original, expected = x, y
+    for _ in range(1000):
+        original = original / original - original
+        expected = expected / expected - expected
+    assert lower(original) is original
+    assert bottom_up(original, lambda e: y if e is x else e) is expected
+    assert replace(original, {x: y}) is expected
+
+    replaced = replace(form(original + y, (y,)), {x: y})
+    (fresh,) = replaced.arguments
+    assert fresh is not y
+    assert replaced.expression is expected + fresh
+
+
+def test_deep_replacement_chain_is_resolved_in_order():
+    visited = []
+
+    def rule(e):
+        visited.append(e.value)
+        return num(e.value + 1) if e.value < 1500 else e
+
+    assert rewrite(num(0), rule) is num(1500)
+    assert visited == list(range(1501))
+
+
+def test_mapping_deep_tuple_keeps_unchanged_branches():
+    a, b = num(1), num(2)
+    data = a
+    for _ in range(1500):
+        data = (data,)
+    assert map_construction(data, lambda e: e) is data
+    result = map_construction(data, lambda e: b)
+    for _ in range(1500):
+        (result,) = result
+    assert result is b
 
 
 def test_replacement_operands_are_processed_and_shared_nodes_reused():

@@ -24,10 +24,11 @@ from typing import NamedTuple
 
 from ..nodes import Base, Function, Index
 from ..nodes.base import construction_encoding, construction_field
+from ..nodes.structure import construction_nodes
 from ..typing.nodes import AlphaEnvironment, AlphaKey, Construction
 from ._alpha_dependencies import Dependency, contains, singleton, union, without
 from ._alpha_summary import Summary, bind, constructor, variable
-from .binding import binding_signature, construction_nodes
+from .binding import binding_signature
 
 
 @dataclass(frozen=True, eq=False, slots=True)

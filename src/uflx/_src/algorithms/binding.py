@@ -7,12 +7,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from typing import NamedTuple
 
 from ..nodes import AbstractExpression, Base, Function, Index
 from ..nodes.base import construction_equal, construction_field
-from ..nodes.structure import operands
+from ..nodes.structure import construction_nodes, operands
 from ..typing.nodes import Bindings, Construction, Names
 
 
@@ -74,7 +73,7 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
 
     def dependencies(value: Construction) -> frozenset[Function | Index]:
         return frozenset[Function | Index]().union(
-            *(dependency_cache[node] for node in _construction_nodes(value))
+            *(dependency_cache[node] for node in construction_nodes(value))
         )
 
     def node_dependencies(root: Base) -> frozenset[Function | Index]:
@@ -90,9 +89,9 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
             if not ready:
                 signature = signatures.setdefault(node, binding_signature(node))
                 stack.append((node, True))
-                children = list(_construction_nodes(signature))
+                children = list(construction_nodes(signature))
                 for field in fields:
-                    children.extend(_construction_nodes(construction_field(node, field)))
+                    children.extend(construction_nodes(construction_field(node, field)))
                 stack.extend((child, False) for child in children if child not in dependency_cache)
                 continue
             names = node.bound()
@@ -165,19 +164,3 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
         elif not construction_equal(a, b):
             return False
     return True
-
-
-def construction_nodes(value: Construction) -> Iterator[Base]:
-    """Iterate node dependencies through tuples without traversing node fields."""
-    return _construction_nodes(value)
-
-
-def _construction_nodes(value: Construction) -> Iterator[Base]:
-    """Iterate immediate node dependencies through arbitrarily nested tuples."""
-    pending = [value]
-    while len(pending) > 0:
-        item = pending.pop()
-        if isinstance(item, Base):
-            yield item
-        elif isinstance(item, tuple):
-            pending.extend(reversed(item))

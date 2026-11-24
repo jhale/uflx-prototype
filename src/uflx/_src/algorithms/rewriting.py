@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from ..nodes import AbstractExpression, Zero
 from ..nodes.static import free_indices
 from ..typing.nodes import ArgumentSpaces
-from .traversal import map_values
+from .traversal import rewrite_values
 
 if TYPE_CHECKING:
     from ..nodes.indices import AbstractExtent, Index
@@ -107,22 +107,4 @@ def rewrite(
     Returning the node retains it for this visit. The memo and cycle check belong
     to this invocation; they add no state to expression nodes.
     """
-    done: dict[AbstractExpression, AbstractExpression] = {}
-    active: set[AbstractExpression] = set()
-
-    def visit(e: AbstractExpression) -> AbstractExpression:
-        if e in done:
-            return done[e]
-        if e in active:
-            raise ValueError("rewrite cycle", e)
-        active.add(e)
-        rebuilt = map_values(e, visit)
-        replacement = rule(rebuilt)
-        if replacement != rebuilt:
-            replacement = complete_indices(rebuilt, replacement)
-        out = rebuilt if replacement == rebuilt else visit(replacement)
-        active.remove(e)
-        done[e] = out
-        return out
-
-    return visit(f)
+    return rewrite_values(f, rule, complete_indices)

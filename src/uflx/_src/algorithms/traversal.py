@@ -7,17 +7,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Hashable, Iterator, Sequence
 from typing import Concatenate, ParamSpec, TypeVar, cast
 
 from ..nodes import AbstractExpression, AbstractFunctionSpace, Base
 from ..nodes.base import construction_equal, construction_field
-from ..nodes.structure import expression_operands
+from ..nodes.structure import value_operands
 from ..typing import Argument
 from ..typing.nodes import Construction
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
+_K = TypeVar("_K", bound=Hashable)
 
 
 def rebuild(e: Base, **changes: Construction) -> Construction:
@@ -38,18 +39,31 @@ def rebuild(e: Base, **changes: Construction) -> Construction:
 
 
 def map_construction(value: Construction, fn: Callable[[Base], Construction]) -> Construction:
-    if isinstance(value, Base):
-        return fn(value)
-    if isinstance(value, tuple):
-        items = None
-        for i, item in enumerate(value):
-            mapped = map_construction(item, fn)
-            if mapped is not item:
-                if items is None:
-                    items = list(value)
-                items[i] = mapped
-        return value if items is None else tuple(items)
-    return value
+    if not isinstance(value, tuple):
+        return fn(value) if isinstance(value, Base) else value
+    # Each parent saves its position and its copy, allocated only on the first change.
+    parents: list[tuple[tuple[Construction, ...], int, list[Construction] | None]] = []
+    entries = value
+    i = 0
+    items: list[Construction] | None = None
+    while True:
+        if i == len(entries):
+            mapped: Construction = entries if items is None else tuple(items)
+            if len(parents) == 0:
+                return mapped
+            entries, i, items = parents.pop()
+        else:
+            item = entries[i]
+            if isinstance(item, tuple):
+                parents.append((entries, i, items))
+                entries, i, items = item, 0, None
+                continue
+            mapped = fn(item) if isinstance(item, Base) else item
+        if mapped is not entries[i]:
+            if items is None:
+                items = list(entries)
+            items[i] = mapped
+        i += 1
 
 
 def map_fields(
@@ -83,25 +97,84 @@ def memoized(rule: Callable[Concatenate[Callable[_P, _R], _P], _R]) -> Callable[
     return recurse
 
 
+def resolve(root: _K, visit: Callable[[_K], Generator[_K, None, _R]], done: dict[_K, _R]) -> _R:
+    """Run a depth-first visit on an explicit stack.
+
+    A visit yields dependency keys and returns its result. When it resumes,
+    the requested result is in done. Requesting an active ancestor is a cycle.
+    """
+    if root in done:
+        return done[root]
+
+    def requests(key: _K) -> Iterator[_K]:
+        done[key] = yield from visit(key)
+
+    pending = [(root, requests(root))]
+    active = {root}
+    while len(pending) > 0:
+        key, frame = pending[-1]
+        try:
+            child = next(frame)
+        except StopIteration:
+            _ = pending.pop()
+            active.remove(key)
+        else:
+            if child not in done:
+                if child in active:
+                    raise ValueError("rewrite cycle", child)
+                active.add(child)
+                pending.append((child, requests(child)))
+    return done[root]
+
+
+def rewrite_values(
+    root: AbstractExpression,
+    rule: Callable[[AbstractExpression], AbstractExpression],
+    complete: Callable[[AbstractExpression, AbstractExpression], AbstractExpression] | None = None,
+) -> AbstractExpression:
+    done: dict[AbstractExpression, AbstractExpression] = {}
+
+    def visit(e: AbstractExpression) -> Generator[AbstractExpression, None, AbstractExpression]:
+        changed = False
+        for child in value_operands(e):
+            yield child
+            if done[child] is not child:
+                changed = True
+        rebuilt = map_values(e, done.__getitem__) if changed else e
+        replacement = rule(rebuilt)
+        if complete is None:
+            return replacement
+        if replacement != rebuilt:
+            replacement = complete(rebuilt, replacement)
+            if replacement != rebuilt:
+                yield replacement
+                return done[replacement]
+        return rebuilt
+
+    return resolve(root, visit, done)
+
+
 def bottom_up(
     f: AbstractExpression, rewrite: Callable[[AbstractExpression], AbstractExpression]
 ) -> AbstractExpression:
     """Rewrite each distinct value node once, after visiting its operands."""
+    return rewrite_values(f, rewrite)
 
-    def visit(
-        walk: Callable[[AbstractExpression], AbstractExpression], e: AbstractExpression
-    ) -> AbstractExpression:
-        return rewrite(map_values(e, walk))
 
-    return memoized(visit)(f)
+def preorder(e: AbstractExpression) -> Iterator[AbstractExpression]:
+    """Visit each distinct value node before its operands, in declaration order."""
+    pending = [e]
+    seen: set[AbstractExpression] = set()
+    while len(pending) > 0:
+        node = pending.pop()
+        if node not in seen:
+            seen.add(node)
+            yield node
+            pending.extend(reversed(value_operands(node)))
 
 
 def everywhere(e: AbstractExpression, holds: Callable[[AbstractExpression], bool]) -> bool:
-    # Whether holds is true at every node of the graph of e.
-    def visit(walk: Callable[[AbstractExpression], bool], n: AbstractExpression) -> bool:
-        return holds(n) and all(map(walk, expression_operands(n)))
-
-    return memoized(visit)(e)
+    return all(map(holds, preorder(e)))
 
 
 def map_values(

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import weakref
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from functools import cache
 from typing import TYPE_CHECKING, TypeVar, cast, overload
 
@@ -24,10 +24,10 @@ from ..nodes import (
 )
 from ..nodes.arguments import argument_pairs, binding_name
 from ..nodes.base import construction_field
-from ..nodes.structure import operands
+from ..nodes.structure import construction_nodes, operands
 from ..typing.nodes import BindingEntry, Construction, FormEntry, Renames
 from .binding import binding_signature, scoped_body_fields
-from .traversal import map_construction, map_fields, rebuild
+from .traversal import map_construction, map_fields, rebuild, resolve
 
 if TYPE_CHECKING:
     from ..nodes.indices import AbstractExtent
@@ -37,6 +37,8 @@ _T = TypeVar("_T", bound=Base)
 _K = TypeVar("_K", bound=Base)
 _Entry = TypeVar("_Entry", bound="BindingEntry")
 _IndexBinder = TypeVar("_IndexBinder", ComponentTensor, IndexSum)
+_Match = tuple[Base, frozenset[Base]]
+_Request = tuple[Base, frozenset[Base], Renames]
 
 
 def occurs(target: Base, node: Construction) -> bool:
@@ -52,57 +54,70 @@ def occurs_in_values(target: Base, node: Construction) -> bool:
 def occurs_in_metadata(target: Base, node: Construction) -> bool:
     """Detect dependencies outside value/index operands, including nested metadata."""
 
-    def visit(node: Construction) -> bool:
-        if isinstance(node, tuple):
-            return any(visit(item) for item in node)
-        if not isinstance(node, Base):
-            return False
-        if node in memo:
-            return memo[node]
-        result = occurs(target, binding_signature(node))
-        for field in _scoped(target, node, True):
-            operand = construction_field(node, field)
-            result |= (
-                visit(operand)
-                if field in (*node.value_fields, *node.index_fields)
-                else occurs(target, operand)
-            )
-        memo[node] = result
-        return result
-
-    memo: dict[Base, bool] = {}
-    return visit(node)
+    pending = list(construction_nodes(node))
+    seen: set[Base] = set()
+    while len(pending) > 0:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        if occurs(target, binding_signature(current)):
+            return True
+        for field in _scoped(current, True, _bound_in(target, current)):
+            operand = construction_field(current, field)
+            if field in (*current.value_fields, *current.index_fields):
+                pending.extend(construction_nodes(operand))
+            elif occurs(target, operand):
+                return True
+    return False
 
 
 def _occurs(target: Base, node: Construction, dependencies: bool) -> bool:
-    if isinstance(node, tuple):
-        return any(_occurs(target, item, dependencies) for item in node)
-    if not isinstance(node, Base):
-        return False
     cache_name = "occurrences" if dependencies else "value_occurrences"
-    memo = cast(
-        "weakref.WeakKeyDictionary[Base, bool]",
-        vars(node).setdefault(cache_name, weakref.WeakKeyDictionary()),
-    )
-    if target not in memo:
-        declaration_dependency = dependencies and _occurs(target, binding_signature(node), True)
-        memo[target] = (
-            node == target
-            or declaration_dependency
-            or any(
-                _occurs(target, child, dependencies)
-                for child in operands(node, _scoped(target, node, dependencies))
-            )
-        )
-    return memo[target]
+    done: dict[tuple[Base, Base], bool] = {}
+
+    def visit(query: tuple[Base, Base]) -> Generator[tuple[Base, Base], None, bool]:
+        needle, current = query
+        memo = cast("weakref.WeakKeyDictionary[Base, bool] | None", vars(current).get(cache_name))
+        if memo is None:
+            memo = weakref.WeakKeyDictionary[Base, bool]()
+            vars(current)[cache_name] = memo
+        elif needle in memo:
+            return memo[needle]
+
+        found = current == needle
+        if not found and dependencies:
+            for child in construction_nodes(binding_signature(current)):
+                yield needle, child
+                if done[needle, child]:
+                    found = True
+                    break
+        if not found:
+            shadowed = False
+            for name in current.bound():
+                yield name, needle
+                if done[name, needle]:
+                    shadowed = True
+                    break
+            for child in operands(current, _scoped(current, dependencies, shadowed)):
+                yield needle, child
+                if done[needle, child]:
+                    found = True
+                    break
+        memo[needle] = found
+        return found
+
+    return any(resolve((target, child), visit, done) for child in construction_nodes(node))
 
 
-def _scoped(target: Base, node: Base, dependencies: bool) -> list[str]:
+def _scoped(node: Base, dependencies: bool, shadowed: bool) -> list[str]:
     fields = node.argument_names if dependencies else (*node.value_fields, *node.index_fields)
-    fields = [name for name in fields if name not in (*node.labels, *node.binding_fields)]
-    if _bound_in(target, node, dependencies):
-        fields = [name for name in fields if name not in node.scope]
-    return fields
+    return [
+        name
+        for name in fields
+        if name not in (*node.labels, *node.binding_fields)
+        and not (shadowed and name in node.scope)
+    ]
 
 
 def _bound_in(target: Base, node: Base, dependencies: bool = True) -> bool:
@@ -235,10 +250,11 @@ def _substitute(
     def eligible(node: Base, keys: frozenset[Base]) -> frozenset[Base]:
         return frozenset(key for key in keys if not _bound_in(key, node))
 
-    @cache
-    def matches(node: Base, keys: frozenset[Base]) -> frozenset[Base]:
-        # Only insertions on these edges can introduce a free name. A whole-node
-        # match masks its children, and label contents never add free occurrences.
+    matched: dict[_Match, frozenset[Base]] = {}
+
+    def matches(query: _Match) -> Generator[_Match, None, frozenset[Base]]:
+        # A whole-node match masks its children. Label contents never add free occurrences.
+        node, keys = query
         if node in keys:
             return frozenset((node,))
         found: set[Base] = set()
@@ -246,7 +262,8 @@ def _substitute(
             active = eligible(node, keys) if field in node.scope else keys
             if len(active) > 0 and field not in node.labels:
                 for child in operands(node, (field,)):
-                    found.update(matches(child, active))
+                    yield child, active
+                    found.update(matched[child, active])
         return frozenset(found)
 
     def scope_renames(node: Base, keys: frozenset[Base], renames: Renames) -> Renames:
@@ -254,19 +271,27 @@ def _substitute(
         if not any(occurs(name, mapping[key]) for name in node.bound() for key in keys):
             return inherited
         scoped = tuple(field for field in fields(node) if field in node.scope)
-        used = {key for child in operands(node, scoped) for key in matches(child, keys)}
+        used = {
+            key
+            for child in operands(node, scoped)
+            for key in resolve((child, keys), matches, matched)
+        }
         avoid = tuple(value for key, value in mapping.items() if key in used)
         return inherited + _fresh_names(node, avoid)
 
-    @cache
-    def visit(node: Base, keys: frozenset[Base], renames: Renames) -> Construction:
+    done: dict[_Request, Construction] = {}
+
+    def visit(request: _Request) -> Generator[_Request, None, Construction]:
+        node, keys, renames = request
         # Match the original node before applying any enclosing binder's renames.
         if node in keys:
             return mapping[node]
         if len(keys) == 0 and renames == ():
             return node
         if isinstance(node, Zero):
-            return _substitute_zero(node, lambda child: visit(child, keys, renames))
+            for child in operands(node):
+                yield child, keys, renames
+            return _substitute_zero(node, lambda child: done[child, keys, renames])
 
         selected = fields(node)
         inner_keys, inner_renames = keys, renames
@@ -287,12 +312,19 @@ def _substitute(
             if field not in selected:
                 active = empty
             if len(active) > 0 or bound != ():
-                changes[field] = map_construction(
-                    construction_field(node, field), lambda child: visit(child, active, bound)
-                )
+                value = construction_field(node, field)
+                if isinstance(value, Base):
+                    yield value, active, bound
+                    changes[field] = done[value, active, bound]
+                else:
+                    for child in construction_nodes(value):
+                        yield child, active, bound
+                    changes[field] = map_construction(
+                        value, lambda child: done[child, active, bound]
+                    )
         return rebuild(node, **changes)
 
-    return visit(root, frozenset(mapping), ())
+    return resolve((root, frozenset(mapping), ()), visit, done)
 
 
 def replace(e: Base, mapping: dict[Base, Construction]) -> Construction:
