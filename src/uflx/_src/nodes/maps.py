@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, final
 
+from typing_extensions import override
+
 from ..typing import ExpressionScalarType
 from .base import Base
 from .caching import cached
@@ -35,6 +37,7 @@ class DomainMap(Base):
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return self.parameterisation.free_indices
 
+    @override
     def _validate(self) -> None:
         f = self.parameterisation
         if f.domain not in (None, self.parameter_domain):
@@ -87,10 +90,11 @@ class PullBack(AbstractExpression):
     def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
+    @override
     def _validate(self) -> None:
         from .validation import merge_indices
 
         target = self.map.ambient_domain if isinstance(self.map, DomainMap) else self.map.parent
         if self.expression.domain not in (None, target):
             raise ValueError("pull-back target differs from expression domain")
-        merge_indices(self.expression.free_indices, self.map.free_indices)
+        _ = merge_indices(self.expression.free_indices, self.map.free_indices)

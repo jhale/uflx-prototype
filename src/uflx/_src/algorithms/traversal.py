@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence
 from typing import Concatenate, ParamSpec, TypeVar, cast
 
 from ..nodes import AbstractExpression, AbstractFunctionSpace, Base
-from ..nodes.base import construction_equal
+from ..nodes.base import construction_equal, construction_field
 from ..nodes.structure import expression_operands
 from ..typing import Argument
 from ..typing.nodes import Construction
@@ -50,7 +50,7 @@ def map_fields(
 ) -> Construction:
     """Apply fn to nodes in the named construction fields, or in all fields by default."""
     names = e.argument_names if names is None else names
-    return rebuild(e, **{n: map_construction(getattr(e, n), fn) for n in names})
+    return rebuild(e, **{n: map_construction(construction_field(e, n), fn) for n in names})
 
 
 def memoized(rule: Callable[Concatenate[Callable[_P, _R], _P], _R]) -> Callable[_P, _R]:

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import overload
 
 from .nodes import AbstractFunctionSpace, ConjugateSpace, DualSpace, ScalarType
-from .nodes.arguments import argument_leaves
+from .nodes.arguments import argument_leaves, map_argument
 from .typing import Argument
 
 
@@ -22,10 +22,10 @@ def trivial_conjugation(space: AbstractFunctionSpace) -> bool:
 
 
 def conjugate_space(space: AbstractFunctionSpace) -> AbstractFunctionSpace:
-    if trivial_conjugation(space):
-        return space
     if isinstance(space, ConjugateSpace):
         return space.space
+    if trivial_conjugation(space):
+        return space
     return ConjugateSpace(space)
 
 
@@ -45,6 +45,4 @@ def conjugated(
     S: Argument[AbstractFunctionSpace],
 ) -> Argument[AbstractFunctionSpace]:
     # The conjugate of an argument space, so that conjugating twice gives the space back.
-    if isinstance(S, tuple):
-        return tuple(conjugated(V) for V in S)
-    return S.space if isinstance(S, ConjugateSpace) else conjugate_space(S)
+    return map_argument(conjugate_space, S)

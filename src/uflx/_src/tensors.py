@@ -84,7 +84,7 @@ def permutation_tensor(n: int) -> AbstractExpression:
 
 
 def transpose(matrix: AbstractExpression) -> AbstractExpression:
-    numerical_type(matrix.scalar_type)
+    _ = numerical_type(matrix.scalar_type)
     k, l = derived_indices("uflx.transpose", (matrix,), 2)
     return ComponentTensor(Indexed(matrix, (k, l)), (l, k))
 

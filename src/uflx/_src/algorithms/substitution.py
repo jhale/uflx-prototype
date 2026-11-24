@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import weakref
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from functools import cache
 from typing import TYPE_CHECKING, TypeVar, cast, overload
 
@@ -23,6 +23,7 @@ from ..nodes import (
     Zero,
 )
 from ..nodes.arguments import argument_pairs, binding_name
+from ..nodes.base import construction_field
 from ..nodes.structure import operands
 from ..typing.nodes import BindingEntry, Construction, FormEntry, Renames
 from .binding import binding_signature, scoped_body_fields
@@ -60,7 +61,7 @@ def occurs_in_metadata(target: Base, node: Construction) -> bool:
             return memo[node]
         result = occurs(target, binding_signature(node))
         for field in _scoped(target, node, True):
-            operand = getattr(node, field)
+            operand = construction_field(node, field)
             result |= (
                 visit(operand)
                 if field in (*node.value_fields, *node.index_fields)
@@ -183,7 +184,8 @@ def rebind(
         return binder
     entries = binder.binding_entries()
     renames: dict[Index | Function, Index | Function] = {}
-    for source, target in mapping.items():
+    declarations: Iterable[tuple[BindingEntry, BindingEntry]] = mapping.items()
+    for source, target in declarations:
         if source not in entries:
             raise ValueError("unknown bound declaration")
         for old, new in argument_pairs(source, target):
@@ -279,14 +281,14 @@ def _substitute(
                 if renamed is not None:
                     changes[field] = renamed.label
                     continue
-                if _is_renamed_label(getattr(node, field)):
+                if _is_renamed_label(construction_field(node, field)):
                     continue
             active, bound = (inner_keys, inner_renames) if field in node.scope else (keys, renames)
             if field not in selected:
                 active = empty
             if len(active) > 0 or bound != ():
                 changes[field] = map_construction(
-                    getattr(node, field), lambda child: visit(child, active, bound)
+                    construction_field(node, field), lambda child: visit(child, active, bound)
                 )
         return rebuild(node, **changes)
 
@@ -313,10 +315,10 @@ def _renamed_label(
     The scoped operands, original name and ordered avoidance context distinguish
     this renaming. Substitution must subsequently treat the label as fixed.
     """
-    body = tuple(getattr(node, field) for field in node.scope)
+    body = tuple(construction_field(node, field) for field in node.scope)
     return ("uflx.rename", name, body, tuple(avoid))
 
 
-def _is_renamed_label(label: object) -> bool:
+def _is_renamed_label(label: Construction) -> bool:
     """Whether a label records a fixed capture-avoidance identity."""
     return isinstance(label, tuple) and label[:1] == ("uflx.rename",)

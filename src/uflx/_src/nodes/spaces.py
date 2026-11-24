@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, final
+
+from typing_extensions import override
 
 from ..typing import Argument, NumericalScalarType
 from .base import Base
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
     from .topology import AbstractTopology
 
 
-class AbstractFunctionSpace(Base):
+class AbstractFunctionSpace(Base, ABC):
     @property
     @abstractmethod
     def domain(self) -> AbstractDomain | AbstractTopology | None: ...
@@ -61,6 +63,7 @@ class ConjugateSpace(AbstractFunctionSpace):
 
         return tuple(conjugated(V) for V in self.space.argument_spaces)
 
+    @override
     def _validate(self) -> None:
         from ..spaces import trivial_conjugation
 
@@ -97,10 +100,11 @@ class DualSpace(AbstractFunctionSpace):
 
         return (conjugated(self.space),)
 
+    @override
     def _validate(self) -> None:
         if isinstance(self.space, DualSpace):
             raise ValueError("dual space is not canonical")
         if isinstance(self.space, tuple):
             from .validation import product_scalar_type
 
-            product_scalar_type(self.space)
+            _ = product_scalar_type(self.space)

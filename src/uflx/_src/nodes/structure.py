@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, cast
 
-from .base import Base
+from .base import Base, construction_field
 from .caching import cached
 from .expressions import AbstractExpression
 
@@ -44,7 +44,7 @@ def nodes_in(e: Base, names: Sequence[str]) -> tuple[Base, ...]:
                 walk(y)
 
     for name in names:
-        walk(getattr(e, name))
+        walk(construction_field(e, name))
     return tuple(out)
 
 

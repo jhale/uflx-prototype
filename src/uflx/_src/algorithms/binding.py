@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from typing import NamedTuple
 
 from ..nodes import AbstractExpression, Base, Function, Index
-from ..nodes.base import construction_equal
+from ..nodes.base import construction_equal, construction_field
 from ..nodes.structure import operands
 from ..typing.nodes import Bindings, Construction, Names
 
@@ -92,7 +92,7 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
                 stack.append((node, True))
                 children = list(_construction_nodes(signature))
                 for field in fields:
-                    children.extend(_construction_nodes(getattr(node, field)))
+                    children.extend(_construction_nodes(construction_field(node, field)))
                 stack.extend((child, False) for child in children if child not in dependency_cache)
                 continue
             names = node.bound()
@@ -100,7 +100,7 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
             if isinstance(node, Function | Index):
                 result.add(node)
             for field in fields:
-                child = dependencies(getattr(node, field))
+                child = dependencies(construction_field(node, field))
                 result.update(child.difference(names) if field in node.scope else child)
             dependency_cache[node] = frozenset(result)
         return dependency_cache[root]
@@ -133,7 +133,7 @@ def alpha_equivalent(left: Base, right: Base) -> bool:
             return False
         inner_a, inner_b = (_enter(sa, na), _enter(sb, nb)) if na != () else (sa, sb)
         for field in reversed(a.argument_names):
-            x, y = getattr(a, field), getattr(b, field)
+            x, y = construction_field(a, field), construction_field(b, field)
             if field in a.labels:
                 if not construction_equal(x, y):
                     return False

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
+from typing_extensions import override
+
 from ..typing import Argument, NumericalScalarType
 from .arguments import argument_leaves, map_argument
 from .caching import cached
@@ -61,6 +63,7 @@ class DirectionalDerivative(BindingExpression["Function"]):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
+    @override
     def _validate(self) -> None:
         from ..algorithms.substitution import occurs
         from .validation import admissible
@@ -107,6 +110,7 @@ class Coordinate(AbstractExpression):
     def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
+    @override
     def _validate(self) -> None:
         _validate_calculus(self)
 
@@ -143,6 +147,7 @@ class Gradient(AbstractExpression):
     def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
+    @override
     def _validate(self) -> None:
         _validate_calculus(self)
 
@@ -180,6 +185,7 @@ class Divergence(AbstractExpression):
     def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
+    @override
     def _validate(self) -> None:
         _validate_calculus(self)
 
@@ -219,6 +225,7 @@ class Curl(AbstractExpression):
     def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
+    @override
     def _validate(self) -> None:
         _validate_calculus(self)
 
@@ -256,6 +263,7 @@ class Integral(AbstractExpression):
     def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
+    @override
     def _validate(self) -> None:
         _validate_calculus(self)
 

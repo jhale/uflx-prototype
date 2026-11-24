@@ -41,7 +41,7 @@ python -m pip install -e .
 python examples/poisson.py
 ```
 
-Dependencies are `numpy`, `jax` and `fenics-basix`.
+Dependencies are `numpy`, `jax`, `fenics-basix` and `typing-extensions`.
 
 ### Building the documentation
 

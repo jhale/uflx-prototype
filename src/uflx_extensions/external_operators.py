@@ -7,10 +7,12 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from functools import cached_property
 from typing import NamedTuple, final
+
+from typing_extensions import override
 
 from uflx.algorithms import free_indices
 from uflx.nodes import (
@@ -38,7 +40,7 @@ class OutputType(NamedTuple):
     domain: AbstractDomain | AbstractTopology | None
 
 
-class AbstractOperation(Base):
+class AbstractOperation(Base, ABC):
     @abstractmethod
     def output_type(self, operands: tuple[AbstractExpression, ...]) -> OutputType:
         """Validate the operand signature and describe the result, or raise ValueError."""
@@ -80,6 +82,7 @@ class ExternalOperator(AbstractExpression):
     def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
         return free_indices(*self.operands)
 
+    @override
     def _validate(self) -> None:
         if isinstance(self.operation, AbstractExpression):
             raise ValueError("external operation metadata cannot be an expression")

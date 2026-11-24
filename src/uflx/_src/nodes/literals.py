@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Literal, cast, final
 
+from typing_extensions import override
+
 from ..typing import NumericalScalarType
 from .caching import cached
 from .expressions import AbstractExpression
@@ -28,6 +30,7 @@ class Boolean(AbstractExpression):
     identifier = "uflx.Boolean"
     value: bool
 
+    @override
     def _validate(self) -> None:
         if type(self.value) is not bool:
             raise TypeError(f"Boolean takes a bool, not {self.value!r}")
@@ -65,6 +68,7 @@ class Integer(AbstractExpression):
     identifier = "uflx.Integer"
     value: int
 
+    @override
     def _validate(self) -> None:
         if type(self.value) is not int:
             raise TypeError(f"Integer takes an int, not {self.value!r}")
@@ -102,6 +106,7 @@ class Float(AbstractExpression):
     identifier = "uflx.Float"
     value: float
 
+    @override
     def _validate(self) -> None:
         if type(self.value) is not float:
             raise TypeError(f"Float takes a float, not {self.value!r}")
@@ -200,6 +205,7 @@ class Zero(AbstractExpression):
     def domain(self) -> None:
         return None
 
+    @override
     def _validate(self) -> None:
         if cast("object", self.scalar_type) == ScalarType.boolean:
             raise ValueError("Boolean zero is undefined")
@@ -219,4 +225,4 @@ class Zero(AbstractExpression):
                 raise ValueError("free index is repeated")
             seen.add(i)
         for space in self.argument_spaces:
-            product_scalar_type(space)
+            _ = product_scalar_type(space)

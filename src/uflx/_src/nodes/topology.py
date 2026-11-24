@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from .meshes import CellMap
 
 
-class AbstractCellType(Base):
+class AbstractCellType(Base, ABC):
     @property
     @abstractmethod
     def dimension(self) -> int: ...
@@ -26,7 +26,7 @@ class AbstractCellType(Base):
     def num_vertices(self) -> int: ...
 
 
-class AbstractTopology(Base):
+class AbstractTopology(Base, ABC):
     # A fixed local cell configuration, without physical coordinates.
     @property
     @abstractmethod

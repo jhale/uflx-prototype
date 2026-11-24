@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, final
+
+from typing_extensions import override
 
 from .base import Base
 from .caching import cached
@@ -28,7 +30,7 @@ class Index(Base):
     labels = ("label",)
 
 
-class AbstractIndexTable(Base):
+class AbstractIndexTable(Base, ABC):
     # A table of index values that the solver gives, which is not an expression.
     @property
     @abstractmethod
@@ -60,7 +62,8 @@ class GatheredIndex(Base):
 
         return entries(self.table.shape, self.indices)
 
+    @override
     def _validate(self) -> None:
         from .validation import entries
 
-        entries(self.table.shape, self.indices)
+        _ = entries(self.table.shape, self.indices)

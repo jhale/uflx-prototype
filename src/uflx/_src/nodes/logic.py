@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
+from typing_extensions import override
+
 from ..typing import ExpressionScalarType
 from .caching import cached
 from .expressions import AbstractExpression
@@ -53,6 +55,7 @@ class LessThan(AbstractExpression):
 
         return free_indices(self.first, self.second)
 
+    @override
     def _validate(self) -> None:
         for value in (self.first, self.second):
             if (
@@ -96,6 +99,7 @@ class Conditional(AbstractExpression):
 
         return free_indices(self.predicate, self.true_value, self.false_value)
 
+    @override
     def _validate(self) -> None:
         if (
             self.predicate.scalar_type != "boolean"

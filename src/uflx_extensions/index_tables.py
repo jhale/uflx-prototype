@@ -7,6 +7,8 @@
 
 from typing import final
 
+from typing_extensions import override
+
 from uflx.nodes import AbstractExtent, AbstractIndexTable, GatheredIndex
 from uflx.tensors import gathered_index
 from uflx.typing import Extent, IndexEntry
@@ -33,6 +35,7 @@ class IndexArray(AbstractIndexTable):
         entries = key if isinstance(key, tuple) else (key,)
         return gathered_index(self, entries)
 
+    @override
     def _validate(self) -> None:
         for n in (*self.shape, self.extent):
             if n is None or isinstance(n, AbstractExtent):
@@ -51,6 +54,7 @@ class IndexTable(IndexArray):
     _extent: Extent
 
     @property
+    @override
     def extent(self) -> Extent:
         return self._extent
 

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, final
 
+from typing_extensions import override
+
 from ..typing import Argument, NumericalScalarType
 from .arguments import argument_leaves, map_argument
 from .arithmetic import Conjugate
@@ -111,12 +113,13 @@ class Form(BindingExpression[Function]):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
+    @override
     def _validate(self) -> None:
         from ..algorithms.substitution import occurs
         from .validation import product_scalar_type
 
         for space in self.argument_spaces[len(self.expression.argument_spaces) :]:
-            product_scalar_type(space)
+            _ = product_scalar_type(space)
 
         binders = self.bound()
         if len(set(binders)) != len(binders):
@@ -160,6 +163,7 @@ class Apply(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.form.domain
 
+    @override
     def _validate(self) -> None:
         from .validation import admissible
 

@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import final
+
+from typing_extensions import override
 
 from .base import Base
 from .topology import AbstractCellType
 
 
-class AbstractDomain(Base):
+class AbstractDomain(Base, ABC):
     @property
     @abstractmethod
     def dimension(self) -> int: ...
@@ -28,12 +30,13 @@ class AbstractDomain(Base):
         return self.ambient_domain.ambient_coordinate_domain
 
 
-class AbstractCoordinateDomain(AbstractDomain):
+class AbstractCoordinateDomain(AbstractDomain, ABC):
     @property
     def ambient_domain(self) -> AbstractDomain:
         return self
 
     @property
+    @override
     def ambient_coordinate_domain(self) -> AbstractCoordinateDomain:
         return self
 
@@ -48,6 +51,7 @@ class EuclideanSpace(AbstractCoordinateDomain):
     def dimension(self) -> int:
         return self._dimension
 
+    @override
     def _validate(self) -> None:
         if type(self.dimension) is not int:
             raise TypeError("dimension must be an integer")
@@ -55,6 +59,6 @@ class EuclideanSpace(AbstractCoordinateDomain):
             raise ValueError("dimension must be nonnegative")
 
 
-class AbstractReferenceCell(AbstractCoordinateDomain, AbstractCellType):
+class AbstractReferenceCell(AbstractCoordinateDomain, AbstractCellType, ABC):
     # A cell type that is also a coordinate domain, whose vertices the core does not read.
     pass

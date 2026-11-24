@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import NamedTuple
 
 from ..nodes import Base, Function, Index
-from ..nodes.base import construction_encoding
+from ..nodes.base import construction_encoding, construction_field
 from ..typing.nodes import AlphaEnvironment, AlphaKey, Construction
 from ._alpha_dependencies import Dependency, contains, singleton, union, without
 from ._alpha_summary import Summary, bind, constructor, variable
@@ -92,7 +92,7 @@ def _node_dependencies(
     for field in node.argument_names:
         if field in node.labels:
             continue
-        child = _value_dependencies(getattr(node, field), info)
+        child = _value_dependencies(construction_field(node, field), info)
         deps = union(deps, without(child, keys) if field in node.scope else child)
     return deps
 
@@ -147,11 +147,11 @@ class AlphaHasher:
                 pending.append((node, signature))
                 children = list(construction_nodes(signature))
                 for field in fields:
-                    children.extend(construction_nodes(getattr(node, field)))
+                    children.extend(construction_nodes(construction_field(node, field)))
                 pending.extend((child, None) for child in children if child not in self._info)
                 continue
             if isinstance(node, Function | Index):
-                self._names.setdefault(node, len(self._names))
+                _ = self._names.setdefault(node, len(self._names))
             self._info[node] = _NodeInfo(
                 signature, _node_dependencies(node, signature, self._names, self._info)
             )
@@ -177,7 +177,7 @@ class AlphaHasher:
         scoped: list[_Request] = []
         outside: list[_Request] = []
         for field in value.argument_names:
-            child: Construction = getattr(value, field)
+            child: Construction = construction_field(value, field)
             if field in value.labels:
                 child = ("opaque", construction_encoding(child))
             if field in value.scope:
@@ -212,7 +212,7 @@ class AlphaHasher:
                         ("bound-type", value.identifier), (variable(token),)
                     )
                     continue
-            if isinstance(value, Base | tuple):
+            if isinstance(value, Base) or isinstance(value, tuple):
                 recipe = self._recipe(value, environment)
                 pending.append((current, recipe))
                 pending.extend((child, None) for child in reversed(recipe.children))

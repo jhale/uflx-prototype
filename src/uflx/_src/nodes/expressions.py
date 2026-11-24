@@ -7,12 +7,14 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
-from typing import TYPE_CHECKING, ClassVar, Generic, Never, TypeVar, cast
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, ClassVar, Generic, Never, cast
+
+from typing_extensions import TypeVar, override
 
 from ..typing import ExpressionScalarType
 from .arguments import argument_leaves, argument_members, binding_name
-from .base import Base
+from .base import Base, construction_field
 from .scalar_types import ScalarType
 
 if TYPE_CHECKING:
@@ -23,7 +25,7 @@ if TYPE_CHECKING:
     from .topology import AbstractTopology
 
 
-class AbstractExpression(Base):
+class AbstractExpression(Base, ABC):
     # Additional linear operands declared by extensions; core rules live in rules/.
     commuting: ClassVar[tuple[str, ...]] = ()
 
@@ -35,11 +37,11 @@ class AbstractExpression(Base):
         if self.is_terminal and self.value_fields != ():
             raise ValueError("a terminal has no value operands")
         operands = expression_operands(self)
-        merge_indices(*(x.free_indices for x in operands))
+        _ = merge_indices(*(x.free_indices for x in operands))
         if self.scalar_type == ScalarType.boolean and self.argument_spaces != ():
             raise ValueError("Boolean expressions cannot take arguments")
         if self.requires_matching_domains:
-            common_operand_domain(self)
+            _ = common_operand_domain(self)
 
     requires_matching_domains: ClassVar[bool] = False
 
@@ -129,10 +131,10 @@ class AbstractExpression(Base):
         raise TypeError("symbolic expressions have no Python truth value")
 
 
-_Name = TypeVar("_Name", bound="Function | Index")
+_Name = TypeVar("_Name", bound="Function | Index", default="Function | Index")
 
 
-class BindingExpression(AbstractExpression, Generic[_Name]):
+class BindingExpression(AbstractExpression, Generic[_Name], ABC):
     """Bind the declared functions or indices in the expression body."""
 
     def __init_subclass__(cls, **kwargs: object) -> None:
@@ -142,12 +144,13 @@ class BindingExpression(AbstractExpression, Generic[_Name]):
 
     def binding_entries(self) -> tuple[BindingEntry, ...]:
         """Outer declarations in order, preserving grouped form entries."""
-        return tuple(
-            entry
-            for field in self.binding_fields
-            for entry in argument_members(getattr(self, field))
-        )
+        entries: list[BindingEntry] = []
+        for field in self.binding_fields:
+            value = cast("BindingEntry | tuple[BindingEntry, ...]", construction_field(self, field))
+            entries.extend(value if isinstance(value, tuple) else (value,))
+        return tuple(entries)
 
+    @override
     def bound(self) -> tuple[_Name, ...]:
         names = (
             binding_name(member)

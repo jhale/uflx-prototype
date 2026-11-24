@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Literal, cast, final
+from typing import TYPE_CHECKING, ClassVar, Literal, cast, final
+
+from typing_extensions import override
 
 from ..typing import NumericalScalarType, Variance
 from .base import Base
@@ -56,6 +58,7 @@ class Mesh(AbstractDomain):
     def dimension(self) -> int:
         return self.topology.dimension
 
+    @override
     def _validate(self) -> None:
         f = self.coordinate_function
         topology = self.topology
@@ -78,7 +81,7 @@ class CellMap(Base):
     identifier = "uflx.CellMap"
     parent: AbstractTopology | Mesh
     cell_slot: int
-    free_indices = ()
+    free_indices: ClassVar[tuple[()]] = ()
 
     @property
     def topology(self) -> AbstractTopology:
@@ -97,6 +100,7 @@ class CellMap(Base):
             raise TypeError("a topology cell has no parameterisation")
         return PullBack(self.parent.coordinate_function, CellMap(self.topology, self.cell_slot))
 
+    @override
     def _validate(self) -> None:
         if type(self.cell_slot) is not int:
             raise TypeError("cell slot must be an integer")
@@ -121,8 +125,9 @@ class SideMap(Base):
     def parent_topology(self) -> AbstractTopology:
         return self.parent.topology if isinstance(self.parent, Mesh) else self.parent
 
-    free_indices = ()
+    free_indices: ClassVar[tuple[()]] = ()
 
+    @override
     def _validate(self) -> None:
         from .maps import DomainMap
 
@@ -162,6 +167,7 @@ class TransformationLaw(Base):
     variances: tuple[Variance, ...]
     weight: int
 
+    @override
     def _validate(self) -> None:
         if any(v not in ("covariant", "contravariant") for v in self.variances):
             raise ValueError("unknown variance")
@@ -206,6 +212,7 @@ class PushForward(AbstractExpression):
     def argument_spaces(self) -> ArgumentSpaces:
         return self.expression.argument_spaces
 
+    @override
     def _validate(self) -> None:
         if self.expression.domain not in (None, self.mesh.topology):
             raise ValueError("push-forward source differs from the topology")
@@ -253,6 +260,7 @@ class Conormal(AbstractExpression):
     def argument_spaces(self) -> ArgumentSpaces:
         return ()
 
+    @override
     def _validate(self) -> None:
         if (
             not isinstance(self.side_map.parent, Mesh)

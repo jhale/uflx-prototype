@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, final
 
+from typing_extensions import override
+
 from ..typing import ExpressionScalarType, NumericalScalarType
 from .caching import cached
 from .expressions import AbstractExpression, BindingExpression
@@ -56,6 +58,7 @@ class BroadcastTo(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.value.domain
 
+    @override
     def _validate(self) -> None:
         from .validation import extent
 
@@ -106,6 +109,7 @@ class Tensor(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return common_operand_domain(self)
 
+    @override
     def _validate(self) -> None:
         if self.entries == ():
             raise ValueError("tensor entries must be nonempty")
@@ -154,12 +158,13 @@ class Indexed(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
+    @override
     def _validate(self) -> None:
         from .validation import entries, merge_indices
 
         if self.indices == ():
             raise ValueError("Indexed requires nonempty entries")
-        merge_indices(
+        _ = merge_indices(
             self.expression.free_indices, entries(self.expression.value_shape, self.indices)
         )
 
@@ -198,6 +203,7 @@ class ComponentTensor(BindingExpression[Index]):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
+    @override
     def _validate(self) -> None:
         _validate_index_binding(self)
 
@@ -235,6 +241,7 @@ class IndexSum(BindingExpression[Index]):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.expression.domain
 
+    @override
     def _validate(self) -> None:
         _validate_index_binding(self)
 
@@ -270,6 +277,7 @@ class Inverse(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.matrix.domain
 
+    @override
     def _validate(self) -> None:
         _matrix_operand(self.matrix, rectangular=True)
 
@@ -305,6 +313,7 @@ class Determinant(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.matrix.domain
 
+    @override
     def _validate(self) -> None:
         _matrix_operand(self.matrix)
 

@@ -29,6 +29,8 @@ _table: weakref.WeakValueDictionary[tuple[type[Base], int], Base] = weakref.Weak
 class _Interned(ABCMeta):
     """Intern fully initialized, validated nodes; never reinitialize a cache hit."""
 
+    __bases__: tuple[type[object], ...]
+
     def __call__(cls: type[_Node], *args: Construction) -> _Node:
         node_class = cast("type[Base]", cls)
 
@@ -70,7 +72,7 @@ class Base(metaclass=_Interned):
     @property
     @cached
     def construction_arguments(self) -> tuple[Construction, ...]:
-        return tuple(getattr(self, name) for name in self.argument_names)
+        return tuple(construction_field(self, name) for name in self.argument_names)
 
     @property
     @cached
@@ -85,8 +87,8 @@ class Base(metaclass=_Interned):
                 raise TypeError(f"{parent.__name__} is final")
         # Frozen dataclasses own storage, constructors and positional patterns.
         # A private field implements a public abstract property of the same name.
-        dataclass(cls, frozen=True, eq=False, repr=False)
-        cls.argument_names = tuple(field.name.removeprefix("_") for field in fields(cls))
+        node_class = dataclass(cls, frozen=True, eq=False, repr=False)
+        cls.argument_names = tuple(field.name.removeprefix("_") for field in fields(node_class))
 
     def __post_init__(self) -> None:
         self._validate()
@@ -102,6 +104,11 @@ class Base(metaclass=_Interned):
 
     def bound(self) -> tuple[Index | Function, ...]:
         return ()
+
+
+def construction_field(node: Base, name: str) -> Construction:
+    """Read a named construction argument from a node."""
+    return cast("Construction", getattr(node, name))
 
 
 def construction_equal(left: Construction, right: Construction) -> bool:

@@ -8,6 +8,7 @@ version = "0.1.0.dev0"
 description = "An experimental Python implementation of the UFLx core language"
 requires-python = ">=3.11"
 dependencies = [
+    "typing-extensions>=4.5",
     "numpy",
     "fenics-basix",
     "jax",

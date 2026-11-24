@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, final
 
+from typing_extensions import override
+
 from ..typing import NumericalScalarType
 from .caching import cached
 from .expressions import AbstractExpression
@@ -53,6 +55,7 @@ class Sum(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return common_operand_domain(self)
 
+    @override
     def _validate(self) -> None:
         if self.first.value_shape != self.second.value_shape:
             raise ValueError("sum value shapes differ")
@@ -93,6 +96,7 @@ class Product(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return common_operand_domain(self)
 
+    @override
     def _validate(self) -> None:
         if self.first.value_shape != () and self.second.value_shape != ():
             raise ValueError("product requires at least one scalar operand")
@@ -130,6 +134,7 @@ class Division(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return common_operand_domain(self)
 
+    @override
     def _validate(self) -> None:
         if self.denominator.value_shape != ():
             raise ValueError("division requires a scalar denominator")
@@ -169,6 +174,7 @@ class Power(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return common_operand_domain(self)
 
+    @override
     def _validate(self) -> None:
         if self.base.value_shape != () or self.exponent.value_shape != ():
             raise ValueError("power requires scalar operands")
@@ -244,6 +250,7 @@ class RealPart(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
+    @override
     def _validate(self) -> None:
         _scalar_operand(self.operand)
 
@@ -279,6 +286,7 @@ class ImaginaryPart(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
+    @override
     def _validate(self) -> None:
         _scalar_operand(self.operand)
 
@@ -314,6 +322,7 @@ class Absolute(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
+    @override
     def _validate(self) -> None:
         _scalar_operand(self.operand)
 
@@ -349,6 +358,7 @@ class SquareRoot(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
+    @override
     def _validate(self) -> None:
         _scalar_operand(self.operand)
 
@@ -384,12 +394,13 @@ class Logarithm(AbstractExpression):
     def domain(self) -> AbstractDomain | AbstractTopology | None:
         return self.operand.domain
 
+    @override
     def _validate(self) -> None:
         _scalar_operand(self.operand)
 
 
 def _scalar_operand(f: AbstractExpression, nonlinear: bool = True) -> None:
-    numerical_type(f.scalar_type)
+    _ = numerical_type(f.scalar_type)
     if f.value_shape != ():
         raise ValueError("operation requires a scalar")
     if nonlinear and f.argument_spaces != ():
