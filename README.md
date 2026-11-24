@@ -42,12 +42,8 @@ HTML pages with Sphinx.
 
 ```bash
 python -m pip install -e '.[docs]'
-python -m sphinx -W -b html docs build/docs
+python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 ```
-
-Open `build/docs/index.html` in a browser. Edit the example pages in
-`examples/*.py`, using `# %% [markdown]` for MyST prose and `# %%` for Python
-cells. Sphinx converts the scripts with Jupytext during the build.
 
 ## Headline features
 
@@ -250,15 +246,15 @@ unfairly scores its cyclomatic complexity.
 
 | Radon score | uflx | uflx_basix | uflx_extensions | uflx_jax_compiler | Total | Distribution |
 |---|---:|---:|---:|---:|---:|:---|
-| 1 | 309 | 15 | 12 | 31 | 367 | ██████████████████ |
-| 2 | 87 | 11 | 4 | 21 | 123 | ██████ |
-| 3 | 43 | 2 | 0 | 11 | 56 | ██▊ |
-| 4 | 30 | 2 | 0 | 4 | 36 | █▊ |
-| 5 | 13 | 2 | 0 | 9 | 24 | █▏ |
-| 6–10 | 31 | 6 | 2 | 13 | 52 | ██▌ |
-| 11–20 | 13 | 1 | 0 | 7 | 21 | █ |
-| 21–40 | 2 | 1 | 0 | 1 | 4 | ▎ |
-| 41+ | 0 | 0 | 0 | 1 | 1 | ▏ |
+| 1 | 309 | 15 | 12 | 31 | 367 | <img src="docs/complexity-bar.svg" width="184" height="10" alt=""> |
+| 2 | 87 | 11 | 4 | 21 | 123 | <img src="docs/complexity-bar.svg" width="62" height="10" alt=""> |
+| 3 | 43 | 2 | 0 | 11 | 56 | <img src="docs/complexity-bar.svg" width="28" height="10" alt=""> |
+| 4 | 30 | 2 | 0 | 4 | 36 | <img src="docs/complexity-bar.svg" width="18" height="10" alt=""> |
+| 5 | 13 | 2 | 0 | 9 | 24 | <img src="docs/complexity-bar.svg" width="12" height="10" alt=""> |
+| 6–10 | 31 | 6 | 2 | 13 | 52 | <img src="docs/complexity-bar.svg" width="26" height="10" alt=""> |
+| 11–20 | 13 | 1 | 0 | 7 | 21 | <img src="docs/complexity-bar.svg" width="11" height="10" alt=""> |
+| 21–40 | 2 | 1 | 0 | 1 | 4 | <img src="docs/complexity-bar.svg" width="2" height="10" alt=""> |
+| 41+ | 0 | 0 | 0 | 1 | 1 | <img src="docs/complexity-bar.svg" width="1" height="10" alt=""> |
 | Total | 528 | 40 | 18 | 98 | 684 |  |
 
 ## LLM statement

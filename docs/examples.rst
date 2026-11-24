@@ -8,8 +8,8 @@ Each example can be run from the repository root, for example with
 .. toctree::
    :maxdepth: 1
 
-   poisson
-   mixed_poisson
-   dg_poisson
-   pde_constrained
-   duran_liberman
+   /examples/poisson
+   /examples/mixed_poisson
+   /examples/dg_poisson
+   /examples/pde_constrained
+   /examples/duran_liberman

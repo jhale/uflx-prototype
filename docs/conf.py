@@ -12,8 +12,10 @@ project = "UFLx prototype"
 copyright = "2026, Jack S. Hale"
 
 extensions = ["sphinx.ext.autodoc", "sphinx.ext.napoleon", "myst_parser"]
-# Keep the existing example URLs when rendering generated Markdown.
-source_suffix = {".rst": "restructuredtext", ".py.md": "markdown", ".md": "markdown"}
+source_suffix = {".rst": "restructuredtext", ".md": "markdown", ".py": "markdown"}
+include_patterns = ["index.md", "docs/*.rst", "examples/[!_]*.py"]
+exclude_patterns = [".*", "build", "venv", "src", "test"]
+myst_enable_extensions = ["html_image"]
 html_theme = "pydata_sphinx_theme"
 html_theme_options = {"github_url": "https://github.com/jhale/uflx-prototype"}
 
@@ -30,29 +32,23 @@ def node_signature(app, what, name, obj, options, signature, return_annotation):
     return None
 
 
-def convert_examples(app):
-    """Render the runnable examples as MyST Markdown before Sphinx discovers its sources."""
-    docs = Path(app.srcdir)
-    examples = docs.parent / "examples"
-    for script in sorted(examples.glob("[!_]*.py")):
-        notebook = jupytext.read(script, fmt="py:percent")
-        # The license header precedes the first Markdown cell in the script.
-        preamble = notebook.cells[0]
-        if preamble.cell_type == "code" and all(
-            not line or line.startswith("#") for line in preamble.source.splitlines()
-        ):
-            notebook.cells.pop(0)
-        markdown = jupytext.writes(notebook, fmt="md", notebook_metadata_filter="-all")
-        markdown += f"\n{{download}}`Download {script.name} <../examples/{script.name}>`\n"
-        page = docs / f"{script.name}.md"
-        if not page.exists() or page.read_text(encoding="utf-8") != markdown:
-            page.write_text(markdown, encoding="utf-8")
+def render_example(app, docname, source):
+    """Give MyST the Markdown representation of a runnable Python example."""
+    script = Path(app.env.doc2path(docname))
+    if script.suffix != ".py":
+        return
 
-    for page in docs.glob("*.py.md"):
-        if not (examples / page.stem).is_file():
-            page.unlink()
+    notebook = jupytext.reads(source[0], fmt="py:percent")
+    # The license header precedes the first Markdown cell in the script.
+    preamble = notebook.cells[0]
+    if preamble.cell_type == "code" and all(
+        not line or line.startswith("#") for line in preamble.source.splitlines()
+    ):
+        notebook.cells.pop(0)
+    markdown = jupytext.writes(notebook, fmt="md", notebook_metadata_filter="-all")
+    source[0] = markdown + f"\n{{download}}`Download {script.name} <{script.name}>`\n"
 
 
 def setup(app):
-    app.connect("builder-inited", convert_examples)
+    app.connect("source-read", render_example)
     app.connect("autodoc-process-signature", node_signature)
