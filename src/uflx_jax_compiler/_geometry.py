@@ -71,7 +71,9 @@ def side_reference(side, site, value):
     return slot, parent_slot, inclusion, point, target
 
 
-def quadrature_sum(result, cell, point_source, rule, integrand, product, site, bindings, value):
+def quadrature_sum(
+    result, cell, point_source, rule, integrand, product, site, bindings, value, *, eager=False
+):
     """Evaluate reference samples and reduce their leading quadrature axis."""
     points, weights = rule
     points, weights = jnp.asarray(points, dtype=float), jnp.asarray(weights)
@@ -87,16 +89,21 @@ def quadrature_sum(result, cell, point_source, rule, integrand, product, site, b
         and not (product.value_shape or product.free_indices or product.argument_spaces)
     )
 
-    def sample(point, *rows):
+    def sample(row, point, *rows):
         at_point = (
             {cell: PointTabulation(point, dict(zip(tables, rows, strict=True)))} if tables else None
         )
         at = site.at({cell: point}, tabulations=at_point)
         if factorized:
             return value(product.first, at=at), value(product.second, at=at)
-        return integrand(at)
+        return integrand(at, row)
 
-    samples = jax.vmap(sample)(points, *tables.values())
+    if eager:
+        samples = jnp.stack(
+            [sample(i, p, *(rows[i] for rows in tables.values())) for i, p in enumerate(points)]
+        )
+    else:
+        samples = jax.vmap(sample)(jnp.arange(weights.size), points, *tables.values())
     if factorized:
         # vmap over independent test/trial slots turns this dot into a
         # matrix product without forming a (test, trial, point) array.
@@ -119,7 +126,7 @@ def integrate(integral, bindings, fn, site, value):
             cell,
             integral,
             rule,
-            integrand,
+            lambda at, row: integrand(at),
             integral.expression if cell == domain else None,
             site,
             bindings,

@@ -223,8 +223,22 @@ def _evaluate(node, bindings, site, arguments, memo):
             if sampled is not None:
                 expr, cell, points, weights = sampled
                 rule = (value(points), value(weights))
+                (q,) = node.indices
+
+                def sample(at, row):
+                    return scoped_value(expr, arguments, at=at, bind={q: row})
+
                 return quadrature_sum(
-                    node, cell, points, rule, field(expr), expr, site, bindings, scoped_value
+                    node,
+                    cell,
+                    points,
+                    rule,
+                    sample,
+                    expr,
+                    site,
+                    bindings,
+                    scoped_value,
+                    eager=q in dict(expr.free_indices) and needs_eager_samples(expr, bindings),
                 )
             return _tensors.bind_indices(
                 node, bindings, arguments, lambda x, local, slots: evaluate(x, local, site, slots)

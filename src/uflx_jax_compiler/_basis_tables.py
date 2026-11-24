@@ -12,6 +12,7 @@ import jax.numpy as jnp
 
 from uflx import nodes
 from uflx.algorithms import expression_operands
+from uflx.tensors import indexed
 
 from . import _finite_elements as elements
 
@@ -68,16 +69,19 @@ def keeps_quadrature_point(node):
 def sampled_quadrature(node, bindings=()):
     """Read the weighted reference-point sum by its algebra, independently of index labels."""
     match node:
-        case nodes.IndexSum(
-            nodes.Product(
-                nodes.Indexed(weights, (w,)),
-                nodes.Integral(nodes.PullBack(expr, mapping), domain) as sample,
-            ),
-            (q,),
-        ):
-            match mapping:
-                case nodes.DomainMap(
-                    source, nodes.ComponentTensor(nodes.Indexed(points, (p, j)), (k,)), cell
+        case nodes.IndexSum(nodes.Product(nodes.Indexed(weights, (w,)), sample), (q,)):
+            components = ()
+            if isinstance(sample, nodes.Indexed):
+                sample, components = sample.expression, sample.indices
+            match sample:
+                case nodes.Integral(
+                    nodes.PullBack(
+                        expr,
+                        nodes.DomainMap(
+                            source, nodes.ComponentTensor(nodes.Indexed(points, (p, j)), (k,)), cell
+                        ),
+                    ),
+                    domain,
                 ):
                     if (
                         q == w == p
@@ -85,7 +89,6 @@ def sampled_quadrature(node, bindings=()):
                         and q != j
                         and domain == source == nodes.EuclideanSpace(0)
                         and isinstance(cell, nodes.AbstractReferenceCell)
-                        and q not in dict(expr.free_indices)
                         and all(
                             x.domain is None
                             and not x.argument_spaces
@@ -96,7 +99,12 @@ def sampled_quadrature(node, bindings=()):
                         and sample not in bindings
                         and (sample, domain) not in bindings
                     ):
-                        return expr, cell, points, weights
+                        return (
+                            indexed(expr, components) if components else expr,
+                            cell,
+                            points,
+                            weights,
+                        )
     return None
 
 

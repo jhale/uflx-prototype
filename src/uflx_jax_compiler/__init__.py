@@ -6,6 +6,7 @@
 """JAX evaluation and tracing of UFLx expressions."""
 
 from ._basis_tables import basis_tables
+from ._geometry_tables import extract_geometry
 from .interpreter import trace
 
-__all__ = ["basis_tables", "trace"]
+__all__ = ["basis_tables", "extract_geometry", "trace"]

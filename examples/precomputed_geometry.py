@@ -7,75 +7,79 @@
 # %% [markdown]
 """# Precomputed geometry
 
-Precompute the inverse Jacobian and integration density at quadrature points
-on a curved triangle, then use them to assemble its P2 stiffness matrix.
+Extract the geometry terms from the physical Poisson integral on a curved
+triangle. Evaluate them at quadrature points and reuse the tables in assembly.
 """
 
 # %%
 import basix
 import jax
-import jax.numpy as jnp
+import numpy as np
 
 import uflx_jax_compiler
 from uflx.algorithms import substitute_values
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, density, euclidean_space, jacobian, push_forward
+from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
-from uflx.tensors import inverse
+from uflx.tensors import index
 from uflx_basix.cells import topology
+from uflx_basix.quadrature import evaluate_at_points, weighted_sum
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array
 
 triangle = basix.CellType.triangle
 cell_topology = topology(triangle)
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-s, t = p2.points.T
-coordinates = jnp.column_stack((s, t + 0.4 * s * t))
-ambient = euclidean_space(coordinates.shape[1])
+
+ambient = euclidean_space(cell_topology.dimension)
 x = function(local_space(cell_topology, p2, shape=(ambient.dimension,)), "x")
 mesh = create_mesh(x, ambient)
-cell_map = mesh[0]
-reference_cell = cell_map.reference_cell
 
 V = local_space(cell_topology, p2)
 u_ref, v_ref = function(V, "u"), function(V, "v")
 u, v = (push_forward(f, mesh, V.law) for f in (u_ref, v_ref))
-stiffness_integral = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
 
-# %%
-inverse_jacobian = inverse(jacobian(cell_map))
-integration_density = density(cell_map)
-evaluate_inverse_jacobian = uflx_jax_compiler.trace(inverse_jacobian, x, reference_cell)
-evaluate_density = uflx_jax_compiler.trace(integration_density, x, reference_cell)
+stiffness = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
+stiffness, geometry = uflx_jax_compiler.extract_geometry(stiffness, mesh[0])
 
+print(geometry)
 
-def geometry_at_point(coordinates, point):
-    return evaluate_inverse_jacobian(coordinates, point), evaluate_density(coordinates, point)
-
-
-precompute_geometry = jax.jit(jax.vmap(geometry_at_point, in_axes=(None, 0)))
-
-# %%
-inverse_jacobian_input = runtime_array("inverse_jacobian", inverse_jacobian.value_shape)
-density_input = runtime_array("integration_density", integration_density.value_shape)
-integrand = substitute_values(
-    stiffness_integral.expression,
-    {inverse_jacobian: inverse_jacobian_input, integration_density: density_input},
-)
-evaluate_integrand = uflx_jax_compiler.trace(
-    form(integrand, (v_ref, u_ref)), reference_cell, inverse_jacobian_input, density_input
-)
-
-
-@jax.jit
-def assemble_stiffness(points, weights, inverse_jacobians, integration_densities):
-    samples = jax.vmap(evaluate_integrand)(points, inverse_jacobians, integration_densities)
-    return jnp.tensordot(weights, samples, axes=1)
-
+# %% [markdown]
+# ## Geometry at quadrature points
 
 # %%
 points, weights = basix.make_quadrature(triangle, degree=4)
-inverse_jacobians, integration_densities = precompute_geometry(coordinates, points)
-matrix = assemble_stiffness(points, weights, inverse_jacobians, integration_densities)
+q = index("q")
+
+evaluators = [
+    uflx_jax_compiler.trace(evaluate_at_points(term, points, q), x) for term in geometry.values()
+]
+
+
+@jax.jit
+def tabulate_geometry(coordinates):
+    return tuple(evaluate(coordinates) for evaluate in evaluators)
+
+
+s, t = p2.points.T
+coordinates = np.column_stack((s, t + 0.4 * s * t))
+geometry_values = tabulate_geometry(coordinates)
+
+# %% [markdown]
+# ## Stiffness assembly
+
+# %%
+tables = {
+    value: runtime_array(value.label, (len(points), *value.value_shape)) for value in geometry
+}
+integrand = substitute_values(
+    stiffness.expression, {value: table[q] for value, table in tables.items()}
+)
+
+samples = evaluate_at_points(integrand, points, q)
+a = form(weighted_sum(samples, weights, q), (v_ref, u_ref))
+
+assemble_stiffness = jax.jit(uflx_jax_compiler.trace(a, *tables.values()))
+matrix = assemble_stiffness(*geometry_values)
 print("Cell stiffness matrix", matrix)
