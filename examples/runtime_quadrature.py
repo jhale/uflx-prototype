@@ -28,10 +28,12 @@ from uflx_jax_compiler import basis_tables, trace
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
+vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])
+ambient = euclidean_space(vertices.shape[1])
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-x = function(local_space(T, p1, shape=(2,)), "x")
-mesh = create_mesh(x, euclidean_space(2))
+x = function(local_space(T, p1, shape=(ambient.dimension,)), "x")
+mesh = create_mesh(x, ambient)
 V = local_space(T, p2)
 u_ref, v_ref = function(V, "u"), function(V, "v")
 u = push_forward(u_ref, mesh, V.law)
@@ -40,7 +42,7 @@ a_ref = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
 
 # %%
 n = runtime_extent("n")
-points_input = runtime_array("points", (n, 2))
+points_input = runtime_array("points", (n, a_ref.integration_domain.dimension))
 weights_input = runtime_array("weights", (n,))
 weighted_sum = apply_quadrature(a_ref, points_input, weights_input)
 a = form(weighted_sum, (v_ref, u_ref))
@@ -52,7 +54,6 @@ stiffness = jax.jit(trace(a, x, points_input, weights_input, *tables))
 # give the same matrix as the fixed degree-two rule.
 
 # %%
-vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])
 fixed_sum = apply_quadrature(a_ref, *basix.make_quadrature(triangle, degree=2))
 expected = trace(form(fixed_sum, (v_ref, u_ref)), x)(vertices)
 
