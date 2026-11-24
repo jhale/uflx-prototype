@@ -20,6 +20,8 @@ from uflx.arithmetic import num
 from uflx.nodes import (
     Absolute,
     AbstractExpression,
+    AbstractTopology,
+    CellMap,
     ComponentTensor,
     Coordinate,
     Determinant,
@@ -194,9 +196,61 @@ def _factors(body, arguments, inputs):
     by_cell = defaultdict(list)
     for factors, coefficients in by_reference.items():
         polynomial = tuple(sorted(coefficients, key=lambda term: tuple(map(digest, term))))
-        by_cell[polynomial].append(monomial(factors))
-    reference = tensor(tuple(reduce(add, terms) for terms in by_cell.values()))
-    return reference, tuple(by_cell), runtime
+        by_cell[polynomial].append(factors)
+    reference = tensor(tuple(reduce(add, map(monomial, terms)) for terms in by_cell.values()))
+    return reference, by_cell, runtime
+
+
+def _basix_reference_table(groups, arguments, cell, points, weights, dtype):
+    """Integrate products of scalar basis values and first partials at fixed points."""
+    import basix
+
+    shape = (len(weights), *(arg.space.num_dofs for arg in arguments))
+    points = np.asarray(points, dtype=dtype)
+    weights = np.asarray(weights, dtype=dtype)
+
+    @cache
+    def tabulate(space):
+        element = space.element(0)
+        table = element.tabulate(1, points.astype(element.dtype, copy=False))
+        return table[..., 0].astype(dtype, copy=False)
+
+    samples = {}
+    for axis, arg in enumerate(arguments):
+        space = arg.space
+        domain = space.domain
+        if space.value_shape:
+            return None
+        if domain == cell:
+            field = arg
+        elif isinstance(domain, AbstractTopology) and domain.cell_types == (cell,):
+            field = PullBack(arg, CellMap(domain, 0))
+        else:
+            return None
+        element = space.element(0)
+        if element.family != basix.ElementFamily.P or element.cell_type not in (
+            basix.CellType.interval,
+            basix.CellType.triangle,
+            basix.CellType.tetrahedron,
+        ):
+            return None
+        gradient = Gradient(field, cell)
+        # Basix orders its rows as the value followed by the coordinate partials.
+        factors = (field, *(indexed(gradient, (i,)) for i in range(cell.dimension)))
+        dofs = [1] * len(arguments)
+        dofs[axis] = element.dim
+        for factor, values in zip(factors, tabulate(space), strict=True):
+            samples[factor] = values.reshape(len(weights), *dofs)
+
+    rows = []
+    for terms in groups:
+        try:
+            values = sum(prod(samples[factor] for factor in term) for term in terms)
+        except KeyError:
+            return None
+        values = np.broadcast_to(np.asarray(values, dtype=dtype), shape)
+        rows.append(np.tensordot(weights, values, axes=1))
+    return np.stack(rows)
 
 
 def _contraction(body, arguments, inputs, ordinary):
@@ -230,6 +284,11 @@ def _contraction(body, arguments, inputs, ordinary):
     @lru_cache(maxsize=2)
     def reference_table(dtype):
         # Store a host constant, never a tracer from an enclosing jit, vmap or AD.
+        table = _basix_reference_table(
+            coefficients.values(), arguments, cell, points, weights, dtype
+        )
+        if table is not None:
+            return table
         with jax.ensure_compile_time_eval():
             samples = jax.jit(jax.vmap(basis))(jnp.asarray(points, dtype=dtype))
             table = jnp.tensordot(jnp.asarray(weights, dtype=dtype), samples, axes=1)

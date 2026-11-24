@@ -19,7 +19,7 @@ from uflx.passes import lower
 from uflx_basix.cells import cell, topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import _reference, trace
+from uflx_jax_compiler import _finite_elements, _reference, trace
 
 
 def _constant_shapes(kernel, *data):
@@ -118,10 +118,16 @@ def test_reference_table_budget_and_precision(monkeypatch):
     L = form(apply_quadrature(integral_v, *rule), (v,))
     kernel = trace(L)
     ordinary = trace(form(integral_v, (v,)), integral_v)
+
+    def traced_basis(*args):
+        pytest.fail("Fixed scalar basis values should be tabulated by Basix at quadrature points")
+
     for x64 in (False, True):
         jax.config.update("jax_enable_x64", x64)
         expected = ordinary(rule)
-        result = kernel()
+        with monkeypatch.context() as patch:
+            patch.setattr(_finite_elements, "tabulate", traced_basis)
+            result = kernel()
         assert result.dtype == expected.dtype == (np.float64 if x64 else np.float32)
         np.testing.assert_allclose(result, expected, atol=1e-7 if not x64 else 1e-14)
 
