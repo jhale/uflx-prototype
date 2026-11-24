@@ -83,7 +83,6 @@ class Form(BindingExpression[Function]):
     identifier = "uflx.Form"
     expression: AbstractExpression
     arguments: tuple[FormEntry, ...]
-    scope = ("expression", "arguments")
     binding_fields = ("arguments",)
 
     @property

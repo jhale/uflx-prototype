@@ -171,7 +171,6 @@ class ComponentTensor(BindingExpression[Index]):
     identifier = "uflx.ComponentTensor"
     expression: AbstractExpression
     indices: tuple[Index, ...]
-    scope = ("expression", "indices")
     binding_fields = ("indices",)
 
     @property
@@ -210,7 +209,6 @@ class IndexSum(BindingExpression[Index]):
     identifier = "uflx.IndexSum"
     expression: AbstractExpression
     indices: tuple[Index, ...]
-    scope = ("expression", "indices")
     binding_fields = ("indices",)
 
     @property

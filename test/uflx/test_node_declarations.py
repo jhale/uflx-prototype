@@ -50,7 +50,7 @@ def declaration_errors(source):
             if "binding_fields" in declarations
             else set()
         )
-        if not binding <= scope:
+        if "scope" in declarations and not binding <= scope:
             errors.append(f"{cls.name}: declarations must belong to their binding scope")
         if (scope or "bound" in methods) and not binding:
             errors.append(f"{cls.name}: binding requires declaration fields")
@@ -71,6 +71,9 @@ def declaration_errors(source):
 def test_core_node_declarations_agree():
     for path in Path(nodes.__file__).parent.glob("*.py"):
         assert not (errors := declaration_errors(path.read_text())), (path.name, errors)
+    for cls in vars(nodes).values():
+        if isinstance(cls, type) and issubclass(cls, nodes.Base):
+            assert set(cls.binding_fields) <= set(cls.scope) <= set(cls.argument_names), cls
 
 
 def test_dataclasses_supply_constructors_and_patterns():

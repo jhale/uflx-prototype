@@ -31,7 +31,6 @@ class DirectionalDerivative(BindingExpression["Function"]):
     variable: Argument[Function]
     point: Argument[AbstractExpression]
     direction: Argument[AbstractExpression]
-    scope = ("expression", "variable")
     binding_fields = ("variable",)
 
     @property

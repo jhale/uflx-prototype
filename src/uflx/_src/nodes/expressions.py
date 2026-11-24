@@ -147,7 +147,12 @@ _Name = TypeVar("_Name", bound="Function | Index")
 
 
 class BindingExpression(AbstractExpression, Generic[_Name]):
-    """An expression whose declaration fields bind functions or indices."""
+    """Bind the declared functions or indices in the expression body."""
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        if "binding_fields" in vars(cls) and "scope" not in vars(cls):
+            cls.scope = ("expression", *cls.binding_fields)
 
     def binding_entries(self) -> tuple[BindingEntry, ...]:
         """Outer declarations in order, preserving grouped form entries."""
