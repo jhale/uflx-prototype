@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Literal, final
 from ..typing import ExpressionScalarType
 from .caching import cached
 from .expressions import AbstractExpression
+from .scalar_types import common_scalar_type
 from .validation import require
 
 if TYPE_CHECKING:
@@ -73,7 +74,7 @@ class Conditional(AbstractExpression):
     @property
     @cached
     def scalar_type(self) -> ExpressionScalarType:
-        return self.joined_scalar_type(self.true_value, self.false_value)
+        return common_scalar_type(self.true_value, self.false_value)
 
     @property
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:

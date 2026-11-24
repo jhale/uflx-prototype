@@ -12,7 +12,7 @@ from ..typing import ExpressionScalarType, NumericalScalarType
 from .caching import cached
 from .expressions import AbstractExpression, BindingExpression
 from .indices import Index
-from .scalar_types import numerical_type
+from .scalar_types import common_scalar_type, numerical_type
 from .validation import require
 
 if TYPE_CHECKING:
@@ -98,7 +98,7 @@ class Tensor(AbstractExpression):
     @property
     @cached
     def scalar_type(self) -> ExpressionScalarType:
-        return self.joined_scalar_type(*self.entries)
+        return common_scalar_type(*self.entries)
 
     @property
     @cached

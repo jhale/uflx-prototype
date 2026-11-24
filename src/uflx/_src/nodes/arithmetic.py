@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Literal, final
 from ..typing import NumericalScalarType
 from .caching import cached
 from .expressions import AbstractExpression
-from .scalar_types import ScalarType, numerical_type
+from .scalar_types import ScalarType, common_scalar_type, numerical_type
 from .validation import require
 
 if TYPE_CHECKING:
@@ -47,7 +47,7 @@ class Sum(AbstractExpression):
     @property
     @cached
     def scalar_type(self) -> NumericalScalarType:
-        return numerical_type(self.joined_scalar_type(self.first, self.second))
+        return numerical_type(common_scalar_type(self.first, self.second))
 
     @property
     @cached
@@ -87,7 +87,7 @@ class Product(AbstractExpression):
     @property
     @cached
     def scalar_type(self) -> NumericalScalarType:
-        return numerical_type(self.joined_scalar_type(self.first, self.second))
+        return numerical_type(common_scalar_type(self.first, self.second))
 
     @property
     @cached
@@ -127,7 +127,7 @@ class Division(AbstractExpression):
     @property
     @cached
     def scalar_type(self) -> NumericalScalarType:
-        return numerical_type(self.joined_scalar_type(self.numerator, self.denominator))
+        return numerical_type(common_scalar_type(self.numerator, self.denominator))
 
     @property
     @cached
@@ -165,7 +165,7 @@ class Power(AbstractExpression):
     @property
     @cached
     def scalar_type(self) -> NumericalScalarType:
-        return numerical_type(self.joined_scalar_type(self.base, self.exponent))
+        return numerical_type(common_scalar_type(self.base, self.exponent))
 
     @property
     @cached

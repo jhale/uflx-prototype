@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, ClassVar, Generic, Never, TypeVar, cast
 
-from ..typing import Argument, ExpressionScalarType
+from ..typing import ExpressionScalarType
 from .arguments import argument_leaves, argument_members, binding_name
 from .base import Base
 from .scalar_types import ScalarType
@@ -63,18 +63,6 @@ class AbstractExpression(Base):
     @property
     @abstractmethod
     def scalar_type(self) -> ExpressionScalarType: ...
-
-    @staticmethod
-    def joined_scalar_type(
-        *operands: Argument[AbstractExpression],
-    ) -> ExpressionScalarType:
-        """Join Boolean values or promote numerical operands to a common scalar type."""
-        types = {member.scalar_type for slot in operands for member in argument_leaves(slot)}
-        if ScalarType.boolean in types:
-            if len(types) != 1:
-                raise ValueError("Boolean and numerical values cannot be mixed")
-            return ScalarType.boolean
-        return ScalarType.complex if ScalarType.complex in types else ScalarType.real
 
     # The free functions import the nodes, so each overload imports its free function locally.
     def __add__(self, other: object) -> AbstractExpression:

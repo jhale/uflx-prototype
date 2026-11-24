@@ -7,15 +7,28 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from ..typing import ExpressionScalarType, NumericalScalarType
+
+if TYPE_CHECKING:
+    from .expressions import AbstractExpression
 
 
 class ScalarType:
     boolean: Final = "boolean"
     real: Final = "real"
     complex: Final = "complex"
+
+
+def common_scalar_type(*operands: AbstractExpression) -> ExpressionScalarType:
+    """Return the common scalar type of the operands."""
+    types = {operand.scalar_type for operand in operands}
+    if ScalarType.boolean in types:
+        if len(types) != 1:
+            raise ValueError("Boolean and numerical values cannot be mixed")
+        return ScalarType.boolean
+    return ScalarType.complex if ScalarType.complex in types else ScalarType.real
 
 
 def numerical_type(scalar_type: ExpressionScalarType) -> NumericalScalarType:
