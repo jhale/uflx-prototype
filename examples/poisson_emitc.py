@@ -1,13 +1,10 @@
 # %% [markdown]
 """# Emitting C for Poisson
 
-Emit a C99 stiffness kernel for P1 Poisson on an affine triangle. The script
-writes the kernel and intermediate MLIR files to `output/poisson_emitc/`.
+Emit a C99 stiffness kernel for P1 Poisson on an affine triangle.
 """
 
 # %%
-
-import logging
 
 import basix
 import jax
@@ -22,8 +19,6 @@ from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 
-logging.basicConfig(format="%(message)s")
-logging.getLogger("uflx_jax_compiler").setLevel(logging.INFO)
 jax.config.update("jax_enable_x64", True)
 
 triangle = basix.CellType.triangle
@@ -42,4 +37,5 @@ a = form(apply_quadrature(a_ref, *rule), (v, u))
 stiffness = jax.jit(uflx_jax_compiler.trace(a, x))
 vertices = jax.ShapeDtypeStruct((T.dimension + 1, T.dimension), np.float64)
 exported = jax.export.export(stiffness)(vertices)
-uflx_jax_compiler.emit_c(exported, "stiffness", "output/poisson_emitc")
+stiffness_c = uflx_jax_compiler.emit_c(exported, "stiffness")
+# stiffness_c is the C99 source, ready to compile.

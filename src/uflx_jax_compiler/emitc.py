@@ -9,8 +9,7 @@ import logging
 import re
 import shlex
 import subprocess
-from collections.abc import Sequence
-from pathlib import Path
+from collections.abc import Iterator, Sequence
 
 from jax.export import Exported
 from jax.interpreters.mlir import make_ir_context
@@ -51,7 +50,16 @@ DEFAULT_EMITC_PASSES = (
 def _lower_to_linalg(source: str, context: ir.Context, name: str, passes: Sequence[str]) -> str:
     with context, ir.Location.unknown():
         module = ir.Module.parse(source)
-        ir.SymbolTable(module.operation)["main"].attributes["sym_name"] = ir.StringAttr.get(name)
+        entry = ir.SymbolTable(module.operation)["main"].opview
+        entry.attributes["sym_name"] = ir.StringAttr.get(name)
+        # One-Shot Bufferize may otherwise reuse a caller's input as writable storage.
+        attrs = entry.arg_attrs if "arg_attrs" in entry.attributes else [{}] * len(entry.arguments)
+        entry.arg_attrs = ir.ArrayAttr.get(
+            [
+                ir.DictAttr.get({**dict(arg), "bufferization.writable": ir.BoolAttr.get(False)})
+                for arg in attrs
+            ]
+        )
         stablehlo.register_stablehlo_passes()
         pipeline = f"builtin.module({','.join(passes)})"
         logger.info("%s", pipeline)
@@ -77,7 +85,19 @@ def _require_mlir_tools():
             )
 
 
-def _lowering_stages(exported, name, linalg_passes, loop_passes, emitc_passes):
+def lowering_stages(
+    exported: Exported,
+    name: str,
+    *,
+    linalg_passes: Sequence[str] = DEFAULT_LINALG_PASSES,
+    loop_passes: Sequence[str] = DEFAULT_LOOP_PASSES,
+    emitc_passes: Sequence[str] = DEFAULT_EMITC_PASSES,
+) -> Iterator[tuple[str, str]]:
+    """Yield (filename, source) pairs for each MLIR stage and the final C99 kernel.
+
+    Requires mlir-opt and mlir-translate from LLVM 23 or newer, and clang-format on PATH.
+    """
+    _require_mlir_tools()
     source = exported.mlir_module()
     yield "stablehlo.mlir", source
 
@@ -111,23 +131,17 @@ def _lowering_stages(exported, name, linalg_passes, loop_passes, emitc_passes):
 def emit_c(
     exported: Exported,
     name: str,
-    output_dir: str | Path,
     *,
     linalg_passes: Sequence[str] = DEFAULT_LINALG_PASSES,
     loop_passes: Sequence[str] = DEFAULT_LOOP_PASSES,
     emitc_passes: Sequence[str] = DEFAULT_EMITC_PASSES,
 ) -> str:
-    """Return C source for an exported, statically shaped JAX kernel with the given C name.
-
-    Requires mlir-opt and mlir-translate from LLVM 23 or newer, and clang-format on PATH.
-    Writes the intermediate MLIR files and generated C source to output_dir.
-    """
-    _require_mlir_tools()
-    output_dir = Path(output_dir)
-    output_dir.mkdir(exist_ok=True, parents=True)
-    for filename, source in _lowering_stages(
-        exported, name, linalg_passes, loop_passes, emitc_passes
-    ):
-        (output_dir / filename).write_text(source)
-
-    return source
+    """Return the formatted C99 source. Use lowering_stages for the intermediate MLIR."""
+    stages = lowering_stages(
+        exported,
+        name,
+        linalg_passes=linalg_passes,
+        loop_passes=loop_passes,
+        emitc_passes=emitc_passes,
+    )
+    return dict(stages)[f"{name}.c"]

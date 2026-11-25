@@ -7,7 +7,17 @@
 
 from ._basis_tables import basis_tables
 from ._geometry_tables import extract_geometry
-from .emitc import emit_c
+from .emitc import emit_c, lowering_stages
 from .interpreter import reference_trace, trace
+from .ufcx import emit_ufcx_callback, with_ufcx_cell_inputs
 
-__all__ = ["basis_tables", "emit_c", "extract_geometry", "reference_trace", "trace"]
+__all__ = [
+    "basis_tables",
+    "emit_c",
+    "emit_ufcx_callback",
+    "extract_geometry",
+    "lowering_stages",
+    "reference_trace",
+    "trace",
+    "with_ufcx_cell_inputs",
+]

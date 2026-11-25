@@ -55,7 +55,7 @@ def test_p1_tetrahedron(tmp_path):
     kernel = jax.jit(uflx_jax_compiler.trace(form_a, x))
 
     vertices = np.array([[0.2, 0, 0.3], [1.3, 0.1, 0], [0, 1.2, 0.1], [0.1, 0.2, 1.1]])
-    source = uflx_jax_compiler.emit_c(jax.export.export(kernel)(vertices), "stiffness", tmp_path)
+    source = uflx_jax_compiler.emit_c(jax.export.export(kernel)(vertices), "stiffness")
     stiffness = compile_kernel(source, "stiffness", tmp_path)
     stiffness.argtypes = [
         np.ctypeslib.ndpointer(dtype=np.float64, shape=shape, flags="C_CONTIGUOUS")
@@ -70,11 +70,32 @@ def test_p1_tetrahedron(tmp_path):
 def test_scalar_reduction(tmp_path):
     values = np.array([1.0, -2.0, 3.0])
     kernel = jax.jit(lambda x: (x * x).sum())
-    source = uflx_jax_compiler.emit_c(jax.export.export(kernel)(values), "energy", tmp_path)
-    assert (tmp_path / "energy.c").read_text() == source
+    source = uflx_jax_compiler.emit_c(jax.export.export(kernel)(values), "energy")
     energy = compile_kernel(source, "energy", tmp_path)
     energy.argtypes = [np.ctypeslib.ndpointer(dtype=np.float64)] * 2
     energy.restype = None
     result = np.array(np.nan)
     energy(values, result)
     np.testing.assert_allclose(result, kernel(values))
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_ufcx_callback(tmp_path, dtype):
+    def cell(x, w, c):
+        return x[:2, None] + w[None, :] * c[0]
+
+    x = np.array([1, 2, 0], dtype=dtype)
+    w = np.array([2, 4], dtype=dtype)
+    c = np.array([3], dtype=dtype)
+    exported = jax.export.export(jax.jit(cell))(x, w, c)
+    source = uflx_jax_compiler.emit_ufcx_callback(exported, "tabulate")
+    kernel = compile_kernel(source, "tabulate", tmp_path)
+    kernel.argtypes = [np.ctypeslib.ndpointer(dtype=dtype)] * 4 + [ctypes.c_void_p] * 3
+    kernel.restype = None
+    result = np.array([9, 8, 7, 6], dtype=dtype)
+    inputs_before = [array.copy() for array in (w, c, x)]
+    expected = result + cell(x, w, c).ravel()
+    kernel(result, w, c, x, None, None, None)
+    np.testing.assert_allclose(result, expected)
+    for array, before in zip((w, c, x), inputs_before, strict=True):
+        np.testing.assert_array_equal(array, before)
