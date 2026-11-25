@@ -1,4 +1,11 @@
-"""Emit C99 for P1 Poisson on an affine triangle using jaxlib and MLIR command-line tools."""
+# %% [markdown]
+"""# Emitting C for Poisson
+
+Emit a C99 stiffness kernel for P1 Poisson on an affine triangle. The script
+writes the kernel and intermediate MLIR files to `output/poisson_emitc/`.
+"""
+
+# %%
 
 import logging
 from pathlib import Path

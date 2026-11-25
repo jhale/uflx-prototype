@@ -128,8 +128,8 @@ def emit_c(
     If supplied, output_dir receives the intermediate MLIR files and the generated C source.
 
     Each pass sequence replaces that stage's pipeline for this call. Entries use
-    MLIR pass-pipeline syntax inside builtin.module. For example, supply
-    loop_passes=(*DEFAULT_LOOP_PASSES, "cse") to append a pass after loop lowering.
+    MLIR pass-pipeline syntax inside ``builtin.module``. For example, supply
+    ``loop_passes=(*DEFAULT_LOOP_PASSES, "cse")`` to append a pass after loop lowering.
     """
     if output_dir is not None:
         output_dir = Path(output_dir)

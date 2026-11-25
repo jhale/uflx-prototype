@@ -9,6 +9,7 @@ Each example can be run from the repository root, for example with
    :maxdepth: 1
 
    /examples/poisson
+   /examples/poisson_emitc
    /examples/runtime_quadrature
    /examples/precomputed_geometry
    /examples/mixed_poisson
