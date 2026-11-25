@@ -5,11 +5,11 @@
 # SPDX-License-Identifier:    MIT
 """Factor a fixed quadrature sum into reference tensors and cell coefficients."""
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from functools import cache, lru_cache, reduce
 from itertools import product
 from math import prod
-from operator import add, attrgetter, mul
+from operator import add, and_, attrgetter, mul
 
 import jax
 import jax.numpy as jnp
@@ -177,6 +177,18 @@ def _factors(body, arguments, inputs):
     return reference, by_cell, runtime
 
 
+def _common_scale(polynomials):
+    """Extract scalar factors present in every monomial, retaining multiplicities."""
+    terms = (Counter(term) for polynomial in polynomials for term in polynomial)
+    common = reduce(and_, terms)
+    if not common:
+        return (), polynomials
+    return tuple(common.elements()), [
+        [tuple((Counter(term) - common).elements()) for term in polynomial]
+        for polynomial in polynomials
+    ]
+
+
 def _p1_gradient_contraction(groups, gradients, weight):
     # For vertex P1 the reference-gradient matrix is [-1 | I]. Keep the two
     # derivative directions until assembly, including their test/trial order.
@@ -191,13 +203,21 @@ def _p1_gradient_contraction(groups, gradients, weight):
             i, j = pair
             entries[i][j] = k
 
-    def contract(coefficients):
-        weighted = coefficients * weight
+    def contract(scale, coefficients):
+        weighted = (weight * scale) * jnp.stack(coefficients)
         block = [[weighted[k] if k is not None else 0.0 for k in row] for row in entries]
         # phi_0 = 1 - sum(phi_i), so its row and column are negative sums.
         rows = [[-sum(row), *row] for row in block]
         first = [-sum(column) for column in zip(*rows, strict=True)]
         return jnp.array([first, *rows])
+
+    return contract
+
+
+def _dense_contraction(table):
+    def contract(scale, coefficients):
+        weighted = jnp.stack([scale * value for value in coefficients])
+        return jnp.tensordot(weighted, table, axes=1)
 
     return contract
 
@@ -263,8 +283,7 @@ def _basix_contraction(groups, arguments, cell, points, weights, dtype):
             return None
         values = np.broadcast_to(np.asarray(values, dtype=dtype), shape)
         rows.append(np.tensordot(weights, values, axes=1))
-    table = np.stack(rows)
-    return lambda coefficients: jnp.tensordot(coefficients, table, axes=1)
+    return _dense_contraction(np.stack(rows))
 
 
 def _contraction(body, arguments, inputs, ordinary):
@@ -286,13 +305,13 @@ def _contraction(body, arguments, inputs, ordinary):
     leaves = dict.fromkeys(f for terms in coefficients for term in terms for f in term)
     reads = {f: ordinary(f, (*runtime, cell)) for f in leaves}
 
+    common, polynomials = _common_scale(coefficients)
+
     def read(*args):
         values = {f: evaluate(*args) for f, evaluate in reads.items()}
-        return jnp.stack(
-            [
-                sum(prod(values[f] for f in term) for term in polynomial)
-                for polynomial in coefficients
-            ]
+        scale = prod(values[f] for f in common)
+        return scale, tuple(
+            sum(prod(values[f] for f in term) for term in polynomial) for polynomial in polynomials
         )
 
     positions = [inputs.index(x) for x in runtime]
@@ -310,7 +329,7 @@ def _contraction(body, arguments, inputs, ordinary):
             samples = jax.jit(jax.vmap(basis))(jnp.asarray(points, dtype=dtype))
             table = jnp.tensordot(jnp.asarray(weights, dtype=dtype), samples, axes=1)
             table = np.ascontiguousarray(np.moveaxis(np.asarray(table), -1, 0))
-        return lambda coefficients: jnp.tensordot(coefficients, table, axes=1)
+        return _dense_contraction(table)
 
     @lru_cache(maxsize=4)
     def contraction_for(specs, dtype):
@@ -340,7 +359,7 @@ def _contraction(body, arguments, inputs, ordinary):
             specs = tuple(jax.ShapeDtypeStruct(v.shape, v.dtype) for v in arrays)
             contract = contraction_for(specs, np.float64 if jax.config.x64_enabled else np.float32)
             if contract is not None:
-                return contract(read(*arrays, points[0]))
+                return contract(*read(*arrays, points[0]))
         return fallback(*values)
 
     return kernel

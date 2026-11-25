@@ -113,6 +113,24 @@ def test_nonlinear_coefficient_with_two_rules(degree):
         )
 
 
+def test_repeated_common_coefficient_in_different_monomials():
+    K = cell(basix.CellType.interval)
+    element = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
+    V = local_space(K, element)
+    v, u = function(V, "v"), function(V, "u")
+    p0 = basix.create_element(basix.ElementFamily.P, K.cell_type, 0, discontinuous=True)
+    c = function(local_space(K, p0), "c")
+    body = integral(c * c * v * u + c * c * c * gradient(v, K)[0] * u, K)
+    rule = basix.make_quadrature(K.cell_type, 2)
+    evaluate = jax.jit(uflx_jax_compiler.trace(form(apply_quadrature(body, *rule), (v, u)), c))
+    mass = np.array([[2, 1], [1, 2]]) / 6
+    derivative = np.array([[-1, -1], [1, 1]]) / 2
+    for value in (-2.0, 0.0, 3.0):
+        np.testing.assert_allclose(
+            evaluate(np.array([value])), value**2 * mass + value**3 * derivative
+        )
+
+
 def test_reference_table_budget_and_precision(monkeypatch):
     K = cell(basix.CellType.triangle)
     p2 = basix.create_element(basix.ElementFamily.P, K.cell_type, 2)
