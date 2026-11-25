@@ -83,14 +83,14 @@ def trace(expression: AbstractExpression, *inputs):
     For a mesh with different cell types, declare (integral, reference_cell)
     inputs for the respective rules. A point integral is evaluated exactly.
 
-    For explicit FE tables, pass selected requests from basis_tables(expression)
-    as inputs. For each request, supply request.element.tabulate(request.order, points).
+    A sampled expression can read an ordinary runtime_array of basis values or
+    gradients. Declare that operand as an input and supply its array to the kernel.
+    For expressions that retain finite-element fields, basis_tables(expression)
+    discovers optional inputs accepting request.element.tabulate(request.order, points).
     Close over a fixed rule or precomputed table in a Python function before JIT.
-
-    Reference derivatives use Basix tables. Fixed sampling points are tabulated
-    during kernel construction. For runtime points, supply the corresponding
-    basis_tables inputs. Lower symbolic derivatives and physical integrals before
-    tracing. The returned kernel supports JAX differentiation of its numerical inputs.
+    The compiler tabulates the basis at fixed sampling points during kernel construction.
+    Lower symbolic derivatives and physical integrals before tracing. The returned
+    kernel supports JAX differentiation of its numerical inputs.
 
     For separable real forms, fixed quadrature sums over reference basis functions
     are precomputed and contracted with the cell data at evaluation.

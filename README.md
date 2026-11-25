@@ -100,8 +100,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 
 - [Poisson on a triangle](examples/poisson.py) builds the cell stiffness matrix
   and load vector for Poisson’s equation with a unit source.
-- [Runtime quadrature](examples/runtime_quadrature.py) passes quadrature
-  points, weights and Basix basis tables to a P2 triangle stiffness kernel.
+- [Runtime quadrature](examples/runtime_quadrature.py) uses ordinary array operands
+  for the points, weights and P2 basis gradients of a triangle stiffness matrix.
 - [Precomputed geometry](examples/precomputed_geometry.py) extracts geometry
   terms from the Poisson integral, evaluates them at quadrature points and
   assembles a curved triangle's stiffness matrix in one JIT-compiled function.
@@ -187,8 +187,10 @@ called with new vertex coordinates to evaluate another triangle.
   reference facet maps. [Basix](https://github.com/fenics/basix)
 - `uflx_jax_compiler.trace` compiles lowered forms and uses Basix to tabulate
   basis derivatives at fixed quadrature points during kernel construction.
-  For runtime points, declare the requests from `basis_tables(form)`
-  as inputs to `trace` and pass the corresponding `element.tabulate` arrays to the kernel.
+  A sampled form can index a `runtime_array` of basis gradients by quadrature
+  point and local basis function. Pass that array to `trace` alongside the
+  points and weights. For forms that retain finite-element fields,
+  `basis_tables(form)` discovers their native Basix table inputs.
   The resulting kernel can be differentiated with respect to its numerical inputs.
   `uflx_jax_compiler.reference_trace` uses JAX automatic differentiation to
   check unlowered forms and symbolic derivatives.
