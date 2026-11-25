@@ -89,9 +89,9 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   and partial (`partial`) application, and rebinding (`rebind`).
 - A [core normal
   form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
-  which specifies what a 'typical' downstream tabulator and compiler must
-  accept, after the built-in `lower` pass. Downstream consumers are free to
-  compose fine-grained lowerings and make other decisions.
+  which specifies what the standard lowering produces, and a 'typical'
+  downstream tabulator and compiler might accept. Downstream consumers are free
+  to compose fine-grained lowerings and make other decisions.
 - A clear policy on language extensions, from simple passes through to full
   language extensions. External operators and a complex derivative helper is
   currently implemented as language extensions.
@@ -105,22 +105,22 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 - [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
   a discontinuous scalar on a curved triangle.
 - [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
-  and facet kernels for a mesh with mixed cell types and geometries.
+  and facet kernels for a mesh with differing cell types and geometric maps.
 - [PDE-constrained optimisation](examples/pde_constrained.py) differentiates a
   reaction–diffusion Lagrangian to build tangent, adjoint and Hessian forms.
-- [Durán–Liberman shear reduction](examples/duran_liberman.py) interpolates
-  the rotation along triangle edges to compute the reduced Reissner–Mindlin
-  shear energy.
+- [Durán–Liberman shear reduction](examples/duran_liberman.py) interpolates the
+  rotation from vector-valued $H^1$ to $H(curl)$ to compute the reduced
+  Reissner–Mindlin shear energy.
 
 ### Compiler focused
 
-- [Runtime quadrature](examples/runtime_quadrature.py) uses `sample_form` to build
-  the pointwise P2 stiffness matrices, then integrates them with `weighted_sum`.
+- [Runtime quadrature](examples/runtime_quadrature.py) builds a P2 Poisson
+  stiffness kernel that can accept runtime quadrature and basis evaluations.
 - [Precomputed geometry](examples/precomputed_geometry.py) extracts geometry
   terms from the Poisson integral, evaluates them at quadrature points and
   assembles a curved triangle's stiffness matrix in one JIT-compiled function.
 - [Poisson to C pipeline](examples/poisson_emitc.py) JAX's StableHLO is lowered
-  to MLIR dialects, which is then lowered to C99 via EmitC. Requires recent
+  to MLIR dialects, which is then lowered to C99 using EmitC. Requires a recent
   LLVM built with MLIR.
 
 ### Hello world - Poisson on a triangle
@@ -193,9 +193,9 @@ called with new vertex coordinates to evaluate another triangle.
   form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
 - `uflx_basix` supplies finite elements, basis tabulations and oriented
   reference facet maps. [Basix](https://github.com/fenics/basix)
-- `uflx_jax_compiler` compiles (traces) UFLx kernels to JAX callables. All of
-  JAX's standard transformations are then available. Using JAX and MLIR, an
-  example StableHLO to MLIR to C pipeline is shown.
+- `uflx_jax_compiler` compiles (traces) UFLx forms to JAX callables. All of
+  JAX's standard transformations are then available. Using JAX, MLIR and EmitC,
+  we can build standard C99 kernels.
 - `uflx_extensions` exercises the core extension mechanism with complex
   differentiation and external operators.
 
