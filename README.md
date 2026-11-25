@@ -25,7 +25,7 @@ It is a potential successor to UFL, the language used by FEniCSx and Firedrake.
 
 This repository contains an alpha version of the core language and a basic JAX
 tracer/compiler. The implementation is feature complete with respect to the
-specification. The full repository is ~6500 lines of code plus tests.
+specification. The four packages under `src/` contain about 7,600 source lines, excluding tests.
 
 The final design, if accepted, will be reimplemented in a structured way at
 [UFLx](https://github.com/fenics/uflx).
@@ -230,18 +230,18 @@ Out-of-scope:
 
 ## Statistics
 
-Measured on 24 November 2026 at commit `587d360bef` using Radon 6.0.1 on the
+Measured on 25 November 2026 at commit `e3d5d8b6de` using Radon 6.0.1 on the
 four Python packages under `src/`.
 
 ### Lines of code
 
 | Package | Source lines |
 |---|---:|
-| uflx | 4,859 |
-| uflx_basix | 473 |
-| uflx_extensions | 140 |
-| uflx_jax_compiler | 1,075 |
-| Total | 6,547 |
+| uflx | 4,904 |
+| uflx_basix | 621 |
+| uflx_extensions | 182 |
+| uflx_jax_compiler | 1,906 |
+| Total | 7,613 |
 
 ### Complexity
 
@@ -257,16 +257,16 @@ unfairly scores its cyclomatic complexity.
 
 | Radon score | uflx | uflx_basix | uflx_extensions | uflx_jax_compiler | Total | Distribution |
 |---|---:|---:|---:|---:|---:|:---|
-| 1 | 309 | 15 | 12 | 31 | 367 | <img src="docs/complexity-bar.svg" width="184" height="10" alt=""> |
-| 2 | 87 | 11 | 4 | 21 | 123 | <img src="docs/complexity-bar.svg" width="62" height="10" alt=""> |
-| 3 | 43 | 2 | 0 | 11 | 56 | <img src="docs/complexity-bar.svg" width="28" height="10" alt=""> |
-| 4 | 30 | 2 | 0 | 4 | 36 | <img src="docs/complexity-bar.svg" width="18" height="10" alt=""> |
-| 5 | 13 | 2 | 0 | 9 | 24 | <img src="docs/complexity-bar.svg" width="12" height="10" alt=""> |
-| 6–10 | 31 | 6 | 2 | 13 | 52 | <img src="docs/complexity-bar.svg" width="26" height="10" alt=""> |
-| 11–20 | 13 | 1 | 0 | 7 | 21 | <img src="docs/complexity-bar.svg" width="11" height="10" alt=""> |
-| 21–40 | 2 | 1 | 0 | 1 | 4 | <img src="docs/complexity-bar.svg" width="2" height="10" alt=""> |
+| 1 | 315 | 15 | 19 | 36 | 385 | <img src="docs/complexity-bar.svg" width="193" height="10" alt=""> |
+| 2 | 72 | 13 | 4 | 30 | 119 | <img src="docs/complexity-bar.svg" width="60" height="10" alt=""> |
+| 3 | 43 | 3 | 1 | 13 | 60 | <img src="docs/complexity-bar.svg" width="30" height="10" alt=""> |
+| 4 | 26 | 3 | 0 | 8 | 37 | <img src="docs/complexity-bar.svg" width="19" height="10" alt=""> |
+| 5 | 18 | 3 | 1 | 10 | 32 | <img src="docs/complexity-bar.svg" width="16" height="10" alt=""> |
+| 6–10 | 38 | 9 | 1 | 24 | 72 | <img src="docs/complexity-bar.svg" width="36" height="10" alt=""> |
+| 11–20 | 17 | 2 | 0 | 12 | 31 | <img src="docs/complexity-bar.svg" width="16" height="10" alt=""> |
+| 21–40 | 2 | 1 | 0 | 4 | 7 | <img src="docs/complexity-bar.svg" width="4" height="10" alt=""> |
 | 41+ | 0 | 0 | 0 | 1 | 1 | <img src="docs/complexity-bar.svg" width="1" height="10" alt=""> |
-| Total | 528 | 40 | 18 | 98 | 684 |  |
+| Total | 531 | 49 | 26 | 138 | 744 |  |
 
 ## LLM statement
 
