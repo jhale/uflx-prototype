@@ -11,7 +11,7 @@ permissions:
 jobs:
   pytest:
     name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -22,5 +22,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           check-latest: true
+      - name: Install LLVM 23 tools for EmitC
+        run: |
+          curl -fsSLo /tmp/llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key
+          sudo install -m 644 /tmp/llvm.asc /etc/apt/keyrings/llvm.asc
+          echo 'deb [signed-by=/etc/apt/keyrings/llvm.asc] https://apt.llvm.org/noble/ llvm-toolchain-noble-23 main' | sudo tee /etc/apt/sources.list.d/llvm-23.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mlir-23-tools clang-format-23
+          echo /usr/lib/llvm-23/bin >> "$GITHUB_PATH"
       - run: python -m pip install -e '.[test]'
       - run: python -m pytest -n 2
