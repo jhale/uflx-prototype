@@ -7,6 +7,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
+from types import ModuleType
 
 from uflx.nodes import AbstractExpression, AbstractFunctionSpace, AbstractTopology, Mesh
 
@@ -32,14 +33,12 @@ class Sample:
     points: dict
     cells: dict
     tabulations: dict = field(default_factory=dict)
-    allow_ad: bool = False
+    reference: ModuleType | None = None
 
-    def require_ad(self, operation):
-        if not self.allow_ad:
-            raise ValueError(
-                f"{operation} requires automatic differentiation (allow_ad=False). "
-                "Lower the expression first or enable AD."
-            )
+    def require_reference(self, operation):
+        if self.reference is None:
+            raise ValueError(f"{operation} requires lowering before tracing")
+        return self.reference
 
     def at(self, points, *, cells=None, tabulations=None):
         # Moving to a different point invalidates the old quadrature rows for that domain.
@@ -52,7 +51,7 @@ class Sample:
             self.points | points,
             self.cells if cells is None else self.cells | cells,
             tables,
-            self.allow_ad,
+            self.reference,
         )
 
     def differentiating(self, domain, point):

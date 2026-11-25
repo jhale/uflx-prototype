@@ -5,7 +5,6 @@
 # SPDX-License-Identifier:    MIT
 """Lexical form slots, supplied fields and simultaneous directional derivatives."""
 
-import jax
 import jax.numpy as jnp
 
 from uflx.nodes import AbstractExpression, Conjugate
@@ -82,27 +81,3 @@ def form_bindings(declarations, arguments):
     for entry, value in zip(declarations, arguments, strict=True):
         bind(entry, value)
     return bindings
-
-
-def directional(node, arguments, read):
-    def perturbed(epsilon):
-        def seed(variable, point, direction):
-            def varied(site, slots):
-                return read(point, slots, at=site) + epsilon * read(direction, slots, at=site)
-
-            return BoundExpression(variable, varied)
-
-        overrides = {
-            variable: seed(variable, p, d)
-            for variable, p, d in zip(
-                jax.tree.leaves(node.variable),
-                jax.tree.leaves(node.point),
-                jax.tree.leaves(node.direction),
-                strict=True,
-            )
-        }
-        value = read(node.expression, arguments, bind=overrides)
-        # An integer literal denotes a real constant in a differentiable expression.
-        return jnp.asarray(value, dtype=jnp.result_type(value, 0.0))
-
-    return jax.jvp(perturbed, (0.0,), (1.0,))[1]

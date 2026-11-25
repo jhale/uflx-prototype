@@ -7,10 +7,10 @@
 
 import basix
 
-import uflx_jax_compiler
 from uflx.algorithms import expression_operands, memoized
 from uflx.nodes import Integral, Mesh
 from uflx_basix.nodes import BasixCell
+from uflx_jax_compiler import reference_trace
 
 
 def integrate_at(expression, bindings, *arguments, degree):
@@ -32,4 +32,4 @@ def integrate_at(expression, bindings, *arguments, degree):
             walk(child)
 
     visit(expression)
-    return uflx_jax_compiler.trace(expression, *inputs)(*inputs.values(), *arguments)
+    return reference_trace(expression, *inputs)(*inputs.values(), *arguments)

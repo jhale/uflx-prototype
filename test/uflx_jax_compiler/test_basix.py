@@ -22,6 +22,7 @@ from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell
 from uflx_basix.interpolation import interpolate
 from uflx_basix.spaces import local_space
+from uflx_jax_compiler import reference_trace
 
 from ..testutil import table
 from ..uflx.inclusions import affine_map, reference_normal
@@ -41,7 +42,7 @@ from .quadrature import integrate_at
 
 def value(e, P=None, X=()):
     points = {P: X} if P is not None else {}
-    return np.real(uflx_jax_compiler.trace(e, *points)(*points.values()))
+    return np.real(reference_trace(e, *points)(*points.values()))
 
 
 def test_interpolation_uses_the_element_sampling_points():
@@ -50,7 +51,7 @@ def test_interpolation_uses_the_element_sampling_points():
     V = local_space(mesh.topology, P1)
     x = coordinate(mesh)[0]
     interpolant = interpolate(x * x, V, cell=mesh[0])
-    at = uflx_jax_compiler.trace(interpolant, mesh.coordinate_function, mesh)
+    at = reference_trace(interpolant, mesh.coordinate_function, mesh)
     assert at([[0, 0], [2, 0], [0, 1]], (0.5, 0.5)) == pytest.approx(1.0)
 
 
@@ -197,9 +198,7 @@ def test_custom_element_supplies_its_own_interpolation_functional():
     assert left is not right
     x = coordinate(mesh)[0]
     for V, expected in ((left, 1.5), (right, 2.5)):
-        at = uflx_jax_compiler.trace(
-            interpolate(x, V, cell=mesh[0]), mesh.coordinate_function, mesh
-        )
+        at = reference_trace(interpolate(x, V, cell=mesh[0]), mesh.coordinate_function, mesh)
         assert at([[1.0], [3.0]], (2.0,)) == pytest.approx(expected)
 
 

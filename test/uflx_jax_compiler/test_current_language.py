@@ -17,6 +17,7 @@ from uflx.nodes import Boolean, EuclideanSpace
 from uflx.passes import expand_applications, lower
 from uflx.tensors import component_tensor, index, index_sum, tensor
 from uflx_extensions.external_operators import apply_external_derivatives, external_operator
+from uflx_jax_compiler import reference_trace
 
 from ..uflx.spaces import space
 from ..uflx_extensions.operations import Energy, EnergyTangent
@@ -24,7 +25,7 @@ from ..uflx_extensions.operations import Energy, EnergyTangent
 
 def value(expression, env=None, indices=None):
     bindings = (env or {}) | (indices or {})
-    return uflx_jax_compiler.trace(expression, *bindings)(*bindings.values())
+    return reference_trace(expression, *bindings)(*bindings.values())
 
 
 def test_boolean_values_and_lazy_selection():

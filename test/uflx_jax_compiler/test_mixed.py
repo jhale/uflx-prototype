@@ -20,6 +20,7 @@ from uflx.passes import apply_derivatives
 from uflx_basix.cells import cell
 from uflx_basix.spaces import local_space
 from uflx_extensions.complex_differentiation import complex_derivative_parts
+from uflx_jax_compiler import reference_trace
 
 from ..testutil import ill_typed, keeps_static_type
 from ..uflx.spaces import space
@@ -41,7 +42,7 @@ def test_a_tuple_variable_moves_every_member_to_the_point():
     e = directional_derivative(multiply(u, p), (u, p), (a0, a1), (h0, h1))
     expected = ENV[h0] * ENV[a1] + ENV[a0] * ENV[h1]
     for f in (e, passes(e)):
-        assert np.isclose(uflx_jax_compiler.trace(f, *ENV)(*ENV.values()), expected)
+        assert np.isclose(reference_trace(f, *ENV)(*ENV.values()), expected)
     assert not np.isclose(expected, ENV[h0] * ENV[p] + ENV[u] * ENV[h1])
 
 
@@ -55,7 +56,7 @@ def check(F, x, entry, values):
     out = passes(e)
     assert keeps_static_type(e, out)
     before, after = (
-        uflx_jax_compiler.trace(e, *ENV)(*ENV.values(), values),
+        reference_trace(e, *ENV)(*ENV.values(), values),
         uflx_jax_compiler.trace(out, *ENV)(*ENV.values(), values),
     )
     assert np.isclose(before, after, rtol=1e-6), (before, after)
@@ -127,9 +128,7 @@ def test_nested_velocity_pressure_control_residual_and_jacobian():
     def assemble(x, v, dx):
         residual = form(directional_derivative(energy, x, v), (v,))
         jacobian = form(directional_derivative(residual, x, dx), (dx,))
-        return tuple(
-            uflx_jax_compiler.trace(f, energy, *state)(rule, *dofs) for f in (residual, jacobian)
-        )
+        return tuple(reference_trace(f, energy, *state)(rule, *dofs) for f in (residual, jacobian))
 
     def group(values):
         return (values[0], values[1]), values[2]
@@ -160,5 +159,5 @@ def test_nested_complex_derivative_and_symbolic_lowering():
         for body in (part, apply_derivatives(part)):
             operands = (*directions[0], directions[1])
             np.testing.assert_allclose(
-                uflx_jax_compiler.trace(body, *operands)(*step[0], step[1]), value, atol=1e-6
+                reference_trace(body, *operands)(*step[0], step[1]), value, atol=1e-6
             )

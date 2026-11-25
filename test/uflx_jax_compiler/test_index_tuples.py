@@ -14,6 +14,7 @@ from uflx.arithmetic import multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
+from uflx_jax_compiler import reference_trace
 
 from ..uflx.spaces import space
 
@@ -57,7 +58,7 @@ def test_a_directional_derivative_through_index_tuples():
     out = derivatives.apply_derivatives(e)
     env = {x: 0.7, h: 0.3}
     assert np.isclose(
-        uflx_jax_compiler.trace(e, *env)(*env.values()),
+        reference_trace(e, *env)(*env.values()),
         uflx_jax_compiler.trace(out, *env)(*env.values()),
         rtol=1e-6,
     )
@@ -90,5 +91,5 @@ def test_a_gradient_of_a_tensor_built_with_index_tuples():
     assert in_core_normal_form(out) and not in_core_normal_form(e)
     rule = K.quadrature(1)
     assert np.isclose(
-        uflx_jax_compiler.trace(e, e)(rule), uflx_jax_compiler.trace(out, out)(rule), rtol=1e-6
+        reference_trace(e, e)(rule), uflx_jax_compiler.trace(out, out)(rule), rtol=1e-6
     )

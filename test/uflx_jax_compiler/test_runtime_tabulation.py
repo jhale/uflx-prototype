@@ -23,7 +23,7 @@ from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 from uflx_extensions.external_operators import external_operator
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
-from uflx_jax_compiler import basis_tables
+from uflx_jax_compiler import basis_tables, reference_trace
 
 from ..uflx_extensions.operations import Energy
 
@@ -77,7 +77,7 @@ def test_curved_poisson_uses_one_table_for_fields_and_geometry():
     s, t = p2.points.T
     vertices = np.column_stack((s, t + 0.4 * s * t))
     points, weights = basix.make_quadrature(triangle, 2)
-    ordinary = uflx_jax_compiler.trace(matrix, coords, stiffness)
+    ordinary = reference_trace(matrix, coords, stiffness)
     kernel = uflx_jax_compiler.trace(matrix, coords, stiffness, table)
     compiled = jax.jit(kernel).lower(vertices, (points, weights), p2.tabulate(1, points)).compile()
     for p, w in ((points, weights), (points * 0.8, weights[::-1] * 0.7)):

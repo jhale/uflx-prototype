@@ -22,6 +22,7 @@ from uflx_basix.nodes import table
 from uflx_basix.quadrature import apply_quadrature, evaluate_at_points, weighted_sum
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
+from uflx_jax_compiler import reference_trace
 
 
 def test_sample_once_and_reduce_with_independent_weights():
@@ -80,16 +81,18 @@ def test_mass_and_stiffness_extract_and_share_curved_geometry():
         for operand, term in geometry.items():
             assert definitions.setdefault(term, operand) is operand
             assert operand.value_shape == term.value_shape
-        evaluators = [
-            uflx_jax_compiler.trace(evaluate_at_points(term, points, q), x, points)
-            for term in geometry.values()
-        ]
+        evaluators = []
+        for term in geometry.values():
+            sample = evaluate_at_points(term, points, q)
+            (derivatives,) = uflx_jax_compiler.basis_tables(sample)
+            assert derivatives.element == p2 and derivatives.order == 1
+            evaluators.append(uflx_jax_compiler.trace(sample, x, points, derivatives))
         with pytest.raises(ValueError, match="reference cell"):
             uflx_jax_compiler.extract_geometry(physical, mesh[0])
         original = apply_quadrature(reference, points, weights)
         with pytest.raises(TypeError, match="Integral"):
             uflx_jax_compiler.extract_geometry(original, mesh[0])
-        direct = jax.jit(uflx_jax_compiler.trace(form(original, (v, u)), x, k, points, weights))
+        direct = jax.jit(reference_trace(form(original, (v, u)), x, k, points, weights))
         inputs = {f: runtime_array(f.label, (n, *f.value_shape)) for f in geometry}
         body = substitute_values(residual.expression, {f: data[q] for f, data in inputs.items()})
         samples = evaluate_at_points(body, points, q)
@@ -98,8 +101,9 @@ def test_mass_and_stiffness_extract_and_share_curved_geometry():
         assemble = jax.jit(uflx_jax_compiler.trace(a, k, points, weights, *inputs.values(), basis))
         for degree in (2, 4):
             pts, w = basix.make_quadrature(triangle, degree)
+            derivatives = p2.tabulate(1, pts)
             for vertices in (coords, coords[:, ::-1]):
-                tables = [evaluate(vertices, pts) for evaluate in evaluators]
+                tables = [evaluate(vertices, pts, derivatives) for evaluate in evaluators]
                 actual = assemble(coefficient, pts, w, *tables, p2.tabulate(basis.order, pts))
                 np.testing.assert_allclose(
                     actual, direct(vertices, coefficient, pts, w), atol=1e-13
@@ -131,9 +135,9 @@ def test_mixed_gradient_keeps_its_geometry_and_other_fields():
     np.testing.assert_allclose(values, 1 + 2 * points[:, 0])
     body = substitute_values(residual.expression, {operand: table(values)[q]})
     weighted = weighted_sum(evaluate_at_points(body, points, q), weights, q)
-    actual = uflx_jax_compiler.trace(weighted, u, x)(s**2, coords)
+    actual = reference_trace(weighted, u, x)(s**2, coords)
     direct = apply_quadrature(original, points, weights)
-    np.testing.assert_allclose(actual, uflx_jax_compiler.trace(direct, u, x)(s**2, coords))
+    np.testing.assert_allclose(actual, reference_trace(direct, u, x)(s**2, coords))
 
 
 def test_pointwise_table_binding_preserves_conditional_evaluation():

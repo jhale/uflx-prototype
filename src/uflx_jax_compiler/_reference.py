@@ -307,7 +307,7 @@ def _contraction(body, arguments, inputs, ordinary):
     return kernel
 
 
-def reference_kernel(expression, inputs, ordinary):
+def reference_tensor_kernel(expression, inputs, ordinary):
     """Specialize eligible integrals independently, retaining the usual trace elsewhere."""
     if not isinstance(expression, (Form, Sum)) or any(
         not (

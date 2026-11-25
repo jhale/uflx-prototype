@@ -33,6 +33,7 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, conjugate_space, dual_space, form, function
 from uflx.nodes import ScalarType
 from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
+from uflx_jax_compiler import reference_trace
 
 from ..testutil import (
     assert_clean,
@@ -291,7 +292,7 @@ def main(trials):
         for combo in itertools.product(*(range(n) for n in fr.values())):
             ienv = dict(zip(fr, combo))
             before, after = (
-                uflx_jax_compiler.trace(e, *env, *ienv)(*env.values(), *ienv.values(), *vals),
+                reference_trace(e, *env, *ienv)(*env.values(), *ienv.values(), *vals),
                 uflx_jax_compiler.trace(out, *env, *ienv)(*env.values(), *ienv.values(), *vals),
             )
             if not np.allclose(before, after, rtol=1e-3, atol=1e-4):

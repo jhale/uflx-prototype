@@ -20,7 +20,7 @@ from uflx.passes import lower
 from uflx_basix.cells import cell, topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import _finite_elements, _reference
+from uflx_jax_compiler import _finite_elements, _reference, reference_trace
 
 
 def _constant_shapes(kernel, *data):
@@ -57,7 +57,7 @@ def test_affine_reference_matrices(cell_type, symmetric):
     a = lower(integral(gv @ gu if symmetric else gv[0] * gu[1], mesh))
     rule = basix.make_quadrature(cell_type, 2)
     kernel = uflx_jax_compiler.trace(form(apply_quadrature(a, *rule), (v, u)), x)
-    ordinary = uflx_jax_compiler.trace(form(a, (v, u)), x, a)
+    ordinary = reference_trace(form(a, (v, u)), x, a)
 
     coord = p1.points.copy()
     coord[:, 0] += 0.15 * coord[:, 1]

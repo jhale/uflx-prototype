@@ -27,10 +27,14 @@ import jax
 import numpy as np
 
 import uflx_jax_compiler
+from uflx.algorithms import bottom_up
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative, gradient, integral
 from uflx.forms import apply, form, function
+from uflx.nodes import Integral
+from uflx.passes import lower
 from uflx_basix.cells import cell
+from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 
 interval = cell(basix.CellType.interval)
@@ -85,13 +89,21 @@ hessian_action = directional_derivative(reduced_gradient, fields, variation_h)  
 
 # Degree 5 integrates a P1 coefficient times two P2 fields exactly.
 rule = basix.make_quadrature(interval.cell_type, degree=5)
-# The inputs after the expression identify each quadrature rule and coefficient field.
-objective_kernel = jax.jit(uflx_jax_compiler.trace(J, J, u))
-residual_kernel = jax.jit(uflx_jax_compiler.trace(F, state_integral, u, m))
-gradient_kernel = jax.jit(uflx_jax_compiler.trace(reduced_gradient, J, state_integral, *fields))
-hessian_kernel = jax.jit(
-    uflx_jax_compiler.trace(hessian_action, J, state_integral, *fields, *variation_h)
-)
+
+
+def compile_form(expression, *fields):
+    def sample_integral(node):
+        if isinstance(node, Integral):
+            return apply_quadrature(node, *rule)
+        return node
+
+    return jax.jit(uflx_jax_compiler.trace(bottom_up(lower(expression), sample_integral), *fields))
+
+
+objective_kernel = compile_form(J, u)
+residual_kernel = compile_form(F, u, m)
+gradient_kernel = compile_form(reduced_gradient, *fields)
+hessian_kernel = compile_form(hessian_action, *fields, *variation_h)
 
 # A constant control m0 gives constant state and adjoint solutions. For h = 1
 # their tangents follow by differentiating those values with respect to m0.
@@ -105,17 +117,17 @@ m_values = np.full(control_space.num_dofs, m0)
 h_values = np.ones(control_space.num_dofs)
 values = (u_values, m_values, p_values)
 variations = (u_h_values, h_values, p_h_values)
-print("Objective", objective_kernel(rule, u_values))
+print("Objective", objective_kernel(u_values))
 # Each vector entry tests the form against one of the two P1 basis functions.
-gradient_values = gradient_kernel(rule, rule, *values)
-hessian_values = hessian_kernel(rule, rule, *values, *variations)
+gradient_values = gradient_kernel(*values)
+hessian_values = hessian_kernel(*values, *variations)
 print("Reduced gradient", gradient_values)
 print("Reduced Hessian action", hessian_values)
 
 
 def lagrangian_value(state_dofs, control_dofs, adjoint_dofs):
-    residual = residual_kernel(rule, state_dofs, control_dofs)
-    return objective_kernel(rule, state_dofs) - adjoint_dofs @ residual
+    residual = residual_kernel(state_dofs, control_dofs)
+    return objective_kernel(state_dofs) - adjoint_dofs @ residual
 
 
 # At the state and adjoint solutions, the partial derivative with respect to
@@ -145,12 +157,12 @@ newton_step = (
 )
 kkt_jacobian = form(directional_derivative(kkt_residual, fields, newton_step), (newton_step,))
 
-kkt_residual_kernel = jax.jit(uflx_jax_compiler.trace(kkt_residual, J, state_integral, *fields))
-kkt_jacobian_kernel = jax.jit(uflx_jax_compiler.trace(kkt_jacobian, J, state_integral, *fields))
+kkt_residual_kernel = compile_form(kkt_residual, *fields)
+kkt_jacobian_kernel = compile_form(kkt_jacobian, *fields)
 
 # The Newton equation is K delta = -R. Both axes use P2 state, P1 control, P2 adjoint order.
-newton_matrix = kkt_jacobian_kernel(rule, rule, *values)
-newton_rhs = -kkt_residual_kernel(rule, rule, *values)
+newton_matrix = kkt_jacobian_kernel(*values)
+newton_rhs = -kkt_residual_kernel(*values)
 with np.printoptions(precision=4, suppress=True):
     print("Newton matrix (state, control, adjoint)", newton_matrix, sep="\n")
     print("Newton right-hand side", newton_rhs)
@@ -170,10 +182,8 @@ gauss_newton = form(
     tracking_mass - apply(pde_step, (q,)) - apply(pde_test, (delta_p,)),
     (kkt_test, newton_step),
 )
-gauss_newton_kernel = jax.jit(
-    uflx_jax_compiler.trace(gauss_newton, tracking_mass, state_integral, u, m)
-)
-gauss_newton_matrix = gauss_newton_kernel(rule, rule, u_values, m_values)
+gauss_newton_kernel = compile_form(gauss_newton, u, m)
+gauss_newton_matrix = gauss_newton_kernel(u_values, m_values)
 
 # The step uses newton_rhs. Only the two blocks from differentiating m * u twice drop out.
 with np.printoptions(precision=4, suppress=True):

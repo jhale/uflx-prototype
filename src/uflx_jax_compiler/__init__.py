@@ -7,6 +7,6 @@
 
 from ._basis_tables import basis_tables
 from ._geometry_tables import extract_geometry
-from .interpreter import trace
+from .interpreter import reference_trace, trace
 
-__all__ = ["basis_tables", "extract_geometry", "trace"]
+__all__ = ["basis_tables", "extract_geometry", "reference_trace", "trace"]

@@ -15,6 +15,7 @@ from uflx.forms import apply, form, function
 from uflx.geometry import pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index, tensor
+from uflx_jax_compiler import reference_trace
 
 from ..uflx.spaces import space as field_space
 from ..uflx_basix.cells import reference_simplex
@@ -74,9 +75,9 @@ def test_vector_calculus_against_an_affine_field(dimension):
     components = (x[0] + num(2) * x[1], num(3) * x[0] - x[1])
     vector = tensor(components if dimension == 2 else (*components, x[2]))
     point = np.zeros(dimension)
-    assert uflx_jax_compiler.trace(divergence(vector, P), P)(point) == pytest.approx(dimension - 2)
+    assert reference_trace(divergence(vector, P), P)(point) == pytest.approx(dimension - 2)
     np.testing.assert_allclose(
-        uflx_jax_compiler.trace(curl(vector, P), P)(point), 1 if dimension == 2 else [0, 0, 1]
+        reference_trace(curl(vector, P), P)(point), 1 if dimension == 2 else [0, 0, 1]
     )
 
 
@@ -111,7 +112,7 @@ def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
     mesh, geometry = vertex_mesh(topology, vertices)
     xi = function(field_space("reference coordinate", topology, scalar_type="real"), "xi")
     area = integral(num(1), mesh)
-    measure = uflx_jax_compiler.trace(area, area, *geometry)
+    measure = reference_trace(area, area, *geometry)
     rule = topology.cell_types[0].quadrature(1)
     np.testing.assert_allclose(measure(rule, *geometry.values()), height / 2, atol=0)
     bindings = geometry | {xi: lambda p: p[0]}
@@ -119,13 +120,9 @@ def test_area_and_mapped_gradient_on_a_thin_triangle(ambient_dimension):
     # The first reference coordinate is x - y / height on the physical triangle.
     field = push_forward(xi, mesh, transformation_law((), 0))
     point = 0.2 * vertices[1] + 0.3 * vertices[2]
-    assert uflx_jax_compiler.trace(field, *bindings, mesh)(
-        *bindings.values(), point
-    ) == pytest.approx(0.2)
+    assert reference_trace(field, *bindings, mesh)(*bindings.values(), point) == pytest.approx(0.2)
     expected = (1, -1 / height, 0)[:ambient_dimension]
-    actual = uflx_jax_compiler.trace(gradient(field, mesh), *bindings, mesh)(
-        *bindings.values(), point
-    )
+    actual = reference_trace(gradient(field, mesh), *bindings, mesh)(*bindings.values(), point)
     np.testing.assert_allclose(actual, expected, atol=0)
 
 
@@ -168,6 +165,7 @@ class BlockDependencies:
 sys.meta_path.insert(0, BlockDependencies())
 from uflx.arithmetic import num
 import uflx_jax_compiler
+from uflx_jax_compiler import reference_trace
 assert uflx_jax_compiler.trace(num(2) * num(3))() == 6
 """
     subprocess.run([sys.executable, "-c", code], check=True)
@@ -205,7 +203,7 @@ def test_applied_field_reads_the_cell_where_the_form_samples_it():
         return uflx_jax_compiler.trace(coordinate(D)[0], D)(point)
 
     fields = {0: sample, 1: lambda point: sample(point) + 2}
-    kernel = uflx_jax_compiler.trace(expression, mass, u, *GEOMETRY)
+    kernel = reference_trace(expression, mass, u, *GEOMETRY)
     assert kernel(
         D.topology.cell_types[0].quadrature(1), fields, *GEOMETRY.values()
     ) == pytest.approx(1.5)
@@ -222,6 +220,6 @@ def test_surface_gradient_uses_the_supplied_slot_on_a_shared_edge():
     for slot, expected in enumerate((np.array([0, 2, 1]) / 5, np.array([-2, 4, 5]) / 9)):
         piece = M[slot]
         reference_point = ([0, 0.5], [0.5, 0])[slot]
-        sample = uflx_jax_compiler.trace(pull_back(expr, piece), *GEOMETRY, piece.reference_cell)
+        sample = reference_trace(pull_back(expr, piece), *GEOMETRY, piece.reference_cell)
         actual = sample(*GEOMETRY.values(), reference_point)
         np.testing.assert_allclose(actual, expected, atol=1e-14)

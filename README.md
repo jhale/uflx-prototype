@@ -185,12 +185,14 @@ called with new vertex coordinates to evaluate another triangle.
   form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
 - `uflx_basix` supplies finite elements, basis tabulations and oriented
   reference facet maps. [Basix](https://github.com/fenics/basix)
-- `uflx_jax_compiler` traces both original and lowered expressions to JAX
-  callables. It uses Basix tables for finite-element derivatives by default.
-  Pass `allow_ad=True` to `trace` to evaluate derivatives with JAX when needed.
-  It gives a reference result and tests UFLx's symbolic derivatives
-  against JAX's automatic differentiation. The compiler is feature complete,
-  but benchmarks typically run about an order of magnitude slower than FFCx.
+- `uflx_jax_compiler.trace` compiles lowered forms and uses Basix to tabulate
+  basis derivatives at fixed quadrature points during kernel construction.
+  For runtime points, declare the requests from `basis_tables(form)`
+  as inputs to `trace` and pass the corresponding `element.tabulate` arrays to the kernel.
+  The resulting kernel can be differentiated with respect to its numerical inputs.
+  `uflx_jax_compiler.reference_trace` uses JAX automatic differentiation to
+  check unlowered forms and symbolic derivatives.
+  Benchmarks typically run about an order of magnitude slower than FFCx.
   PRs related to compiler performance will not be merged.
 - `uflx_extensions` exercises the core extension mechanism with complex
   differentiation and external operators.

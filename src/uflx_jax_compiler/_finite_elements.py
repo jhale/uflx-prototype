@@ -110,11 +110,15 @@ def tabulated_gradient(gradient, bindings, site, read):
             or isinstance(binding, AbstractExpression)
             or (isinstance(binding, BoundExpression) and not binding.is_basis_field)
         ):
-            site.require_ad("Spatial derivative of a supplied field")
+            raise ValueError(
+                "Spatial derivative of a supplied field requires an explicit derivative"
+            )
     elif is_basix_basis(leaf) and slot != leaf.cell_slot:
         return jnp.zeros(gradient.value_shape, dtype=dtype(leaf))
     elif not is_basix_basis(leaf):
-        site.require_ad(f"Spatial derivative of {type(field).__name__}")
+        raise ValueError(
+            f"Spatial derivative of {type(field).__name__} requires lowering before tracing"
+        )
 
     data = leaf.space.element_data[0 if leaf.space.cell is not None else slot]
     point = site.points[domain]
@@ -126,14 +130,20 @@ def tabulated_gradient(gradient, bindings, site, read):
         # The highest derivatives of a simplex polynomial are constant, including
         # the Jacobian of a P1 simplex even when its evaluation point is dynamic.
         element = data.native
-        if (element.polyset_type != basix.PolysetType.standard
-            or element.cell_type not in (basix.CellType.interval, basix.CellType.triangle, basix.CellType.tetrahedron)
-            or order < element.embedded_superdegree):
+        if (
+            element.polyset_type != basix.PolysetType.standard
+            or element.cell_type
+            not in (basix.CellType.interval, basix.CellType.triangle, basix.CellType.tetrahedron)
+            or order < element.embedded_superdegree
+        ):
             raise ValueError(
-                "allow_ad=False requires a Basix derivative table at this point; "
-                "use fixed reference points or supply the input from basis_tables()"
+                "Expected a Basix derivative table at this point. "
+                "Use fixed reference points or supply the input from basis_tables()"
             )
-        rows = jnp.asarray(element.tabulate(order, np.zeros((1, dim), dtype=element.dtype))[:, 0], dtype=point.dtype)
+        rows = jnp.asarray(
+            element.tabulate(order, np.zeros((1, dim), dtype=element.dtype))[:, 0],
+            dtype=point.dtype,
+        )
     if rows.shape[0] < comb(dim + order, order):
         raise ValueError(f"runtime basis tabulation needs derivatives through order {order}")
     # Basix packs mixed partials once. Gradient has one tensor axis per derivative.

@@ -16,6 +16,7 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_integrals
 from uflx.tensors import component_tensor, index
+from uflx_jax_compiler import reference_trace
 
 from ..uflx_basix.test_pull_back_gradients import GEOMETRY, D, K, nodes
 from .quadrature import integrate_at
@@ -38,7 +39,7 @@ def test_a_gradient_pulled_back_by_a_map_that_is_not_a_cell_needs_no_inverse():
 
     assert np.isclose(
         uflx_jax_compiler.trace(out, P)(np.array([0.2, 0.3])),
-        uflx_jax_compiler.trace(f, P)(np.array([0.2, 0.3])),
+        reference_trace(f, P)(np.array([0.2, 0.3])),
     )
 
 
@@ -68,8 +69,6 @@ def test_cell_pullback_of_constant_gradient_introduces_no_geometry_inverse():
         assert not any(isinstance(n, Inverse) for n in nodes(result))
         np.testing.assert_allclose(
             uflx_jax_compiler.trace(result, *GEOMETRY)(*GEOMETRY.values()),
-            uflx_jax_compiler.trace(original, *GEOMETRY, K)(
-                *GEOMETRY.values(), np.array([0.2, 0.3])
-            ),
+            reference_trace(original, *GEOMETRY, K)(*GEOMETRY.values(), np.array([0.2, 0.3])),
             atol=1e-12,
         )

@@ -40,7 +40,6 @@ from uflx.nodes import (
     Inverse,
     LessThan,
     Logarithm,
-    Mesh,
     Power,
     Product,
     PullBack,
@@ -63,7 +62,7 @@ from ._basis_tables import (
 )
 from ._context import BoundExpression, PointTabulation, lookup
 from ._external import evaluate_external
-from ._geometry import integrate, quadrature_sum, tangent_projector
+from ._geometry import integrate, quadrature_sum
 
 
 def needs_eager_samples(node, bindings):
@@ -270,27 +269,19 @@ def _evaluate(node, bindings, site, arguments, memo):
                 return pointwise()
             return evaluate_external(node, bindings[node.operation], site, scoped_value)
         case DirectionalDerivative():
-            site.require_ad("DirectionalDerivative")
+            reference = site.require_reference("DirectionalDerivative")
             if order:
                 return pointwise()
-            return _forms.directional(node, arguments, scoped_value)
+            return reference.directional(node, arguments, scoped_value)
         case Coordinate(domain):
             return jnp.asarray(site.points[domain], dtype=float)
         case Gradient(x, domain):
             point = jnp.asarray(site.points[domain])
             if not point.size:
                 return jnp.empty(_tensors.shape(node, bindings), dtype=_tensors.dtype(node))
-            if not site.allow_ad:
+            if site.reference is None:
                 return elements.tabulated_gradient(node, bindings, site, scoped_value)
-
-            def at_point(p):
-                result = scoped_value(x, arguments, at=site.differentiating(domain, p))
-                return jnp.asarray(result, dtype=jnp.result_type(result, 0.0))
-
-            g = jax.jacfwd(at_point)(point)
-            if isinstance(domain, Mesh) and domain.dimension < point.size:
-                g = g @ tangent_projector(domain, site, scoped_value)
-            return g
+            return site.reference.gradient(x, domain, arguments, site, scoped_value, point)
         case Divergence(x, domain):
             return jnp.trace(value(Gradient(x, domain), arguments), axis1=-2, axis2=-1)
         case Curl(x, domain):
@@ -322,9 +313,11 @@ def _evaluate(node, bindings, site, arguments, memo):
                     at = at.at({cell: point}, tabulations={cell: PointTabulation(point, rows)})
             return scoped_value(x, arguments, at=at)
         case PushForward(x, mesh, law):
-            return _spatial.push_forward(field(x), mesh, law, site, scoped_value)
+            reference = site.require_reference("PushForward")
+            return reference.push_forward(field(x), mesh, law, site, scoped_value)
         case Conormal(side, conormals):
-            return _spatial.conormal(side, conormals, site, scoped_value)
+            reference = site.require_reference("Conormal")
+            return reference.conormal(side, conormals, site, scoped_value)
         case _ if elements.is_basix_basis(node):
             return elements.basis_value(node, site)
         case AbstractExpression(is_terminal=True, domain=None, argument_spaces=(), free_indices=()):

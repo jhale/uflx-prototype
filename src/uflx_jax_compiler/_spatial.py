@@ -3,20 +3,13 @@
 # This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
 #
 # SPDX-License-Identifier:    MIT
-"""Numerical evaluation of field mappings and conormals."""
+"""Numerical evaluation of field pull-backs."""
 
-import jax
 import jax.numpy as jnp
 
 from uflx.nodes import AbstractTopology, CellMap, Mesh, SideMap
 
-from ._geometry import (
-    chart_of,
-    reference_point,
-    side_reference,
-    transformed,
-)
-from ._tensors import inverse
+from ._geometry import chart_of, side_reference
 
 
 def pullback_site(mapping, site, value):
@@ -38,23 +31,3 @@ def pullback_site(mapping, site, value):
         return site.at({parent: point}, cells={parent: mapping.cell_slot})
     point = jnp.real(value(mapping.parameterisation))
     return site.at({mapping.ambient_domain: point})
-
-
-def push_forward(field, mesh, law, site, value):
-    site.require_ad("PushForward")
-    slot = site.slot(mesh)
-    chart = chart_of(mesh[slot], site, value)
-    ref = reference_point(chart, site.points[mesh], mesh.dimension)
-    topology = mesh.topology
-    site = site.at({topology: ref}, cells={topology: slot})
-    return transformed(field(site), law, jax.jacfwd(chart)(ref))
-
-
-def conormal(side, conormals, site, value):
-    site.require_ad("Conormal")
-    slot, parent_slot, inclusion, ref, target = side_reference(side, site, value)
-    J = jax.jacfwd(chart_of(side.parent[parent_slot], site, value))(target)
-    site = site.at({inclusion.parameter_domain: ref})
-    normal = jnp.real(value(conormals[slot], at=site))
-    vector = inverse(J).T @ normal
-    return vector / jnp.linalg.norm(vector)

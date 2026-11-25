@@ -21,6 +21,7 @@ from uflx.forms import partial as partial_form
 from uflx.geometry import pull_back
 from uflx_basix.quadrature import apply_quadrature
 from uflx_extensions.external_operators import external_operator
+from uflx_jax_compiler import reference_trace
 from uflx_jax_compiler.interpreter import Pointwise
 
 from ..uflx.spaces import space as field_space
@@ -65,7 +66,7 @@ def test_jit_value_and_gradient_of_integrated_spatial_derivative():
     slope = gradient(a * x * x, cell)[0]
     expression = integral(slope * slope, cell)
 
-    energy = partial(uflx_jax_compiler.trace(expression, expression, a), cell.quadrature(2))
+    energy = partial(reference_trace(expression, expression, a), cell.quadrature(2))
 
     values, gradients = jax.jit(jax.vmap(jax.value_and_grad(energy)))(jnp.array([3.0, 1.5]))
     np.testing.assert_allclose(values, [12, 3])
@@ -175,7 +176,7 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
     dofs = V.element(0).points[:, 0] ** 2
     slope = gradient(u, K)[0]
 
-    sample = uflx_jax_compiler.trace(slope, u, K)
+    sample = reference_trace(slope, u, K)
 
     f = jax.jit(jax.vmap(jax.value_and_grad(sample, argnums=1), in_axes=(None, 0)))
     values, hessians = f(dofs, jnp.array([[0.375], [0.75]]))
@@ -221,7 +222,7 @@ def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
     r, s, t = V.element(0).points.T
     dr_ds = gradient(gradient(u, K), K)[0, 1]
 
-    sample = partial(uflx_jax_compiler.trace(dr_ds, u, K), r * s * t + r * r * s)
+    sample = partial(reference_trace(dr_ds, u, K), r * s * t + r * r * s)
 
     points = jnp.array([[0.2, 0.3, 0.1], [0.4, 0.1, 0.25]])
     mixed, derivatives = jax.jit(jax.vmap(jax.value_and_grad(sample)))(points)

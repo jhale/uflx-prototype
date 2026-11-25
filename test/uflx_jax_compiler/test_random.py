@@ -9,7 +9,6 @@ import sys
 
 import numpy as np
 
-import uflx_jax_compiler
 from uflx._src.nodes import Apply
 from uflx._src.passes import applications
 from uflx._src.passes.applications import applications_expanded
@@ -17,6 +16,7 @@ from uflx.arithmetic import add, conjugate, divide, multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import form, function
 from uflx.tensors import index, index_sum, indexed, tensor
+from uflx_jax_compiler import reference_trace
 
 from ..testutil import assert_clean, check_types, contains, form_with_fixed_argument, pairing
 from ..uflx.spaces import space
@@ -105,8 +105,8 @@ def main(trials):
         check_types(typed, e, out)
         vals = tuple(complex(*rng.normal(size=2)) for _ in range(len(e.argument_spaces)))
         before, after = (
-            uflx_jax_compiler.trace(e, *env)(*env.values(), *vals),
-            uflx_jax_compiler.trace(out, *env)(*env.values(), *vals),
+            reference_trace(e, *env)(*env.values(), *vals),
+            reference_trace(out, *env)(*env.values(), *vals),
         )
         if not np.allclose(before, after, rtol=1e-4, atol=1e-4):
             failures += 1

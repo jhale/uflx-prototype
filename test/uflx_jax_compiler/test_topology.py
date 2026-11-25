@@ -7,6 +7,7 @@
 import numpy as np
 
 import uflx_jax_compiler
+from uflx_jax_compiler import reference_trace
 
 from ..uflx_basix.integrals import I as interval
 from ..uflx_basix.integrals import K
@@ -25,6 +26,6 @@ def test_the_side_data_of_the_diagonal_of_the_example():
         for t in (0.0, 0.4, 1.0):
             point = uflx_jax_compiler.trace(A.parameterisation, interval)(np.array([t]))
             assert np.allclose(np.real(point), inclusion(t))
-        normal = np.real(uflx_jax_compiler.trace(m, interval)(np.array([0.5])))
+        normal = np.real(reference_trace(m, interval)(np.array([0.5])))
         # Out of K, from the centroid (1/3, 1/3) through the facet.
         assert normal @ (inclusion(0.5) - np.array([1, 1]) / 3) > 0
