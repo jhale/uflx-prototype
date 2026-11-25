@@ -97,10 +97,17 @@ def _lowering_stages(lowered, name, linalg_passes, loop_passes, emitc_passes):
     command = ("mlir-translate", "--mlir-to-cpp")
     logger.info("%s", shlex.join(command))
     c = subprocess.run(command, input=emitc, text=True, stdout=subprocess.PIPE, check=True).stdout
-    yield (
-        f"{name}.c",
-        "#include <stdint.h>\n#include <stddef.h>\n#include <stdbool.h>\n#include <math.h>\n" + c,
+    source = (
+        "#include <stdint.h>\n#include <stddef.h>\n#include <stdbool.h>\n#include <math.h>\n\n" + c
     )
+
+    filename = f"{name}.c"
+    command = ("clang-format", f"--assume-filename={filename}")
+    logger.info("%s", shlex.join(command))
+    formatted = subprocess.run(
+        command, input=source, text=True, stdout=subprocess.PIPE, check=True
+    ).stdout
+    yield filename, formatted
 
 
 def emit_c(
@@ -114,7 +121,7 @@ def emit_c(
 ) -> str:
     """Return C source for a lowered, statically shaped JAX kernel with the given C name.
 
-    Requires mlir-opt and mlir-translate on PATH. Tested with LLVM 22.1.6.
+    Requires mlir-opt, mlir-translate and clang-format on PATH. Tested with LLVM 22.1.6.
     If supplied, output_dir receives the intermediate MLIR files and the generated C source.
 
     Each pass sequence replaces that stage's pipeline for this call. Entries use
