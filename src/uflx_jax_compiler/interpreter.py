@@ -5,16 +5,23 @@
 # SPDX-License-Identifier:    MIT
 """Evaluate UFLx expressions and trace finite element forms to local tensors."""
 
+from functools import partial
+
 import jax
 import jax.numpy as jnp
 
+from uflx._src.algorithms.traversal import preorder
 from uflx.algorithms import memoized, operands
 from uflx.nodes import (
+    Absolute,
     AbstractDomain,
     AbstractExpression,
     AbstractExtent,
     AbstractTopology,
+    Determinant,
+    Gradient,
     Integral,
+    Inverse,
     Mesh,
 )
 
@@ -64,6 +71,20 @@ def _check_inputs(expression, inputs):
         raise ValueError("basis table is not requested by this expression")
 
 
+def _shared_jacobians(expression):
+    # Find the pair before reference-tensor specialization separates the cell factors.
+    densities, inverses = set(), set()
+    for node in preorder(expression):
+        match node:
+            case Absolute(Determinant(Gradient() as J)) if (
+                J.value_shape in ((2, 2), (3, 3)) and J.scalar_type == "real"
+            ):
+                densities.add(J)
+            case Inverse(J):
+                inverses.add(J)
+    return frozenset(densities & inverses)
+
+
 def trace(expression: AbstractExpression, *inputs):
     """Return a JAX-traceable function for an expression or form.
 
@@ -103,7 +124,8 @@ def trace(expression: AbstractExpression, *inputs):
     particular cell, pull the expression back to its reference cell before tracing.
     """
     _check_inputs(expression, inputs)
-    kernel = reference_tensor_kernel(expression, inputs, _kernel) or _kernel(expression, inputs)
+    ordinary = partial(_kernel, shared_jacobians=_shared_jacobians(expression))
+    kernel = reference_tensor_kernel(expression, inputs, ordinary) or ordinary(expression, inputs)
     kernel.inputs = inputs
     return kernel
 
@@ -122,7 +144,7 @@ def reference_trace(expression: AbstractExpression, *inputs):
     return kernel
 
 
-def _kernel(expression, inputs, *, reference=None):
+def _kernel(expression, inputs, *, reference=None, shared_jacobians=frozenset()):
     # Runtime extents are structural types. Bind them from array shapes while
     # tracing, so array lengths do not become additional scalar JIT arguments.
     shaped_inputs = [
@@ -174,7 +196,7 @@ def _kernel(expression, inputs, *, reference=None):
                     f"inconsistent array extent: expected {length}, got {environment[extent]}"
                 )
             environment.setdefault(extent, length)
-        sample = Sample(points, {}, reference=reference)
+        sample = Sample(points, {}, reference=reference, shared_jacobians=shared_jacobians)
         return jnp.asarray(evaluate(expression, environment, sample, values[len(inputs) :]))
 
     arity = len(inputs) + len(expression.argument_spaces)

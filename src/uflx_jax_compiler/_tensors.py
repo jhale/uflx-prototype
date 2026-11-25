@@ -140,6 +140,23 @@ def solve(matrix, rhs):
     return jnp.linalg.solve(matrix, rhs)
 
 
+def jacobian_determinant(matrix):
+    if matrix.shape == (2, 2):
+        return matrix[0, 0] * matrix[1, 1] - matrix[0, 1] * matrix[1, 0]
+    a, b, c = matrix
+    return a @ jnp.cross(b, c)
+
+
+def jacobian_inverse(matrix):
+    if matrix.shape == (2, 2):
+        (a, b), (c, d) = matrix
+        adjugate = jnp.array([[d, -b], [-c, a]])
+    else:
+        a, b, c = matrix
+        adjugate = jnp.stack((jnp.cross(b, c), jnp.cross(c, a), jnp.cross(a, b)), axis=1)
+    return adjugate * (1 / jacobian_determinant(matrix))
+
+
 def _small_inverse(matrix):
     """Invert a 2x2 or 3x3 matrix with pivoted row operations unrolled by JAX."""
     n = matrix.shape[0]

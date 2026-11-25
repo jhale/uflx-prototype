@@ -34,6 +34,7 @@ class Sample:
     cells: dict
     tabulations: dict = field(default_factory=dict)
     reference: ModuleType | None = None
+    shared_jacobians: frozenset[AbstractExpression] = frozenset()
 
     def require_reference(self, operation):
         if self.reference is None:
@@ -52,6 +53,7 @@ class Sample:
             self.cells if cells is None else self.cells | cells,
             tables,
             self.reference,
+            self.shared_jacobians,
         )
 
     def differentiating(self, domain, point):

@@ -211,6 +211,12 @@ def _evaluate(node, bindings, site, arguments, memo):
             return jnp.sqrt(base) if isinstance(node, SquareRoot) else jnp.log(base)
         case Determinant(a) | Inverse(a):
             matrix_op = _tensors.determinant if isinstance(node, Determinant) else _tensors.inverse
+            if a in site.shared_jacobians:
+                matrix_op = (
+                    _tensors.jacobian_determinant
+                    if isinstance(node, Determinant)
+                    else _tensors.jacobian_inverse
+                )
             for _ in order:
                 matrix_op = jax.vmap(matrix_op)
             return matrix_op(jnp.asarray(value(a)))
