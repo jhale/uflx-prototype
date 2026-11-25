@@ -120,8 +120,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   terms from the Poisson integral, evaluates them at quadrature points and
   assembles a curved triangle's stiffness matrix in one JIT-compiled function.
 - [Poisson to C pipeline](examples/poisson_emitc.py) JAX's StableHLO is lowered
-  to MLIR dialects, which is then lowered to C99 via EmitC. Requires LLVM built
-  with MLIR Python bindings.
+  to MLIR dialects, which is then lowered to C99 via EmitC. Requires recent
+  LLVM built with MLIR.
 
 ### Hello world - Poisson on a triangle
 
