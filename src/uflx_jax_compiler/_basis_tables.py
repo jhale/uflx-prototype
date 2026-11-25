@@ -31,39 +31,15 @@ class BasisTable:
         return self._element_data.native
 
 
-# These operators evaluate their value operands at the current point. An external
-# operator can instead take a whole field and choose where to evaluate it.
-_POINTWISE = (
-    nodes.Absolute,
-    nodes.BroadcastTo,
-    nodes.ComponentTensor,
-    nodes.Conditional,
-    nodes.Conjugate,
-    nodes.Determinant,
-    nodes.Division,
-    nodes.ImaginaryPart,
-    nodes.Indexed,
-    nodes.IndexSum,
-    nodes.Inverse,
-    nodes.LessThan,
-    nodes.Logarithm,
-    nodes.Power,
-    nodes.Product,
-    nodes.RealPart,
-    nodes.SquareRoot,
-    nodes.Sum,
-    nodes.Tensor,
-    nodes.Gradient,
-    nodes.Divergence,
-    nodes.Curl,
-)
-
-
 def keeps_quadrature_point(node):
-    return isinstance(node, _POINTWISE) or (
-        isinstance(node, nodes.PullBack)
-        and isinstance(node.map, nodes.CellMap)
-        and isinstance(node.map.parent, nodes.AbstractTopology)
+    return (
+        node.is_pointwise
+        or isinstance(node, (nodes.Gradient, nodes.Divergence, nodes.Curl))
+        or (
+            isinstance(node, nodes.PullBack)
+            and isinstance(node.map, nodes.CellMap)
+            and isinstance(node.map.parent, nodes.AbstractTopology)
+        )
     )
 
 

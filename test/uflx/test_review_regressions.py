@@ -11,9 +11,11 @@ import pytest
 
 from uflx._src.nodes import AbstractExpression, Base
 from uflx._src.nodes.structure import expression_operands, operands
+from uflx.calculus import coordinate
 from uflx.forms import function
-from uflx.nodes import Complex, Integer, ScalarType
-from uflx.passes import lower
+from uflx.geometry import domain_map, pull_back
+from uflx.nodes import Complex, EuclideanSpace, Integer, ScalarType
+from uflx.passes import expand_pull_backs, lower
 
 from .spaces import space
 
@@ -46,6 +48,28 @@ def test_unknown_library_operation_is_not_a_terminal():
         lower(ExternalOperation(Integer(2)))
     terminal = LibraryTerminal("data")
     assert lower(terminal) is terminal
+
+
+def test_pullback_of_library_operation_respects_its_pointwise_declaration():
+    class FieldOperation(ExternalOperation):
+        identifier = "library.FieldOperation"
+
+        @property
+        def domain(self):
+            return self.operand.domain
+
+    class PointwiseOperation(FieldOperation):
+        identifier = "library.PointwiseOperation"
+        is_pointwise = True
+
+    line = EuclideanSpace(1)
+    u = function(space("scalar field", line, scalar_type="real"), "u")
+    mapping = domain_map(line, coordinate(line) * Integer(2), line)
+    assert expand_pull_backs(pull_back(PointwiseOperation(u), mapping)) == PointwiseOperation(
+        pull_back(u, mapping)
+    )
+    with pytest.raises(TypeError, match="no pull-back rule"):
+        expand_pull_backs(pull_back(FieldOperation(u), mapping))
 
 
 def test_construction_dependencies_and_value_operands_are_distinct():

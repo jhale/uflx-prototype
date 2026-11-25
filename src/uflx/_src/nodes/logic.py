@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 @final
 class LessThan(AbstractExpression):
     identifier = "uflx.LessThan"
+    is_pointwise = True
     value_fields = ("first", "second")
     requires_matching_domains = True
     first: AbstractExpression
@@ -69,6 +70,7 @@ class LessThan(AbstractExpression):
 @final
 class Conditional(AbstractExpression):
     identifier = "uflx.Conditional"
+    is_pointwise = True
     value_fields = ("predicate", "true_value", "false_value")
     requires_matching_domains = True
     predicate: AbstractExpression

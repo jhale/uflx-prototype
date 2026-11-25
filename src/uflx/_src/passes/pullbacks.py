@@ -14,37 +14,18 @@ from ..algorithms.traversal import everywhere, memoized
 from ..calculus import rotation_of_gradient, trace_of_gradient
 from ..meshes import is_cell
 from ..nodes import (
-    Absolute,
     Apply,
-    BroadcastTo,
     CellMap,
-    ComponentTensor,
-    Conditional,
-    Conjugate,
     Conormal,
     Coordinate,
     Curl,
-    Determinant,
     Divergence,
-    Division,
     DomainMap,
     Form,
     Gradient,
-    ImaginaryPart,
-    Indexed,
-    IndexSum,
-    Inverse,
-    LessThan,
-    Logarithm,
-    Power,
-    Product,
     PullBack,
     PushForward,
-    RealPart,
     SideMap,
-    SquareRoot,
-    Sum,
-    Tensor,
     TransformationLaw,
 )
 from ..nodes.static import field_terminal
@@ -112,27 +93,7 @@ def _rule(
             return transformed(reference_value, law, m)
         case _ if field_terminal(f) or isinstance(f, PushForward):
             return PullBack(f, m)
-        case (
-            Conditional()
-            | LessThan()
-            | Sum()
-            | Product()
-            | Division()
-            | Power()
-            | Absolute()
-            | Conjugate()
-            | RealPart()
-            | ImaginaryPart()
-            | SquareRoot()
-            | Logarithm()
-            | Inverse()
-            | Determinant()
-            | Tensor()
-            | BroadcastTo()
-            | Indexed()
-            | ComponentTensor()
-            | IndexSum()
-        ):
+        case _ if f.is_pointwise:
             # PB06. Only these operations preserve pointwise values under pull-back.
             return pointwise(f, m, pb)
         case _:

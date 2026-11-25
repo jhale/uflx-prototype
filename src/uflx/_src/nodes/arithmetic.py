@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 @final
 class Sum(AbstractExpression):
     requires_matching_domains = True
+    is_pointwise = True
     value_fields = ("first", "second")
     identifier = "uflx.Sum"
     first: AbstractExpression
@@ -66,6 +67,7 @@ class Sum(AbstractExpression):
 @final
 class Product(AbstractExpression):
     requires_matching_domains = True
+    is_pointwise = True
     value_fields = ("first", "second")
     identifier = "uflx.Product"
     first: AbstractExpression
@@ -105,6 +107,7 @@ class Product(AbstractExpression):
 @final
 class Division(AbstractExpression):
     requires_matching_domains = True
+    is_pointwise = True
     value_fields = ("numerator", "denominator")
     identifier = "uflx.Division"
     numerator: AbstractExpression
@@ -145,6 +148,7 @@ class Division(AbstractExpression):
 @final
 class Power(AbstractExpression):
     requires_matching_domains = True
+    is_pointwise = True
     value_fields = ("base", "exponent")
     identifier = "uflx.Power"
     base: AbstractExpression
@@ -186,6 +190,7 @@ class Power(AbstractExpression):
 
 @final
 class Conjugate(AbstractExpression):
+    is_pointwise = True
     value_fields = ("operand",)
     identifier = "uflx.Conjugate"
     operand: AbstractExpression
@@ -221,6 +226,7 @@ class Conjugate(AbstractExpression):
 
 @final
 class RealPart(AbstractExpression):
+    is_pointwise = True
     value_fields = ("operand",)
     identifier = "uflx.RealPart"
     operand: AbstractExpression
@@ -257,6 +263,7 @@ class RealPart(AbstractExpression):
 
 @final
 class ImaginaryPart(AbstractExpression):
+    is_pointwise = True
     value_fields = ("operand",)
     identifier = "uflx.ImaginaryPart"
     operand: AbstractExpression
@@ -293,6 +300,7 @@ class ImaginaryPart(AbstractExpression):
 
 @final
 class Absolute(AbstractExpression):
+    is_pointwise = True
     value_fields = ("operand",)
     identifier = "uflx.Absolute"
     operand: AbstractExpression
@@ -329,6 +337,7 @@ class Absolute(AbstractExpression):
 
 @final
 class SquareRoot(AbstractExpression):
+    is_pointwise = True
     value_fields = ("operand",)
     identifier = "uflx.SquareRoot"
     operand: AbstractExpression
@@ -365,6 +374,7 @@ class SquareRoot(AbstractExpression):
 
 @final
 class Logarithm(AbstractExpression):
+    is_pointwise = True
     value_fields = ("operand",)
     identifier = "uflx.Logarithm"
     operand: AbstractExpression

@@ -43,6 +43,8 @@ class AbstractExpression(Base, ABC):
         if self.requires_matching_domains:
             _ = common_operand_domain(self)
 
+    # Whether the result depends only on the operands' values at the current point.
+    is_pointwise: ClassVar[bool] = False
     requires_matching_domains: ClassVar[bool] = False
 
     # Every concrete class states its static type, so the abstract class has no defaults.

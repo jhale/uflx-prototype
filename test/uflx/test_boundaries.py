@@ -20,7 +20,7 @@ PUBLIC_MODULES = {
 
 DEPENDENCIES = {
     "uflx": set(),
-    "uflx_basix": {"uflx"},
+    "uflx_basix": {"uflx", "uflx_extensions.runtime_arrays"},
     "uflx_extensions": {"uflx"},
     "uflx_jax_compiler": {"uflx", "uflx_basix", "uflx_extensions"},
 }
@@ -56,15 +56,21 @@ def files(package):
     return (SOURCE / package).rglob("*.py")
 
 
-def assert_imports_none_of(package, forbidden):
-    for path in files(package):
-        assert not forbidden & {m.split(".")[0] for m in imported(path)}, path
+def allowed_dependency(owner, module):
+    package = module.partition(".")[0]
+    return (
+        package == owner
+        or package not in DEPENDENCIES
+        or package in DEPENDENCIES[owner]
+        or module in DEPENDENCIES[owner]
+    )
 
 
 @pytest.mark.parametrize("package", DEPENDENCIES)
 def test_package_dependencies(package):
-    forbidden = DEPENDENCIES.keys() - {package} - DEPENDENCIES[package]
-    assert_imports_none_of(package, forbidden)
+    for path in files(package):
+        for module in imported(path):
+            assert allowed_dependency(package, module), (path, module)
 
 
 @pytest.mark.parametrize("package", ["uflx_basix", "uflx_extensions"])
@@ -84,12 +90,11 @@ def test_suite_imports_follow_package_order():
         folder = path.relative_to(root / "test").parts[0]
         # Helpers directly under test/ are available to every suite.
         owner = folder if folder in DEPENDENCIES else "uflx"
-        forbidden = DEPENDENCIES.keys() - {owner} - DEPENDENCIES[owner]
-        if owner in {"uflx", "uflx_extensions"}:
-            forbidden.add("basix")
         for module in imported(path, root):
-            package = module.removeprefix("test.").partition(".")[0]
-            assert package not in forbidden, (path.relative_to(root), module)
+            module = module.removeprefix("test.")
+            assert allowed_dependency(owner, module), (path.relative_to(root), module)
+            if owner in {"uflx", "uflx_extensions"}:
+                assert module.partition(".")[0] != "basix", (path.relative_to(root), module)
 
 
 def test_importing_the_package_root_does_not_load_or_reexport_the_language():

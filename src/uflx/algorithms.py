@@ -7,8 +7,8 @@
 
 from ._src.algorithms.binding import alpha_equivalent
 from ._src.algorithms.names import derived_index, derived_indices
-from ._src.algorithms.rewriting import complete_indices
-from ._src.algorithms.substitution import replace, substitute_values
+from ._src.algorithms.rewriting import complete_family, complete_indices, promote
+from ._src.algorithms.substitution import occurs, replace, substitute_values
 from ._src.algorithms.traversal import bottom_up, map_fields, map_values, memoized
 from ._src.nodes.arguments import argument_leaves, map_argument
 from ._src.nodes.static import free_indices
@@ -18,6 +18,7 @@ __all__ = [
     "alpha_equivalent",
     "argument_leaves",
     "bottom_up",
+    "complete_family",
     "complete_indices",
     "derived_index",
     "derived_indices",
@@ -27,7 +28,9 @@ __all__ = [
     "map_fields",
     "map_values",
     "memoized",
+    "occurs",
     "operands",
+    "promote",
     "replace",
     "substitute_values",
 ]

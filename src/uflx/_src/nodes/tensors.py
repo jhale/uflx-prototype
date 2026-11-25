@@ -29,6 +29,7 @@ class BroadcastTo(AbstractExpression):
     """Repeat a value along leading and singleton axes."""
 
     identifier = "uflx.BroadcastTo"
+    is_pointwise = True
     value_fields = ("value",)
 
     value: AbstractExpression
@@ -79,6 +80,7 @@ class BroadcastTo(AbstractExpression):
 @final
 class Tensor(AbstractExpression):
     requires_matching_domains = True
+    is_pointwise = True
     value_fields = ("entries",)
     identifier = "uflx.Tensor"
     entries: tuple[AbstractExpression, ...]
@@ -124,6 +126,7 @@ class Tensor(AbstractExpression):
 @final
 class Indexed(AbstractExpression):
     index_fields = ("indices",)
+    is_pointwise = True
     value_fields = ("expression",)
     identifier = "uflx.Indexed"
     expression: AbstractExpression
@@ -171,6 +174,7 @@ class Indexed(AbstractExpression):
 
 @final
 class ComponentTensor(BindingExpression[Index]):
+    is_pointwise = True
     value_fields = ("expression",)
     identifier = "uflx.ComponentTensor"
     expression: AbstractExpression
@@ -210,6 +214,7 @@ class ComponentTensor(BindingExpression[Index]):
 
 @final
 class IndexSum(BindingExpression[Index]):
+    is_pointwise = True
     value_fields = ("expression",)
     identifier = "uflx.IndexSum"
     expression: AbstractExpression
@@ -248,6 +253,7 @@ class IndexSum(BindingExpression[Index]):
 
 @final
 class Inverse(AbstractExpression):
+    is_pointwise = True
     value_fields = ("matrix",)
     identifier = "uflx.Inverse"
     matrix: AbstractExpression
@@ -284,6 +290,7 @@ class Inverse(AbstractExpression):
 
 @final
 class Determinant(AbstractExpression):
+    is_pointwise = True
     value_fields = ("matrix",)
     identifier = "uflx.Determinant"
     matrix: AbstractExpression
