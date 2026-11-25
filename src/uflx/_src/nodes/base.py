@@ -96,6 +96,10 @@ class Base(metaclass=_Interned):
     def __hash__(self) -> int:
         return self.digest
 
+    def __reduce__(self) -> tuple[type[Base], tuple[Construction, ...]]:
+        """Unpickle through the interning constructor, omitting derived caches."""
+        return type(self), self.construction_arguments
+
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join(map(repr, self.construction_arguments))})"
 

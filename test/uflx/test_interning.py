@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import gc
 import os
+import pickle
 import subprocess
 import sys
 import weakref
@@ -15,6 +16,7 @@ from typing import ClassVar
 
 import pytest
 
+from uflx._src.algorithms.substitution import occurs
 from uflx._src.algorithms.traversal import map_fields, rebuild
 from uflx._src.nodes import Base, Complex, Float, Function, Index, Indexed, Integer, Sum, Tensor
 from uflx._src.nodes.base import _digest_of
@@ -48,6 +50,13 @@ def test_rebuilding_returns_the_same_object():
     e = Sum(Integer(1), Function(V, "u"))
     assert rebuild(e) is e
     assert map_fields(e, lambda x: x) is e
+
+
+def test_pickle_preserves_interning_with_cached_occurrences():
+    u = Function(V, "u")
+    expr = Sum(u, u)
+    assert occurs(u, expr)
+    assert pickle.loads(pickle.dumps(expr)) is expr
 
 
 def test_unused_nodes_are_freed():

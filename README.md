@@ -57,9 +57,10 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 
 - A strict language ruleset that leads to:
     - nearly zero boiler-plate code,
-    - automatic and robust hashing,
     - node identity determined entirely by the node type and its construction
       arguments,
+    - automatic, robust and deterministic object hashing,
+    - native Python pickling of graphs,
     - no simplification on construction - the users full intent is kept in the
       first graph.
 - Language features for defining arbitrarily complex topological and geometric
