@@ -156,6 +156,10 @@ def _factors(body, arguments, inputs):
                 yield from expand(entries[components[0]], components[1:], bound)
             case _ if not node.free_indices and deps.isdisjoint(arguments):
                 yield (), (indexed(node, components),)
+            case Division(a, b) if not b.free_indices and fields(b).isdisjoint(arguments):
+                reciprocal = num(1) / b
+                for reference, cell in expand(a, components, bound):
+                    yield reference, (*cell, reciprocal)
             case _:
                 raise _UseQuadrature
 
@@ -293,20 +297,20 @@ def _basix_contraction(groups, arguments, cell, points, weights, dtype):
 
 
 def _contraction(body, arguments, inputs, ordinary):
-    expr, cell, points, weights = _sampled(body, inputs)
+    expr, cell, point_operand, weight_operand = _sampled(body, inputs)
     basis_size = prod(arg.space.num_dofs for arg in arguments)
-    if not all(isinstance(n, int) for n in points.value_shape) or (
-        basis_size * prod(points.value_shape) > _MAX_ENTRIES
+    if not all(isinstance(n, int) for n in point_operand.value_shape) or (
+        basis_size * prod(point_operand.value_shape) > _MAX_ENTRIES
     ):
         raise _UseQuadrature
     reference, coefficients, runtime = _factors(expr, frozenset(arguments), inputs)
-    if basis_size * weights.value_shape[0] * reference.value_shape[0] > _MAX_ENTRIES:
+    if basis_size * weight_operand.value_shape[0] * reference.value_shape[0] > _MAX_ENTRIES:
         raise _UseQuadrature
     try:
-        points, weights = np.asarray(literal_values(points)), np.asarray(literal_values(weights))
+        points = np.asarray(literal_values(point_operand))
+        weights = np.asarray(literal_values(weight_operand))
     except ValueError:
         raise _UseQuadrature from None
-    basis = ordinary(Form(reference, arguments), (cell,))
     # Reuse cell factors shared across different entries of the geometry tensor.
     leaves = dict.fromkeys(f for terms in coefficients for term in terms for f in term)
     reads = {f: ordinary(f, (*runtime, cell)) for f in leaves}
@@ -331,10 +335,12 @@ def _contraction(body, arguments, inputs, ordinary):
         )
         if contract is not None:
             return contract
+        from uflx_basix.quadrature import apply_quadrature
+
+        sampled = apply_quadrature(Integral(reference, cell), point_operand, weight_operand)
+        integrate = ordinary(Form(sampled, arguments), ())
         with jax.ensure_compile_time_eval():
-            samples = jax.jit(jax.vmap(basis))(jnp.asarray(points, dtype=dtype))
-            table = jnp.tensordot(jnp.asarray(weights, dtype=dtype), samples, axes=1)
-            table = np.ascontiguousarray(np.moveaxis(np.asarray(table), -1, 0))
+            table = np.ascontiguousarray(np.moveaxis(np.asarray(jax.jit(integrate)()), -1, 0))
         return _dense_contraction(table)
 
     @lru_cache(maxsize=4)

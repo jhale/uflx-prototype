@@ -19,6 +19,7 @@ from uflx.nodes import (
     AbstractExtent,
     AbstractTopology,
     Determinant,
+    Division,
     Gradient,
     Integral,
     Inverse,
@@ -73,16 +74,16 @@ def _check_inputs(expression, inputs):
 
 def _shared_jacobians(expression):
     # Find the pair before reference-tensor specialization separates the cell factors.
-    densities, inverses = set(), set()
+    densities, inverse_factors = set(), set()
     for node in preorder(expression):
         match node:
             case Absolute(Determinant(Gradient() as J)) if (
                 J.value_shape in ((2, 2), (3, 3)) and J.scalar_type == "real"
             ):
                 densities.add(J)
-            case Inverse(J):
-                inverses.add(J)
-    return frozenset(densities & inverses)
+            case Inverse(J) | Division(_, Determinant(J)):
+                inverse_factors.add(J)
+    return frozenset(densities & inverse_factors)
 
 
 def trace(expression: AbstractExpression, *inputs):

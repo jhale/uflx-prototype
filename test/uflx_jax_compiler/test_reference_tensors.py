@@ -12,7 +12,7 @@ import pytest
 
 import uflx_jax_compiler
 from uflx.arithmetic import logarithm, num
-from uflx.calculus import gradient, integral
+from uflx.calculus import divergence, gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import push_forward
 from uflx.nodes import EuclideanSpace, Mesh
@@ -170,3 +170,27 @@ def test_explicit_point_measure_in_a_sampled_form():
     reweighted = uflx_jax_compiler.trace(L, (point_integral, point_integral.integration_domain))
     actual = reweighted((np.empty((2, 0)), [0.2, 0.3]))
     np.testing.assert_allclose(actual, 0.5 * uflx_jax_compiler.trace(L)(), atol=1e-14)
+
+
+def test_affine_rt_divergence_reference_matrix():
+    triangle = basix.CellType.triangle
+    T = topology(triangle)
+    p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
+    x = function(local_space(T, p1, shape=(2,)), "x")
+    mesh = Mesh(x, EuclideanSpace(2))
+    rt = basix.create_element(basix.ElementFamily.RT, triangle, 2)
+    V = local_space(T, rt)
+    u, v = (function(V, label) for label in ("u", "v"))
+    du, dv = (divergence(push_forward(f, mesh, V.law), mesh) for f in (u, v))
+    points, weights = basix.make_quadrature(triangle, 2)
+    sampled = apply_quadrature(lower(integral(du * dv, mesh)), points, weights)
+    kernel = uflx_jax_compiler.trace(form(sampled, (v, u)), x)
+
+    derivatives = rt.tabulate(1, points)
+    div = derivatives[1, :, :, 0] + derivatives[2, :, :, 1]
+    reference = (div.T * weights) @ div
+    vertices = np.array([[0.2, -0.1], [1.3, 0.4], [-0.3, 1.2]])
+    for coords in (vertices, vertices[::-1]):
+        det = np.linalg.det(coords[1:] - coords[0])
+        np.testing.assert_allclose(jax.jit(kernel)(coords), reference / abs(det), atol=1e-13)
+    assert (1, rt.dim, rt.dim) in _constant_shapes(kernel, vertices)

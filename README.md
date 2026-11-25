@@ -98,13 +98,10 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 
 ## Examples
 
+### Form language focused
+
 - [Poisson on a triangle](examples/poisson.py) builds the cell stiffness matrix
   and load vector for Poisson’s equation with a unit source.
-- [Runtime quadrature](examples/runtime_quadrature.py) uses `sample_form` to build
-  the pointwise P2 stiffness matrices, then integrates them with `weighted_sum`.
-- [Precomputed geometry](examples/precomputed_geometry.py) extracts geometry
-  terms from the Poisson integral, evaluates them at quadrature points and
-  assembles a curved triangle's stiffness matrix in one JIT-compiled function.
 - [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
   a discontinuous scalar on a curved triangle.
 - [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
@@ -114,6 +111,17 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 - [Durán–Liberman shear reduction](examples/duran_liberman.py) interpolates
   the rotation along triangle edges to compute the reduced Reissner–Mindlin
   shear energy.
+
+### Compiler focused
+
+- [Runtime quadrature](examples/runtime_quadrature.py) uses `sample_form` to build
+  the pointwise P2 stiffness matrices, then integrates them with `weighted_sum`.
+- [Precomputed geometry](examples/precomputed_geometry.py) extracts geometry
+  terms from the Poisson integral, evaluates them at quadrature points and
+  assembles a curved triangle's stiffness matrix in one JIT-compiled function.
+- [Poisson to C pipeline](examples/poisson_emitc.py) JAX's StableHLO is lowered
+  to MLIR dialects, which is then lowered to C99 via EmitC. Requires LLVM built
+  with MLIR Python bindings.
 
 ### Hello world - Poisson on a triangle
 
@@ -185,18 +193,9 @@ called with new vertex coordinates to evaluate another triangle.
   form](https://fenics.github.io/uflx/language/evaluation/#the-core-normal-form)
 - `uflx_basix` supplies finite elements, basis tabulations and oriented
   reference facet maps. [Basix](https://github.com/fenics/basix)
-- `uflx_jax_compiler.trace` compiles lowered forms and uses Basix to tabulate
-  basis derivatives at fixed quadrature points during kernel construction.
-  For runtime points, `uflx_basix.quadrature.sample_form(form, points, q)` returns
-  the pointwise local tensor and its explicit basis-table operands. For example,
-  `tables[p2, 1]` takes the native array `p2.tabulate(1, points)` for P2 values
-  and first derivatives. For forms that retain finite-element fields,
-  `basis_tables(form)` discovers their native Basix table inputs.
-  The resulting kernel can be differentiated with respect to its numerical inputs.
-  `uflx_jax_compiler.reference_trace` uses JAX automatic differentiation to
-  check unlowered forms and symbolic derivatives.
-  Benchmarks typically run about an order of magnitude slower than FFCx.
-  PRs related to compiler performance will not be merged.
+- `uflx_jax_compiler` compiles (traces) UFLx kernels to JAX callables. All of
+  JAX's standard transformations are then available. Using JAX and MLIR, an
+  example StableHLO to MLIR to C pipeline is shown.
 - `uflx_extensions` exercises the core extension mechanism with complex
   differentiation and external operators.
 

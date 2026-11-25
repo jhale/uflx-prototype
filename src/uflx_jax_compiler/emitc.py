@@ -11,6 +11,7 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
+from jax.interpreters import mlir
 from jax.stages import Lowered
 from jaxlib.mlir import ir, passmanager
 from jaxlib.mlir.dialects import memref, stablehlo
@@ -30,7 +31,7 @@ DEFAULT_LOOP_PASSES = (
     "fold-memref-alias-ops",
     "lower-affine",
     "cse",
-    "func.func(promote-buffers-to-stack)",
+    "func.func(promote-buffers-to-stack{max-alloc-size-in-bytes=32768})",
 )
 DEFAULT_EMITC_PASSES = (
     "fold-memref-alias-ops",
@@ -64,9 +65,22 @@ def _mlir_opt(source: str, passes: Sequence[str]) -> str:
 
 
 def _use_indexable_storage(op):
-    # LLVM 22 EmitC needs an array for a scalar stack slot. Keep its existing
-    # users on a rank-zero view and let fold-memref-alias-ops fold the accesses.
-    if op.name == "memref.alloca" and (scalar := ir.MemRefType(op.result.type)).rank == 0:
+    # Give rank-zero storage an array representation for EmitC. Alias folding
+    # turns accesses through the scalar view into accesses at index zero.
+    if op.name == "memref.global":
+        scalar = ir.MemRefType(op.attributes["type"].value)
+        if scalar.rank == 0:
+            array = ir.MemRefType.get([1], scalar.element_type, memory_space=scalar.memory_space)
+            op.attributes["type"] = ir.TypeAttr.get(array)
+            initial = op.opview.initial_value
+            if isinstance(initial, ir.DenseElementsAttr):
+                tensor = ir.RankedTensorType.get([1], scalar.element_type)
+                op.attributes["initial_value"] = ir.DenseElementsAttr.get_splat(
+                    tensor, initial.get_splat_value()
+                )
+    elif op.name in ("memref.alloca", "memref.get_global") and (
+        scalar := ir.MemRefType(op.result.type)
+    ).rank == 0:
         op.result.set_type(
             ir.MemRefType.get([1], scalar.element_type, memory_space=scalar.memory_space)
         )
@@ -77,7 +91,26 @@ def _use_indexable_storage(op):
 
 def _lowering_stages(lowered, name, linalg_passes, loop_passes, emitc_passes):
     stable = lowered.compiler_ir("stablehlo")
-    source = str(stable)
+    # JAX may lift large closed-over tables into leading arguments. Embed them
+    # in a copy so the C function takes only the kernel's runtime inputs.
+    with stable.context, ir.Location.unknown():
+        module = ir.Module.parse(str(stable))
+        main = ir.SymbolTable(module.operation)["main"].opview
+        attrs = list(main.arg_attrs) if "arg_attrs" in main.attributes else []
+        captured = [i for i, attr in enumerate(attrs) if "jax.const" in attr]
+        if captured:
+            block = main.entry_block
+            with ir.InsertionPoint.at_block_begin(block):
+                for i, value in zip(captured, lowered._lowering.const_args, strict=True):
+                    block.arguments[i].replace_all_uses_with(mlir.ir_constant(value))
+            for i in reversed(captured):
+                block.erase_argument(i)
+                del attrs[i]
+            main.function_type = ir.TypeAttr.get(
+                ir.FunctionType.get([arg.type for arg in block.arguments], main.type.results)
+            )
+            main.arg_attrs = ir.ArrayAttr.get(attrs)
+        source = str(module)
     yield "stablehlo.mlir", source
 
     linalg = _lower_to_linalg(source, stable.context, name, linalg_passes)
