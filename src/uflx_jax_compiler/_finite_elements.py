@@ -86,6 +86,19 @@ def is_basix_basis(node):
     return basix is not None and isinstance(node, BasixBasis)
 
 
+def vertex_p1_simplex(element):
+    """Whether scalar DOFs are values at the reference simplex vertices, in order."""
+    return (
+        element.family == basix.ElementFamily.P
+        and element.degree == 1
+        and element.cell_type
+        in (basix.CellType.interval, basix.CellType.triangle, basix.CellType.tetrahedron)
+        and element.interpolation_is_identity
+        and not element.dof_ordering
+        and np.array_equal(element.points, basix.geometry(element.cell_type))
+    )
+
+
 def tabulated_gradient(gradient, bindings, site, read):
     """Contract native reference derivative rows with the usual field DOFs or form slot."""
     domain = gradient.domain
@@ -120,13 +133,26 @@ def tabulated_gradient(gradient, bindings, site, read):
             f"Spatial derivative of {type(field).__name__} requires lowering before tracing"
         )
 
-    data = leaf.space.element_data[0 if leaf.space.cell is not None else slot]
+    element_slot = 0 if leaf.space.cell is not None else slot
+    data = leaf.space.element_data[element_slot]
     point = site.points[domain]
     dim = point.shape[0]
     table = site.tabulations.get(domain)
-    if table is not None and data in table.rows:
-        rows = table.rows[data]
-    else:
+    rows = table.rows.get(data) if table is not None else None
+    if (
+        order == 1
+        and isinstance(leaf, Function)
+        and leaf.space.block_shape
+        and not isinstance(binding, BoundExpression)
+        and (rows is None or data not in site.runtime_table_elements)
+        and vertex_p1_simplex(data.native)
+    ):
+        # The columns of the affine Jacobian are edges from reference vertex zero.
+        local = _cell_coefficients(leaf.space, element_slot, binding)
+        vertices = local.reshape(dim + 1, *leaf.space.block_shape)
+        vertices = vertices.astype(jnp.result_type(vertices, point if rows is None else rows))
+        return jnp.moveaxis(vertices[1:] - vertices[0], 0, -1)
+    if rows is None:
         # The highest derivatives of a simplex polynomial are constant, including
         # the Jacobian of a P1 simplex even when its evaluation point is dynamic.
         element = data.native
@@ -195,8 +221,12 @@ def field_value(node, space, bindings, site, value):
         # A form slot may supply a field directly on the reference cell.
         return jnp.asarray(coefficients(site.points[topology]))
     slot = site.slot(topology)
+    return _local_value(space, slot, site, _cell_coefficients(space, slot, coefficients))
+
+
+def _cell_coefficients(space, slot, coefficients):
     values = jnp.asarray(coefficients)
-    dofs = np.asarray(space.cell_dofs[slot])
+    dofs = space.cell_dofs[slot]
     if space.block_shape:
         flat_shape = (space.num_dofs,)
         nodal_shape = (space.num_dofs // space.block_size, *space.block_shape)
@@ -205,7 +235,7 @@ def field_value(node, space, bindings, site, value):
                 f"expected coefficient shape {flat_shape} or {nodal_shape} (got {values.shape})"
             )
         values = values.reshape(-1)
-    return _local_value(space, slot, site, values[dofs])
+    return values[dofs[0] : dofs[-1] + 1] if dofs else values[:0]
 
 
 def _local_value(space, slot, site, local):

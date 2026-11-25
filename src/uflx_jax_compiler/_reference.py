@@ -47,7 +47,7 @@ from uflx.nodes import (
 from uflx.tensors import indexed, tensor
 
 from ._basis_tables import literal_values, sampled_quadrature
-from ._finite_elements import basix_space, is_basix_basis
+from ._finite_elements import basix_space, is_basix_basis, vertex_p1_simplex
 
 # Bound distributive expansion and the largest table (including its quadrature axis).
 _MAX_EXPANSION = 256
@@ -177,7 +177,32 @@ def _factors(body, arguments, inputs):
     return reference, by_cell, runtime
 
 
-def _basix_reference_table(groups, arguments, cell, points, weights, dtype):
+def _p1_gradient_contraction(groups, gradients, weight):
+    # For vertex P1 the reference-gradient matrix is [-1 | I]. Keep the two
+    # derivative directions until assembly, including their test/trial order.
+    dim = len(gradients[0])
+    pairs = {(u, v): (i, j) for i, u in enumerate(gradients[0]) for j, v in enumerate(gradients[1])}
+    entries = [[None] * dim for _ in range(dim)]
+    for k, terms in enumerate(groups):
+        for term in terms:
+            pair = pairs.get(term) or pairs.get(term[::-1])
+            if pair is None:
+                return None
+            i, j = pair
+            entries[i][j] = k
+
+    def contract(coefficients):
+        weighted = coefficients * weight
+        block = [[weighted[k] if k is not None else 0.0 for k in row] for row in entries]
+        # phi_0 = 1 - sum(phi_i), so its row and column are negative sums.
+        rows = [[-sum(row), *row] for row in block]
+        first = [-sum(column) for column in zip(*rows, strict=True)]
+        return jnp.array([first, *rows])
+
+    return contract
+
+
+def _basix_contraction(groups, arguments, cell, points, weights, dtype):
     """Integrate products of scalar basis values and first partials at fixed points."""
     import basix
 
@@ -191,8 +216,10 @@ def _basix_reference_table(groups, arguments, cell, points, weights, dtype):
         table = element.tabulate(1, points.astype(element.dtype, copy=False))
         return table[..., 0].astype(dtype, copy=False)
 
-    samples = {}
-    for axis, arg in enumerate(arguments):
+    basis_factors = []
+    # Small triangle matrices are faster with the dense reference contraction.
+    vertex_p1 = len(arguments) == 2 and cell.dimension == 3
+    for arg in arguments:
         space = arg.space
         domain = space.domain
         if space.value_shape:
@@ -212,9 +239,19 @@ def _basix_reference_table(groups, arguments, cell, points, weights, dtype):
             return None
         gradient = Gradient(field, cell)
         # Basix orders its rows as the value followed by the coordinate partials.
-        factors = (field, *(indexed(gradient, (i,)) for i in range(cell.dimension)))
+        basis_factors.append((field, *(indexed(gradient, (i,)) for i in range(cell.dimension))))
+        vertex_p1 = vertex_p1 and vertex_p1_simplex(element)
+
+    if vertex_p1:
+        contract = _p1_gradient_contraction(groups, [f[1:] for f in basis_factors], weights.sum())
+        if contract is not None:
+            return contract
+
+    samples = {}
+    for axis, (arg, factors) in enumerate(zip(arguments, basis_factors, strict=True)):
+        space = arg.space
         dofs = [1] * len(arguments)
-        dofs[axis] = element.dim
+        dofs[axis] = space.num_dofs
         for factor, values in zip(factors, tabulate(space), strict=True):
             samples[factor] = values.reshape(len(weights), *dofs)
 
@@ -226,7 +263,8 @@ def _basix_reference_table(groups, arguments, cell, points, weights, dtype):
             return None
         values = np.broadcast_to(np.asarray(values, dtype=dtype), shape)
         rows.append(np.tensordot(weights, values, axes=1))
-    return np.stack(rows)
+    table = np.stack(rows)
+    return lambda coefficients: jnp.tensordot(coefficients, table, axes=1)
 
 
 def _contraction(body, arguments, inputs, ordinary):
@@ -261,26 +299,27 @@ def _contraction(body, arguments, inputs, ordinary):
     numeric_kinds = ["fiu" if basix_space(x.space) is not None else "f" for x in runtime]
 
     @lru_cache(maxsize=2)
-    def reference_table(dtype):
+    def contraction(dtype):
         # Store a host constant, never a tracer from an enclosing jit, vmap or AD.
-        table = _basix_reference_table(
+        contract = _basix_contraction(
             coefficients.values(), arguments, cell, points, weights, dtype
         )
-        if table is not None:
-            return table
+        if contract is not None:
+            return contract
         with jax.ensure_compile_time_eval():
             samples = jax.jit(jax.vmap(basis))(jnp.asarray(points, dtype=dtype))
             table = jnp.tensordot(jnp.asarray(weights, dtype=dtype), samples, axes=1)
-            return np.ascontiguousarray(np.moveaxis(np.asarray(table), -1, 0))
+            table = np.ascontiguousarray(np.moveaxis(np.asarray(table), -1, 0))
+        return lambda coefficients: jnp.tensordot(coefficients, table, axes=1)
 
     @lru_cache(maxsize=4)
-    def table_for(specs, dtype):
+    def contraction_for(specs, dtype):
         # A traced result may have out_axes=None only if it carries no point axis.
         # Abstract coefficient values keep this proof independent of the current cell.
         mapped = jax.vmap(read, in_axes=(None,) * len(specs) + (0,), out_axes=None)
         try:
             jax.eval_shape(mapped, *specs, jax.ShapeDtypeStruct(points.shape, dtype))
-            return reference_table(dtype)
+            return contraction(dtype)
         except (KeyError, TypeError, ValueError):
             # A point-dependent result or another required binding uses ordinary evaluation.
             return None
@@ -299,9 +338,9 @@ def _contraction(body, arguments, inputs, ordinary):
             return fallback(*values)
         if all(v.dtype.kind in kinds for v, kinds in zip(arrays, numeric_kinds, strict=True)):
             specs = tuple(jax.ShapeDtypeStruct(v.shape, v.dtype) for v in arrays)
-            table = table_for(specs, np.float64 if jax.config.x64_enabled else np.float32)
-            if table is not None:
-                return jnp.tensordot(read(*arrays, points[0]), table, axes=1)
+            contract = contraction_for(specs, np.float64 if jax.config.x64_enabled else np.float32)
+            if contract is not None:
+                return contract(read(*arrays, points[0]))
         return fallback(*values)
 
     return kernel

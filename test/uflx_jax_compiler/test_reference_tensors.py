@@ -45,13 +45,15 @@ def test_shared_reference_form_is_computed_once():
 
 @pytest.mark.parametrize("cell_type", [basix.CellType.triangle, basix.CellType.tetrahedron])
 @pytest.mark.parametrize("symmetric", [True, False], ids=["poisson", "mixed-partial"])
-def test_affine_reference_matrices(cell_type, symmetric):
+@pytest.mark.parametrize("degree", [1, 2])
+def test_affine_reference_matrices(cell_type, symmetric, degree):
     T = topology(cell_type)
     dim = T.dimension
-    p1, p2 = [basix.create_element(basix.ElementFamily.P, cell_type, k) for k in (1, 2)]
+    p1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
+    element = basix.create_element(basix.ElementFamily.P, cell_type, degree)
     x = function(local_space(T, p1, shape=(dim,)), "x")
     mesh = Mesh(x, EuclideanSpace(dim))
-    V = local_space(T, p2)
+    V = local_space(T, element)
     v, u = function(V, "v"), function(V, "u")
     gv, gu = (gradient(push_forward(f, mesh, V.law), mesh) for f in (v, u))
     a = lower(integral(gv @ gu if symmetric else gv[0] * gu[1], mesh))
@@ -72,7 +74,8 @@ def test_affine_reference_matrices(cell_type, symmetric):
     expected = jax.jvp(reference, (coords,), (direction,))[1]
     np.testing.assert_allclose(tangent, expected, atol=2e-13)
     n = dim * (dim + 1) // 2 if symmetric else dim**2
-    assert (n, p2.dim, p2.dim) in _constant_shapes(kernel, coord)
+    has_dense_table = (n, element.dim, element.dim) in _constant_shapes(kernel, coord)
+    assert has_dense_table == (degree == 2 or dim == 2)
 
 
 @pytest.mark.parametrize("degree", [0, 1])

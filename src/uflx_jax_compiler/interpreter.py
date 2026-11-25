@@ -160,6 +160,10 @@ def _kernel(expression, inputs, *, reference=None, shared_jacobians=frozenset())
 
     constants = {} if reference is not None else fixed_basis_tables(expression, inputs)
 
+    runtime_table_elements = frozenset(
+        key._element_data for key in inputs if isinstance(key, BasisTable)
+    )
+
     def action(*values):
         environment = constants.copy()
         points = {}
@@ -196,7 +200,13 @@ def _kernel(expression, inputs, *, reference=None, shared_jacobians=frozenset())
                     f"inconsistent array extent: expected {length}, got {environment[extent]}"
                 )
             environment.setdefault(extent, length)
-        sample = Sample(points, {}, reference=reference, shared_jacobians=shared_jacobians)
+        sample = Sample(
+            points,
+            {},
+            reference=reference,
+            shared_jacobians=shared_jacobians,
+            runtime_table_elements=runtime_table_elements,
+        )
         return jnp.asarray(evaluate(expression, environment, sample, values[len(inputs) :]))
 
     arity = len(inputs) + len(expression.argument_spaces)

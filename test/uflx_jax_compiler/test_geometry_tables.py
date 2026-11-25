@@ -49,6 +49,28 @@ def test_sample_once_and_reduce_with_independent_weights():
             np.testing.assert_allclose(fused(pts, w), expected)
 
 
+def test_affine_jacobian_from_vertices_and_explicit_derivative_rows():
+    triangle = basix.CellType.triangle
+    p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
+    x = function(local_space(topology(triangle, triangle), p1, shape=(3,)), "x")
+    mesh = create_mesh(x, euclidean_space(3))
+    points, _ = basix.make_quadrature(triangle, 2)
+    sample = evaluate_at_points(jacobian(mesh[1]), table(points), index("q"))
+    kernel = jax.jit(uflx_jax_compiler.trace(sample, x))
+
+    vertices = 2.0**45 + np.array([[2.0, 1.0, 5.0], [0.0, 0.0, 1.0], [4.0, 9.0, 3.0]])
+    edges = (vertices[1:] - vertices[0]).T
+    coordinates = np.vstack((np.zeros_like(vertices), vertices))
+    for dofs in (coordinates, coordinates.ravel()):
+        np.testing.assert_array_equal(kernel(dofs), np.broadcast_to(edges, (len(points), 3, 2)))
+
+    (request,) = uflx_jax_compiler.basis_tables(sample)
+    supplied = jax.jit(uflx_jax_compiler.trace(sample, x, request))
+    rows = p1.tabulate(1, points).copy()
+    rows[1:] = 0
+    np.testing.assert_array_equal(supplied(coordinates, rows), np.zeros((len(points), 3, 2)))
+
+
 def test_mass_and_stiffness_extract_and_share_curved_geometry():
     triangle = basix.CellType.triangle
     T = topology(triangle)
