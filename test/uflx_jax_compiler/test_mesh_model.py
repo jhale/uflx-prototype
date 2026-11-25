@@ -23,6 +23,17 @@ from ..uflx_basix.meshes import grouped_topology, vertex_mesh
 from .quadrature import integrate_at
 
 
+def test_area_of_thin_triangle_in_both_orientations():
+    P = reference_simplex(2)
+    s, t = coordinate(P)[0], coordinate(P)[1]
+    # The determinant of J is representable even when JᵀJ rounds to a singular matrix.
+    for height in (2.0**-32, -(2.0**-32)):
+        x = tensor((s + t, num(height) * t))
+        chart = domain_map(P, x, EuclideanSpace(2))
+        area = integrate_at(lower_spatial(integral(density(chart), P)), {}, degree=0)
+        np.testing.assert_allclose(area, abs(height) / 2, atol=0)
+
+
 def test_integrate_members_then_sum_only_the_selected_index():
     P = reference_simplex(1)
     i, configuration = index("segment"), index("configuration")

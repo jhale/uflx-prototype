@@ -35,6 +35,9 @@ def _metric(D: DomainMap | CellMap) -> AbstractExpression:
 
 
 def density(map: DomainMap | CellMap) -> AbstractExpression:
+    J = jacobian(map)
+    if J.value_shape[0] == J.value_shape[1]:
+        return abs(determinant(J))
     return SquareRoot(determinant(_metric(map)))
 
 
