@@ -80,7 +80,7 @@ def test_scalar_reduction(tmp_path):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_ufcx_callback(tmp_path, dtype):
+def test_ufcx_tabulate_tensor(tmp_path, dtype):
     def cell(x, w, c):
         return x[:2, None] + w[None, :] * c[0]
 
@@ -88,7 +88,7 @@ def test_ufcx_callback(tmp_path, dtype):
     w = np.array([2, 4], dtype=dtype)
     c = np.array([3], dtype=dtype)
     exported = jax.export.export(jax.jit(cell))(x, w, c)
-    source = uflx_jax_compiler.emit_ufcx_callback(exported, "tabulate")
+    source = uflx_jax_compiler.emit_ufcx_tabulate_tensor(exported, "tabulate")
     kernel = compile_kernel(source, "tabulate", tmp_path)
     kernel.argtypes = [np.ctypeslib.ndpointer(dtype=dtype)] * 4 + [ctypes.c_void_p] * 3
     kernel.restype = None
