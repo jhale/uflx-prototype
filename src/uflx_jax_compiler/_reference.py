@@ -234,7 +234,13 @@ def _basix_contraction(groups, arguments, cell, points, weights, dtype):
     def tabulate(space):
         element = space.element(0)
         table = element.tabulate(1, points.astype(element.dtype, copy=False))
-        return table[..., 0].astype(dtype, copy=False)
+        values = table[..., 0].astype(dtype, copy=False)
+        if vertex_p1_simplex(element):
+            # The barycentric gradients are constant: column zero is -1,
+            # and the remaining columns form the identity at every point.
+            values[1:, :, 0] = -1
+            values[1:, :, 1:] = np.eye(cell.dimension, dtype=dtype)[:, None, :]
+        return values
 
     basis_factors = []
     # Small triangle matrices are faster with the dense reference contraction.
