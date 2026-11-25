@@ -25,10 +25,12 @@ def with_ufcx_cell_inputs(kernel, *, dtype):
     (gdim,) = coordinates.value_shape
     if not 1 <= gdim <= 3:
         raise ValueError("UFCx coordinates have three slots per node")
+    num_coordinate_nodes = space.num_dofs // gdim
+
     if any(op.scalar_type != "real" for op in kernel.inputs):
         raise ValueError("expected real operands for the UFCx cell callback")
 
-    sizes = [0, 0]
+    sizes = {"coordinate_dofs": 3 * num_coordinate_nodes, "w": 0, "c": 0}
     layout = []
     for op in operands:
         space = basix_space(getattr(op, "space", None))
@@ -36,32 +38,29 @@ def with_ufcx_cell_inputs(kernel, *, dtype):
             if op.domain is not None:
                 raise ValueError("expected a domain-independent UFCx constant")
 
-            buffer, shape = 1, op.value_shape
+            buffer, shape = "c", op.value_shape
         else:
             if len(space.cell_dofs) != 1:
                 raise ValueError("expected a single-cell coefficient field")
 
-            buffer, shape = 0, (space.num_dofs,)
+            buffer, shape = "w", (space.num_dofs,)
 
         start = sizes[buffer]
         sizes[buffer] += prod(shape)
         layout.append((buffer, slice(start, sizes[buffer]), shape))
 
-    ndofs = coordinates.space.num_dofs // gdim
-
     def evaluate_from_buffers(coordinate_dofs, w, c):
-        for name, array, size in zip(
-            ("coordinate_dofs", "w", "c"), (coordinate_dofs, w, c), (3 * ndofs, *sizes), strict=True
-        ):
+        buffers = {"coordinate_dofs": coordinate_dofs, "w": w, "c": c}
+        for name, array in buffers.items():
+            size = sizes[name]
             if array.shape != (size,):
                 raise ValueError(f"expected {name} shape {(size,)}, got {array.shape}")
             if array.dtype != dtype:
                 raise TypeError(f"expected {name} dtype {dtype}, got {array.dtype}")
 
-        buffers = (w, c)
-        vertices = coordinate_dofs.reshape(ndofs, 3)[:, :gdim]
-        values = (buffers[b][s].reshape(shape) for b, s, shape in layout)
-        result = kernel(vertices, *values)
+        coordinate_values = coordinate_dofs.reshape(num_coordinate_nodes, 3)[:, :gdim]
+        values = (buffers[name][span].reshape(shape) for name, span, shape in layout)
+        result = kernel(coordinate_values, *values)
         if not np.issubdtype(result.dtype, np.floating):
             raise TypeError("expected a real floating-point cell tensor")
         return result.astype(dtype)
