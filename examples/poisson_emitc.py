@@ -35,6 +35,5 @@ a = form(apply_quadrature(a_ref, *rule), (v, u))
 
 stiffness = jax.jit(uflx_jax_compiler.trace(a, x))
 vertices = jax.ShapeDtypeStruct((T.dimension + 1, T.dimension), np.float64)
-uflx_jax_compiler.emit_c(
-    stiffness.lower(vertices), name="stiffness", output_dir=Path("output/poisson_emitc")
-)
+exported = jax.export.export(stiffness)(vertices)
+uflx_jax_compiler.emit_c(exported, name="stiffness", output_dir=Path("output/poisson_emitc"))
