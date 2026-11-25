@@ -122,6 +122,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 - [Poisson to C pipeline](examples/poisson_emitc.py) JAX's StableHLO is lowered
   to MLIR dialects, which is then lowered to C99 using EmitC. Requires `mlir-opt` and `mlir-translate` from LLVM 23 or newer,
   plus `clang-format` on `PATH`.
+- [Poisson with DOLFINx](examples/poisson_dolfinx.py) compiles the emitted stiffness and
+  load kernels with CFFI and solves a P1 problem on the unit square with SuperLU_DIST.
 
 ### Hello world - Poisson on a triangle
 

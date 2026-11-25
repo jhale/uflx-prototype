@@ -10,6 +10,7 @@ Each example can be run from the repository root, for example with
 
    /examples/poisson
    /examples/poisson_emitc
+   /examples/poisson_dolfinx
    /examples/runtime_quadrature
    /examples/precomputed_geometry
    /examples/mixed_poisson
