@@ -6,6 +6,7 @@
 """C source emission for statically shaped JAX kernels using MLIR EmitC."""
 
 import logging
+import re
 import shlex
 import subprocess
 from collections.abc import Sequence
@@ -14,7 +15,7 @@ from pathlib import Path
 from jax.export import Exported
 from jax.interpreters.mlir import make_ir_context
 from jaxlib.mlir import ir, passmanager
-from jaxlib.mlir.dialects import memref, stablehlo
+from jaxlib.mlir.dialects import stablehlo
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_LINALG_PASSES = ("stablehlo-legalize-to-linalg",)
 DEFAULT_LOOP_PASSES = (
     "inline",
-    "func.func(linalg-detensorize{aggressive-mode})",
     "linalg-inline-scalar-operands",
     "canonicalize",
     "cse",
@@ -41,8 +41,8 @@ DEFAULT_EMITC_PASSES = (
     "canonicalize",
     "buffer-results-to-out-params{modify-public-functions hoist-static-allocs}",
     "mem2reg",
-    "arith-expand",
     "canonicalize",
+    "arith-expand",
     "convert-math-to-emitc{language-target=c99}",
     "convert-to-emitc",
 )
@@ -67,15 +67,14 @@ def _mlir_opt(source: str, passes: Sequence[str]) -> str:
     ).stdout
 
 
-def _use_indexable_storage(op):
-    # LLVM 22 EmitC needs indexable storage for surviving rank-zero stack slots.
-    if op.name == "memref.alloca" and (scalar := ir.MemRefType(op.result.type)).rank == 0:
-        op.result.set_type(
-            ir.MemRefType.get([1], scalar.element_type, memory_space=scalar.memory_space)
-        )
-        view = memref.CollapseShapeOp(scalar, op.result, [], ip=ir.InsertionPoint.after(op))
-        op.result.replace_all_uses_except(view.result, view.operation)
-    return ir.WalkResult.ADVANCE
+def _require_mlir_tools():
+    for tool in ("mlir-opt", "mlir-translate"):
+        version = subprocess.check_output([tool, "--version"], text=True)
+        match = re.search(r"LLVM version (\d+)", version)
+        if not match or int(match[1]) < 23:
+            raise RuntimeError(
+                f"EmitC requires {tool} from LLVM 23 or newer. Found {version.strip()}"
+            )
 
 
 def _lowering_stages(exported, name, linalg_passes, loop_passes, emitc_passes):
@@ -89,19 +88,15 @@ def _lowering_stages(exported, name, linalg_passes, loop_passes, emitc_passes):
     loops = _mlir_opt(linalg, loop_passes)
     yield "loops.mlir", loops
 
-    with context, ir.Location.unknown():
-        module = ir.Module.parse(loops)
-        module.operation.walk(_use_indexable_storage)
-        shaped = str(module)
-    yield "shaped.mlir", shaped
-    emitc = _mlir_opt(shaped, emitc_passes)
+    emitc = _mlir_opt(loops, emitc_passes)
     yield "emitc.mlir", emitc
 
     command = ("mlir-translate", "--mlir-to-cpp")
     logger.info("%s", shlex.join(command))
     c = subprocess.run(command, input=emitc, text=True, stdout=subprocess.PIPE, check=True).stdout
     source = (
-        "#include <stdint.h>\n#include <stddef.h>\n#include <stdbool.h>\n#include <math.h>\n\n" + c
+        "#include <stdint.h>\n#include <stddef.h>\n#include <stdbool.h>\n#include <math.h>\n"
+        "#include <string.h>\n\n" + c
     )
 
     filename = f"{name}.c"
@@ -115,31 +110,24 @@ def _lowering_stages(exported, name, linalg_passes, loop_passes, emitc_passes):
 
 def emit_c(
     exported: Exported,
-    *,
     name: str,
-    output_dir: Path | None = None,
+    output_dir: str | Path,
+    *,
     linalg_passes: Sequence[str] = DEFAULT_LINALG_PASSES,
     loop_passes: Sequence[str] = DEFAULT_LOOP_PASSES,
     emitc_passes: Sequence[str] = DEFAULT_EMITC_PASSES,
 ) -> str:
     """Return C source for an exported, statically shaped JAX kernel with the given C name.
 
-    Requires mlir-opt, mlir-translate and clang-format on PATH. Tested with LLVM 22.1.6.
-    If supplied, output_dir receives the intermediate MLIR files and the generated C source.
-
-    Each pass sequence replaces that stage's pipeline for this call. Entries use
-    MLIR pass-pipeline syntax inside ``builtin.module``. For example, supply
-    ``loop_passes=(*DEFAULT_LOOP_PASSES, "cse")`` to append a pass after loop lowering.
+    Requires mlir-opt and mlir-translate from LLVM 23 or newer, and clang-format on PATH.
+    Writes the intermediate MLIR files and generated C source to output_dir.
     """
-    if output_dir is not None:
-        output_dir = Path(output_dir)
-        if Path(name).name != name:
-            raise ValueError("The C function name must not contain a directory")
-        output_dir.mkdir(exist_ok=True, parents=True)
+    _require_mlir_tools()
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True, parents=True)
     for filename, source in _lowering_stages(
         exported, name, linalg_passes, loop_passes, emitc_passes
     ):
-        if output_dir is not None:
-            (output_dir / filename).write_text(source)
+        (output_dir / filename).write_text(source)
 
     return source

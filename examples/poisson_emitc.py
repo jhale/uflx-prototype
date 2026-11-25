@@ -8,7 +8,6 @@ writes the kernel and intermediate MLIR files to `output/poisson_emitc/`.
 # %%
 
 import logging
-from pathlib import Path
 
 import basix
 import jax
@@ -43,4 +42,4 @@ a = form(apply_quadrature(a_ref, *rule), (v, u))
 stiffness = jax.jit(uflx_jax_compiler.trace(a, x))
 vertices = jax.ShapeDtypeStruct((T.dimension + 1, T.dimension), np.float64)
 exported = jax.export.export(stiffness)(vertices)
-uflx_jax_compiler.emit_c(exported, name="stiffness", output_dir=Path("output/poisson_emitc"))
+uflx_jax_compiler.emit_c(exported, "stiffness", "output/poisson_emitc")
