@@ -9,12 +9,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, overload
 
 from .algorithms.names import derived_indices
+from .algorithms.substitution import freshen
 from .arithmetic import multiply
+from .forms import apply, form, function
 from .nodes import (
     Coordinate,
     Curl,
     DirectionalDerivative,
     Divergence,
+    Form,
+    Function,
     Gradient,
     Indexed,
     IndexSum,
@@ -26,7 +30,6 @@ from .typing import Argument
 if TYPE_CHECKING:
     from .nodes.domains import AbstractDomain
     from .nodes.expressions import AbstractExpression
-    from .nodes.forms import Function
 
 
 def coordinate(domain: AbstractDomain) -> Coordinate:
@@ -81,6 +84,24 @@ def directional_derivative(
         return DirectionalDerivative(expression, variable, point, direction)
 
     return at(*values, **keywords)
+
+
+def linearize(residual: Form, wrt: Function) -> Form:
+    """Return B(h, v) = D R(u; v)[h] with the derivative left unexpanded.
+
+    B.arguments gives the perturbation and test slots, in order. Use partial
+    to fill either slot or apply to fill both.
+    """
+    if len(residual.arguments) != 1 or not isinstance(residual.arguments[0], Function):
+        raise ValueError("expected a residual with one test function")
+    if residual.expression.argument_spaces != () or residual.value_shape != ():
+        raise ValueError("expected a scalar residual with one test slot")
+    residual = freshen(residual, (wrt,))
+    test = residual.arguments[0]
+    direction = function(wrt.space, ("uflx.linearize", residual, wrt))
+    derivative = directional_derivative(residual, wrt, direction)
+    # Keep the test value outside the derivative, including when it depends on wrt.
+    return form(apply(derivative, (test,)), (direction, test))
 
 
 def integral(

@@ -14,7 +14,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from uflx.calculus import integral
+from uflx.calculus import integral, linearize
 from uflx.forms import apply, form, function
 from uflx.forms import partial as partial_form
 from uflx_basix.cells import cell
@@ -24,10 +24,8 @@ from uflx_extensions.external_operators import (
     AbstractOperation,
     OutputType,
     apply_external_derivatives,
-    external_adjoint,
     external_operator,
     jvp,
-    linearize,
     operation,
     vjp,
 )
@@ -59,10 +57,10 @@ def test_external_adjoint_assembles_transpose_without_a_tangent_rule():
     u, v, z, h = (function(V, label) for label in ("u", "v", "z", "h"))
     law = Response()
     residual = form(integral(external_operator(law, (u,)) @ v, K), (v,))
-    transpose = external_adjoint(residual, u, h)
-    assert transpose.arguments == (h, v)
-    adjoint = partial_form(transpose, {v: z})
-    assert adjoint.arguments == (h,)
+    adjoint = vjp(residual, u, z)
+    (direction,) = adjoint.arguments
+    assert direction.space == h.space
+    transpose = form(adjoint.expression, (direction, z))
 
     def compile(f, op, impl, *inputs):
         body = apply_quadrature(f.expression, *basix.make_quadrature(K.cell_type, 3))
@@ -101,12 +99,11 @@ def test_chain_rule_sums_vjps_for_repeated_inputs_and_holds_seed_fixed():
     cubic = external_operator(law, (square, u))
     residual = form((cubic + u) * v, (v,))
     # z = u is substituted after differentiation: z * (3*u**2 + 1) * h.
-    transpose = external_adjoint(residual, u, h)
-    adjoint = partial_form(transpose, {v: u})
+    adjoint = vjp(residual, u, u)
     evaluate = trace(adjoint, law, left, right, u)
     result = evaluate(lambda x, y: x * y, lambda x, y, z: y * z, lambda x, y, z: x * z, 2.0, 3.0)
     assert result == 78.0
-    both = apply(transpose, (h, u))
+    both = apply(adjoint, (h,))
     assert (
         trace(both, law, left, right, u, h)(
             lambda x, y: x * y, lambda x, y, z: y * z, lambda x, y, z: x * z, 2.0, 3.0
@@ -122,7 +119,7 @@ def test_unsupported_external_component_selection_is_explicit():
     u, v, h = (function(V, n) for n in ("u", "v", "h"))
     residual = form(integral(external_operator(Response(), (u,))[0] * v[0], K), (v,))
     with pytest.raises(TypeError, match="unsupported external adjoint through Indexed"):
-        external_adjoint(residual, u, h)
+        vjp(residual, u, h)
 
 
 def test_public_jvp_vjp_pairing_for_automatically_derived_actions():

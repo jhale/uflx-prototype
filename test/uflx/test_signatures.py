@@ -50,6 +50,7 @@ def test_the_public_free_functions_take_the_parameters_of_the_specification():
     assert set(functions) == set(spec) | {
         "expand_derivatives_with",
         "identity",
+        "linearize",
         "num",
         "reference_integral",
     }

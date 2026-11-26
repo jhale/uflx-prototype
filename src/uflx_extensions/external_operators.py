@@ -27,7 +27,8 @@ from uflx.algorithms import (
 )
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
-from uflx.forms import apply, form, function, partial
+from uflx.calculus import linearize as _linearize
+from uflx.forms import form, partial
 from uflx.nodes import (
     AbstractDomain,
     AbstractExpression,
@@ -54,10 +55,8 @@ __all__ = [
     "ExternalOperator",
     "OutputType",
     "apply_external_derivatives",
-    "external_adjoint",
     "external_operator",
     "jvp",
-    "linearize",
     "operation",
     "vjp",
 ]
@@ -218,25 +217,6 @@ def _tangent(
     return None
 
 
-def linearize(residual: Form, wrt: Function) -> Form:
-    """Return B(h, v) = D R(u; v)[h] without expanding any external derivatives.
-
-    B.arguments gives the perturbation and test slots. Fill either slot with
-    uflx.forms.partial, then call apply_external_derivatives. Filling the test
-    slot requests a VJP; filling the perturbation slot requests a JVP.
-    """
-    if len(residual.arguments) != 1 or not isinstance(residual.arguments[0], Function):
-        raise ValueError("expected a residual with one test function")
-    if residual.expression.argument_spaces != () or residual.value_shape != ():
-        raise ValueError("expected a scalar residual with one test slot")
-    residual = freshen(residual, (wrt,))
-    test = residual.arguments[0]
-    direction = function(wrt.space, ("uflx.extensions.linearize", residual, wrt))
-    derivative = directional_derivative(residual, wrt, direction)
-    # Keep the test value outside the derivative, including when it depends on wrt.
-    return form(apply(derivative, (test,)), (direction, test))
-
-
 def _select_pullback(node: AbstractExpression) -> AbstractExpression:
     match node:
         case Form(
@@ -253,7 +233,7 @@ def _select_pullback(node: AbstractExpression) -> AbstractExpression:
         ) if slot == h:
             if occurs(h, seed) or occurs(h, residual) or occurs(h, point):
                 return node
-            adjoint = external_adjoint(residual, wrt, h)
+            adjoint = _external_adjoint(residual, wrt, h)
             if point != wrt:
                 at_point = substitute_values(adjoint, {wrt: point})
                 assert isinstance(at_point, Form)
@@ -275,6 +255,14 @@ def apply_external_derivatives(f: AbstractExpression) -> AbstractExpression:
     return expand_derivatives_with(bottom_up(f, _select_pullback), _tangent)
 
 
+def _linearized_action(residual: Form, wrt: Function, slot: int, value: AbstractExpression) -> Form:
+    bilinear = freshen(_linearize(residual, wrt), (value,))
+    applied = partial(bilinear, {bilinear.arguments[slot]: value})
+    result = apply_external_derivatives(applied)
+    assert isinstance(result, Form)
+    return result
+
+
 @overload
 def jvp(expression: Form, wrt: Function, direction: AbstractExpression) -> Form: ...
 
@@ -290,18 +278,14 @@ def jvp(
 ) -> AbstractExpression:
     """Push direction through expression, preserving the open slots of an explicit form."""
     if isinstance(expression, Form):
-        residual = freshen(expression, (wrt, direction))
         if (
-            len(residual.arguments) == 1
-            and isinstance(residual.arguments[0], Function)
-            and residual.value_shape == ()
-            and residual.expression.argument_spaces == ()
+            len(expression.arguments) == 1
+            and isinstance(expression.arguments[0], Function)
+            and expression.value_shape == ()
+            and expression.expression.argument_spaces == ()
         ):
-            bilinear = freshen(linearize(residual, wrt), (direction,))
-            applied = partial(bilinear, {bilinear.arguments[0]: direction})
-            result = apply_external_derivatives(applied)
-            assert isinstance(result, Form)
-            return result
+            return _linearized_action(expression, wrt, 0, direction)
+        residual = freshen(expression, (wrt, direction))
         return form(jvp(residual.expression, wrt, direction), residual.arguments)
     return apply_external_derivatives(directional_derivative(expression, wrt, direction))
 
@@ -315,7 +299,7 @@ def _pair(left: AbstractExpression, right: AbstractExpression) -> AbstractExpres
     return index_sum(indexed(left, axes) * indexed(right, axes), axes)
 
 
-def external_adjoint(residual: Form, variable: Function, direction: Function) -> Form:
+def _external_adjoint(residual: Form, variable: Function, direction: Function) -> Form:
     """Build a real transpose Jacobian at fixed geometry using external VJPs.
 
     Slots are (direction, residual test), so partial application to the test
@@ -406,8 +390,4 @@ def vjp(residual: Form, wrt: Function, seed: AbstractExpression) -> Form:
     Apply the result positionally to a perturbation. Its bound slot is generated
     from the operands so it cannot capture a field in the residual or the seed.
     """
-    bilinear = freshen(linearize(residual, wrt), (seed,))
-    applied = partial(bilinear, {bilinear.arguments[1]: seed})
-    result = apply_external_derivatives(applied)
-    assert isinstance(result, Form)
-    return result
+    return _linearized_action(residual, wrt, 1, seed)
