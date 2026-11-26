@@ -115,6 +115,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 
 ### Compiler focused
 
+- [Expression at reference points](examples/expression_at_points.py) evaluates a squared
+  P1 field at fixed points and at points supplied at runtime.
 - [Runtime quadrature](examples/runtime_quadrature.py) builds a P2 Poisson
   stiffness kernel that can accept runtime quadrature and basis evaluations.
 - [Precomputed geometry](examples/precomputed_geometry.py) extracts geometry
