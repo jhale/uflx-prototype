@@ -13,7 +13,8 @@ from uflx.forms import form
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index
 from uflx_basix.cells import cell
-from uflx_basix.quadrature import apply_quadrature, evaluate_at_points, weighted_sum
+from uflx_basix.evaluation import evaluate_at_points
+from uflx_basix.quadrature import apply_quadrature, weighted_sum
 
 
 def test_quadrature_requires_one_reference_integral():

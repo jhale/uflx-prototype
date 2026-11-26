@@ -90,6 +90,13 @@ Basix integration
    :members:
    :undoc-members:
 
+``uflx_basix.evaluation``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: uflx_basix.evaluation
+   :members:
+   :undoc-members:
+
 ``uflx_basix.interpolation``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

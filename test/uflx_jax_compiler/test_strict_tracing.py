@@ -20,7 +20,7 @@ from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx.tensors import index
 from uflx_basix.cells import cell, topology
-from uflx_basix.quadrature import evaluate_at_points
+from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 from uflx_jax_compiler import _finite_elements, reference_trace

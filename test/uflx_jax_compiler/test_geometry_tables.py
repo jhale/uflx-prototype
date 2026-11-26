@@ -18,8 +18,9 @@ from uflx.geometry import create_mesh, density, euclidean_space, jacobian, push_
 from uflx.passes import lower
 from uflx.tensors import index, inverse
 from uflx_basix.cells import cell, topology
+from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.nodes import table
-from uflx_basix.quadrature import apply_quadrature, evaluate_at_points, weighted_sum
+from uflx_basix.quadrature import apply_quadrature, weighted_sum
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 from uflx_jax_compiler import reference_trace

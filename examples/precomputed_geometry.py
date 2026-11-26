@@ -25,7 +25,8 @@ from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
 from uflx.tensors import index
 from uflx_basix.cells import topology
-from uflx_basix.quadrature import evaluate_at_points, weighted_sum
+from uflx_basix.evaluation import evaluate_at_points
+from uflx_basix.quadrature import weighted_sum
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array
 

@@ -5,14 +5,13 @@
 # SPDX-License-Identifier:    MIT
 """Symbolic interpolation using library basis data and core mapping operations."""
 
-from functools import reduce
-from operator import add
+import numpy as np
 
-from uflx.calculus import integral
-from uflx.geometry import domain_map, euclidean_space, pull_back, push_forward, transformation_law
+from uflx.geometry import domain_map, pull_back, push_forward, transformation_law
 from uflx.nodes import AbstractExpression, CellMap, Function, Mesh, PullBack
 from uflx.tensors import component_tensor, index, index_sum
 
+from .evaluation import evaluate_at_points
 from .nodes import BasixBasis, BasixSpace, table
 
 
@@ -110,14 +109,14 @@ def _interpolate_cell(f, V, cell):
 
     # Basix columns run over points within each value component.
     weights = E.interpolation_matrix.reshape(E.dim, *E.value_shape, len(E.points))
-    point_domain = euclidean_space(0)
+    q = index(("interpolate", f, basis, "point"))
+    weights_at_q = table(np.moveaxis(weights, -1, 0))[q]
 
-    def sample(q, point):
-        directions = push_forward(table(weights[..., q]), cell.parent, dual_law)
-        physical_weights = pull_back(directions, cell)
-        pairing = index_sum(physical_weights[(a, *physical)] * f[(*blocks, *physical)], physical)
-        at_point = domain_map(point_domain, table(point), cell.reference_cell)
-        return integral(pull_back(pairing, at_point), point_domain)
+    directions = push_forward(weights_at_q, cell.parent, dual_law)
+    physical_weights = pull_back(directions, cell)
 
-    dofs = reduce(add, (sample(q, point) for q, point in enumerate(E.points)))
+    pairing = index_sum(physical_weights[(a, *physical)] * f[(*blocks, *physical)], physical)
+    samples = evaluate_at_points(pairing, E.points, q, cell=cell.reference_cell)
+    dofs = index_sum(samples, (q,))
+
     return component_tensor(index_sum(dofs * basis[(a, *reference)], (a,)), (*blocks, *reference))

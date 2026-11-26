@@ -15,7 +15,7 @@ import numpy as np
 from uflx.forms import function
 from uflx.tensors import index
 from uflx_basix.cells import cell
-from uflx_basix.quadrature import evaluate_at_points
+from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 from uflx_jax_compiler import trace

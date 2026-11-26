@@ -3,13 +3,12 @@
 # This file is part of uflx-core-experimental (https://fenics.github.io/uflx/language/)
 #
 # SPDX-License-Identifier:    MIT
-"""Symbolic point evaluation and quadrature on Basix reference cells."""
+"""Symbolic quadrature on Basix reference cells."""
 
 from itertools import product
 from math import comb, prod
 
 import basix
-import numpy as np
 
 from uflx import nodes
 from uflx.algorithms import (
@@ -23,50 +22,14 @@ from uflx.algorithms import (
     substitute_values,
 )
 from uflx.arithmetic import num
-from uflx.geometry import domain_map, euclidean_space, pull_back
-from uflx.nodes import AbstractExpression, Form, Index, Integral, ScalarType, Zero
+from uflx.geometry import pull_back
+from uflx.nodes import Form, Integral, Zero
 from uflx.tensors import component_tensor, index_sum, indexed, tensor
 from uflx_extensions.runtime_arrays import runtime_array
 
-from .nodes import BasixCell, BasixSpace, table
-
-
-def _real_array(data):
-    if isinstance(data, AbstractExpression):
-        if (
-            data.domain is not None
-            or data.argument_spaces
-            or data.free_indices
-            or data.scalar_type != ScalarType.real
-        ):
-            raise ValueError("quadrature operands must be domain-independent real arrays")
-        return data
-    array = np.asarray(data)
-    if np.iscomplexobj(array):
-        raise ValueError("quadrature operands must be real arrays")
-    return table(array)
-
-
-def _point_map(cell, points, q):
-    if not isinstance(cell, BasixCell):
-        raise ValueError("point evaluation needs a Basix reference cell")
-    if not isinstance(q, Index):
-        raise TypeError("expected an index for the point rows")
-    if len(points.value_shape) != 2 or points.value_shape[1] != cell.dimension:
-        raise ValueError("expected reference points of shape (n, tdim)")
-    return domain_map(euclidean_space(0), points[q], cell)
-
-
-def evaluate_at_points(expression, points, q, *, cell=None):
-    """Evaluate a reference-cell expression at points[q], leaving q free.
-
-    Points can be a concrete array or a real UFLx operand of shape (n, tdim).
-    Supply the cell explicitly for a domain-independent expression. Other
-    free indices and the expression's value shape are preserved.
-    """
-    cell = expression.domain if cell is None else cell
-    mapping = _point_map(cell, _real_array(points), q)
-    return Integral(pull_back(expression, mapping), mapping.parameter_domain)
+from .evaluation import _point_map, _real_array
+from .evaluation import evaluate_at_points as evaluate_at_points
+from .nodes import BasixSpace
 
 
 def _argument_uses(body, fields, cell):
