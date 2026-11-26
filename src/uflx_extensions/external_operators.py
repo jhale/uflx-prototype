@@ -28,7 +28,7 @@ from uflx.algorithms import (
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.calculus import linearize as _linearize
-from uflx.forms import form, partial
+from uflx.forms import form, function, partial
 from uflx.nodes import (
     AbstractDomain,
     AbstractExpression,
@@ -325,6 +325,18 @@ def _external_adjoint(residual: Form, variable: Function, direction: Function) -
     if direction == test or occurs(direction, residual.expression):
         raise ValueError("direction already occurs in the residual")
 
+    body = _pullback(residual.expression, variable, direction, num(1))
+    return form(body, (direction, test))
+
+
+def _pullback(
+    expression: AbstractExpression,
+    variable: Function,
+    direction: Function,
+    seed: AbstractExpression,
+) -> AbstractExpression:
+    """Pair the fixed seed with the variation, using VJPs at active external calls."""
+
     @cache
     def active_external(node: AbstractExpression) -> bool:
         return occurs_in_values(variable, node) and (
@@ -380,14 +392,29 @@ def _external_adjoint(residual: Form, variable: Function, direction: Function) -
                 terms.append(reverse(value, weight))
         return reduce(add, terms)
 
-    body = reverse(residual.expression, num(1))
-    return form(body, (direction, test))
+    return reverse(expression, seed)
 
 
-def vjp(residual: Form, wrt: Function, seed: AbstractExpression) -> Form:
-    """Pull seed through a real one-slot residual, returning a form on wrt's space.
+def vjp(residual: AbstractExpression, wrt: Function, seed: AbstractExpression) -> Form:
+    """Pull a seed through a real scalar objective or a real one-slot residual.
 
-    Apply the result positionally to a perturbation. Its bound slot is generated
-    from the operands so it cannot capture a field in the residual or the seed.
+    For a scalar objective J, vjp(J, u, num(1)) returns its first variation
+    as a linear form on u's space. For a residual, supply the test-slot value.
+    In both cases the seed is held fixed, even when it depends on u.
     """
-    return _linearized_action(residual, wrt, 1, seed)
+    if isinstance(residual, Form) and residual.argument_spaces != ():
+        return _linearized_action(residual, wrt, 1, seed)
+
+    objective = residual.expression if isinstance(residual, Form) else residual
+    if (objective.value_shape, objective.free_indices, objective.argument_spaces) != ((), (), ()):
+        raise ValueError("expected a scalar objective without free indices or argument slots")
+    if (
+        seed.value_shape != ()
+        or seed.argument_spaces != ()
+        or seed.domain not in (None, objective.domain)
+    ):
+        raise ValueError("expected a scalar seed compatible with the objective domain")
+    if any(x.scalar_type != "real" for x in (objective, wrt, seed)):
+        raise ValueError("external adjoint action requires real values")
+    direction = function(wrt.space, ("uflx.extensions.vjp", objective, wrt, seed))
+    return form(_pullback(objective, wrt, direction, seed), (direction,))

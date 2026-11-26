@@ -14,6 +14,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from uflx.arithmetic import num
 from uflx.calculus import integral, linearize
 from uflx.forms import apply, form, function
 from uflx.forms import partial as partial_form
@@ -180,3 +181,34 @@ def test_partial_linearization_dispatches_only_the_requested_external_rule(monke
         for pairing in (apply(pushed, (u,)), apply(B, (u, u))):
             scalar = apply_external_derivatives(pairing)
             assert trace(scalar, law, push, u)(lambda x: x * x, lambda x, h: 2 * x * h, 3.0) == 54.0
+
+
+def test_scalar_objective_vjp_matches_seeded_residual_and_analytic_gradient():
+    K = cell(basix.CellType.interval)
+    P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
+    u = function(local_space(K, P1), "u")
+    test = function(real_scalar_space(), "test")
+    law = operation("test.energy_density", 1, vector_type)
+    density = external_operator(law, (u,))
+    J = integral(density, K)
+    seed = num(2)
+    direct = vjp(J, u, seed)
+    assert vjp(form(J, ()), u, seed) is direct
+    lifted = vjp(form(integral(density * test, K), (test,)), u, seed)
+    rule = basix.make_quadrature(K.cell_type, 2)
+    for derivative in (direct, lifted):
+        sampled = apply_quadrature(derivative.expression, *rule)
+        kernel = trace(form(sampled, derivative.arguments), law.vjp_action(0), u)
+        # J = integral(u²/2), u has nodal values [1, 4]. The gradient is M u.
+        values = kernel(Pointwise(lambda x, bar: x * bar), np.array([1.0, 4.0]))
+        np.testing.assert_allclose(values, [2.0, 3.0], rtol=1e-6)
+
+
+def test_scalar_objective_seed_is_held_fixed():
+    u = function(real_scalar_space(), "u")
+    square = operation("test.square_objective", 1, vector_type)
+    J = external_operator(square, (u,))
+    gradient = vjp(J, u, u)
+    evaluate = trace(gradient, square.vjp_action(0), u)
+    # At u=3 in direction 2: seed * (2*u) * 2.
+    assert evaluate(lambda x, bar: 2 * x * bar, 3.0, 2.0) == 36.0
