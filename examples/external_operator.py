@@ -12,8 +12,11 @@ symbolic calls to the law's tangent and pullback, respectively.
 """
 
 # %%
+from functools import partial
+
 import jax
 import jax.numpy as jnp
+from jax import export
 
 from uflx.algorithms import occurs
 from uflx.forms import apply, form, function
@@ -25,7 +28,7 @@ from uflx_extensions.external_operators import (
     operation,
     vjp,
 )
-from uflx_jax_compiler import trace
+from uflx_jax_compiler import emit_c, trace
 
 
 def square_type(operands):
@@ -56,6 +59,15 @@ def square_jvp(x, dx):
 
 # Bind the primal and its JAX-derived tangent, then evaluate the form at z.
 evaluate = trace(apply(Jh, (z,)), square, square.derivative_action(), u, h, z)
-value = evaluate(jnp.square, square_jvp, 3.0, 2.0, 4.0)
+tangent = jax.jit(partial(evaluate, jnp.square, square_jvp))
+value = tangent(3.0, 2.0, 4.0)
 assert value == 48.0  # D square(3)[2] * 4
 print(value)
+
+# %% [markdown]
+# ## Emit the tangent as C99
+
+# %%
+scalar = jax.ShapeDtypeStruct((), jnp.float32)
+exported = export.export(tangent)(scalar, scalar, scalar)  # u, h, z
+tangent_c = emit_c(exported, "square_tangent")
