@@ -12,6 +12,7 @@ Each example can be run from the repository root, for example with
    /examples/poisson_emitc
    /examples/poisson_dolfinx
    /examples/runtime_quadrature
+   /examples/external_operator
    /examples/precomputed_geometry
    /examples/mixed_poisson
    /examples/dg_poisson

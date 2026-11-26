@@ -31,6 +31,7 @@ __all__ = [
     "OutputType",
     "apply_external_derivatives",
     "external_operator",
+    "operation",
 ]
 
 
@@ -49,6 +50,50 @@ class AbstractOperation(Base, ABC):
     def derivative_action(self) -> AbstractOperation:
         """Identify the operation taking all point values followed by all directions."""
         raise TypeError(f"no derivative action for {self.identifier}")
+
+
+@final
+class _NamedOperation(AbstractOperation):
+    identifier = "uflx.extensions.NamedOperation"
+    name: str
+    arity: int
+
+    @override
+    def _validate(self) -> None:
+        if not isinstance(self.name, str):
+            raise TypeError("expected a string operation name")
+        if type(self.arity) is not int or self.arity < 0:
+            raise ValueError("arity must be a nonnegative integer")
+
+    @override
+    def output_type(self, operands: tuple[AbstractExpression, ...]) -> OutputType:
+        if len(operands) != self.arity:
+            raise ValueError(f"{self.name} expects {self.arity} operands, got {len(operands)}")
+        return self._output_rule(operands)
+
+    @property
+    def _output_rule(self) -> Callable[[tuple[AbstractExpression, ...]], OutputType]:
+        return vars(self)["_rule"]
+
+    def __reduce__(self):
+        return operation, (self.name, self.arity, self._output_rule)
+
+
+def operation(
+    name: str, arity: int, output_type: Callable[[tuple[AbstractExpression, ...]], OutputType]
+) -> AbstractOperation:
+    """Declare an external operation. Its rule validates operands and returns their result type.
+
+    The name and arity identify the symbolic operation. Reuse the same rule when
+    declaring it again. Bind the numerical implementation separately when tracing.
+    """
+    if not callable(output_type):
+        raise TypeError("expected an output type rule")
+    op = _NamedOperation(name, arity)
+    # Keep Python callables outside the symbolic construction arguments.
+    if vars(op).setdefault("_rule", output_type) is not output_type:
+        raise ValueError(f"{name} with arity {arity} already has a different output type rule")
+    return op
 
 
 @final

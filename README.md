@@ -119,6 +119,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   P1 field at fixed points and at points supplied at runtime.
 - [Runtime quadrature](examples/runtime_quadrature.py) builds a P2 Poisson
   stiffness kernel that can accept runtime quadrature and basis evaluations.
+- [External operator](examples/external_operator.py) binds a symbolic square to
+  its JAX implementation and compares the UFLx directional derivative with JAX AD.
 - [Precomputed geometry](examples/precomputed_geometry.py) extracts geometry
   terms from the Poisson integral, evaluates them at quadrature points and
   assembles a curved triangle's stiffness matrix in one JIT-compiled function.
