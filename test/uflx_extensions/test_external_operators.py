@@ -57,8 +57,8 @@ def test_derivative_action_receives_points_then_directions():
     assert action is external_operator(EnergyTangent(), (a, b, h, k))
     combined = directional_derivative(energy + x, (x, y), (a, b), (h, k))
     assert apply_external_derivatives(combined) is action + h
-    with pytest.raises(TypeError, match="no derivative action"):
-        apply_external_derivatives(directional_derivative(action, a, a, h))
+    second = apply_external_derivatives(directional_derivative(action, a, a, h))
+    assert second.operation is EnergyTangent().derivative_action()
 
 
 def test_operator_inherits_free_indices_from_its_operands():

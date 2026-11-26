@@ -11,26 +11,31 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from functools import cache, cached_property, reduce
 from operator import add
-from typing import NamedTuple, final
+from typing import NamedTuple, final, overload
 
 from typing_extensions import override
 
 from uflx.algorithms import (
+    bottom_up,
     derived_indices,
     expression_operands,
     free_indices,
+    freshen,
     occurs,
     occurs_in_values,
+    substitute_values,
 )
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
-from uflx.forms import form
+from uflx.forms import apply, form, function, partial
 from uflx.nodes import (
     AbstractDomain,
     AbstractExpression,
     AbstractExtent,
     AbstractTopology,
+    Apply,
     Base,
+    DirectionalDerivative,
     Form,
     Function,
     Index,
@@ -51,7 +56,10 @@ __all__ = [
     "apply_external_derivatives",
     "external_adjoint",
     "external_operator",
+    "jvp",
+    "linearize",
     "operation",
+    "vjp",
 ]
 
 
@@ -69,11 +77,46 @@ class AbstractOperation(Base, ABC):
 
     def derivative_action(self) -> AbstractOperation:
         """Identify the operation taking all point values followed by all directions."""
-        raise TypeError(f"no derivative action for {self.identifier}")
+        return _JVPAction(self)
 
     def vjp_action(self, operand: int) -> AbstractOperation:
         """Return the operation taking primal operands and an output cotangent for this operand."""
-        raise TypeError(f"no VJP for operand {operand} of {self.identifier}")
+        return _VJPAction(self, operand)
+
+
+@final
+class _JVPAction(AbstractOperation):
+    identifier = "uflx.extensions.JVPAction"
+    primal: AbstractOperation
+
+    @override
+    def output_type(self, operands: tuple[AbstractExpression, ...]) -> OutputType:
+        n = len(operands) // 2
+        points, directions = operands[:n], operands[n:]
+        result = self.primal.output_type(points)
+        for x, h in zip(points, directions, strict=True):
+            if h.value_shape != x.value_shape or h.domain not in (None, x.domain):
+                raise ValueError("incompatible external tangent direction")
+        return result
+
+
+@final
+class _VJPAction(AbstractOperation):
+    identifier = "uflx.extensions.VJPAction"
+    primal: AbstractOperation
+    operand: int
+
+    @override
+    def output_type(self, operands: tuple[AbstractExpression, ...]) -> OutputType:
+        *points, seed = operands
+        result = self.primal.output_type(tuple(points))
+        if seed.value_shape != result.value_shape:
+            raise ValueError("external VJP seed must match the output shape")
+        if not 0 <= self.operand < len(points):
+            raise ValueError("invalid external VJP operand")
+        x = points[self.operand]
+        domain = result.domain if seed.domain is None else seed.domain
+        return OutputType(x.value_shape, x.scalar_type, domain if x.domain is None else x.domain)
 
 
 @final
@@ -175,11 +218,92 @@ def _tangent(
     return None
 
 
+def linearize(residual: Form, wrt: Function) -> Form:
+    """Return B(h, v) = D R(u; v)[h] without expanding any external derivatives.
+
+    B.arguments gives the perturbation and test slots. Fill either slot with
+    uflx.forms.partial, then call apply_external_derivatives. Filling the test
+    slot requests a VJP; filling the perturbation slot requests a JVP.
+    """
+    if len(residual.arguments) != 1 or not isinstance(residual.arguments[0], Function):
+        raise ValueError("expected a residual with one test function")
+    if residual.expression.argument_spaces != () or residual.value_shape != ():
+        raise ValueError("expected a scalar residual with one test slot")
+    residual = freshen(residual, (wrt,))
+    test = residual.arguments[0]
+    direction = function(wrt.space, ("uflx.extensions.linearize", residual, wrt))
+    derivative = directional_derivative(residual, wrt, direction)
+    # Keep the test value outside the derivative, including when it depends on wrt.
+    return form(apply(derivative, (test,)), (direction, test))
+
+
+def _select_pullback(node: AbstractExpression) -> AbstractExpression:
+    match node:
+        case Form(
+            Apply(
+                DirectionalDerivative(
+                    Form() as residual,
+                    Function() as wrt,
+                    AbstractExpression() as point,
+                    Function() as h,
+                ),
+                (AbstractExpression() as seed,),
+            ),
+            (slot,),
+        ) if slot == h:
+            if occurs(h, seed) or occurs(h, residual) or occurs(h, point):
+                return node
+            adjoint = external_adjoint(residual, wrt, h)
+            if point != wrt:
+                at_point = substitute_values(adjoint, {wrt: point})
+                assert isinstance(at_point, Form)
+                adjoint = at_point
+            return partial(adjoint, {adjoint.arguments[1]: seed})
+        case _:
+            return node
+
+
 def apply_external_derivatives(f: AbstractExpression) -> AbstractExpression:
-    """Apply EO01 together with the core directional derivative rules."""
+    """Expand seeded reverse actions before expanding the remaining forward derivatives.
+
+    A direct full application or an explicitly expanded full Jacobian uses
+    the forward rule. A test-seeded partial form retains its reverse action
+    when enclosed in a subsequent Apply.
+    """
     from uflx.passes import expand_derivatives_with
 
-    return expand_derivatives_with(f, _tangent)
+    return expand_derivatives_with(bottom_up(f, _select_pullback), _tangent)
+
+
+@overload
+def jvp(expression: Form, wrt: Function, direction: AbstractExpression) -> Form: ...
+
+
+@overload
+def jvp(
+    expression: AbstractExpression, wrt: Function, direction: AbstractExpression
+) -> AbstractExpression: ...
+
+
+def jvp(
+    expression: AbstractExpression, wrt: Function, direction: AbstractExpression
+) -> AbstractExpression:
+    """Push direction through expression, preserving the open slots of an explicit form."""
+    if isinstance(expression, Form):
+        residual = freshen(expression, (wrt, direction))
+        if (
+            len(residual.arguments) == 1
+            and isinstance(residual.arguments[0], Function)
+            and residual.value_shape == ()
+            and residual.expression.argument_spaces == ()
+        ):
+            bilinear = freshen(linearize(residual, wrt), (direction,))
+            applied = partial(bilinear, {bilinear.arguments[0]: direction})
+            result = apply_external_derivatives(applied)
+            assert isinstance(result, Form)
+            return result
+        return form(jvp(residual.expression, wrt, direction), residual.arguments)
+    return apply_external_derivatives(directional_derivative(expression, wrt, direction))
 
 
 def _pair(left: AbstractExpression, right: AbstractExpression) -> AbstractExpression:
@@ -241,6 +365,7 @@ def external_adjoint(residual: Form, variable: Function, direction: Function) ->
                             None,
                             operand.domain,
                             node.domain,
+                            cotangent.domain,
                         ):
                             raise ValueError("invalid external cotangent type")
                         if bar.value_shape != operand.value_shape:
@@ -273,3 +398,16 @@ def external_adjoint(residual: Form, variable: Function, direction: Function) ->
 
     body = reverse(residual.expression, num(1))
     return form(body, (direction, test))
+
+
+def vjp(residual: Form, wrt: Function, seed: AbstractExpression) -> Form:
+    """Pull seed through a real one-slot residual, returning a form on wrt's space.
+
+    Apply the result positionally to a perturbation. Its bound slot is generated
+    from the operands so it cannot capture a field in the residual or the seed.
+    """
+    bilinear = freshen(linearize(residual, wrt), (seed,))
+    applied = partial(bilinear, {bilinear.arguments[1]: seed})
+    result = apply_external_derivatives(applied)
+    assert isinstance(result, Form)
+    return result

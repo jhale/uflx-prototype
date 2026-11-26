@@ -23,9 +23,13 @@ from uflx_basix.spaces import local_space, real_scalar_space
 from uflx_extensions.external_operators import (
     AbstractOperation,
     OutputType,
+    apply_external_derivatives,
     external_adjoint,
     external_operator,
+    jvp,
+    linearize,
     operation,
+    vjp,
 )
 from uflx_jax_compiler import trace
 from uflx_jax_compiler.interpreter import Pointwise
@@ -119,3 +123,63 @@ def test_unsupported_external_component_selection_is_explicit():
     residual = form(integral(external_operator(Response(), (u,))[0] * v[0], K), (v,))
     with pytest.raises(TypeError, match="unsupported external adjoint through Indexed"):
         external_adjoint(residual, u, h)
+
+
+def test_public_jvp_vjp_pairing_for_automatically_derived_actions():
+    K = cell(basix.CellType.interval)
+    P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
+    V = local_space(K, P1, shape=(2,))
+    u, v, h, z = (function(V, name) for name in ("u", "v", "h", "z"))
+    law = operation("test.linear_map", 1, vector_type)
+    residual = form(integral(external_operator(law, (u,)) @ v, K), (v,))
+    forward, reverse = jvp(residual, u, h), vjp(residual, u, z)
+    assert forward.arguments == (v,)
+    assert reverse.arguments[0].space == V
+    assert reverse.arguments[0] not in (u, v, h, z)
+
+    rule = basix.make_quadrature(K.cell_type, 2)
+
+    def pairing(linear_form, slot_value, *inputs):
+        body = apply_quadrature(linear_form.expression, *rule)
+        return trace(apply(form(body, linear_form.arguments), (slot_value,)), *inputs)
+
+    A = jnp.array([[2.0, 3.0], [-1.0, 4.0]])
+    values = np.array([1.0, 2.0, 3.0, 4.0])
+    delta = np.array([2.0, 0.0, 0.0, 1.0])
+    seed = np.array([0.0, 1.0, 3.0, 0.0])
+    push = pairing(forward, z, law, law.derivative_action(), u, h, z)
+    pull = pairing(reverse, h, law.vjp_action(0), u, h, z)
+    lhs = push(Pointwise(lambda x: A @ x), Pointwise(lambda x, p: A @ p), values, delta, seed)
+    rhs = pull(Pointwise(lambda x, p: A.T @ p), values, delta, seed)
+    np.testing.assert_allclose(lhs, rhs, atol=1e-6)
+
+
+def test_partial_linearization_dispatches_only_the_requested_external_rule(monkeypatch):
+    V = real_scalar_space()
+    u, v = (function(V, name) for name in ("u", "v"))
+    law = operation("test.mode_selection", 1, vector_type)
+    push, pull = law.derivative_action(), law.vjp_action(0)
+    R = form(external_operator(law, (u,)) * v, (v,))
+
+    def unexpected(*args):
+        pytest.fail("requested the unused derivative rule")
+
+    with monkeypatch.context() as guard:
+        guard.setattr(AbstractOperation, "derivative_action", unexpected)
+        guard.setattr(AbstractOperation, "vjp_action", unexpected)
+        B = linearize(R, u)
+        direction, test = B.arguments
+        # The seed depends on u but is held fixed during differentiation.
+        seeded = partial_form(B, {test: u})
+        pushed = partial_form(B, {direction: u})
+
+    with monkeypatch.context() as guard:
+        guard.setattr(AbstractOperation, "derivative_action", unexpected)
+        scalar = apply_external_derivatives(apply(seeded, (u,)))
+        assert trace(scalar, pull, u)(lambda x, z: 2 * x * z, 3.0) == 54.0
+
+    with monkeypatch.context() as guard:
+        guard.setattr(AbstractOperation, "vjp_action", unexpected)
+        for pairing in (apply(pushed, (u,)), apply(B, (u, u))):
+            scalar = apply_external_derivatives(pairing)
+            assert trace(scalar, law, push, u)(lambda x: x * x, lambda x, h: 2 * x * h, 3.0) == 54.0
