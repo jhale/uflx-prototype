@@ -71,3 +71,4 @@ print(value)
 scalar = jax.ShapeDtypeStruct((), jnp.float32)
 exported = export.export(tangent)(scalar, scalar, scalar)  # u, h, z
 tangent_c = emit_c(exported, "square_tangent")
+print(tangent_c)
