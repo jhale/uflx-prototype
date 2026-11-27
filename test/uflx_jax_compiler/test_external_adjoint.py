@@ -53,7 +53,7 @@ def test_external_adjoint_assembles_transpose_without_a_tangent_rule():
     u, v, z, h = (function(V, label) for label in ("u", "v", "z", "h"))
     law = Response()
     residual = form(integral(external_operator(law, (u,)) @ v, K), (v,))
-    adjoint = vjp(residual, u, z)
+    adjoint = vjp(residual, u, u, z)
     (direction,) = adjoint.arguments
     assert direction.space == h.space
     transpose = form(adjoint.expression, (direction, z))
@@ -93,7 +93,7 @@ def test_chain_rule_sums_vjps_for_repeated_inputs_and_holds_seed_fixed():
     cubic = external_operator(law, (square, u))
     residual = form((cubic + u) * v, (v,))
     # z = u is substituted after differentiation: z * (3*u**2 + 1) * h.
-    adjoint = vjp(residual, u, u)
+    adjoint = vjp(residual, u, u, u)
     evaluate = trace(adjoint, law, law.vjp_operator(), u)
     result = evaluate(multiply, pullback, 2.0, 3.0)
     assert result == 78.0
@@ -107,7 +107,7 @@ def test_jvp_direction_remains_free_when_it_is_also_the_test_function():
     square = operation("test.square_bound_direction", 1, vector_type)
     residual = form(external_operator(square, (u,)) * v, (v,))
 
-    tangent = jvp(residual, u, v)
+    tangent = jvp(residual, u, u, v)
     (test,) = tangent.arguments
     assert test != v
     kernel = trace(tangent, square, square.jvp_operator(), u, v)
@@ -121,7 +121,7 @@ def test_unsupported_external_component_selection_is_explicit():
     u, v, h = (function(V, n) for n in ("u", "v", "h"))
     residual = form(integral(external_operator(Response(), (u,))[0] * v[0], K), (v,))
     with pytest.raises(TypeError, match="unsupported external adjoint through Indexed"):
-        vjp(residual, u, h)
+        vjp(residual, u, u, h)
 
 
 def test_public_jvp_vjp_pairing_for_automatically_derived_actions():
@@ -131,7 +131,7 @@ def test_public_jvp_vjp_pairing_for_automatically_derived_actions():
     u, v, h, z = (function(V, name) for name in ("u", "v", "h", "z"))
     law = operation("test.linear_map", 1, vector_type)
     residual = form(integral(external_operator(law, (u,)) @ v, K), (v,))
-    forward, reverse = jvp(residual, u, h), vjp(residual, u, z)
+    forward, reverse = jvp(residual, u, u, h), vjp(residual, u, u, z)
     assert forward.arguments == (v,)
     assert reverse.arguments[0].space == V
     assert reverse.arguments[0] not in (u, v, h, z)
@@ -193,9 +193,9 @@ def test_scalar_objective_vjp_matches_seeded_residual_and_analytic_gradient():
     density = external_operator(law, (u,))
     J = integral(density, K)
     seed = num(2)
-    direct = vjp(J, u, seed)
-    assert vjp(form(J, ()), u, seed) is direct
-    lifted = vjp(form(integral(density * test, K), (test,)), u, seed)
+    direct = vjp(J, u, u, seed)
+    assert vjp(form(J, ()), u, u, seed) is direct
+    lifted = vjp(form(integral(density * test, K), (test,)), u, u, seed)
     rule = basix.make_quadrature(K.cell_type, 2)
     for derivative in (direct, lifted):
         sampled = apply_quadrature(derivative.expression, *rule)
@@ -209,7 +209,7 @@ def test_scalar_objective_seed_is_held_fixed():
     u = function(real_scalar_space(), "u")
     square = operation("test.square_objective", 1, vector_type)
     J = external_operator(square, (u,))
-    gradient = vjp(J, u, u)
+    gradient = vjp(J, u, u, u)
     evaluate = trace(gradient, square.vjp_operator(), u)
     # At u=3 in direction 2: seed * (2*u) * 2.
     assert evaluate(lambda x, bar: (2 * x * bar,), 3.0, 2.0) == 36.0
@@ -220,8 +220,8 @@ def test_one_pullback_serves_scalar_and_vector_operands():
     x = function(space("vector", None, (2,), scalar_type="real"), "x")
     law = operation("test.scaled_norm", 2, lambda operands: OutputType((), "real", None))
     objective = external_operator(law, (a, x))
-    da = trace(vjp(objective, a, num(1)), law.vjp_operator(), a, x)
-    dx = trace(vjp(objective, x, num(1)), law.vjp_operator(), a, x)
+    da = trace(vjp(objective, a, a, num(1)), law.vjp_operator(), a, x)
+    dx = trace(vjp(objective, x, x, num(1)), law.vjp_operator(), a, x)
 
     def pullback(scale, vector, seed):
         _, back = jax.vjp(lambda s, v: s * (v @ v), scale, vector)
@@ -252,3 +252,20 @@ def test_actions_at_explicit_point_keep_direction_and_seed_fixed():
         evaluate_reverse = trace(reverse, u, square, square.vjp_operator())
         assert evaluate_forward(2.0, jnp.square, lambda x, h: 2 * x * h) == 54.0
         assert evaluate_reverse(2.0, jnp.square, lambda x, z: (2 * x * z,), 1.0) == 54.0
+
+
+def test_residual_vjp_keeps_point_free_when_it_is_also_the_test_function():
+    V = real_scalar_space()
+    u, v = (function(V, name) for name in ("u", "v"))
+    square = operation("test.square_bound_point", 1, vector_type)
+    residual = form(external_operator(square, (u,)) * v, (v,))
+
+    adjoint = vjp(residual, u, point=v, seed=u)
+    kernel = trace(adjoint, square.vjp_operator(), v, u)
+    assert kernel(lambda x, z: (2 * x * z,), 3.0, 5.0, 1.0) == 30.0
+
+    vector = function(space("vector", None, (2,), scalar_type="real"), "x")
+    with pytest.raises(ValueError, match="shape"):
+        vjp(residual, u, point=vector, seed=u)
+    with pytest.raises(ValueError, match="shape"):
+        vjp(residual, u, point=v, seed=vector)

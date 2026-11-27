@@ -27,7 +27,6 @@ from uflx.algorithms import (
 )
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
-from uflx.calculus import linearize as _linearize
 from uflx.forms import form, function, partial
 from uflx.nodes import (
     AbstractDomain,
@@ -251,8 +250,7 @@ def _select_pullback(node: AbstractExpression) -> AbstractExpression:
         ) if slot == h:
             if occurs(h, seed) or occurs(h, residual) or occurs(h, point):
                 return node
-            adjoint = _external_adjoint(freshen(residual, (point,)), wrt, point, h)
-            return partial(adjoint, {adjoint.arguments[1]: seed})
+            return _residual_vjp(freshen(residual, (point,)), wrt, point, h, seed)
         case _:
             return node
 
@@ -270,10 +268,6 @@ def apply_external_derivatives(f: AbstractExpression) -> AbstractExpression:
 
 
 @overload
-def jvp(expression: Form, wrt: Function, direction: AbstractExpression) -> Form: ...
-
-
-@overload
 def jvp(
     expression: Form, wrt: Function, point: AbstractExpression, direction: AbstractExpression
 ) -> Form: ...
@@ -281,12 +275,6 @@ def jvp(
 
 @overload
 def jvp(
-    expression: AbstractExpression, wrt: Function, direction: AbstractExpression
-) -> AbstractExpression: ...
-
-
-@overload
-def jvp(
     expression: AbstractExpression,
     wrt: Function,
     point: AbstractExpression,
@@ -297,24 +285,13 @@ def jvp(
 def jvp(
     expression: AbstractExpression,
     wrt: Function,
-    *values: AbstractExpression,
-    **keywords: AbstractExpression,
-) -> AbstractExpression:
-    """Push a direction through expression at wrt or at an explicit evaluation point."""
-    if len(values) + len(keywords) == 1 and "point" not in keywords:
-        values = (wrt, *values)
-    return _jvp_at(expression, wrt, *values, **keywords)
-
-
-def _jvp_at(
-    expression: AbstractExpression,
-    wrt: Function,
     point: AbstractExpression,
     direction: AbstractExpression,
 ) -> AbstractExpression:
+    """Push direction through expression at point, preserving its open form slots."""
     if isinstance(expression, Form):
         residual = freshen(expression, (wrt, point, direction))
-        return form(_jvp_at(residual.expression, wrt, point, direction), residual.arguments)
+        return form(jvp(residual.expression, wrt, point, direction), residual.arguments)
     return apply_external_derivatives(directional_derivative(expression, wrt, point, direction))
 
 
@@ -327,18 +304,14 @@ def _pair(left: AbstractExpression, right: AbstractExpression) -> AbstractExpres
     return index_sum(indexed(left, axes) * indexed(right, axes), axes)
 
 
-def _external_adjoint(
-    residual: Form, variable: Function, point: AbstractExpression, direction: Function
+def _residual_vjp(
+    residual: Form,
+    variable: Function,
+    point: AbstractExpression,
+    direction: Function,
+    seed: AbstractExpression,
 ) -> Form:
-    """Build a real transpose Jacobian at fixed geometry using external VJPs.
-
-    Slots are (direction, residual test), so partial application to the test
-    slot gives the adjoint action. Both slots remain symbolic during the
-    differentiation, even if a later argument depends on the variable. The reverse
-    traversal supports integrals, sums, scalar products, full tensor inner
-    products and pointwise external calls. Core-only branches use ordinary UFLx
-    differentiation. Each active external operand requests its own VJP action.
-    """
+    """Differentiate with the test slot open, then supply its value."""
     if len(residual.arguments) != 1 or not isinstance(residual.arguments[0], Function):
         raise ValueError("expected a residual with one test function")
     test = residual.arguments[0]
@@ -356,7 +329,10 @@ def _external_adjoint(
         raise ValueError("direction already occurs in the residual")
 
     body = _pullback(residual.expression, variable, point, direction, num(1))
-    return form(body, (direction, test))
+    adjoint = form(body, (direction, test))
+    result = partial(adjoint, {test: seed})
+    assert isinstance(result, Form)
+    return result
 
 
 def _pullback(
@@ -426,44 +402,19 @@ def _pullback(
     return reverse(expression, seed)
 
 
-@overload
-def vjp(residual: AbstractExpression, wrt: Function, seed: AbstractExpression) -> Form: ...
-
-
-@overload
 def vjp(
     residual: AbstractExpression, wrt: Function, point: AbstractExpression, seed: AbstractExpression
-) -> Form: ...
-
-
-def vjp(
-    residual: AbstractExpression,
-    wrt: Function,
-    *values: AbstractExpression,
-    **keywords: AbstractExpression,
 ) -> Form:
-    """Pull a seed through a real scalar objective or a real one-slot residual.
+    """Pull a fixed seed through a real scalar objective or one-slot residual at point.
 
-    For a scalar objective J, vjp(J, u, num(1)) returns its first variation
-    as a linear form on u's space. For a residual, supply the test-slot value.
-    Pass (point, seed) to evaluate at an explicit point. The seed stays fixed.
+    For a scalar objective J, vjp(J, u, point, num(1)) gives its first variation
+    at point as a linear form on u's space. For a residual, seed supplies the test-slot value.
     """
-    if len(values) + len(keywords) == 1 and "point" not in keywords:
-        values = (wrt, *values)
-    return _vjp_at(residual, wrt, *values, **keywords)
-
-
-def _vjp_at(
-    residual: AbstractExpression, wrt: Function, point: AbstractExpression, seed: AbstractExpression
-) -> Form:
     if isinstance(residual, Form) and residual.argument_spaces != ():
-        bilinear = freshen(_linearize(residual, wrt), (point, seed))
-        if point != wrt:
-            at_point = substitute_values(bilinear, {wrt: point})
-            assert isinstance(at_point, Form)
-            bilinear = at_point
-        applied = partial(bilinear, {bilinear.arguments[1]: seed})
-        result = apply_external_derivatives(applied)
+        residual = freshen(residual, (wrt, point, seed))
+        direction = function(wrt.space, ("uflx.extensions.vjp", residual, wrt, point, seed))
+        adjoint = _residual_vjp(residual, wrt, point, direction, seed)
+        result = apply_external_derivatives(adjoint)
         assert isinstance(result, Form)
         return result
 
