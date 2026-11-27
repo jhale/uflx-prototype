@@ -91,3 +91,24 @@ def test_space_from_native_elements(monkeypatch):
     assert vector.value_shape == edge.value_shape == (2,)
     assert vector.reference_space.num_dofs == 6
     assert edge.reference_space.num_dofs == 3
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_poisson_action_with_live_coefficient_gradient(dtype):
+    square = mesh.create_unit_square(MPI.COMM_SELF, 2, 2, dtype=dtype)
+    V = fem.functionspace(square, ("Lagrange", 1))
+    kappa = uflx_dolfinx.Function(V, name="kappa")
+    v = function(V, "v")
+    L = integral(gradient(kappa, v.domain) @ gradient(v, v.domain), v.domain)
+    rule = basix.make_quadrature(square.basix_cell(), degree=1)
+    with jax.enable_x64(dtype == np.float64):
+        load = uflx_dolfinx.form(form(apply_quadrature(lower(L), *rule), (v,)))
+    native = fem.form(
+        ufl.inner(ufl.grad(kappa.data), ufl.grad(ufl.TestFunction(V))) * ufl.dx, dtype=dtype
+    )
+    for scale in (1, -2):
+        kappa.interpolate(lambda x: scale * (x[0] + x[0] * x[1]))
+        expected = fem.assemble_vector(native).array
+        assert np.linalg.norm(expected) > 0
+        tol = 20 * np.finfo(dtype).eps
+        np.testing.assert_allclose(fem.assemble_vector(load).array, expected, rtol=tol, atol=tol)
