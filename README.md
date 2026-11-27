@@ -125,13 +125,13 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   geometry terms from the Poisson integral, evaluates them at quadrature points
   and separately assembles a curved triangle's stiffness matrix in one
   JIT-compiled function.
-- [External operator](examples/external_operator.py) uses a user-defined square
-  in a residual. UFLx differentiates the residual, JAX supplies the square’s
-  JVP and VJP, and the example emits the tangent kernel as C99.
 - [Poisson to C pipeline](examples/poisson_emitc.py) JAX's StableHLO is lowered
   to MLIR dialects, which is then lowered to C99 using EmitC. Requires
   `mlir-opt` and `mlir-translate` from LLVM 23 or newer, plus `clang-format` on
   `PATH`.
+- [External operator](examples/external_operator.py) uses a user-defined square
+  in a residual. UFLx differentiates the residual, JAX supplies the square’s
+  JVP and VJP, and the example emits the tangent kernel as C99.
 - [Poisson with DOLFINx](examples/poisson_dolfinx.py) compiles the emitted C99
   stiffness and load kernels with CFFI and assembles them with DOLFINx.
 
