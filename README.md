@@ -110,8 +110,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 - [PDE-constrained optimisation](examples/pde_constrained.py) differentiates a
   reaction–diffusion Lagrangian to build tangent, adjoint and Hessian forms.
 - [Durán–Liberman shear reduction](examples/duran_liberman.py) interpolates the
-  rotation from vector-valued $H^1$ to $H(curl)$ to compute the reduced
-  Reissner–Mindlin shear energy.
+  rotation from vector-valued $H^1$ to $H(curl)$ to assemble the mixed
+  Reissner–Mindlin shear stiffness matrix on a triangle.
 
 ### Compiler focused
 
