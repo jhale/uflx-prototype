@@ -69,13 +69,13 @@ def test_external_adjoint_assembles_transpose_without_a_tangent_rule():
         return (jnp.array([x[1] * seed[0] + seed[1], x[0] * seed[0] + 2 * seed[1]]),)
 
     R = compile(residual, law, response, u)
-    JT = compile(adjoint, law.vjp_action(), response_vjp, u, z)
+    JT = compile(adjoint, law.vjp_operator(), response_vjp, u, z)
     values = np.array([1.0, 2.0, 3.0, 4.0])
     seed = np.array([2.0, -1.0, 1.0, 3.0])
     jac = jax.jacfwd(R)(values)
     assert not np.allclose(jac @ seed, jac.T @ seed)
     np.testing.assert_allclose(JT(values, seed), jac.T @ seed, rtol=1e-6)
-    np.testing.assert_allclose(compile(transpose, law.vjp_action(), response_vjp, u)(values), jac.T)
+    np.testing.assert_allclose(compile(transpose, law.vjp_operator(), response_vjp, u)(values), jac.T)
 
 
 def test_chain_rule_sums_vjps_for_repeated_inputs_and_holds_seed_fixed():
@@ -93,11 +93,11 @@ def test_chain_rule_sums_vjps_for_repeated_inputs_and_holds_seed_fixed():
     residual = form((cubic + u) * v, (v,))
     # z = u is substituted after differentiation: z * (3*u**2 + 1) * h.
     adjoint = vjp(residual, u, u)
-    evaluate = trace(adjoint, law, law.vjp_action(), u)
+    evaluate = trace(adjoint, law, law.vjp_operator(), u)
     result = evaluate(multiply, pullback, 2.0, 3.0)
     assert result == 78.0
     both = apply(adjoint, (h,))
-    assert trace(both, law, law.vjp_action(), u, h)(multiply, pullback, 2.0, 3.0) == result
+    assert trace(both, law, law.vjp_operator(), u, h)(multiply, pullback, 2.0, 3.0) == result
 
 
 def test_unsupported_external_component_selection_is_explicit():
@@ -132,8 +132,8 @@ def test_public_jvp_vjp_pairing_for_automatically_derived_actions():
     values = np.array([1.0, 2.0, 3.0, 4.0])
     delta = np.array([2.0, 0.0, 0.0, 1.0])
     seed = np.array([0.0, 1.0, 3.0, 0.0])
-    push = pairing(forward, z, law, law.derivative_action(), u, h, z)
-    pull = pairing(reverse, h, law.vjp_action(), u, h, z)
+    push = pairing(forward, z, law, law.jvp_operator(), u, h, z)
+    pull = pairing(reverse, h, law.vjp_operator(), u, h, z)
     lhs = push(Pointwise(lambda x: A @ x), Pointwise(lambda x, p: A @ p), values, delta, seed)
     rhs = pull(Pointwise(lambda x, p: (A.T @ p,)), values, delta, seed)
     np.testing.assert_allclose(lhs, rhs, atol=1e-6)
@@ -143,15 +143,15 @@ def test_partial_linearization_dispatches_only_the_requested_external_rule(monke
     V = real_scalar_space()
     u, v = (function(V, name) for name in ("u", "v"))
     law = operation("test.mode_selection", 1, vector_type)
-    push, pull = law.derivative_action(), law.vjp_action()
+    push, pull = law.jvp_operator(), law.vjp_operator()
     R = form(external_operator(law, (u,)) * v, (v,))
 
     def unexpected(*args):
         pytest.fail("requested the unused derivative rule")
 
     with monkeypatch.context() as guard:
-        guard.setattr(AbstractOperation, "derivative_action", unexpected)
-        guard.setattr(AbstractOperation, "vjp_action", unexpected)
+        guard.setattr(AbstractOperation, "jvp_operator", unexpected)
+        guard.setattr(AbstractOperation, "vjp_operator", unexpected)
         B = linearize(R, u)
         direction, test = B.arguments
         # The seed depends on u but is held fixed during differentiation.
@@ -159,12 +159,12 @@ def test_partial_linearization_dispatches_only_the_requested_external_rule(monke
         pushed = partial_form(B, {direction: u})
 
     with monkeypatch.context() as guard:
-        guard.setattr(AbstractOperation, "derivative_action", unexpected)
+        guard.setattr(AbstractOperation, "jvp_operator", unexpected)
         scalar = apply_external_derivatives(apply(seeded, (u,)))
         assert trace(scalar, pull, u)(lambda x, z: (2 * x * z,), 3.0) == 54.0
 
     with monkeypatch.context() as guard:
-        guard.setattr(AbstractOperation, "vjp_action", unexpected)
+        guard.setattr(AbstractOperation, "vjp_operator", unexpected)
         for pairing in (apply(pushed, (u,)), apply(B, (u, u))):
             scalar = apply_external_derivatives(pairing)
             assert trace(scalar, law, push, u)(lambda x: x * x, lambda x, h: 2 * x * h, 3.0) == 54.0
@@ -185,7 +185,7 @@ def test_scalar_objective_vjp_matches_seeded_residual_and_analytic_gradient():
     rule = basix.make_quadrature(K.cell_type, 2)
     for derivative in (direct, lifted):
         sampled = apply_quadrature(derivative.expression, *rule)
-        kernel = trace(form(sampled, derivative.arguments), law.vjp_action(), u)
+        kernel = trace(form(sampled, derivative.arguments), law.vjp_operator(), u)
         # J = integral(u²/2), u has nodal values [1, 4]. The gradient is M u.
         values = kernel(Pointwise(lambda x, bar: (x * bar,)), np.array([1.0, 4.0]))
         np.testing.assert_allclose(values, [2.0, 3.0], rtol=1e-6)
@@ -196,7 +196,7 @@ def test_scalar_objective_seed_is_held_fixed():
     square = operation("test.square_objective", 1, vector_type)
     J = external_operator(square, (u,))
     gradient = vjp(J, u, u)
-    evaluate = trace(gradient, square.vjp_action(), u)
+    evaluate = trace(gradient, square.vjp_operator(), u)
     # At u=3 in direction 2: seed * (2*u) * 2.
     assert evaluate(lambda x, bar: (2 * x * bar,), 3.0, 2.0) == 36.0
 
@@ -206,8 +206,8 @@ def test_one_pullback_serves_scalar_and_vector_operands():
     x = function(space("vector", None, (2,), scalar_type="real"), "x")
     law = operation("test.scaled_norm", 2, lambda operands: OutputType((), "real", None))
     objective = external_operator(law, (a, x))
-    da = trace(vjp(objective, a, num(1)), law.vjp_action(), a, x)
-    dx = trace(vjp(objective, x, num(1)), law.vjp_action(), a, x)
+    da = trace(vjp(objective, a, num(1)), law.vjp_operator(), a, x)
+    dx = trace(vjp(objective, x, num(1)), law.vjp_operator(), a, x)
 
     def pullback(scale, vector, seed):
         _, back = jax.vjp(lambda s, v: s * (v @ v), scale, vector)

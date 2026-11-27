@@ -71,7 +71,7 @@ def external_call(operation, library):
             Partial(sample_direction, v, dv) if isinstance(v, Partial) else dv
             for v, dv in zip(primals, changes, strict=True)
         )
-        action = operation.derivative_action()
+        action = operation.jvp_operator()
         if action not in library:
             raise TypeError(f"missing evaluation for derivative action {action.identifier}")
         return value, external_call(action, library)(*primals, *directions)
@@ -121,7 +121,7 @@ class SampleProduct(AbstractOperation):
             raise ValueError("expected a field and a scale for each primal and direction")
         return OutputType((), "real", None)
 
-    def derivative_action(self):
+    def jvp_operator(self):
         return SampleProduct(self.order + 1)
 
 

@@ -46,7 +46,6 @@ from uflx.nodes import (
     Product,
     Sum,
 )
-from uflx.passes import apply_derivatives
 from uflx.tensors import index_sum, indexed
 from uflx.typing import ExpressionScalarType
 
@@ -76,11 +75,11 @@ class AbstractOperation(Base, ABC):
         """Validate the operand signature and describe the result, or raise ValueError."""
         ...
 
-    def derivative_action(self) -> AbstractOperation:
+    def jvp_operator(self) -> AbstractOperation:
         """Identify the operation taking all point values followed by all directions."""
         return _JVPAction(self)
 
-    def vjp_action(self) -> Pullback:
+    def vjp_operator(self) -> Pullback:
         """Identify the pullback returning one cotangent per primal operand, in order."""
         return Pullback(self)
 
@@ -228,7 +227,7 @@ def _tangent(
     if isinstance(expression, ExternalOperator):
         points = tuple(map(at, expression.operands))
         directions = tuple(map(derivative, expression.operands))
-        return external_operator(expression.operation.derivative_action(), points + directions)
+        return external_operator(expression.operation.jvp_operator(), points + directions)
     return None
 
 
@@ -351,6 +350,7 @@ def _pullback(
     seed: AbstractExpression,
 ) -> AbstractExpression:
     """Pair the fixed seed with the variation, using VJPs at active external calls."""
+    from uflx.passes import apply_derivatives
 
     @cache
     def active_external(node: AbstractExpression) -> bool:
@@ -372,7 +372,7 @@ def _pullback(
                         if operand.scalar_type != "real" or node.scalar_type != "real":
                             raise ValueError("external VJP requires real operands and results")
                         bar = external_operator(
-                            law.vjp_action().component(i), (*operands, cotangent)
+                            law.vjp_operator().component(i), (*operands, cotangent)
                         )
                         if bar.scalar_type != "real" or bar.domain not in (
                             None,

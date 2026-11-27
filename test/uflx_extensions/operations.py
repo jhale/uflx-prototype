@@ -16,7 +16,7 @@ class Energy(AbstractOperation):
             raise ValueError("expected two operands")
         return OutputType((), "real", None)
 
-    def derivative_action(self):
+    def jvp_operator(self):
         return EnergyTangent()
 
 

@@ -44,8 +44,8 @@ R = form(square_u * v, (v,))
 Jh = jvp(R, u, h)  # Supply a perturbation; the test slot stays open.
 JTz = vjp(R, u, z)  # Supply a test value; the perturbation slot stays open.
 
-pushforward = square.derivative_action()
-pullback = square.vjp_action()
+pushforward = square.jvp_operator()
+pullback = square.vjp_operator()
 
 # %% [markdown]
 # ## Bind both derivative actions to the same numerical square

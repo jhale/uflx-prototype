@@ -48,7 +48,7 @@ def test_operation_signature():
         operation("square", 1, norm_type)
 
 
-def test_derivative_action_receives_points_then_directions():
+def test_jvp_operator_receives_points_then_directions():
     V = space("R", None, scalar_type="real")
     x, y, a, b, h, k = (function(V, name) for name in "xyabhk")
     energy = external_operator(Energy(), (x, y))
@@ -58,7 +58,7 @@ def test_derivative_action_receives_points_then_directions():
     combined = directional_derivative(energy + x, (x, y), (a, b), (h, k))
     assert apply_external_derivatives(combined) is action + h
     second = apply_external_derivatives(directional_derivative(action, a, a, h))
-    assert second.operation is EnergyTangent().derivative_action()
+    assert second.operation is EnergyTangent().jvp_operator()
 
 
 def test_operator_inherits_free_indices_from_its_operands():
