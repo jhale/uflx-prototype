@@ -269,3 +269,36 @@ def test_residual_vjp_keeps_point_free_when_it_is_also_the_test_function():
         vjp(residual, u, point=vector, seed=u)
     with pytest.raises(ValueError, match="shape"):
         vjp(residual, u, point=v, seed=vector)
+
+
+def test_field_jvp_at_constant_point():
+    K = cell(basix.CellType.interval)
+    p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
+    V = local_space(K, p1)
+    u, h = (function(V, label) for label in ("u", "h"))
+    square = operation("test.square_constant_point", 1, vector_type)
+    tangent = jvp(external_operator(square, (u,)), u, num(2), h)
+    assert tangent.domain == K
+    evaluate = trace(tangent, square.jvp_operator(), h, K)
+    assert evaluate(Pointwise(lambda x, dx: 2 * x * dx), np.array([1.0, 5.0]), [0.25]) == 8
+
+    # A whole-field reduction still returns a domain-independent scalar.
+    reduction = operation("test.field_reduction", 1, lambda xs: output_type((), "real", None))
+    assert jvp(external_operator(reduction, (u,)), u, num(2), h).domain is None
+
+
+@pytest.mark.parametrize("shape", [(2,), (2, 3)])
+def test_tensor_expression_vjp_pairs_all_components(shape):
+    V = space("array", None, shape, scalar_type="real")
+    u, p = (function(V, name) for name in ("u", "p"))
+    square = operation("test.tensor_square", 1, vector_type)
+    expr = external_operator(square, (u,))
+    adjoint = vjp(expr, u, p, u)
+    evaluate = trace(adjoint, square.vjp_operator(), u, p)
+    point = np.arange(np.prod(shape)).reshape(shape) + 1.0
+    seed = point + 2.0
+    direction = point - 3.0
+    result = evaluate(lambda x, z: (2 * x * z,), seed, point, direction)
+    np.testing.assert_allclose(result, np.sum(seed * 2 * point * direction))
+    with pytest.raises(ValueError, match="shape"):
+        vjp(expr, u, p, num(1))

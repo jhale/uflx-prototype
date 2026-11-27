@@ -102,11 +102,15 @@ class _JVPAction(AbstractOperation):
     def output_type(self, operands: tuple[AbstractExpression, ...]) -> OutputType:
         n = len(operands) // 2
         points, directions = operands[:n], operands[n:]
-        result = self.primal.output_type(points)
+        typed_points = []
         for x, h in zip(points, directions, strict=True):
-            if h.value_shape != x.value_shape or h.domain not in (None, x.domain):
+            if h.value_shape != x.value_shape or (
+                x.domain is not None and h.domain not in (None, x.domain)
+            ):
                 raise ValueError("incompatible external tangent direction")
-        return result
+            # A constant point can stand for a field on the direction's domain.
+            typed_points.append(h if x.domain is None and h.domain is not None else x)
+        return self.primal.output_type(tuple(typed_points))
 
 
 @final
@@ -415,10 +419,10 @@ def _pullback(
 def vjp(
     residual: AbstractExpression, wrt: Function, point: AbstractExpression, seed: AbstractExpression
 ) -> Form:
-    """Pull a fixed seed through a real scalar objective or one-slot residual at point.
+    """Pull a fixed seed through a real expression or one-slot residual at point.
 
-    For a scalar objective J, vjp(J, u, point, num(1)) gives its first variation
-    at point as a linear form on u's space. For a residual, seed supplies the test-slot value.
+    For an expression F, the resulting form pairs seed with DF(point)[h] over
+    all output components. For a residual, seed supplies the test-slot value.
     """
     if isinstance(residual, Form) and residual.argument_spaces != ():
         residual = freshen(residual, (wrt, point, seed))
@@ -429,14 +433,16 @@ def vjp(
         return result
 
     objective = residual.expression if isinstance(residual, Form) else residual
-    if (objective.value_shape, objective.free_indices, objective.argument_spaces) != ((), (), ()):
-        raise ValueError("expected a scalar objective without free indices or argument slots")
+    if objective.free_indices or objective.argument_spaces:
+        raise ValueError("expected an expression without free indices or argument slots")
     if (
-        seed.value_shape != ()
+        seed.value_shape != objective.value_shape
         or seed.argument_spaces != ()
         or seed.domain not in (None, objective.domain)
     ):
-        raise ValueError("expected a scalar seed compatible with the objective domain")
+        raise ValueError(
+            "expected a seed matching the expression shape and compatible with its domain"
+        )
     if any(x.scalar_type != "real" for x in (objective, wrt, seed)):
         raise ValueError("external adjoint action requires real values")
     direction = function(wrt.space, ("uflx.extensions.vjp", objective, wrt, point, seed))
