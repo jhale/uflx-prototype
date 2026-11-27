@@ -240,18 +240,18 @@ Out-of-scope:
 
 ## Statistics
 
-Measured on 25 November 2026 at commit `e3d5d8b6de` using Radon 6.0.1 on the
+Measured on 27 November 2026 at commit `a74235cf5f` using Radon 6.0.1 on the
 four Python packages under `src/`.
 
 ### Lines of code
 
 | Package | Source lines |
 |---|---:|
-| uflx | 4,904 |
-| uflx_basix | 621 |
-| uflx_extensions | 182 |
-| uflx_jax_compiler | 1,906 |
-| Total | 7,613 |
+| uflx | 4,936 |
+| uflx_basix | 624 |
+| uflx_extensions | 449 |
+| uflx_jax_compiler | 1,930 |
+| Total | 7,939 |
 
 ### Complexity
 
@@ -267,16 +267,16 @@ unfairly scores its cyclomatic complexity.
 
 | Radon score | uflx | uflx_basix | uflx_extensions | uflx_jax_compiler | Total | Distribution |
 |---|---:|---:|---:|---:|---:|:---|
-| 1 | 315 | 15 | 19 | 36 | 385 | <img src="docs/complexity-bar.svg" width="193" height="10" alt=""> |
-| 2 | 72 | 13 | 4 | 30 | 119 | <img src="docs/complexity-bar.svg" width="60" height="10" alt=""> |
-| 3 | 43 | 3 | 1 | 13 | 60 | <img src="docs/complexity-bar.svg" width="30" height="10" alt=""> |
-| 4 | 26 | 3 | 0 | 8 | 37 | <img src="docs/complexity-bar.svg" width="19" height="10" alt=""> |
-| 5 | 18 | 3 | 1 | 10 | 32 | <img src="docs/complexity-bar.svg" width="16" height="10" alt=""> |
-| 6–10 | 38 | 9 | 1 | 24 | 72 | <img src="docs/complexity-bar.svg" width="36" height="10" alt=""> |
-| 11–20 | 17 | 2 | 0 | 12 | 31 | <img src="docs/complexity-bar.svg" width="16" height="10" alt=""> |
+| 1 | 316 | 14 | 25 | 23 | 378 | <img src="docs/complexity-bar.svg" width="189" height="10" alt=""> |
+| 2 | 72 | 13 | 7 | 26 | 118 | <img src="docs/complexity-bar.svg" width="59" height="10" alt=""> |
+| 3 | 43 | 3 | 4 | 12 | 62 | <img src="docs/complexity-bar.svg" width="31" height="10" alt=""> |
+| 4 | 26 | 4 | 1 | 9 | 40 | <img src="docs/complexity-bar.svg" width="20" height="10" alt=""> |
+| 5 | 19 | 2 | 2 | 10 | 33 | <img src="docs/complexity-bar.svg" width="17" height="10" alt=""> |
+| 6–10 | 38 | 9 | 3 | 26 | 76 | <img src="docs/complexity-bar.svg" width="38" height="10" alt=""> |
+| 11–20 | 17 | 2 | 3 | 13 | 35 | <img src="docs/complexity-bar.svg" width="18" height="10" alt=""> |
 | 21–40 | 2 | 1 | 0 | 4 | 7 | <img src="docs/complexity-bar.svg" width="4" height="10" alt=""> |
 | 41+ | 0 | 0 | 0 | 1 | 1 | <img src="docs/complexity-bar.svg" width="1" height="10" alt=""> |
-| Total | 531 | 49 | 26 | 138 | 744 |  |
+| Total | 533 | 48 | 45 | 124 | 750 |  |
 
 ## LLM statement
 
