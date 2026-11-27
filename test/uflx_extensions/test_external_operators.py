@@ -12,10 +12,10 @@ from uflx.forms import function
 from uflx.geometry import euclidean_space
 from uflx.tensors import index, tensor
 from uflx_extensions.external_operators import (
-    OutputType,
     apply_external_derivatives,
     external_operator,
     operation,
+    output_type,
 )
 
 from ..uflx.spaces import space
@@ -25,13 +25,13 @@ from .operations import Energy, EnergyTangent
 def test_operation_signature():
     def preserve(operands):
         (x,) = operands
-        return OutputType(x.value_shape, x.scalar_type, x.domain)
+        return output_type(x.value_shape, x.scalar_type, x.domain)
 
     def norm_type(operands):
         (x,) = operands
         if len(x.value_shape) != 1:
             raise ValueError("expected a vector")
-        return OutputType((), "real", x.domain)
+        return output_type((), "real", x.domain)
 
     law = operation("square", 1, preserve)
     assert law is operation("square", arity=1, output_type=preserve)
@@ -52,7 +52,7 @@ def test_pullback_index_selects_operand_type_and_validates_seed():
     domain = euclidean_space(2)
     x = coordinate(domain)
     scale = num(2)
-    law = operation("scaled_norm", 2, lambda operands: OutputType((), "real", domain))
+    law = operation("scaled_norm", 2, lambda operands: output_type((), "real", domain))
     pullback = law.vjp_operator()
     operands = (scale, x, num(1))
     assert external_operator(pullback[0], operands).output_type == ((), "real", domain)

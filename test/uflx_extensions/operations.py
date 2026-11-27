@@ -5,7 +5,7 @@
 # SPDX-License-Identifier:    MIT
 """Example operations used by the extension and JAX backend tests."""
 
-from uflx_extensions.external_operators import AbstractOperation, OutputType
+from uflx_extensions.external_operators import AbstractOperation, output_type
 
 
 class Energy(AbstractOperation):
@@ -14,7 +14,7 @@ class Energy(AbstractOperation):
     def output_type(self, operands):
         if len(operands) != 2:
             raise ValueError("expected two operands")
-        return OutputType((), "real", None)
+        return output_type((), "real", None)
 
     def jvp_operator(self):
         return EnergyTangent()
@@ -26,4 +26,4 @@ class EnergyTangent(AbstractOperation):
     def output_type(self, operands):
         if len(operands) != 4:
             raise ValueError("expected two points and two directions")
-        return OutputType((), "real", None)
+        return output_type((), "real", None)

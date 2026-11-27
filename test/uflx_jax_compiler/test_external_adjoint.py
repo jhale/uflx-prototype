@@ -23,11 +23,11 @@ from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space, real_scalar_space
 from uflx_extensions.external_operators import (
     AbstractOperation,
-    OutputType,
     apply_external_derivatives,
     external_operator,
     jvp,
     operation,
+    output_type,
     vjp,
 )
 from uflx_jax_compiler import trace
@@ -38,7 +38,7 @@ from ..uflx.spaces import space
 
 def vector_type(operands):
     x = operands[0]
-    return OutputType(x.value_shape, x.scalar_type, x.domain)
+    return output_type(x.value_shape, x.scalar_type, x.domain)
 
 
 class Response(AbstractOperation):
@@ -218,7 +218,7 @@ def test_scalar_objective_seed_is_held_fixed():
 def test_one_pullback_serves_scalar_and_vector_operands():
     a = function(real_scalar_space(), "a")
     x = function(space("vector", None, (2,), scalar_type="real"), "x")
-    law = operation("test.scaled_norm", 2, lambda operands: OutputType((), "real", None))
+    law = operation("test.scaled_norm", 2, lambda operands: output_type((), "real", None))
     objective = external_operator(law, (a, x))
     da = trace(vjp(objective, a, a, num(1)), law.vjp_operator(), a, x)
     dx = trace(vjp(objective, x, x, num(1)), law.vjp_operator(), a, x)

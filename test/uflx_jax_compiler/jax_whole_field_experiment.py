@@ -26,9 +26,9 @@ from uflx.passes import expand_applications
 from uflx_extensions.external_operators import (
     AbstractOperation,
     ExternalOperator,
-    OutputType,
     apply_external_derivatives,
     external_operator,
+    output_type,
 )
 
 from ..uflx.spaces import space
@@ -121,7 +121,7 @@ class SampleProduct(AbstractOperation):
     def output_type(self, operands):
         if len(operands) != 2 ** (self.order + 1):
             raise ValueError("expected a field and a scale for each primal and direction")
-        return OutputType((), "real", None)
+        return output_type((), "real", None)
 
     def jvp_operator(self):
         return SampleProduct(self.order + 1)

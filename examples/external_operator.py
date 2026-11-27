@@ -21,10 +21,10 @@ from jax import export
 from uflx.forms import apply, form, function
 from uflx_basix.spaces import real_scalar_space
 from uflx_extensions.external_operators import (
-    OutputType,
     external_operator,
     jvp,
     operation,
+    output_type,
     vjp,
 )
 from uflx_jax_compiler import emit_c, trace
@@ -32,7 +32,7 @@ from uflx_jax_compiler import emit_c, trace
 
 def square_type(operands):
     (x,) = operands
-    return OutputType(x.value_shape, x.scalar_type, x.domain)
+    return output_type(x.value_shape, x.scalar_type, x.domain)
 
 
 square = operation("example.square", 1, square_type)

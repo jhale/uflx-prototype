@@ -58,6 +58,7 @@ __all__ = [
     "external_operator",
     "jvp",
     "operation",
+    "output_type",
     "vjp",
 ]
 
@@ -66,6 +67,15 @@ class OutputType(NamedTuple):
     value_shape: tuple[int | AbstractExtent, ...]
     scalar_type: ExpressionScalarType
     domain: AbstractDomain | AbstractTopology | None
+
+
+def output_type(
+    value_shape: tuple[int | AbstractExtent, ...],
+    scalar_type: ExpressionScalarType,
+    domain: AbstractDomain | AbstractTopology | None,
+) -> OutputType:
+    """Describe the value returned by an external operation."""
+    return OutputType(value_shape, scalar_type, domain)
 
 
 class AbstractOperation(Base, ABC):
@@ -132,7 +142,7 @@ class PullbackComponent(AbstractOperation):
             raise ValueError("invalid external VJP operand")
         x = points[self.operand]
         domain = result.domain if seed.domain is None else seed.domain
-        return OutputType(x.value_shape, x.scalar_type, domain if x.domain is None else x.domain)
+        return output_type(x.value_shape, x.scalar_type, domain if x.domain is None else x.domain)
 
 
 @final

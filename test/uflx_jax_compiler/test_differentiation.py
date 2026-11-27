@@ -18,7 +18,7 @@ from uflx.calculus import coordinate, directional_derivative, gradient
 from uflx.forms import function
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import determinant, tensor
-from uflx_extensions.external_operators import AbstractOperation, OutputType, external_operator
+from uflx_extensions.external_operators import AbstractOperation, external_operator, output_type
 from uflx_jax_compiler.interpreter import Pointwise
 
 from ..uflx.spaces import space as field_space
@@ -62,7 +62,7 @@ class Sine(AbstractOperation):
     identifier = "test.oracle.Sine"
 
     def output_type(self, operands):
-        return OutputType((), "real", operands[0].domain)
+        return output_type((), "real", operands[0].domain)
 
 
 def test_spatial_and_field_derivatives_of_pointwise_external():
