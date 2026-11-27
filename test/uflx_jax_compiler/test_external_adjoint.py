@@ -100,6 +100,19 @@ def test_chain_rule_sums_vjps_for_repeated_inputs_and_holds_seed_fixed():
     assert trace(both, law, law.vjp_operator(), u, h)(multiply, pullback, 2.0, 3.0) == result
 
 
+def test_jvp_direction_remains_free_when_it_is_also_the_test_function():
+    V = real_scalar_space()
+    u, v = (function(V, name) for name in ("u", "v"))
+    square = operation("test.square_bound_direction", 1, vector_type)
+    residual = form(external_operator(square, (u,)) * v, (v,))
+
+    tangent = jvp(residual, u, v)
+    (test,) = tangent.arguments
+    assert test != v
+    kernel = trace(tangent, square, square.jvp_operator(), u, v)
+    assert kernel(lambda x: x * x, lambda x, h: 2 * x * h, 2.0, 3.0, 5.0) == 60.0
+
+
 def test_unsupported_external_component_selection_is_explicit():
     K = cell(basix.CellType.interval)
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)

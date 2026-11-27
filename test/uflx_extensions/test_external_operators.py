@@ -48,6 +48,25 @@ def test_operation_signature():
         operation("square", 1, norm_type)
 
 
+def test_pullback_index_selects_operand_type_and_validates_seed():
+    domain = euclidean_space(2)
+    x = coordinate(domain)
+    scale = num(2)
+    law = operation("scaled_norm", 2, lambda operands: OutputType((), "real", domain))
+    pullback = law.vjp_operator()
+    operands = (scale, x, num(1))
+    assert external_operator(pullback[0], operands).output_type == ((), "real", domain)
+    assert external_operator(pullback[1], operands).output_type == ((2,), "real", domain)
+    with pytest.raises(ValueError, match="invalid external VJP operand"):
+        external_operator(pullback[2], operands)
+    with pytest.raises(ValueError, match="output shape"):
+        external_operator(pullback[1], (scale, x, x))
+    with pytest.raises(ValueError, match="scalar type"):
+        external_operator(pullback[1], (scale, x, num(1j)))
+    with pytest.raises(ValueError, match="domain"):
+        external_operator(pullback[1], (scale, x, coordinate(euclidean_space(1))[0]))
+
+
 def test_jvp_operator_receives_points_then_directions():
     V = space("R", None, scalar_type="real")
     x, y, a, b, h, k = (function(V, name) for name in "xyabhk")

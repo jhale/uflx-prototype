@@ -107,7 +107,7 @@ class Pullback(Base):
     identifier = "uflx.extensions.Pullback"
     primal: AbstractOperation
 
-    def component(self, operand: int) -> PullbackComponent:
+    def __getitem__(self, operand: int) -> PullbackComponent:
         return PullbackComponent(self, operand)
 
 
@@ -125,6 +125,10 @@ class PullbackComponent(AbstractOperation):
         result = self.pullback.primal.output_type(tuple(points))
         if seed.value_shape != result.value_shape:
             raise ValueError("external VJP seed must match the output shape")
+        if seed.scalar_type != result.scalar_type:
+            raise ValueError("external VJP seed must match the output scalar type")
+        if result.domain is not None and seed.domain not in (None, result.domain):
+            raise ValueError("external VJP seed has an incompatible domain")
         if not 0 <= self.operand < len(points):
             raise ValueError("invalid external VJP operand")
         x = points[self.operand]
@@ -269,14 +273,6 @@ def apply_external_derivatives(f: AbstractExpression) -> AbstractExpression:
     return expand_derivatives_with(bottom_up(f, _select_pullback), _tangent)
 
 
-def _linearized_action(residual: Form, wrt: Function, slot: int, value: AbstractExpression) -> Form:
-    bilinear = freshen(_linearize(residual, wrt), (value,))
-    applied = partial(bilinear, {bilinear.arguments[slot]: value})
-    result = apply_external_derivatives(applied)
-    assert isinstance(result, Form)
-    return result
-
-
 @overload
 def jvp(expression: Form, wrt: Function, direction: AbstractExpression) -> Form: ...
 
@@ -292,13 +288,6 @@ def jvp(
 ) -> AbstractExpression:
     """Push direction through expression, preserving the open slots of an explicit form."""
     if isinstance(expression, Form):
-        if (
-            len(expression.arguments) == 1
-            and isinstance(expression.arguments[0], Function)
-            and expression.value_shape == ()
-            and expression.expression.argument_spaces == ()
-        ):
-            return _linearized_action(expression, wrt, 0, direction)
         residual = freshen(expression, (wrt, direction))
         return form(jvp(residual.expression, wrt, direction), residual.arguments)
     return apply_external_derivatives(directional_derivative(expression, wrt, direction))
@@ -366,24 +355,15 @@ def _pullback(
             )
         match node:
             case ExternalOperator(law, operands):
+                pullback = law.vjp_operator()
                 contributions: list[AbstractExpression] = []
                 for i, operand in enumerate(operands):
-                    if occurs_in_values(variable, operand):
-                        if operand.scalar_type != "real" or node.scalar_type != "real":
-                            raise ValueError("external VJP requires real operands and results")
-                        bar = external_operator(
-                            law.vjp_operator().component(i), (*operands, cotangent)
-                        )
-                        if bar.scalar_type != "real" or bar.domain not in (
-                            None,
-                            operand.domain,
-                            node.domain,
-                            cotangent.domain,
-                        ):
-                            raise ValueError("invalid external cotangent type")
-                        if bar.value_shape != operand.value_shape:
-                            raise ValueError("external cotangent must match the operand shape")
-                        contributions.append(reverse(operand, bar))
+                    if not occurs_in_values(variable, operand):
+                        continue
+                    if operand.scalar_type != "real" or node.scalar_type != "real":
+                        raise ValueError("external VJP requires real operands and results")
+                    bar = external_operator(pullback[i], (*operands, cotangent))
+                    contributions.append(reverse(operand, bar))
                 return reduce(add, contributions)
             case Integral(body, domain) if cotangent.domain is None:
                 return Integral(reverse(body, cotangent), domain)
@@ -420,7 +400,11 @@ def vjp(residual: AbstractExpression, wrt: Function, seed: AbstractExpression) -
     In both cases the seed is held fixed, even when it depends on u.
     """
     if isinstance(residual, Form) and residual.argument_spaces != ():
-        return _linearized_action(residual, wrt, 1, seed)
+        bilinear = freshen(_linearize(residual, wrt), (seed,))
+        applied = partial(bilinear, {bilinear.arguments[1]: seed})
+        result = apply_external_derivatives(applied)
+        assert isinstance(result, Form)
+        return result
 
     objective = residual.expression if isinstance(residual, Form) else residual
     if (objective.value_shape, objective.free_indices, objective.argument_spaces) != ((), (), ()):
