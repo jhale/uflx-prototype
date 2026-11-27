@@ -44,13 +44,16 @@ W = local_space(T, P1)
 R = local_space(T, P2, shape=(2,))
 shear_space = local_space(T, N1E)
 
-trial = (function(W, "w"), function(R, "theta"))
-test = (function(W, "v"), function(R, "eta"))
+w_ref, theta_ref = function(W, "w"), function(R, "theta")
+v_ref, eta_ref = function(W, "v"), function(R, "eta")
+
+w = push_forward(w_ref, mesh, W.law)
+theta = push_forward(theta_ref, mesh, R.law)
+v = push_forward(v_ref, mesh, W.law)
+eta = push_forward(eta_ref, mesh, R.law)
 
 
-def reduced_shear(w_ref, theta_ref):
-    w = push_forward(w_ref, mesh, W.law)
-    theta = push_forward(theta_ref, mesh, R.law)
+def reduced_shear(w, theta):
     return gradient(w, mesh) - interpolate(theta, shear_space)
 
 
@@ -60,10 +63,10 @@ def reduced_shear(w_ref, theta_ref):
 # shears of the test and trial fields.
 
 # %%
-shear_form = integral(reduced_shear(*test) @ reduced_shear(*trial), mesh)
+shear_form = integral(reduced_shear(v, eta) @ reduced_shear(w, theta), mesh)
 # Both reduced shears are affine on this triangle, so degree 2 integrates their product exactly.
 rule = basix.make_quadrature(triangle, degree=2)
-a = form(apply_quadrature(lower(shear_form), *rule), (test, trial))
+a = form(apply_quadrature(lower(shear_form), *rule), ((v_ref, eta_ref), (w_ref, theta_ref)))
 cell_matrix = jax.jit(uflx_jax_compiler.trace(a, x_ref))
 
 
