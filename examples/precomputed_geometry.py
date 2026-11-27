@@ -21,13 +21,13 @@ import uflx_jax_compiler
 from uflx.algorithms import substitute_values
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, euclidean_space, push_forward
+from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx.tensors import index
 from uflx_basix.cells import topology
 from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.quadrature import weighted_sum
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space, local_space
 from uflx_extensions.runtime_arrays import runtime_array
 
 triangle = basix.CellType.triangle
@@ -38,9 +38,8 @@ ambient = euclidean_space(cell_topology.dimension)
 x = function(local_space(cell_topology, p2, shape=(ambient.dimension,)), "x")
 mesh = create_mesh(x, ambient)
 
-V = local_space(cell_topology, p2)
-u_ref, v_ref = function(V, "u"), function(V, "v")
-u, v = (push_forward(f, mesh, V.law) for f in (u_ref, v_ref))
+V = function_space(mesh, p2)
+u, v = function(V, "u"), function(V, "v")
 
 stiffness = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
 stiffness, geometry = uflx_jax_compiler.extract_geometry(stiffness, mesh[0])
@@ -70,7 +69,7 @@ integrand = substitute_values(
 )
 
 samples = evaluate_at_points(integrand, points, q)
-a = form(weighted_sum(samples, weights, q), (v_ref, u_ref))
+a = form(weighted_sum(samples, weights, q), (v, u))
 
 assemble_stiffness = uflx_jax_compiler.trace(a, *tables.values())
 

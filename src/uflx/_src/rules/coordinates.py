@@ -18,9 +18,12 @@ from ..nodes import (
     Curl,
     Divergence,
     DomainMap,
+    Function,
     Gradient,
+    MappedSpace,
     PullBack,
     PushForward,
+    ReferenceValue,
     SideMap,
     TransformationLaw,
 )
@@ -32,16 +35,27 @@ if TYPE_CHECKING:
     from ..nodes.indices import Index
 
 
+def mapped_field(expression: AbstractExpression) -> PushForward | None:
+    if isinstance(expression, Function) and isinstance(space := expression.space, MappedSpace):
+        return PushForward(ReferenceValue(expression, space), space.mesh, space.law)
+    return expression if isinstance(expression, PushForward) else None
+
+
 def piola_law(expression: AbstractExpression) -> TransformationLaw | None:
     """Return the output transformation law, or None when no identity applies.
 
     This inspects the differential and mapped field only. A pull-back must
     separately establish that its map selects a cell of the matching mesh.
     """
-    match expression:
-        case Divergence(PushForward(_, d, TransformationLaw(("contravariant",), 1)), p) if p == d:
+    if not isinstance(expression, Divergence | Curl):
+        return None
+    field = mapped_field(expression.expression)
+    match expression, field:
+        case Divergence(_, p), PushForward(_, d, TransformationLaw(("contravariant",), 1)) if (
+            p == d
+        ):
             return TransformationLaw((), 1)
-        case Curl(PushForward(_, d, TransformationLaw(("covariant",), 0)), p) if (
+        case Curl(_, p), PushForward(_, d, TransformationLaw(("covariant",), 0)) if (
             p == d and d.dimension == d.ambient_coordinate_domain.dimension
         ):
             return TransformationLaw(("contravariant",) * len(expression.value_shape), 1)
@@ -77,10 +91,14 @@ def _derived_axis(
     return derived_index("uflx.expand_pull_backs", f, m, axis)
 
 
-def transformed(ghat: AbstractExpression, law: TransformationLaw, C: CellMap) -> AbstractExpression:
+def transformed(
+    ghat: AbstractExpression, law: TransformationLaw, C: CellMap, *, inverse_map: bool = False
+) -> AbstractExpression:
     # K^T on each covariant axis and J on each contravariant axis of ghat, divided by det J, or
     # by the density on a cell of lower dimension, to the weight.
     J, K = jacobian(C), inverse(jacobian(C))
+    if inverse_map:
+        J, K = K, J
     rank = len(ghat.value_shape)
     mapped_axes = len(law.variances)
     lead = tuple(_derived_axis(ghat, C, ("lead", n)) for n in range(rank - mapped_axes))
@@ -97,9 +115,10 @@ def transformed(ghat: AbstractExpression, law: TransformationLaw, C: CellMap) ->
     source, target = geometric_map(C)
     k, n = source.dimension, target.dimension
     scale = determinant(jacobian(C)) if k == n else density(C)
-    for _ in range(law.weight):
+    weight = -law.weight if inverse_map else law.weight
+    for _ in range(weight):
         value = divide(value, scale)
-    for _ in range(-law.weight):
+    for _ in range(-weight):
         value = multiply(value, scale)
     axes = (*lead, *out)
     return component_tensor(value, axes)

@@ -22,14 +22,17 @@ from ..nodes import (
     Divergence,
     DomainMap,
     Form,
+    Function,
     Gradient,
+    MappedSpace,
     PullBack,
     PushForward,
+    ReferenceValue,
     SideMap,
     TransformationLaw,
 )
 from ..nodes.static import field_terminal
-from ..rules.coordinates import piola_law, transformed
+from ..rules.coordinates import mapped_field, piola_law, transformed
 from ..rules.pullback_algebra import composed, pointwise, pullback_remains
 from ..rules.restriction import pull_back_conormal, side_cell, side_maps
 from .applications import expand_applications
@@ -78,15 +81,27 @@ def _rule(
             if not is_cell(m) or m.parent != f.domain:
                 return PullBack(f, m)
             # The Piola identity applies only to a mapped field.
-            assert isinstance(f.expression, PushForward)
+            field = mapped_field(f.expression)
+            assert field is not None
             expand = trace_of_gradient if isinstance(f, Divergence) else rotation_of_gradient
             reference_cell = CellMap(m.topology, m.cell_slot)
-            reference = pb(f.expression.expression, reference_cell)
+            reference = pb(field.expression, reference_cell)
             return transformed(expand(reference, m.reference_cell), law, m)
         case Divergence() | Curl():
             return PullBack(f, m)
         case Conormal(sm) if (cell := side_cell(sm, m)) is not None:
             return pull_back_conormal(f, cell, pb)
+        case Function(MappedSpace()) if is_cell(m):
+            field = mapped_field(f)
+            assert field is not None
+            return pb(field, m)
+        case ReferenceValue(Function() as u, V) if u.space == V:
+            return PullBack(f, m)
+        case ReferenceValue(g, V) if isinstance(m, CellMap):
+            cell = V.mesh[m.cell_slot]
+            return transformed(pb(g, cell), V.law, cell, inverse_map=True)
+        case ReferenceValue():
+            return PullBack(f, m)
         case PushForward(g, domain, law) if is_cell(m) and m.parent == domain:
             reference_cell = CellMap(m.topology, m.cell_slot)
             reference_value = pb(g, reference_cell)

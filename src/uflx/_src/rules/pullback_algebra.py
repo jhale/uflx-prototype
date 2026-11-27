@@ -18,9 +18,12 @@ from ..nodes import (
     CellMap,
     DomainMap,
     Form,
+    Function,
     Gradient,
+    MappedSpace,
     PullBack,
     PushForward,
+    ReferenceValue,
     SideMap,
 )
 from ..nodes.static import field_terminal
@@ -65,7 +68,21 @@ def pullback_remains(f: AbstractExpression, m: DomainMap | CellMap | SideMap) ->
     # The pull-backs that no row of expand_pull_backs rewrites, which a library reads.
     return not isinstance(f, Apply | Form) and (
         isinstance(m, SideMap)
-        or field_terminal(f)
+        or (
+            field_terminal(f)
+            and not (
+                isinstance(f, Function)
+                and isinstance(f.space, MappedSpace)
+                and isinstance(m, CellMap)
+            )
+        )
+        or (
+            isinstance(f, ReferenceValue)
+            and (
+                not isinstance(m, CellMap)
+                or (isinstance(f.expression, Function) and f.expression.space == f.space)
+            )
+        )
         or (isinstance(f, PushForward) and not isinstance(m, CellMap))
         or (isinstance(f, PullBack) and isinstance(f.map, SideMap | CellMap))
         or (isinstance(f, Gradient) and not isinstance(m, CellMap))

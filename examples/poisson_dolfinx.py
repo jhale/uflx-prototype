@@ -20,11 +20,11 @@ from mpi4py import MPI
 import uflx_jax_compiler
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, euclidean_space, push_forward
+from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space, real_scalar_space
+from uflx_basix.spaces import function_space, local_space, real_scalar_space
 
 jax.config.update("jax_enable_x64", True)
 
@@ -37,16 +37,14 @@ x = function(local_space(T, p2, shape=(2,)), "x")
 domain = create_mesh(x, euclidean_space(2))
 
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-V = local_space(T, p1)
+V = function_space(domain, p1)
 u, v = function(V, "u"), function(V, "v")
-uh, vh = (push_forward(f, domain, V.law) for f in (u, v))
 
-kappa_ref = function(V, "kappa")
-kappa = push_forward(kappa_ref, domain, V.law)
-stiffness_integral = integral(kappa * (gradient(vh, domain) @ gradient(uh, domain)), domain)
+kappa = function(V, "kappa")
+stiffness_integral = integral(kappa * (gradient(v, domain) @ gradient(u, domain)), domain)
 
 f = function(real_scalar_space(), "f")
-load_integral = integral(f * vh, domain)
+load_integral = integral(f * v, domain)
 
 rule = basix.make_quadrature(triangle, 1)
 a = form(apply_quadrature(lower(stiffness_integral), *rule), (v, u))
@@ -59,7 +57,7 @@ def emit_cell_kernel(expression, coordinates, *, coefficients=(), constants=()):
     tabulate = jax.jit(uflx_jax_compiler.with_ufcx_cell_inputs(evaluate, dtype=np.float64))
     sizes = (
         3 * coordinates.space.element(0).dim,
-        sum(field.space.num_dofs for field in coefficients),
+        sum(field.space.reference_space.num_dofs for field in coefficients),
         sum(prod(value.value_shape) for value in constants),
     )
     inputs = [jax.ShapeDtypeStruct((n,), np.float64) for n in sizes]
@@ -110,7 +108,7 @@ kappa_h = fem.Function(P1)
 kappa_h.interpolate(lambda X: 3 - 2 * X[0])
 kappa_h.x.scatter_forward()
 stiffness_kernel = compile_kernel(
-    emit_cell_kernel(a, x, coefficients=(kappa_ref,)), "_uflx_stiffness"
+    emit_cell_kernel(a, x, coefficients=(kappa,)), "_uflx_stiffness"
 )
 stiffness = dolfinx_cell_form(stiffness_kernel, [P1, P1], coefficients=(kappa_h,))
 

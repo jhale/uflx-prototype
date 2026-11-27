@@ -9,6 +9,7 @@ Each example can be run from the repository root, for example with
    :maxdepth: 1
 
    /examples/poisson
+   /examples/l2_projection
    /examples/poisson_emitc
    /examples/poisson_dolfinx
    /examples/expression_at_points

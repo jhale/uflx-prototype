@@ -52,6 +52,7 @@ from ..nodes import (
     PullBack,
     PushForward,
     RealPart,
+    ReferenceValue,
     SquareRoot,
     Sum,
     Tensor,
@@ -149,6 +150,7 @@ def _allowed_in_core_normal_form(e: AbstractExpression) -> bool:
             | Conormal()
             | Function()
             | Form()
+            | ReferenceValue()
             | PushForward()
         ):
             return True

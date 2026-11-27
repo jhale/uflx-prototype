@@ -65,11 +65,11 @@ def interpolation_case(cell_type, family, degree, shape):
 
     f = expression(V.value_shape)
     result = interpolate(f, V)
-    return mesh, V, f, result
+    return V, f, result
 
 
 @interpolation_cases
 def test_interpolation_static_type(cell_type, family, degree, shape):
-    mesh, V, f, result = interpolation_case(cell_type, family, degree, shape)
-    assert result.domain == mesh and result.value_shape == V.value_shape
+    V, f, result = interpolation_case(cell_type, family, degree, shape)
+    assert result.domain == V.domain and result.value_shape == V.value_shape
     assert result.argument_spaces == () and result.scalar_type == f.scalar_type

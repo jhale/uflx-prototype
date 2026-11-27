@@ -20,11 +20,11 @@ import numpy as np
 import uflx_jax_compiler
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, euclidean_space, push_forward
+from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space, local_space
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -35,10 +35,8 @@ x = function(X, "x")
 mesh = create_mesh(x, euclidean_space(T.dimension))
 
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-V = local_space(T, p2)
-u_ref, v_ref = function(V, "u"), function(V, "v")
-u = push_forward(u_ref, mesh, V.law)
-v = push_forward(v_ref, mesh, V.law)
+V = function_space(mesh, p2)
+u, v = function(V, "u"), function(V, "v")
 
 # %% [markdown]
 # Write the stiffness and load integrals on the physical mesh.
@@ -59,9 +57,9 @@ rule = basix.make_quadrature(triangle, degree=2)
 a_quadrature = apply_quadrature(a_ref, *rule)
 L_quadrature = apply_quadrature(L_ref, *rule)
 
-# Note that the form arguments are the basis functions on the reference cell.
-a = form(a_quadrature, (v_ref, u_ref))
-L = form(L_quadrature, (v_ref,))
+# Bind the physical test and trial fields to the local tensor axes.
+a = form(a_quadrature, (v, u))
+L = form(L_quadrature, (v,))
 
 # The resulting kernels support JAX transforms such as jit, grad and vmap.
 # Performance is one-order of magnitude slower than FFCx.

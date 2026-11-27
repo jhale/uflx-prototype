@@ -20,12 +20,12 @@ import uflx_jax_compiler
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative, divergence, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, euclidean_space, push_forward
+from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx.tensors import broadcast_to
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space, real_scalar_space
+from uflx_basix.spaces import function_space, local_space, real_scalar_space
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -41,17 +41,12 @@ mesh = create_mesh(x, euclidean_space(2))
 RT = basix.create_element(basix.ElementFamily.RT, triangle, 2)
 P1_DG = basix.create_element(basix.ElementFamily.P, triangle, 1, discontinuous=True)
 
-V = local_space(T, RT)
-Q = local_space(T, P1_DG)
-sigma_ref, u_ref = function(V, "sigma"), function(Q, "u")
-state = (sigma_ref, u_ref)
+V = function_space(mesh, RT)
+Q = function_space(mesh, P1_DG)
+sigma, u = function(V, "sigma"), function(Q, "u")
+state = (sigma, u)
 test = (function(V, "tau"), function(Q, "v"))
 trial_direction = (function(V, "delta_sigma"), function(Q, "delta_u"))
-
-# The RT flux uses the contravariant Piola map.
-sigma = push_forward(sigma_ref, mesh, V.law)
-# For the cell map F and reference point X, the DG scalar satisfies u(F(X)) = u_ref(X).
-u = push_forward(u_ref, mesh, Q.law)
 
 # For -div(kappa grad u) = 1 with homogeneous Dirichlet data, sigma = kappa grad u.
 # The positive diffusivity kappa is supplied at runtime.

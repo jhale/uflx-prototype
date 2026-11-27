@@ -19,7 +19,9 @@ from uflx.nodes import (
     ConjugateSpace,
     Function,
     Gradient,
+    MappedSpace,
     PullBack,
+    ReferenceValue,
 )
 
 from ._context import BoundExpression, PointTabulation, lookup
@@ -40,6 +42,8 @@ else:
 def basix_space(space):
     if isinstance(space, ConjugateSpace):
         space = space.space
+    if isinstance(space, MappedSpace):
+        space = space.reference_space
     return space if basix is not None and isinstance(space, BasixSpace) else None
 
 
@@ -116,6 +120,8 @@ def tabulated_gradient(gradient, bindings, site, read):
         and field.map.reference_cell == domain
     ):
         slot, leaf = field.map.cell_slot, field.expression
+    if isinstance(leaf, ReferenceValue):
+        leaf = leaf.expression
     if isinstance(leaf, Function) and basix_space(leaf.space) is not None:
         binding = lookup(bindings, leaf, f"coefficients:{leaf.label}")
         if (
@@ -133,8 +139,9 @@ def tabulated_gradient(gradient, bindings, site, read):
             f"Spatial derivative of {type(field).__name__} requires lowering before tracing"
         )
 
-    element_slot = 0 if leaf.space.cell is not None else slot
-    data = leaf.space.element_data[element_slot]
+    space = basix_space(leaf.space)
+    element_slot = 0 if space.cell is not None else slot
+    data = space.element_data[element_slot]
     point = site.points[domain]
     dim = point.shape[0]
     table = site.tabulations.get(domain)
@@ -142,14 +149,14 @@ def tabulated_gradient(gradient, bindings, site, read):
     if (
         order == 1
         and isinstance(leaf, Function)
-        and leaf.space.block_shape
+        and space.block_shape
         and not isinstance(binding, BoundExpression)
         and (rows is None or data not in site.runtime_table_elements)
         and vertex_p1_simplex(data.native)
     ):
         # The columns of the affine Jacobian are edges from reference vertex zero.
-        local = _cell_coefficients(leaf.space, element_slot, binding)
-        vertices = local.reshape(dim + 1, *leaf.space.block_shape)
+        local = _cell_coefficients(space, element_slot, binding)
+        vertices = local.reshape(dim + 1, *space.block_shape)
         vertices = vertices.astype(jnp.result_type(vertices, point if rows is None else rows))
         return jnp.moveaxis(vertices[1:] - vertices[0], 0, -1)
     if rows is None:

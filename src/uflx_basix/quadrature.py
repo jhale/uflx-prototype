@@ -108,6 +108,9 @@ def _tabulate_arguments(integral, arguments, points, q):
         for member in argument_leaves(entry):
             f = member.operand if isinstance(member, nodes.Conjugate) else member
             space = f.space.space if isinstance(f.space, nodes.ConjugateSpace) else f.space
+            if isinstance(space, nodes.MappedSpace):
+                f = nodes.ReferenceValue(f, space)
+                space = space.reference_space
             if not isinstance(space, BasixSpace):
                 raise TypeError("sample_form requires Basix form arguments")
             fields[f] = (space, axis, offset)

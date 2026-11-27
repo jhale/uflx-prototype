@@ -19,12 +19,12 @@ import numpy as np
 import uflx_jax_compiler
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, euclidean_space, push_forward
+from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx.tensors import index
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature, sample_form, weighted_sum
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space, local_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 
 triangle = basix.CellType.triangle
@@ -35,10 +35,8 @@ p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 x = function(local_space(T, p1, shape=(ambient.dimension,)), "x")
 mesh = create_mesh(x, ambient)
-V = local_space(T, p2)
-u_ref, v_ref = function(V, "u"), function(V, "v")
-u = push_forward(u_ref, mesh, V.law)
-v = push_forward(v_ref, mesh, V.law)
+V = function_space(mesh, p2)
+u, v = function(V, "u"), function(V, "v")
 a_ref = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
 cell = a_ref.integration_domain
 
@@ -48,7 +46,7 @@ points_input = runtime_array("points", (n, cell.dimension))
 weights_input = runtime_array("weights", (n,))
 q = index("q")
 
-samples, tables = sample_form(form(a_ref, (v_ref, u_ref)), points_input, q)
+samples, tables = sample_form(form(a_ref, (v, u)), points_input, q)
 p2_basis = tables[p2, 1]
 cell_matrix = weighted_sum(samples, weights_input, q)
 stiffness = jax.jit(uflx_jax_compiler.trace(cell_matrix, x, points_input, weights_input, p2_basis))
@@ -59,7 +57,7 @@ stiffness = jax.jit(uflx_jax_compiler.trace(cell_matrix, x, points_input, weight
 
 # %%
 fixed_sum = apply_quadrature(a_ref, *basix.make_quadrature(triangle, degree=2))
-expected = uflx_jax_compiler.trace(form(fixed_sum, (v_ref, u_ref)), x)(vertices)
+expected = uflx_jax_compiler.trace(form(fixed_sum, (v, u)), x)(vertices)
 
 for degree in (2, 4):
     points, weights = basix.make_quadrature(triangle, degree)

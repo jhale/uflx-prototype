@@ -44,7 +44,8 @@ def test_curved_reversed_triangle_matches_basix(family):
     V = local_space(T, E)
     U = local_space(T, P2, shape=V.value_shape)
     u = function(U, "u")
-    interpolant = interpolate(push_forward(u, mesh, U.law), V)
+    interpolant = interpolate(u, V, cell=mesh[0])
+    assert interpolant == interpolate(push_forward(u, mesh, U.law), V)
 
     r, s = P2.points.T
     coords = np.column_stack((0.25 * r + s, 2 * r + s + 0.3 * r * s))
@@ -59,10 +60,27 @@ def test_curved_reversed_triangle_matches_basix(family):
     samples = E.pull_back(physical[:, None, :], *geometry(E.points))[:, 0, :]
     dofs = E.interpolation_matrix @ samples.T.ravel()
     reference = dofs @ E.tabulate(0, point)[0, 0]
+    local = lower(pull_back(interpolant, T[0]))
+    actual_ref = reference_trace(local, x, u, K)(coords, coeffs.ravel(), point[0])
+    np.testing.assert_allclose(actual_ref, reference.reshape(V.value_shape), atol=1e-11)
     expected = E.push_forward(reference[None, None, :], *geometry(point)).reshape(V.value_shape)
-    value = lower(pull_back(interpolant, mesh[0]))
+    value = lower(pull_back(push_forward(interpolant, mesh, V.law), mesh[0]))
     actual = jax.jit(reference_trace(value, x, u, K))(coords, coeffs.ravel(), point[0])
     np.testing.assert_allclose(actual, expected, atol=1e-11)
+
+
+def test_reference_nedelec_function_uses_its_source_law():
+    T = topology(basix.CellType.triangle)
+    (K,) = T.cell_types
+    P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
+    N1E = basix.create_element(basix.ElementFamily.N1E, K.cell_type, 1)
+    x = function(local_space(T, P1, shape=(3,)), "x")
+    mesh = Mesh(x, EuclideanSpace(3))
+    U = local_space(T, N1E)
+    u = function(U, "u")
+    V = local_space(T, P1, shape=(3,))
+    result = interpolate(u, V, cell=mesh[0])
+    assert result == interpolate(push_forward(u, mesh, U.law), V)
 
 
 def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
@@ -74,12 +92,12 @@ def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
     X = coordinate(mesh.ambient_domain)[0]
     V = local_space(T, (P1, P2))
     with pytest.raises(ValueError, match="select a cell"):
-        interpolate(X * X, V, mesh=mesh)
+        interpolate(coordinate(mesh)[0] ** num(2), V)
 
     coords = np.array([[0.0], [2.0], [2.0], [3.0]])
     for slot, expected in enumerate((2.0, 2.5**2)):
         result = interpolate(X * X, V, cell=mesh[slot])
-        value = lower(pull_back(result, mesh[slot]))
+        value = lower(pull_back(result, T[slot]))
         np.testing.assert_allclose(uflx_jax_compiler.trace(value, x, K)(coords, [0.5]), expected)
         cell = mesh[slot]
         on_cell = V.on_cell(cell)
@@ -88,7 +106,7 @@ def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
         restricted = pull_back(field, cell)
         for local in (
             interpolate(field, on_cell),
-            interpolate(restricted, V),
+            pull_back(interpolate(restricted, V), T[slot]),
             interpolate(restricted, local_space(K, V.element(slot))),
         ):
             assert local.domain is K
@@ -112,7 +130,8 @@ def test_cell_bound_rotation_supplies_the_piece_on_a_two_triangle_mesh():
     theta = function(local_space(cell, P2, shape=(2,)), "theta")
     V = local_space(T, N1E)
     result = interpolate(theta, V)
-    assert result.domain is cell.reference_cell
+    assert result.domain is T
+    result = pull_back(result, T[cell.cell_slot])
     with pytest.raises(ValueError, match="different cells"):
         interpolate(theta, V.on_cell(mesh[0]))
 
@@ -123,7 +142,7 @@ def test_cell_bound_rotation_supplies_the_piece_on_a_two_triangle_mesh():
     nodal_values = np.column_stack((X**2 - s, X))
     for expr in (result, lower(result)):
         value = jax.jit(reference_trace(expr, x, theta, cell.reference_cell))
-        np.testing.assert_allclose(value(coords, nodal_values, [0.25, 0.5]), [0.5, 1.5])
+        np.testing.assert_allclose(value(coords, nodal_values, [0.25, 0.5]), [1.0, 2.5])
 
 
 def test_interpolation_only_samples_the_selected_cell():
@@ -152,12 +171,13 @@ def test_constant_ambient_vector_interpolated_into_surface_nedelec():
     x = function(local_space(T, P1, shape=(3,)), "x")
     mesh = Mesh(x, EuclideanSpace(3))
     f = tensor((num(1), num(2), num(4)))
-    result = interpolate(f, local_space(T, N1E), mesh=mesh)
-    assert result.domain == mesh and result.value_shape == (3,)
+    V = local_space(T, N1E)
+    result = interpolate(f, V, cell=mesh[0])
+    assert result.domain == T and result.value_shape == (2,)
 
     # The tangent plane is spanned by (1, 0, 0) and (0, 1, 1).
     coords = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 1.0]])
-    value = lower(pull_back(result, mesh[0]))
+    value = lower(pull_back(push_forward(result, mesh, V.law), mesh[0]))
     np.testing.assert_allclose(
         uflx_jax_compiler.trace(value, x, K)(coords, [0.2, 0.3]), [1, 3, 3], atol=1e-12
     )
@@ -187,7 +207,8 @@ def test_blocked_density_dofs_on_a_curved_interval():
     X = coordinate(mesh)[0]
     field = tensor((X, X * X))
     V = local_space(T, E, shape=(2,))
-    result = lower(pull_back(interpolate(field, V, cell=mesh[0]), mesh[0]))
+    interpolant = interpolate(field, V, cell=mesh[0])
+    result = lower(pull_back(push_forward(interpolant, mesh, V.law), mesh[0]))
 
     # F(r) = 2 - r - r². The density DOFs use F'(0) = -1 and F'(1) = -3.
     r = P2.points

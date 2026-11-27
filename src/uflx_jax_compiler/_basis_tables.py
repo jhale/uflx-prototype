@@ -133,7 +133,7 @@ def basis_tables(expression):
             domain, slot, order = node.integration_domain, 0, 0
             point_source = node if isinstance(domain, nodes.AbstractReferenceCell) else None
         elif point_source is not None:
-            if isinstance(node, nodes.Function) and node.domain == domain:
+            if isinstance(node, nodes.Function | nodes.ReferenceValue) and node.domain == domain:
                 space = elements.basix_space(node.space)
                 if space is not None:
                     key = (point_source, space.element_data[slot])

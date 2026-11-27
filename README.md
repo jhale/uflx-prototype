@@ -103,6 +103,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 
 - [Poisson on a triangle](examples/poisson.py) builds the cell stiffness matrix
   and load vector for Poisson’s equation with a unit source.
+- [L² projection on an interval](examples/l2_projection.py) projects a quadratic
+  field onto the linear space with a JAX mass solve.
 - [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
   a discontinuous scalar on a curved triangle.
 - [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
@@ -147,11 +149,11 @@ import numpy as np
 import uflx_jax_compiler
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, euclidean_space, push_forward
+from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space, local_space
 
 # A linear (P1) coordinate map places the reference triangle in the physical plane.
 triangle = basix.CellType.triangle
@@ -162,12 +164,10 @@ X = local_space(T, p1, shape=(T.dimension,))
 x = function(X, "x")
 mesh = create_mesh(x, euclidean_space(T.dimension))
 
-# Push the quadratic (P2) trial and test functions forward to the physical triangle.
+# Declare the quadratic (P2) test and trial fields on the physical triangle.
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-V = local_space(T, p2)
-u_ref, v_ref = function(V, "u"), function(V, "v")
-u = push_forward(u_ref, mesh, V.law)
-v = push_forward(v_ref, mesh, V.law)
+V = function_space(mesh, p2)
+u, v = function(V, "u"), function(V, "v")
 
 # Map the stiffness and load integrals to the reference triangle.
 stiffness_integral = lower(integral(gradient(u, mesh) @ gradient(v, mesh), mesh))
@@ -177,10 +177,10 @@ rule = basix.make_quadrature(triangle, degree=2)
 points, weights = rule
 
 # Fix the load rule on the reference integral.
-L = form(apply_quadrature(load_integral, points, weights), (v_ref,))
+L = form(apply_quadrature(load_integral, points, weights), (v,))
 load = jax.jit(uflx_jax_compiler.trace(L, x))
 
-a = form(apply_quadrature(stiffness_integral, points, weights), (v_ref, u_ref))
+a = form(apply_quadrature(stiffness_integral, points, weights), (v, u))
 stiffness = jax.jit(uflx_jax_compiler.trace(a, x))
 
 vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])

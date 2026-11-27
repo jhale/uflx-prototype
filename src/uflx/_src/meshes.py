@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeGuard, cast
 
 from uflx._src.nodes import (
+    AbstractExpression,
     AbstractTopology,
     CellMap,
     Conormal,
@@ -22,8 +23,6 @@ from uflx._src.nodes import (
 from .typing import Variance
 
 if TYPE_CHECKING:
-    from uflx._src.nodes.expressions import AbstractExpression
-
     from .nodes.domains import AbstractCoordinateDomain
     from .nodes.maps import DomainMap
 
@@ -43,6 +42,9 @@ def transformation_law(variances: tuple[Variance, ...], weight: int) -> Transfor
 
 
 def push_forward(expression: AbstractExpression, mesh: Mesh, law: TransformationLaw) -> PushForward:
+    """Transport expression values from the mesh topology using the supplied law."""
+    if not isinstance(expression, AbstractExpression):
+        raise TypeError("push_forward requires an expression")
     return PushForward(expression, mesh, law)
 
 

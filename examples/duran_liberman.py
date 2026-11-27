@@ -25,12 +25,12 @@ import numpy as np
 import uflx_jax_compiler
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, euclidean_space, push_forward
+from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.interpolation import interpolate
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space, local_space
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -40,17 +40,12 @@ N1E = basix.create_element(basix.ElementFamily.N1E, triangle, 1)
 
 x_ref = function(local_space(T, P1, shape=(2,)), "x")
 mesh = create_mesh(x_ref, euclidean_space(2))
-W = local_space(T, P1)
-R = local_space(T, P2, shape=(2,))
-shear_space = local_space(T, N1E)
+W = function_space(mesh, P1)
+R = function_space(mesh, P2, shape=(2,))
+S = function_space(mesh, N1E)
 
-w_ref, theta_ref = function(W, "w"), function(R, "theta")
-v_ref, eta_ref = function(W, "v"), function(R, "eta")
-
-w = push_forward(w_ref, mesh, W.law)
-theta = push_forward(theta_ref, mesh, R.law)
-v = push_forward(v_ref, mesh, W.law)
-eta = push_forward(eta_ref, mesh, R.law)
+w, theta = function(W, "w"), function(R, "theta")
+v, eta = function(W, "v"), function(R, "eta")
 
 # %% [markdown]
 # Write $\gamma(w,\theta) = \nabla w - I_{N1E}\theta$. Since $\gamma$ is linear,
@@ -59,12 +54,12 @@ eta = push_forward(eta_ref, mesh, R.law)
 
 # %%
 def reduced_shear(w, theta):
-    return gradient(w, mesh) - interpolate(theta, shear_space)
+    return gradient(w, mesh) - interpolate(theta, S)
 
 shear_form = integral(reduced_shear(v, eta) @ reduced_shear(w, theta), mesh)
 # Both reduced shears are affine on this triangle, so degree 2 integrates their product exactly.
 rule = basix.make_quadrature(triangle, degree=2)
-a = form(apply_quadrature(lower(shear_form), *rule), ((v_ref, eta_ref), (w_ref, theta_ref)))
+a = form(apply_quadrature(lower(shear_form), *rule), ((v, eta), (w, theta)))
 cell_matrix = jax.jit(uflx_jax_compiler.trace(a, x_ref))
 
 

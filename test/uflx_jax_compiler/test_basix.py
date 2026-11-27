@@ -17,7 +17,7 @@ from uflx._src.passes.lowering import lower_spatial
 from uflx.arithmetic import num
 from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import function
-from uflx.geometry import domain_map, pull_back
+from uflx.geometry import domain_map, pull_back, push_forward
 from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell
 from uflx_basix.interpolation import interpolate
@@ -51,7 +51,7 @@ def test_interpolation_uses_the_element_sampling_points():
     V = local_space(mesh.topology, P1)
     x = coordinate(mesh)[0]
     interpolant = interpolate(x * x, V, cell=mesh[0])
-    at = reference_trace(interpolant, mesh.coordinate_function, mesh)
+    at = reference_trace(push_forward(interpolant, mesh, V.law), mesh.coordinate_function, mesh)
     assert at([[0, 0], [2, 0], [0, 1]], (0.5, 0.5)) == pytest.approx(1.0)
 
 
@@ -198,7 +198,8 @@ def test_custom_element_supplies_its_own_interpolation_functional():
     assert left is not right
     x = coordinate(mesh)[0]
     for V, expected in ((left, 1.5), (right, 2.5)):
-        at = reference_trace(interpolate(x, V, cell=mesh[0]), mesh.coordinate_function, mesh)
+        interpolant = interpolate(x, V, cell=mesh[0])
+        at = reference_trace(push_forward(interpolant, mesh, V.law), mesh.coordinate_function, mesh)
         assert at([[1.0], [3.0]], (2.0,)) == pytest.approx(expected)
 
 

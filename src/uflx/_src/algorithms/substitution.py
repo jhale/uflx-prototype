@@ -20,6 +20,8 @@ from ..nodes import (
     Function,
     Index,
     IndexSum,
+    MappedSpace,
+    ReferenceValue,
     Zero,
 )
 from ..nodes.arguments import argument_pairs, binding_name
@@ -61,7 +63,20 @@ def occurs_in_metadata(target: Base, node: Construction) -> bool:
         if current in seen:
             continue
         seen.add(current)
-        if occurs(target, binding_signature(current)):
+        # A mapped function's reference coefficients are held fixed under mesh motion.
+        if (
+            isinstance(current, ReferenceValue)
+            and isinstance(current.expression, Function)
+            and current.expression.space == current.space
+        ):
+            if occurs(target, current.space.reference_space):
+                return True
+            continue
+        signature = tuple(
+            s.reference_space if isinstance(s, MappedSpace) else s
+            for s in binding_signature(current)
+        )
+        if occurs(target, signature):
             return True
         for field in _scoped(current, True, _bound_in(target, current)):
             operand = construction_field(current, field)

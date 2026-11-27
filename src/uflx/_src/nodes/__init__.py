@@ -35,7 +35,16 @@ from .indices import (
 from .literals import Boolean, Complex, Float, Integer, Zero
 from .logic import Conditional, LessThan
 from .maps import DomainMap, PullBack
-from .meshes import CellMap, Conormal, Mesh, PushForward, SideMap, TransformationLaw
+from .meshes import (
+    CellMap,
+    Conormal,
+    MappedSpace,
+    Mesh,
+    PushForward,
+    ReferenceValue,
+    SideMap,
+    TransformationLaw,
+)
 from .scalar_types import ScalarType
 from .spaces import AbstractFunctionSpace, ConjugateSpace, DualSpace
 from .tensors import BroadcastTo, ComponentTensor, Determinant, Indexed, IndexSum, Inverse, Tensor
@@ -86,12 +95,14 @@ __all__ = [
     "Inverse",
     "LessThan",
     "Logarithm",
+    "MappedSpace",
     "Mesh",
     "Power",
     "Product",
     "PullBack",
     "PushForward",
     "RealPart",
+    "ReferenceValue",
     "ScalarType",
     "SideMap",
     "SquareRoot",

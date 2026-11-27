@@ -6,7 +6,7 @@
 
 from basix.finite_element import FiniteElement
 
-from uflx.nodes import AbstractTopology, CellMap, ScalarType
+from uflx.nodes import AbstractTopology, CellMap, MappedSpace, Mesh, ScalarType
 
 from ._elements import element_data
 from .nodes import BasixCell, BasixSpace, RealScalarSpace
@@ -39,3 +39,22 @@ def local_space(
         if isinstance(domain, AbstractTopology):
             data *= len(domain.cell_types)
     return BasixSpace(domain, data, scalar_type, tuple(shape))
+
+
+def function_space(
+    mesh: Mesh,
+    element: FiniteElement | tuple[FiniteElement, ...],
+    *,
+    shape: tuple[int, ...] = (),
+    scalar_type=ScalarType.real,
+) -> MappedSpace:
+    """Declare a physical field space using the Basix element's value mapping.
+
+    The solver supplies coefficients in the local element's DOF order.
+    This constructor supports value DOFs. Geometry-dependent reconstruction
+    for physical derivative DOFs is currently unsupported.
+    """
+    reference = local_space(mesh.topology, element, shape=shape, scalar_type=scalar_type)
+    if any(e.interpolation_nderivs for e in reference.elements):
+        raise NotImplementedError("physical spaces with derivative DOFs are not implemented")
+    return MappedSpace(reference, mesh, reference.law)

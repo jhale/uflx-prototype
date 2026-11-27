@@ -36,9 +36,11 @@ from uflx.nodes import (
     Integral,
     Inverse,
     Logarithm,
+    MappedSpace,
     Power,
     Product,
     PullBack,
+    ReferenceValue,
     SquareRoot,
     Sum,
     Tensor,
@@ -96,6 +98,8 @@ def _factors(body, arguments, inputs):
 
     @cache
     def fields(node):
+        if isinstance(node, ReferenceValue):
+            return fields(node.expression)
         if isinstance(node, Function):
             if node.scalar_type != "real" or (node not in arguments and node not in inputs):
                 raise _UseQuadrature
@@ -230,7 +234,7 @@ def _basix_contraction(groups, arguments, cell, points, weights, dtype):
     """Integrate products of scalar basis values and first partials at fixed points."""
     import basix
 
-    shape = (len(weights), *(arg.space.num_dofs for arg in arguments))
+    shape = (len(weights), *(basix_space(arg.space).num_dofs for arg in arguments))
     points = np.asarray(points, dtype=dtype)
     weights = np.asarray(weights, dtype=dtype)
 
@@ -250,14 +254,17 @@ def _basix_contraction(groups, arguments, cell, points, weights, dtype):
     # Small triangle matrices are faster with the dense reference contraction.
     vertex_p1 = len(arguments) == 2 and cell.dimension == 3
     for arg in arguments:
-        space = arg.space
+        space = basix_space(arg.space)
         domain = space.domain
         if space.value_shape:
             return None
         if domain == cell:
             field = arg
         elif isinstance(domain, AbstractTopology) and domain.cell_types == (cell,):
-            field = PullBack(arg, CellMap(domain, 0))
+            reference = (
+                ReferenceValue(arg, arg.space) if isinstance(arg.space, MappedSpace) else arg
+            )
+            field = PullBack(reference, CellMap(domain, 0))
         else:
             return None
         element = space.element(0)
@@ -279,7 +286,7 @@ def _basix_contraction(groups, arguments, cell, points, weights, dtype):
 
     samples = {}
     for axis, (arg, factors) in enumerate(zip(arguments, basis_factors, strict=True)):
-        space = arg.space
+        space = basix_space(arg.space)
         dofs = [1] * len(arguments)
         dofs[axis] = space.num_dofs
         for factor, values in zip(factors, tabulate(space), strict=True):
@@ -298,7 +305,7 @@ def _basix_contraction(groups, arguments, cell, points, weights, dtype):
 
 def _contraction(body, arguments, inputs, ordinary):
     expr, cell, point_operand, weight_operand = _sampled(body, inputs)
-    basis_size = prod(arg.space.num_dofs for arg in arguments)
+    basis_size = prod(basix_space(arg.space).num_dofs for arg in arguments)
     if not all(isinstance(n, int) for n in point_operand.value_shape) or (
         basis_size * prod(point_operand.value_shape) > _MAX_ENTRIES
     ):

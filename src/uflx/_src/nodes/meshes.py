@@ -19,6 +19,7 @@ from .domains import AbstractCoordinateDomain, AbstractDomain, AbstractReference
 from .expressions import AbstractExpression
 from .indices import Index
 from .scalar_types import ScalarType, numerical_type
+from .spaces import AbstractFunctionSpace
 from .topology import AbstractTopology
 
 if TYPE_CHECKING:
@@ -176,6 +177,86 @@ class TransformationLaw(Base):
 
 
 @final
+class MappedSpace(AbstractFunctionSpace):
+    """The image of a topology space under a mesh's cell transformations."""
+
+    identifier = "uflx.MappedSpace"
+    reference_space: AbstractFunctionSpace
+    mesh: Mesh
+    law: TransformationLaw
+
+    @property
+    def domain(self) -> Mesh:
+        return self.mesh
+
+    @property
+    def scalar_type(self) -> NumericalScalarType:
+        return self.reference_space.scalar_type
+
+    @property
+    def argument_spaces(self) -> ArgumentSpaces:
+        return self.reference_space.argument_spaces
+
+    @property
+    @cached
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
+        return mapped_shape(self.reference_space.value_shape, self.mesh, self.law)
+
+    @override
+    def _validate(self) -> None:
+        if self.reference_space.domain != self.mesh.topology or self.argument_spaces != ():
+            raise ValueError("a mapped field space requires a space on the mesh topology")
+        _ = self.value_shape
+
+
+def mapped_shape(
+    shape: tuple[int | AbstractExtent, ...], mesh: Mesh, law: TransformationLaw
+) -> tuple[int | AbstractExtent, ...]:
+    p = len(law.variances)
+    if p > 0 and shape[-p:] != (mesh.dimension,) * p:
+        raise ValueError("transformed axes have the wrong extent")
+    return (*shape[: len(shape) - p], *(mesh.ambient_domain.dimension,) * p)
+
+
+@final
+class ReferenceValue(AbstractExpression):
+    """Reference components of a physical field in a specified mapped representation."""
+
+    identifier = "uflx.ReferenceValue"
+    value_fields = ("expression",)
+    commuting = ("expression",)
+    expression: AbstractExpression
+    space: MappedSpace
+
+    @property
+    def domain(self) -> AbstractTopology:
+        return self.space.mesh.topology
+
+    @property
+    def value_shape(self) -> tuple[int | AbstractExtent, ...]:
+        return self.space.reference_space.value_shape
+
+    @property
+    def free_indices(self) -> tuple[tuple[Index, int | AbstractExtent], ...]:
+        return self.expression.free_indices
+
+    @property
+    def argument_spaces(self) -> ArgumentSpaces:
+        return self.expression.argument_spaces
+
+    @property
+    def scalar_type(self) -> NumericalScalarType:
+        return numerical_type(self.expression.scalar_type)
+
+    @override
+    def _validate(self) -> None:
+        if self.expression.domain not in (None, self.space.mesh):
+            raise ValueError("reference value requires a field on the mapped mesh")
+        if self.expression.value_shape != self.space.value_shape:
+            raise ValueError("physical value shape differs from the mapped space")
+
+
+@final
 class PushForward(AbstractExpression):
     value_fields = ("expression",)
     identifier = "uflx.PushForward"
@@ -188,9 +269,7 @@ class PushForward(AbstractExpression):
     @cached
     def value_shape(self) -> tuple[int | AbstractExtent, ...]:
         # A covariant or a contravariant axis has the extent k on the reference cell and n on D.
-        shape, p = self.expression.value_shape, len(self.law.variances)
-        n = self.mesh.ambient_domain.ambient_coordinate_domain.dimension
-        return (*shape[: len(shape) - p], *(n for _ in range(p)))
+        return mapped_shape(self.expression.value_shape, self.mesh, self.law)
 
     @property
     @cached
@@ -216,11 +295,7 @@ class PushForward(AbstractExpression):
     def _validate(self) -> None:
         if self.expression.domain not in (None, self.mesh.topology):
             raise ValueError("push-forward source differs from the topology")
-        p = len(self.law.variances)
-        if len(self.expression.value_shape) < p or (
-            p > 0 and self.expression.value_shape[-p:] != (self.mesh.dimension,) * p
-        ):
-            raise ValueError("transformed axes have the wrong extent")
+        _ = self.value_shape
 
 
 @final

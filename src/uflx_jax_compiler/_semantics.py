@@ -40,11 +40,13 @@ from uflx.nodes import (
     Inverse,
     LessThan,
     Logarithm,
+    MappedSpace,
     Power,
     Product,
     PullBack,
     PushForward,
     RealPart,
+    ReferenceValue,
     SquareRoot,
     Sum,
     Tensor,
@@ -97,7 +99,12 @@ def evaluate(node, bindings, site, arguments=()):
 
 
 def _evaluate(node, bindings, site, arguments, memo):
-    if site.tabulations and node.value_fields and not keeps_quadrature_point(node):
+    if (
+        site.tabulations
+        and node.value_fields
+        and not isinstance(node, ReferenceValue)
+        and not keeps_quadrature_point(node)
+    ):
         # A whole-field operation can sample its operands anywhere, even if the
         # same field also has tabulated uses elsewhere in the integrand.
         site = replace(site, tabulations={})
@@ -130,7 +137,11 @@ def _evaluate(node, bindings, site, arguments, memo):
         return jnp.empty(_tensors.shape(node, bindings), dtype=_tensors.dtype(node))
 
     binding = bindings.get(node)
-    if isinstance(binding, BoundExpression):
+    if isinstance(binding, BoundExpression) and not (
+        isinstance(node, Function)
+        and isinstance(node.space, MappedSpace)
+        and binding.is_basis_field
+    ):
         return binding.read(site, arguments)
 
     def pointwise(*, batch=False):
@@ -255,6 +266,13 @@ def _evaluate(node, bindings, site, arguments, memo):
             return _tensors.bind_indices(
                 node, bindings, arguments, lambda x, local, slots: evaluate(x, local, site, slots)
             )
+        case ReferenceValue(Function() as f, V) if f.space == V:
+            data = lookup(bindings, f, f"coefficients:{f.label}")
+            if isinstance(data, BoundExpression):
+                return data.read(site, arguments)
+            return elements.field_value(f, V.reference_space, bindings, site, scoped_value)
+        case Function(MappedSpace() as V):
+            return value(PushForward(ReferenceValue(node, V), V.mesh, V.law))
         case Function():
             return _forms.function_value(node, bindings, site, arguments, scoped_value)
         case Form(body, declarations):

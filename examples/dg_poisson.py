@@ -36,11 +36,11 @@ import uflx_jax_compiler
 from uflx.arithmetic import num
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.geometry import create_mesh, euclidean_space, pull_back, push_forward
+from uflx.geometry import create_mesh, euclidean_space, pull_back
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space, local_space
 from uflx_extensions.index_tables import index_table
 
 # Topological cells of the patch
@@ -79,11 +79,9 @@ for cell_key in cell_keys:
     x = function(X, "x")
     mesh = create_mesh(x, plane)
     
-    V = local_space(T, field_element)
-    u_ref = function(V, "u")
-    v_ref = function(V, "v")
-    u = push_forward(u_ref, mesh, V.law)
-    v = push_forward(v_ref, mesh, V.law)
+    V = function_space(mesh, field_element)
+    u = function(V, "u")
+    v = function(V, "v")
 
     grad_u = gradient(u, mesh)
     grad_v = gradient(v, mesh)
@@ -92,7 +90,7 @@ for cell_key in cell_keys:
     volume_ref = lower(volume)
     cell_rule = basix.make_quadrature(cell_type, degree=8)
     volume_sum = apply_quadrature(volume_ref, *cell_rule)
-    cell_form = form(volume_sum, (v_ref, u_ref))
+    cell_form = form(volume_sum, (v, u))
     evaluate_cell = uflx_jax_compiler.trace(cell_form, x)
     cell_kernels[cell_key] = jax.jit(evaluate_cell)
 
@@ -122,12 +120,10 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     x = function(X, "x")
     mesh = create_mesh(x, plane)
     
-    V = local_space(T, (plus_field, minus_field))
+    V = function_space(mesh, (plus_field, minus_field))
     
-    u_ref = function(V, "u")
-    v_ref = function(V, "v")
-    u = push_forward(u_ref, mesh, V.law)
-    v = push_forward(v_ref, mesh, V.law)
+    u = function(V, "u")
+    v = function(V, "v")
 
     facet, plus, minus, n = interior_facet(mesh, local_facets, permutations)
 
@@ -154,7 +150,7 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
 
     facet_ref = lower(facet_integral)
     facet_sum = apply_quadrature(facet_ref, *facet_rule)
-    interior_facet_form = form(facet_sum, (v_ref, u_ref))
+    interior_facet_form = form(facet_sum, (v, u))
     # The selected facet and permutation determine the parent reference points at runtime.
     evaluate_facet = uflx_jax_compiler.trace(
         interior_facet_form, x, local_facets, permutations
