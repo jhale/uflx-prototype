@@ -19,7 +19,7 @@ from uflx.forms import function
 from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx.tensors import index
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
@@ -93,7 +93,7 @@ def test_standalone_samples_read_supplied_basix_partials(build):
 
 
 def test_trace_requires_lowering_and_reference_trace_accepts_unlowered_forms():
-    T = topology(basix.CellType.interval)
+    T = create_topology(basix.CellType.interval)
     p1 = basix.create_element(basix.ElementFamily.P, basix.CellType.interval, 1)
     x = function(function_space(T, p1, shape=(1,)), "x")
     mesh = create_mesh(x, euclidean_space(1))

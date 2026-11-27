@@ -16,7 +16,7 @@ from uflx.calculus import gradient, integral
 from uflx.forms import function
 from uflx.geometry import pull_back
 from uflx.passes import expand_arithmetic
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.spaces import function_space
 
 from ..uflx_basix.meshes import mixed, push_forward, side_map, square
@@ -104,7 +104,7 @@ def test_a_continuous_space_on_triangles_and_a_quadrilateral():
 @pytest.mark.parametrize("shape", [(2,), (2, 2)])
 def test_blocked_coefficients_accept_one_value_per_scalar_dof(shape):
     triangle = basix.CellType.triangle
-    T = topology(triangle, triangle)
+    T = create_topology(triangle, triangle)
     p1 = basix.create_element(P, triangle, 1)
     V = function_space(T, p1, shape=shape)
     u = function(V, "u")

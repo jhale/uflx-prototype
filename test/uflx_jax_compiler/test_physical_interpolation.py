@@ -18,7 +18,7 @@ from uflx.geometry import pull_back, push_forward
 from uflx.nodes import EuclideanSpace, Mesh
 from uflx.passes import lower
 from uflx.tensors import tensor
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.interpolation import interpolate
 from uflx_basix.spaces import function_space
 
@@ -35,7 +35,7 @@ from .reference import reference_trace
     ],
 )
 def test_curved_reversed_triangle_matches_basix(family):
-    T = topology(basix.CellType.triangle)
+    T = create_topology(basix.CellType.triangle)
     (K,) = T.cell_types
     P2 = basix.create_element(basix.ElementFamily.P, K.cell_type, 2)
     E = basix.create_element(family, K.cell_type, 1)
@@ -70,7 +70,7 @@ def test_curved_reversed_triangle_matches_basix(family):
 
 
 def test_reference_nedelec_function_uses_its_source_law():
-    T = topology(basix.CellType.triangle)
+    T = create_topology(basix.CellType.triangle)
     (K,) = T.cell_types
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
     N1E = basix.create_element(basix.ElementFamily.N1E, K.cell_type, 1)
@@ -84,7 +84,7 @@ def test_reference_nedelec_function_uses_its_source_law():
 
 
 def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
-    T = topology(basix.CellType.interval, basix.CellType.interval)
+    T = create_topology(basix.CellType.interval, basix.CellType.interval)
     K = T.cell_types[0]
     P1, P2 = (basix.create_element(basix.ElementFamily.P, K.cell_type, p) for p in (1, 2))
     x = function(function_space(T, P1, shape=(1,)), "x")
@@ -121,7 +121,7 @@ def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
 
 
 def test_cell_bound_rotation_supplies_the_piece_on_a_two_triangle_mesh():
-    T = topology(basix.CellType.triangle, basix.CellType.triangle)
+    T = create_topology(basix.CellType.triangle, basix.CellType.triangle)
     cell_type = basix.CellType.triangle
     P1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
     P2 = basix.create_element(basix.ElementFamily.P, cell_type, 2)
@@ -148,7 +148,7 @@ def test_cell_bound_rotation_supplies_the_piece_on_a_two_triangle_mesh():
 
 
 def test_interpolation_only_samples_the_selected_cell():
-    T = topology(basix.CellType.interval, basix.CellType.interval)
+    T = create_topology(basix.CellType.interval, basix.CellType.interval)
     K = T.cell_types[0]
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
     x = function(function_space(T, P1, shape=(1,)), "x")
@@ -166,7 +166,7 @@ def test_interpolation_only_samples_the_selected_cell():
 
 
 def test_constant_ambient_vector_interpolated_into_surface_nedelec():
-    T = topology(basix.CellType.triangle)
+    T = create_topology(basix.CellType.triangle)
     (K,) = T.cell_types
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
     N1E = basix.create_element(basix.ElementFamily.N1E, K.cell_type, 1)
@@ -186,7 +186,7 @@ def test_constant_ambient_vector_interpolated_into_surface_nedelec():
 
 
 def test_blocked_density_dofs_on_a_curved_interval():
-    T = topology(basix.CellType.interval)
+    T = create_topology(basix.CellType.interval)
     (K,) = T.cell_types
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1, discontinuous=True)
     E = basix.create_custom_element(

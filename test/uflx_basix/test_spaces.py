@@ -8,7 +8,7 @@ import basix
 import numpy as np
 import pytest
 
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.spaces import function_space
 
 
@@ -37,13 +37,13 @@ def test_native_variant_precision_and_dof_order_are_part_of_the_space():
 
 def test_topology_slots_are_distinct_even_for_repeated_cell_types():
     triangle = basix.CellType.triangle
-    T = topology(triangle, triangle)
+    T = create_topology(triangle, triangle)
     assert T.cell_types == (cell(triangle), cell(triangle))
     assert T[0] is not T[1]
     with pytest.raises(ValueError, match="at least one cell"):
-        topology()
+        create_topology()
     with pytest.raises(ValueError, match="same dimension"):
-        topology(triangle, basix.CellType.interval)
+        create_topology(triangle, basix.CellType.interval)
 
 
 def test_native_elements_follow_topology_slots():
@@ -51,7 +51,7 @@ def test_native_elements_follow_topology_slots():
     quad = basix.create_tp_element(
         basix.ElementFamily.P, basix.CellType.quadrilateral, 2, basix.LagrangeVariant.equispaced
     )
-    T = topology(tri.cell_type, quad.cell_type)
+    T = create_topology(tri.cell_type, quad.cell_type)
     V = function_space(T, (tri, quad))
     assert V.elements == (tri, quad)
     assert V.element(1).dof_ordering == quad.dof_ordering

@@ -17,7 +17,7 @@ from uflx.forms import form, function
 from uflx.geometry import push_forward
 from uflx.nodes import EuclideanSpace, Mesh
 from uflx.passes import lower
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
 from uflx_jax_compiler import _finite_elements, _reference
@@ -49,7 +49,7 @@ def test_shared_reference_form_is_computed_once():
 @pytest.mark.parametrize("symmetric", [True, False], ids=["poisson", "mixed-partial"])
 @pytest.mark.parametrize("degree", [1, 2])
 def test_affine_reference_matrices(cell_type, symmetric, degree):
-    T = topology(cell_type)
+    T = create_topology(cell_type)
     dim = T.dimension
     p1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
     element = basix.create_element(basix.ElementFamily.P, cell_type, degree)
@@ -176,7 +176,7 @@ def test_explicit_point_measure_in_a_sampled_form():
 
 def test_affine_rt_divergence_reference_matrix():
     triangle = basix.CellType.triangle
-    T = topology(triangle)
+    T = create_topology(triangle)
     p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
     x = function(function_space(T, p1, shape=(2,)), "x")
     mesh = Mesh(x, EuclideanSpace(2))

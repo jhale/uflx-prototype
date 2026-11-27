@@ -24,14 +24,14 @@ from uflx.forms import form, function
 from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx.tensors import index
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.quadrature import weighted_sum
 from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array
 
 triangle = basix.CellType.triangle
-cell_topology = topology(triangle)
+cell_topology = create_topology(triangle)
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 
 ambient = euclidean_space(cell_topology.dimension)

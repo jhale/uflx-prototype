@@ -14,7 +14,7 @@ from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
 from uflx_jax_compiler.emitc import _require_mlir_tools
@@ -43,7 +43,7 @@ def compile_kernel(source, name, tmp_path):
 
 def test_p1_tetrahedron(tmp_path):
     cell = basix.CellType.tetrahedron
-    T = topology(cell)
+    T = create_topology(cell)
     p1 = basix.create_element(basix.ElementFamily.P, cell, 1)
     V = function_space(T, p1)
     x = function(function_space(T, p1, shape=(3,)), "x")

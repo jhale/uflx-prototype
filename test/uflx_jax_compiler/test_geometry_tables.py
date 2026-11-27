@@ -17,7 +17,7 @@ from uflx.forms import form, function
 from uflx.geometry import create_mesh, density, euclidean_space, jacobian, push_forward
 from uflx.passes import lower
 from uflx.tensors import index, inverse
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.nodes import table
 from uflx_basix.quadrature import apply_quadrature, weighted_sum
@@ -54,7 +54,7 @@ def test_sample_once_and_reduce_with_independent_weights():
 def test_affine_jacobian_from_vertices_and_explicit_derivative_rows():
     triangle = basix.CellType.triangle
     p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-    x = function(function_space(topology(triangle, triangle), p1, shape=(3,)), "x")
+    x = function(function_space(create_topology(triangle, triangle), p1, shape=(3,)), "x")
     mesh = create_mesh(x, euclidean_space(3))
     points, _ = basix.make_quadrature(triangle, 2)
     sample = evaluate_at_points(jacobian(mesh[1]), table(points), index("q"))
@@ -75,7 +75,7 @@ def test_affine_jacobian_from_vertices_and_explicit_derivative_rows():
 
 def test_mass_and_stiffness_extract_and_share_curved_geometry():
     triangle = basix.CellType.triangle
-    T = topology(triangle)
+    T = create_topology(triangle)
     p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
     V = function_space(T, p2)
     u, v, k = (function(V, name) for name in ("u", "v", "conductivity"))
@@ -136,7 +136,7 @@ def test_mass_and_stiffness_extract_and_share_curved_geometry():
 
 def test_mixed_gradient_keeps_its_geometry_and_other_fields():
     interval = basix.CellType.interval
-    T = topology(interval)
+    T = create_topology(interval)
     p2 = basix.create_element(basix.ElementFamily.P, interval, 2)
     x = function(function_space(T, p2, shape=(1,)), "x")
     cell_map = create_mesh(x, euclidean_space(1))[0]
@@ -165,7 +165,7 @@ def test_mixed_gradient_keeps_its_geometry_and_other_fields():
 
 
 def test_pointwise_table_binding_preserves_conditional_evaluation():
-    cell = topology(basix.CellType.interval).cell_types[0]
+    cell = create_topology(basix.CellType.interval).cell_types[0]
     value = runtime_array("value", ())
     missing = runtime_array("missing", ())
     expr = conditional(less_than(value, num(10)), value, missing)

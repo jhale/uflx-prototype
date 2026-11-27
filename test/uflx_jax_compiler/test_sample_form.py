@@ -15,7 +15,7 @@ from uflx.calculus import coordinate, gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import domain_map, pull_back
 from uflx.tensors import index, index_sum, tensor
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.quadrature import sample_form, weighted_sum
 from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import RuntimeArray, runtime_array, runtime_extent
@@ -73,7 +73,7 @@ def test_product_slot_packs_block_and_vector_elements_and_preserves_value_axes()
 
 
 def test_sample_topology_slot_and_unused_argument():
-    T = topology(basix.CellType.interval, basix.CellType.interval)
+    T = create_topology(basix.CellType.interval, basix.CellType.interval)
     K = T.cell_types[1]
     p1, p2 = (basix.create_element(basix.ElementFamily.P, K.cell_type, d) for d in (1, 2))
     v = function(function_space(T, (p1, p2)), "v")

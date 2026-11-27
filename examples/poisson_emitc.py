@@ -15,17 +15,17 @@ from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
 
 jax.config.update("jax_enable_x64", True)
 
 triangle = basix.CellType.triangle
-T = topology(triangle)
+topology = create_topology(triangle)
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-x = function(function_space(T, p1, shape=(T.dimension,)), "x")
-mesh = create_mesh(x, euclidean_space(T.dimension))
+x = function(function_space(topology, p1, shape=(topology.dimension,)), "x")
+mesh = create_mesh(x, euclidean_space(topology.dimension))
 
 V = function_space(mesh, p1)
 u, v = function(V, "u"), function(V, "v")
@@ -35,7 +35,7 @@ rule = basix.make_quadrature(triangle, 0)
 a = form(apply_quadrature(a_ref, *rule), (v, u))
 
 stiffness = jax.jit(uflx_jax_compiler.trace(a, x))
-vertices = jax.ShapeDtypeStruct((T.dimension + 1, T.dimension), np.float64)
+vertices = jax.ShapeDtypeStruct((topology.dimension + 1, topology.dimension), np.float64)
 exported = jax.export.export(stiffness)(vertices)
 stiffness_c = uflx_jax_compiler.emit_c(exported, "stiffness")
 # stiffness_c is the C99 source, ready to compile.

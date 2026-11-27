@@ -12,7 +12,7 @@ import uflx.geometry as geometry
 from uflx.forms import function
 from uflx.geometry import create_mesh
 from uflx.nodes import EuclideanSpace, Mesh
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.nodes import BasixCell
 from uflx_basix.spaces import function_space
 
@@ -21,7 +21,7 @@ from .cells import reference_simplex
 
 
 def single_cell_mesh(cell_type):
-    T = topology(cell_type)
+    T = create_topology(cell_type)
     P1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
     x = function(function_space(T, P1, shape=(T.dimension,)), "x")
     return create_mesh(x, EuclideanSpace(T.dimension))

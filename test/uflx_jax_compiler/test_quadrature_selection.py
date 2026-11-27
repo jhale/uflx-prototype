@@ -18,7 +18,7 @@ from uflx.geometry import push_forward
 from uflx.nodes import EuclideanSpace, Integral, Mesh, PullBack
 from uflx.passes import expand_pull_backs, lower
 from uflx.tensors import index, tensor
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
 
@@ -175,7 +175,7 @@ def test_material_axis_stays_independent_of_quadrature():
 
 def test_poisson_stiffness_on_a_curved_triangle():
     triangle = basix.CellType.triangle
-    T = topology(triangle)
+    T = create_topology(triangle)
     P = basix.ElementFamily.P
     p1 = basix.create_element(P, triangle, 1)
     p2 = basix.create_element(P, triangle, 2)

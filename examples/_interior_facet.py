@@ -6,7 +6,7 @@
 """Interior facet geometry for the mixed-cell DG example."""
 
 from uflx.geometry import conormal, side_domain, side_map
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.facets import reference_facet
 
 
@@ -19,7 +19,7 @@ def interior_facet(mesh, local_facets, permutations):
     )
     into_minus, _ = reference_facet(minus_cell.reference_cell, local_facets[1], permutations[1])
 
-    facet_topology = topology(into_plus.parameter_domain.cell_type)
+    facet_topology = create_topology(into_plus.parameter_domain.cell_type)
     facet = side_domain(mesh, facet_topology, (0, into_plus))
     plus = side_map(facet, (plus_cell, into_plus))
     minus = side_map(facet, (minus_cell, into_minus))

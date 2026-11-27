@@ -13,7 +13,7 @@ from uflx.calculus import coordinate, directional_derivative, integral
 from uflx.forms import apply, form, function
 from uflx.geometry import create_mesh, euclidean_space, pull_back, push_forward
 from uflx.passes import lower
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
 from uflx_jax_compiler import trace
@@ -21,7 +21,7 @@ from uflx_jax_compiler import trace
 
 def test_embedded_piola_field_holds_dofs_fixed_under_shape_differentiation():
     triangle = basix.CellType.triangle
-    T = topology(triangle)
+    T = create_topology(triangle)
     P1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
     N1E = basix.create_element(basix.ElementFamily.N1E, triangle, 1)
     X = function_space(T, P1, shape=(3,))
@@ -47,7 +47,7 @@ def test_embedded_piola_field_holds_dofs_fixed_under_shape_differentiation():
 
 def test_substituting_a_physical_expression_after_cell_lowering():
     triangle = basix.CellType.triangle
-    T = topology(triangle)
+    T = create_topology(triangle)
     P1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
     RT = basix.create_element(basix.ElementFamily.RT, triangle, 1)
     x = function(function_space(T, P1, shape=(2,)), "x")

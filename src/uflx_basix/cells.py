@@ -13,6 +13,10 @@ def cell(cell_type: basix.CellType) -> BasixCell:
     return BasixCell(cell_type.value)
 
 
-def topology(*cell_types: basix.CellType) -> BasixTopology:
+def create_topology(*cell_types: basix.CellType) -> BasixTopology:
     """Build one local cell slot per Basix cell type, in the order supplied."""
     return BasixTopology(tuple(cell(cell_type) for cell_type in cell_types))
+
+
+# Keep the original factory name available to existing callers.
+topology = create_topology

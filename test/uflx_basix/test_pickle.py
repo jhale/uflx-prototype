@@ -13,14 +13,14 @@ from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
 
 
 def test_pickled_poisson_form_in_spawned_process():
     triangle = basix.CellType.triangle
-    T = topology(triangle)
+    T = create_topology(triangle)
     p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
     V = function_space(T, p1)
     x = function(function_space(T, p1, shape=(T.dimension,)), "x")

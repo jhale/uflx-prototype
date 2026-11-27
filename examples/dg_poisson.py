@@ -38,7 +38,7 @@ from uflx.calculus import gradient, integral
 from uflx.forms import form, function
 from uflx.geometry import create_mesh, euclidean_space, pull_back
 from uflx.passes import lower
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
 from uflx_extensions.index_tables import index_table
@@ -48,7 +48,7 @@ from uflx_extensions.index_tables import index_table
 triangle = basix.CellType.triangle
 quadrilateral = basix.CellType.quadrilateral
 interval = basix.CellType.interval
-patch_topology = topology(triangle, triangle, quadrilateral)
+patch_topology = create_topology(triangle, triangle, quadrilateral)
 
 # Coordinate and field elements assigned to each cell
 
@@ -74,8 +74,8 @@ for cell_key in cell_keys:
     coordinate_element, field_element = cell_key
     cell_type = coordinate_element.cell_type
     
-    T = topology(cell_type)
-    X = function_space(T, coordinate_element, shape=(2,))
+    topology = create_topology(cell_type)
+    X = function_space(topology, coordinate_element, shape=(2,))
     x = function(X, "x")
     mesh = create_mesh(x, plane)
     
@@ -114,8 +114,8 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     plus_type = plus_geometry.cell_type
     minus_type = minus_geometry.cell_type
     
-    T = topology(plus_type, minus_type)
-    X = function_space(T, (plus_geometry, minus_geometry), shape=(2,))
+    topology = create_topology(plus_type, minus_type)
+    X = function_space(topology, (plus_geometry, minus_geometry), shape=(2,))
     
     x = function(X, "x")
     mesh = create_mesh(x, plane)

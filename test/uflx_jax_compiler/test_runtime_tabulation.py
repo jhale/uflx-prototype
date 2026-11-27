@@ -17,7 +17,7 @@ from uflx.forms import form, function
 from uflx.geometry import domain_map, pull_back, push_forward
 from uflx.nodes import EuclideanSpace, Mesh
 from uflx.passes import lower
-from uflx_basix.cells import cell, topology
+from uflx_basix.cells import cell, create_topology
 from uflx_basix.nodes import BasixBasis
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
@@ -64,7 +64,7 @@ def test_mass_matrix_and_action_use_native_arrays(monkeypatch):
 
 def test_curved_poisson_uses_one_table_for_fields_and_geometry():
     triangle = basix.CellType.triangle
-    topology_ = topology(triangle)
+    topology_ = create_topology(triangle)
     p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
     coords = function(function_space(topology_, p2, shape=(2,)), "x")
     mesh = Mesh(coords, EuclideanSpace(2))
@@ -147,7 +147,7 @@ def test_whole_field_operator_and_callable_keep_their_sampling_semantics():
 
 def test_tabulations_are_local_to_slot_and_sampling_coordinate():
     triangle = cell(basix.CellType.triangle)
-    topology_ = topology(triangle.cell_type, triangle.cell_type)
+    topology_ = create_topology(triangle.cell_type, triangle.cell_type)
     first, second = (
         basix.create_element(basix.ElementFamily.P, triangle.cell_type, 1, discontinuous=flag)
         for flag in (False, True)

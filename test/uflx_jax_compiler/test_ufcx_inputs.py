@@ -10,7 +10,7 @@ from uflx.calculus import integral
 from uflx.forms import function
 from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
-from uflx_basix.cells import topology
+from uflx_basix.cells import create_topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array
@@ -19,7 +19,7 @@ from uflx_extensions.runtime_arrays import runtime_array
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_ufcx_cell_coefficients_and_constants(dtype):
     cell = basix.CellType.triangle
-    T = topology(cell)
+    T = create_topology(cell)
     p1 = basix.create_element(basix.ElementFamily.P, cell, 1)
     V = function_space(T, p1)
     vector_space = function_space(T, p1, shape=(2,))

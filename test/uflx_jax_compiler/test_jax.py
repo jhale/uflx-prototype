@@ -187,11 +187,11 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
 def test_pullback_selects_the_cell_of_a_discontinuous_field():
     import basix
 
-    from uflx_basix.cells import topology
+    from uflx_basix.cells import create_topology
     from uflx_basix.spaces import function_space
 
     triangle = basix.CellType.triangle
-    T = topology(triangle, triangle)
+    T = create_topology(triangle, triangle)
     p0 = basix.create_element(basix.ElementFamily.P, triangle, 0, discontinuous=True)
     u = function(function_space(T, p0), "u")
     dofs = jnp.array([2.0, 7.0])
