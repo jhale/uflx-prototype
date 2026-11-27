@@ -16,10 +16,10 @@ from uflx.calculus import coordinate, gradient
 from uflx.forms import function
 from uflx.geometry import cell_map, pull_back
 from uflx.passes import expand_pull_backs
-from uflx_jax_compiler import reference_trace
 
 from ..uflx.spaces import space
 from ..uflx_basix.test_pullback_contractions import geometry
+from .reference import reference_trace
 
 
 @pytest.mark.parametrize("vector", [False, True])

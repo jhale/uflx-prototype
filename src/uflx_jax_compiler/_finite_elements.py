@@ -34,7 +34,7 @@ except ModuleNotFoundError as error:
 else:
     from uflx_basix.nodes import BasixBasis, BasixSpace
 
-    from ._tabulation import tabulate
+    from ._tabulation import tabulate, tabulate_rows
 
 
 def basix_space(space):
@@ -157,19 +157,25 @@ def tabulated_gradient(gradient, bindings, site, read):
         # the Jacobian of a P1 simplex even when its evaluation point is dynamic.
         element = data.native
         if (
-            element.polyset_type != basix.PolysetType.standard
-            or element.cell_type
-            not in (basix.CellType.interval, basix.CellType.triangle, basix.CellType.tetrahedron)
-            or order < element.embedded_superdegree
+            element.polyset_type == basix.PolysetType.standard
+            and element.cell_type
+            in (basix.CellType.interval, basix.CellType.triangle, basix.CellType.tetrahedron)
+            and order >= element.embedded_superdegree
         ):
-            raise ValueError(
-                "Expected a Basix derivative table at this point. "
-                "Use fixed reference points or supply the input from basis_tables()"
+            rows = jnp.asarray(
+                element.tabulate(order, np.zeros((1, dim), dtype=element.dtype))[:, 0],
+                dtype=point.dtype,
             )
-        rows = jnp.asarray(
-            element.tabulate(order, np.zeros((1, dim), dtype=element.dtype))[:, 0],
-            dtype=point.dtype,
-        )
+        elif (
+            element.polyset_type == basix.PolysetType.standard
+            and element.cell_type != basix.CellType.pyramid
+        ):
+            rows = tabulate_rows(element, point, order)
+        else:
+            # This interpolation requires a single polynomial on the reference cell.
+            raise ValueError(
+                "Expected a Basix derivative table. Use fixed reference points or basis_tables()"
+            )
     if rows.shape[0] < comb(dim + order, order):
         raise ValueError(f"runtime basis tabulation needs derivatives through order {order}")
     # Basix packs mixed partials once. Gradient has one tensor axis per derivative.

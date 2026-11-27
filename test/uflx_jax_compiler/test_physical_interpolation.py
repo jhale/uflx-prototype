@@ -21,7 +21,8 @@ from uflx.tensors import tensor
 from uflx_basix.cells import topology
 from uflx_basix.interpolation import interpolate
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import reference_trace
+
+from .reference import reference_trace
 
 
 @pytest.mark.parametrize(

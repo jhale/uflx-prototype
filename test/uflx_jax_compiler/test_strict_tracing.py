@@ -23,7 +23,9 @@ from uflx_basix.cells import cell, topology
 from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
-from uflx_jax_compiler import _finite_elements, reference_trace
+from uflx_jax_compiler import _finite_elements
+
+from .reference import reference_trace
 
 
 def test_fused_geometry_and_assembly_use_fixed_basix_tables(monkeypatch):
@@ -81,8 +83,11 @@ def test_standalone_samples_read_supplied_basix_partials(build):
         np.testing.assert_allclose(kernel(pts, rows, coefficients), expected, atol=1e-13)
     if build is uflx_jax_compiler.trace:
         first = evaluate_at_points(gradient(u, K), points, index("q"))
-        with pytest.raises(ValueError, match="Basix derivative table"):
-            uflx_jax_compiler.trace(first, points, u)(pts, coefficients)
+        kernel = jax.jit(uflx_jax_compiler.trace(first, points, u))
+        for sample_points in (pts, pts * 0.5):
+            derivatives = p2.tabulate(1, sample_points)[1:, :, :, 0]
+            expected = np.einsum("aqi,ic->qca", derivatives, coefficients)
+            np.testing.assert_allclose(kernel(sample_points, coefficients), expected, atol=1e-13)
         with pytest.raises(ValueError, match="supplied field"):
             uflx_jax_compiler.trace(samples, points, table, u)(pts, rows, lambda point: point**2)
 

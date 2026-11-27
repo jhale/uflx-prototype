@@ -23,7 +23,8 @@ from uflx_basix.nodes import table
 from uflx_basix.quadrature import apply_quadrature, weighted_sum
 from uflx_basix.spaces import local_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
-from uflx_jax_compiler import reference_trace
+
+from .reference import reference_trace
 
 
 def test_sample_once_and_reduce_with_independent_weights():

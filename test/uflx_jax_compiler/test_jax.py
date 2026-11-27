@@ -21,12 +21,12 @@ from uflx.forms import partial as partial_form
 from uflx.geometry import pull_back
 from uflx_basix.quadrature import apply_quadrature
 from uflx_extensions.external_operators import external_operator
-from uflx_jax_compiler import reference_trace
 from uflx_jax_compiler.interpreter import Pointwise
 
 from ..uflx.spaces import space as field_space
 from ..uflx_basix.cells import reference_simplex
 from ..uflx_extensions.operations import Energy
+from .reference import reference_trace
 from .test_differentiation import Sine
 
 

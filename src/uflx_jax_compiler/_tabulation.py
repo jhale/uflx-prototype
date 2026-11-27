@@ -66,10 +66,15 @@ def _macro_simplex(cell, point):
 
 def tabulate(element, point):
     """Sample Basix at fixed nodes during tracing. Only interpolation runs in the kernel."""
+    return tabulate_rows(element, point, 0)[0]
+
+
+def tabulate_rows(element, point, order):
+    """Interpolate native Basix derivative rows at a runtime reference point."""
     point = jnp.asarray(point, dtype=float)
     dim = len(point)
     if not dim:
-        return jnp.asarray(element.tabulate(0, np.empty((1, 0), dtype=element.dtype))[0, 0])
+        return jnp.asarray(element.tabulate(order, np.empty((1, 0), dtype=element.dtype))[:, 0])
 
     cell, degree = element.cell_type, element.embedded_superdegree
     simplex = cell in (CellType.triangle, CellType.tetrahedron)
@@ -104,8 +109,9 @@ def tabulate(element, point):
         nodes[:, :2] *= 1 - nodes[:, 2:]
 
     grid = nodes.reshape(-1, dim).astype(element.dtype)
-    shape = (-1, *(len(x) for x, _ in factors), element.dim, element.value_size)
-    table = jnp.asarray(element.tabulate(0, grid)[0].reshape(shape), dtype=point[0].dtype)[slot]
+    rows = np.moveaxis(element.tabulate(order, grid), 0, 1)
+    shape = (-1, *(len(x) for x, _ in factors), *rows.shape[1:])
+    table = jnp.asarray(rows.reshape(shape), dtype=point[0].dtype)[slot]
     for _, weights in factors:
         table = jnp.tensordot(weights, table, axes=1)
     return table

@@ -14,9 +14,9 @@ from uflx.arithmetic import multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
 from uflx.tensors import component_tensor, index, index_sum, indexed, tensor
-from uflx_jax_compiler import reference_trace
 
 from ..uflx.spaces import space
+from .reference import reference_trace
 
 r = tuple(index(f"r{n}") for n in range(3))
 s = tuple(index(f"s{n}") for n in range(3))

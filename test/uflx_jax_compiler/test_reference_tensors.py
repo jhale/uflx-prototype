@@ -20,7 +20,9 @@ from uflx.passes import lower
 from uflx_basix.cells import cell, topology
 from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import _finite_elements, _reference, reference_trace
+from uflx_jax_compiler import _finite_elements, _reference
+
+from .reference import reference_trace
 
 
 def _constant_shapes(kernel, *data):

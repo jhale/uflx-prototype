@@ -23,9 +23,10 @@ from uflx_basix.quadrature import apply_quadrature
 from uflx_basix.spaces import local_space
 from uflx_extensions.external_operators import external_operator
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
-from uflx_jax_compiler import basis_tables, reference_trace
+from uflx_jax_compiler import basis_tables
 
 from ..uflx_extensions.operations import Energy
+from .reference import reference_trace
 
 
 def test_mass_matrix_and_action_use_native_arrays(monkeypatch):

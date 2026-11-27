@@ -12,10 +12,10 @@ from uflx.arithmetic import add, conjugate, multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.tensors import component_tensor, index, indexed, tensor
-from uflx_jax_compiler import reference_trace
 
 from ..testutil import ill_typed
 from ..uflx.spaces import space
+from .reference import reference_trace
 
 rng = np.random.default_rng(1)
 V, Vd = space("V", None), dual_space(space("V", None))

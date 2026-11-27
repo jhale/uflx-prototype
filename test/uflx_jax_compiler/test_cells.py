@@ -7,11 +7,11 @@
 import numpy as np
 
 from uflx.geometry import domain_map
-from uflx_jax_compiler import reference_trace
 
 from ..uflx.inclusions import affine_map, centroid, reference_normal
 from ..uflx_basix.cells import reference_simplex
 from ..uflx_basix.test_cells import table
+from .reference import reference_trace
 
 
 def value(e, P=None, X=()):

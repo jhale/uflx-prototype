@@ -33,7 +33,6 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, conjugate_space, dual_space, form, function
 from uflx.nodes import ScalarType
 from uflx.tensors import component_tensor, index, index_sum, indexed, inverse, tensor
-from uflx_jax_compiler import reference_trace
 
 from ..testutil import (
     assert_clean,
@@ -44,6 +43,7 @@ from ..testutil import (
     pairing,
 )
 from ..uflx.spaces import space
+from .reference import reference_trace
 
 V, Vd = space("V", None), dual_space(space("V", None))
 W, Wd = space("W", None, value_shape=(2,)), dual_space(space("W", None, value_shape=(2,)))

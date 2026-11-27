@@ -16,10 +16,10 @@ from uflx.arithmetic import add, conjugate, divide, multiply, num
 from uflx.calculus import directional_derivative
 from uflx.forms import form, function
 from uflx.tensors import index, index_sum, indexed, tensor
-from uflx_jax_compiler import reference_trace
 
 from ..testutil import assert_clean, check_types, contains, form_with_fixed_argument, pairing
 from ..uflx.spaces import space
+from .reference import reference_trace
 
 V = space("V", None)
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")

@@ -17,9 +17,9 @@ from uflx.calculus import gradient
 from uflx.forms import apply
 from uflx.geometry import pull_back
 from uflx.passes import apply_gradients, expand_pull_backs, lower
-from uflx_jax_compiler import reference_trace
 
 from ..uflx_basix.test_action_spatial import setup
+from .reference import reference_trace
 
 
 def value(e, domain, point):

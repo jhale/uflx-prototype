@@ -156,8 +156,7 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     facet_sum = apply_quadrature(facet_ref, *facet_rule)
     interior_facet_form = form(facet_sum, (v_ref, u_ref))
     # The selected facet and permutation determine the parent reference points at runtime.
-    # The reference evaluator differentiates the cell fields at those mapped points.
-    evaluate_facet = uflx_jax_compiler.reference_trace(
+    evaluate_facet = uflx_jax_compiler.trace(
         interior_facet_form, x, local_facets, permutations
     )
     facet_kernels[plus_key, minus_key] = jax.jit(evaluate_facet)

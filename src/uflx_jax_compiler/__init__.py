@@ -8,7 +8,7 @@
 from ._basis_tables import basis_tables
 from ._geometry_tables import extract_geometry
 from .emitc import emit_c, lowering_stages
-from .interpreter import reference_trace, trace
+from .interpreter import trace
 from .ufcx import emit_ufcx_tabulate_tensor, with_ufcx_cell_inputs
 
 __all__ = [
@@ -17,7 +17,6 @@ __all__ = [
     "emit_ufcx_tabulate_tensor",
     "extract_geometry",
     "lowering_stages",
-    "reference_trace",
     "trace",
     "with_ufcx_cell_inputs",
 ]

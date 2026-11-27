@@ -20,10 +20,10 @@ from uflx.passes import apply_derivatives
 from uflx_basix.cells import cell
 from uflx_basix.spaces import local_space
 from uflx_extensions.complex_differentiation import complex_derivative_parts
-from uflx_jax_compiler import reference_trace
 
 from ..testutil import ill_typed, keeps_static_type
 from ..uflx.spaces import space
+from .reference import reference_trace
 
 # Derivatives in two unknowns at once, as for a mixed problem.
 C, R = space("C", None), space("R", None, scalar_type=ScalarType.real)

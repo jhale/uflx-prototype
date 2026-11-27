@@ -22,7 +22,6 @@ from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell
 from uflx_basix.interpolation import interpolate
 from uflx_basix.spaces import local_space
-from uflx_jax_compiler import reference_trace
 
 from ..testutil import table
 from ..uflx.inclusions import affine_map, reference_normal
@@ -38,6 +37,7 @@ from ..uflx_basix.meshes import (
     square,
 )
 from .quadrature import integrate_at
+from .reference import reference_trace
 
 
 def value(e, P=None, X=()):

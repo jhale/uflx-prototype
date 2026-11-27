@@ -30,10 +30,10 @@ from uflx.arithmetic import (
 from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function
 from uflx.tensors import index, index_sum, indexed, tensor
-from uflx_jax_compiler import reference_trace
 
 from ..testutil import assert_clean, check_types, form_with_fixed_argument
 from ..uflx.spaces import space
+from .reference import reference_trace
 
 V, Vd = space("V", None), dual_space(space("V", None))
 u, v, w, z, h, q = (function(V, n) for n in "uvwzhq")

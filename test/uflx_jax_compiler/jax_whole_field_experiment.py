@@ -22,10 +22,12 @@ from uflx.arithmetic import num
 from uflx.calculus import coordinate, directional_derivative
 from uflx.forms import apply, form, function
 from uflx.nodes import Apply, DirectionalDerivative, Function, Integer, Product
+from uflx.passes import expand_applications
 from uflx_extensions.external_operators import (
     AbstractOperation,
     ExternalOperator,
     OutputType,
+    apply_external_derivatives,
     external_operator,
 )
 
@@ -148,7 +150,7 @@ def library_bindings(saved=None):
     return {SampleProduct(0): value, SampleProduct(1): first, SampleProduct(2): second}
 
 
-def test_whole_field_against_oracle():
+def test_whole_field_against_lowered_kernel():
     V = space("cell field", D, scalar_type="real")
     u, h, v = (function(V, name) for name in ("u", "h", "v"))
     a = function(space("scale", None, scalar_type="real"), "a")
@@ -166,22 +168,25 @@ def test_whole_field_against_oracle():
 
     cells = {0: cell_field(0), 1: cell_field(2)}
     direction = cell_field(1)
-    # The graph oracle takes traceable fields. Only the host adapter under test
+    # The lowered kernel takes traceable fields. Only the host adapter under test
     # retains Python callbacks and checks that it supplies concrete NumPy points.
     x = coordinate(D)[0]
     library = library_bindings()
+    kernels = {}
+    for expr in (value, first, second):
+        applied = expand_applications(expr)
+        lowered = apply_external_derivatives(applied)
+        kernels[expr] = uflx_jax_compiler.trace(lowered, u, h, a, *library)
+
     retained = {}
     with jax.checking_leaks():
         for cell, field in cells.items():
             saved = []
             env = {u: Partial(field), h: Partial(direction), a: 2.0}
-            for expr in (value, first, second):
+            for expr, kernel in kernels.items():
                 result = evaluate(expr, env, library_bindings(saved))
-                assert float(result) == pytest.approx(
-                    uflx_jax_compiler.trace(expr, u, h, a, *library)(
-                        num(2 * cell) + x, num(1) + x, 2.0, *library.values()
-                    )
-                )
+                expected = kernel(num(2 * cell) + x, num(1) + x, 2.0, *library.values())
+                assert float(result) == pytest.approx(expected)
             retained[cell] = saved
 
     # Both calls and all derivative traces have finished. Sample at fresh points, in reverse
@@ -209,11 +214,12 @@ def test_stationary_scalar_operand_without_a_derivative_binding():
     expr = external_operator(Energy(), (a * a, num(2)))
     derivative = directional_derivative(expr, a, num(0), num(1))
     library = {Energy(): operator.mul}
-    assert (
-        uflx_jax_compiler.trace(derivative, *library)(*library.values())
-        == evaluate(derivative, {}, library)
-        == 0
+    # Symbolic lowering emits the external JVP even at a stationary point.
+    lowered = apply_external_derivatives(derivative)
+    value = uflx_jax_compiler.trace(lowered, Energy().jvp_operator())(
+        lambda x, y, dx, dy: dx * y + x * dy
     )
+    assert value == evaluate(derivative, {}, library) == 0
     active = directional_derivative(expr, a, num(1), num(1))
     with pytest.raises(TypeError, match="missing evaluation for derivative action"):
         evaluate(active, {}, library)

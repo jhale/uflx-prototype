@@ -15,10 +15,10 @@ from uflx.forms import apply, form, function
 from uflx.geometry import pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import index, tensor
-from uflx_jax_compiler import reference_trace
 
 from ..uflx.spaces import space as field_space
 from ..uflx_basix.cells import reference_simplex
+from .reference import reference_trace
 
 
 def test_evaluation_reads_current_bindings_and_form_arguments():
@@ -165,7 +165,6 @@ class BlockDependencies:
 sys.meta_path.insert(0, BlockDependencies())
 from uflx.arithmetic import num
 import uflx_jax_compiler
-from uflx_jax_compiler import reference_trace
 assert uflx_jax_compiler.trace(num(2) * num(3))() == 6
 """
     subprocess.run([sys.executable, "-c", code], check=True)

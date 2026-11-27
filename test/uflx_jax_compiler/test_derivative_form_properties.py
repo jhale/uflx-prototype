@@ -16,10 +16,10 @@ from uflx.calculus import directional_derivative
 from uflx.forms import apply, dual_space, form, function, partial
 from uflx.nodes import ScalarType
 from uflx_extensions.complex_differentiation import complex_derivative_parts
-from uflx_jax_compiler import reference_trace
 
 from ..testutil import assert_clean, check_types, ill_typed
 from ..uflx.spaces import space
+from .reference import reference_trace
 
 C, R = space("C", None), space("R", None, scalar_type=ScalarType.real)
 

@@ -16,10 +16,10 @@ from uflx.geometry import domain_map, pull_back
 from uflx.nodes import EuclideanSpace
 from uflx.passes import expand_integrals
 from uflx.tensors import component_tensor, index
-from uflx_jax_compiler import reference_trace
 
 from ..uflx_basix.test_pull_back_gradients import GEOMETRY, D, K, nodes
 from .quadrature import integrate_at
+from .reference import reference_trace
 
 X, k = coordinate(D), index("k")
 

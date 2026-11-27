@@ -19,11 +19,11 @@ from uflx.forms import function
 from uflx.nodes import EuclideanSpace
 from uflx.tensors import determinant, tensor
 from uflx_extensions.external_operators import AbstractOperation, OutputType, external_operator
-from uflx_jax_compiler import reference_trace
 from uflx_jax_compiler.interpreter import Pointwise
 
 from ..uflx.spaces import space as field_space
 from ..uflx_extensions.operations import Energy
+from .reference import reference_trace
 
 
 def test_derivatives_at_scales_where_perturbations_round_away():

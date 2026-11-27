@@ -9,10 +9,9 @@ import jax
 import jax.numpy as jnp
 
 from uflx.nodes import Mesh
-
-from . import _tensors
-from ._context import BoundExpression
-from ._geometry import chart_of, side_reference
+from uflx_jax_compiler import _tensors
+from uflx_jax_compiler._context import BoundExpression
+from uflx_jax_compiler._geometry import chart_of, side_reference
 
 
 def directional(node, arguments, read):

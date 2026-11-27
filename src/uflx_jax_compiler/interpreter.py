@@ -131,20 +131,6 @@ def trace(expression: AbstractExpression, *inputs):
     return kernel
 
 
-def reference_trace(expression: AbstractExpression, *inputs):
-    """Return a JAX-traceable reference function for an expression or form.
-
-    Evaluate unlowered derivatives with JAX AD to check symbolic lowering.
-    Inputs and form slots follow the same convention as trace.
-    """
-    from . import _autodiff
-
-    _check_inputs(expression, inputs)
-    kernel = _kernel(expression, inputs, reference=_autodiff)
-    kernel.inputs = inputs
-    return kernel
-
-
 def _kernel(expression, inputs, *, reference=None, shared_jacobians=frozenset()):
     # Runtime extents are structural types. Bind them from array shapes while
     # tracing, so array lengths do not become additional scalar JIT arguments.

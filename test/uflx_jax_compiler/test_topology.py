@@ -7,11 +7,11 @@
 import numpy as np
 
 import uflx_jax_compiler
-from uflx_jax_compiler import reference_trace
 
 from ..uflx_basix.integrals import I as interval
 from ..uflx_basix.integrals import K
 from ..uflx_basix.meshes import grouped_topology, side_data, side_map
+from .reference import reference_trace
 
 
 def test_the_side_data_of_the_diagonal_of_the_example():
