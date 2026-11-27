@@ -52,17 +52,15 @@ theta = push_forward(theta_ref, mesh, R.law)
 v = push_forward(v_ref, mesh, W.law)
 eta = push_forward(eta_ref, mesh, R.law)
 
-
-def reduced_shear(w, theta):
-    return gradient(w, mesh) - interpolate(theta, shear_space)
-
-
 # %% [markdown]
 # Write $\gamma(w,\theta) = \nabla w - I_{N1E}\theta$. Since $\gamma$ is linear,
 # the second variation of $E = \tfrac12 \int |\gamma|^2$ pairs the reduced
 # shears of the test and trial fields.
 
 # %%
+def reduced_shear(w, theta):
+    return gradient(w, mesh) - interpolate(theta, shear_space)
+
 shear_form = integral(reduced_shear(v, eta) @ reduced_shear(w, theta), mesh)
 # Both reduced shears are affine on this triangle, so degree 2 integrates their product exactly.
 rule = basix.make_quadrature(triangle, degree=2)
