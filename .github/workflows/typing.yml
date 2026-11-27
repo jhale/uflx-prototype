@@ -19,3 +19,15 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -e '.[lint]'
       - run: pyrefly check
+
+  dolfinx:
+    name: Pyrefly with DOLFINx
+    runs-on: ubuntu-latest
+    container: ghcr.io/fenics/dolfinx/dolfinx:nightly
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m pip install -e '.[lint]'
+      - name: Check the adapter against the installed DOLFINx package
+        run: |
+          dolfinx_path=$(python3 -c 'from pathlib import Path; import dolfinx; print(Path(dolfinx.__file__).resolve().parent.parent)')
+          pyrefly check --search-path src --search-path "$dolfinx_path" 'src/uflx_dolfinx/**/*.py'

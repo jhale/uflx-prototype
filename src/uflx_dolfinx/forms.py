@@ -1,8 +1,12 @@
 """Compile real UFLx cell forms for DOLFINx assembly."""
 
+from __future__ import annotations
+
+from collections.abc import Collection, Mapping, Sequence
 from hashlib import sha256
 from importlib.util import module_from_spec, spec_from_file_location
 from tempfile import TemporaryDirectory
+from types import ModuleType
 
 import jax
 import numpy as np
@@ -12,19 +16,30 @@ from dolfinx import fem
 import uflx_jax_compiler
 from uflx.algorithms import bottom_up
 from uflx.forms import form as symbolic_form
+from uflx.nodes import AbstractExpression, Form, MappedSpace
 from uflx.passes import expand_pull_backs
+from uflx_extensions.runtime_arrays import RuntimeArray
 
 from .functions import Constant, Function, _ReferenceSpace, functionspace
 
 
-def _emit_tabulate_tensor(expression, coordinates, dtype, *, coefficients=(), constants=()):
+def _emit_tabulate_tensor(
+    expression: Form,
+    coordinates: AbstractExpression,
+    dtype: np.dtype,
+    *,
+    coefficients: Collection[AbstractExpression] = (),
+    constants: Collection[RuntimeArray] = (),
+) -> str:
     evaluate = uflx_jax_compiler.trace(expression, coordinates, *coefficients, *constants)
     tabulate = uflx_jax_compiler.with_ufcx_cell_inputs(evaluate, dtype=dtype)
-    exported = jax.export.export(jax.jit(tabulate))(*tabulate.input_specs)
+    # with_ufcx_cell_inputs attaches the buffer specifications to its callable.
+    specs = tabulate.input_specs  # pyrefly: ignore[missing-attribute]
+    exported = jax.export.export(jax.jit(tabulate))(*specs)
     return uflx_jax_compiler.emit_ufcx_tabulate_tensor(exported, "tabulate_tensor")
 
 
-def _compile_kernel(source, dtype):
+def _compile_kernel(source: str, dtype: np.dtype) -> ModuleType:
     module_name = "_uflx_" + sha256(source.encode()).hexdigest()
     ffi = FFI()
     scalar = {np.dtype(np.float32): "float", np.dtype(np.float64): "double"}[dtype]
@@ -37,18 +52,28 @@ def _compile_kernel(source, dtype):
     with TemporaryDirectory() as build_dir:
         library = ffi.compile(tmpdir=build_dir)
         spec = spec_from_file_location(module_name, library)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"cannot load compiled cell kernel {library}")
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
     return module
 
 
-def _create_form(module, spaces, *, coefficients=(), constants=()):
+def _create_form(
+    module: ModuleType,
+    spaces: list[fem.FunctionSpace],
+    *,
+    coefficients: Collection[fem.Function] = (),
+    constants: Collection[fem.Constant] = (),
+) -> fem.Form:
     domain = spaces[0].mesh
     address = int(module.ffi.cast("uintptr_t", module.ffi.addressof(module.lib, "tabulate_tensor")))
     cells = np.arange(domain.topology.index_map(domain.topology.dim).size_local, dtype=np.int32)
     active_coeffs = np.arange(len(coefficients), dtype=np.int8)
     integrals = {fem.IntegralType.cell: [(0, address, cells, active_coeffs)]}
-    cpp_form = fem.form_cpp_class(domain.geometry.x.dtype)(
+    # form() checks that every native object matches the selected precision.
+    native_form = fem.form_cpp_class(domain.geometry.x.dtype)
+    cpp_form = native_form(  # pyrefly: ignore[no-matching-overload]
         [space._cpp_object for space in spaces],
         integrals,
         [field._cpp_object for field in coefficients],
@@ -61,7 +86,12 @@ def _create_form(module, spaces, *, coefficients=(), constants=()):
     return fem.Form(cpp_form, domain, spaces, module=module)
 
 
-def form(expression, function_spaces=None, *, constant_map=None):
+def form(
+    expression: Form,
+    function_spaces: Sequence[fem.FunctionSpace] | None = None,
+    *,
+    constant_map: Mapping[RuntimeArray, fem.Constant] | None = None,
+) -> fem.Form:
     """Compile a quadrature-discretised cell form with DOLFINx test and trial spaces."""
     symbolic_spaces = expression.argument_spaces
     if not symbolic_spaces:
@@ -94,9 +124,9 @@ def form(expression, function_spaces=None, *, constant_map=None):
             raise ValueError(f"constant {symbol.label} has dtype {value.dtype}, expected {dtype}")
         if value.value.shape != symbol.value_shape:
             raise ValueError("constant shape does not match the cell kernel")
-    coefficients = {}
+    coefficients: dict[AbstractExpression, fem.Function] = {}
 
-    def bind(node):
+    def bind(node: AbstractExpression) -> AbstractExpression:
         if isinstance(node, Constant):
             if node.data.dtype != dtype:
                 raise ValueError(f"constant has dtype {node.data.dtype}, expected {dtype}")
@@ -118,11 +148,17 @@ def form(expression, function_spaces=None, *, constant_map=None):
     discrete = symbolic_form(
         expand_pull_backs(integrand) if coefficients else integrand, expression.arguments
     )
-    coordinates = symbolic_spaces[0].domain.coordinate_function
+    space = symbolic_spaces[0]
+    if not isinstance(space, MappedSpace):
+        raise ValueError("expected a mapped DOLFINx argument space")
+    coordinates = space.mesh.coordinate_function
     source = _emit_tabulate_tensor(
         discrete, coordinates, dtype, coefficients=coefficients, constants=constants
     )
     module = _compile_kernel(source, dtype)
     return _create_form(
-        module, function_spaces, coefficients=coefficients.values(), constants=constants.values()
+        module,
+        list(function_spaces),
+        coefficients=coefficients.values(),
+        constants=constants.values(),
     )
