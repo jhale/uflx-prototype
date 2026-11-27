@@ -116,19 +116,22 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 ### Compiler focused
 
 - [Expression at reference points](examples/expression_at_points.py) evaluates a squared
-  P1 field at fixed points and at points supplied at runtime.
+  P1 field at fixed points, and then at points supplied at runtime.
 - [Runtime quadrature](examples/runtime_quadrature.py) builds a P2 Poisson
   stiffness kernel that can accept runtime quadrature and basis evaluations.
-- [External operator](examples/external_operator.py) declares a symbolic square and constructs
-  the JVP and VJP of a residual that uses it.
-- [Precomputed geometry](examples/precomputed_geometry.py) extracts geometry
-  terms from the Poisson integral, evaluates them at quadrature points and
-  assembles a curved triangle's stiffness matrix in one JIT-compiled function.
+- [Precomputed geometry](examples/precomputed_geometry.py) extracts symbolic
+  geometry terms from the Poisson integral, evaluates them at quadrature points
+  and separately assembles a curved triangle's stiffness matrix in one
+  JIT-compiled function.
+- [External operator](examples/external_operator.py) uses a user-defined square
+  in a residual. UFLx differentiates the residual, JAX supplies the square’s
+  JVP and VJP, and the example emits the tangent kernel as C99.
 - [Poisson to C pipeline](examples/poisson_emitc.py) JAX's StableHLO is lowered
-  to MLIR dialects, which is then lowered to C99 using EmitC. Requires `mlir-opt` and `mlir-translate` from LLVM 23 or newer,
-  plus `clang-format` on `PATH`.
-- [Poisson with DOLFINx](examples/poisson_dolfinx.py) compiles the emitted stiffness and
-  load kernels with CFFI and solves a P1 problem on the unit square with SuperLU_DIST.
+  to MLIR dialects, which is then lowered to C99 using EmitC. Requires
+  `mlir-opt` and `mlir-translate` from LLVM 23 or newer, plus `clang-format` on
+  `PATH`.
+- [Poisson with DOLFINx](examples/poisson_dolfinx.py) compiles the emitted C99
+  stiffness and load kernels with CFFI and assembles them with DOLFINx.
 
 ### Hello world - Poisson on a triangle
 
