@@ -103,8 +103,6 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
 
 - [Poisson on a triangle](examples/poisson.py) builds the cell stiffness matrix
   and load vector for Poisson’s equation with a unit source.
-- [L² projection on an interval](examples/l2_projection.py) projects a quadratic
-  field onto the linear space with a JAX mass solve.
 - [Mixed Poisson](examples/mixed_poisson.py) couples a Raviart–Thomas flux with
   a discontinuous scalar on a curved triangle.
 - [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
