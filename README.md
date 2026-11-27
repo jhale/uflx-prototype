@@ -107,6 +107,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   a discontinuous scalar on a curved triangle.
 - [Discontinuous Galerkin Poisson](examples/dg_poisson.py) generates nine cell
   and facet kernels for a mesh with differing cell types and geometric maps.
+- [Surface H(curl) mass matrix](examples/surface_hcurl.py) assembles Nédélec
+  edge degrees of freedom across a fold in three dimensions.
 - [PDE-constrained optimisation](examples/pde_constrained.py) differentiates a
   reaction–diffusion Lagrangian to build tangent, adjoint and Hessian forms.
 - [Durán–Liberman shear reduction](examples/duran_liberman.py) interpolates the
@@ -124,13 +126,14 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   and separately assembles a curved triangle's stiffness matrix in one
   JIT-compiled function.
 - [Poisson to C pipeline](examples/poisson_emitc.py) JAX's StableHLO is lowered
-  to MLIR dialects, which is then lowered to C99 using EmitC. Requires
-  `mlir-opt` and `mlir-translate` from LLVM 23 or newer, plus `clang-format` on
-  `PATH`.
+  to MLIR dialects, which are then lowered to C (C99) using EmitC. Requires
+  `mlir-opt` and `mlir-translate` from LLVM 23 or newer, along with
+  `clang-format`.
 - [External operator](examples/external_operator.py) uses a user-defined square
-  in a residual. UFLx differentiates the residual, JAX supplies the square’s
-  JVP and VJP, and the example emits the tangent kernel as C99.
-- [Poisson with DOLFINx](examples/poisson_dolfinx.py) compiles the emitted C99
+  in a residual. UFLx differentiates the residual, and then JAX supplies the
+  square’s vector-transpose Jacobian (adjoint) and Jacobian vector (tangent)
+  actions. The example emits the complete tangent kernel as C.
+- [Poisson with DOLFINx](examples/poisson_dolfinx.py) compiles the emitted C
   stiffness and load kernels with CFFI and assembles them with DOLFINx.
 
 ### Hello world - Poisson on a triangle
