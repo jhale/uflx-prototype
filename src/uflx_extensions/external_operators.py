@@ -251,11 +251,7 @@ def _select_pullback(node: AbstractExpression) -> AbstractExpression:
         ) if slot == h:
             if occurs(h, seed) or occurs(h, residual) or occurs(h, point):
                 return node
-            adjoint = _external_adjoint(residual, wrt, h)
-            if point != wrt:
-                at_point = substitute_values(adjoint, {wrt: point})
-                assert isinstance(at_point, Form)
-                adjoint = at_point
+            adjoint = _external_adjoint(freshen(residual, (point,)), wrt, point, h)
             return partial(adjoint, {adjoint.arguments[1]: seed})
         case _:
             return node
@@ -279,18 +275,47 @@ def jvp(expression: Form, wrt: Function, direction: AbstractExpression) -> Form:
 
 @overload
 def jvp(
+    expression: Form, wrt: Function, point: AbstractExpression, direction: AbstractExpression
+) -> Form: ...
+
+
+@overload
+def jvp(
     expression: AbstractExpression, wrt: Function, direction: AbstractExpression
 ) -> AbstractExpression: ...
 
 
+@overload
 def jvp(
-    expression: AbstractExpression, wrt: Function, direction: AbstractExpression
+    expression: AbstractExpression,
+    wrt: Function,
+    point: AbstractExpression,
+    direction: AbstractExpression,
+) -> AbstractExpression: ...
+
+
+def jvp(
+    expression: AbstractExpression,
+    wrt: Function,
+    *values: AbstractExpression,
+    **keywords: AbstractExpression,
 ) -> AbstractExpression:
-    """Push direction through expression, preserving the open slots of an explicit form."""
+    """Push a direction through expression at wrt or at an explicit evaluation point."""
+    if len(values) + len(keywords) == 1 and "point" not in keywords:
+        values = (wrt, *values)
+    return _jvp_at(expression, wrt, *values, **keywords)
+
+
+def _jvp_at(
+    expression: AbstractExpression,
+    wrt: Function,
+    point: AbstractExpression,
+    direction: AbstractExpression,
+) -> AbstractExpression:
     if isinstance(expression, Form):
-        residual = freshen(expression, (wrt, direction))
-        return form(jvp(residual.expression, wrt, direction), residual.arguments)
-    return apply_external_derivatives(directional_derivative(expression, wrt, direction))
+        residual = freshen(expression, (wrt, point, direction))
+        return form(_jvp_at(residual.expression, wrt, point, direction), residual.arguments)
+    return apply_external_derivatives(directional_derivative(expression, wrt, point, direction))
 
 
 def _pair(left: AbstractExpression, right: AbstractExpression) -> AbstractExpression:
@@ -302,7 +327,9 @@ def _pair(left: AbstractExpression, right: AbstractExpression) -> AbstractExpres
     return index_sum(indexed(left, axes) * indexed(right, axes), axes)
 
 
-def _external_adjoint(residual: Form, variable: Function, direction: Function) -> Form:
+def _external_adjoint(
+    residual: Form, variable: Function, point: AbstractExpression, direction: Function
+) -> Form:
     """Build a real transpose Jacobian at fixed geometry using external VJPs.
 
     Slots are (direction, residual test), so partial application to the test
@@ -328,18 +355,22 @@ def _external_adjoint(residual: Form, variable: Function, direction: Function) -
     if direction == test or occurs(direction, residual.expression):
         raise ValueError("direction already occurs in the residual")
 
-    body = _pullback(residual.expression, variable, direction, num(1))
+    body = _pullback(residual.expression, variable, point, direction, num(1))
     return form(body, (direction, test))
 
 
 def _pullback(
     expression: AbstractExpression,
     variable: Function,
+    point: AbstractExpression,
     direction: Function,
     seed: AbstractExpression,
 ) -> AbstractExpression:
     """Pair the fixed seed with the variation, using VJPs at active external calls."""
     from uflx.passes import apply_derivatives
+
+    def at(node: AbstractExpression) -> AbstractExpression:
+        return node if point == variable else substitute_values(node, {variable: point})
 
     @cache
     def active_external(node: AbstractExpression) -> bool:
@@ -351,18 +382,20 @@ def _pullback(
     def reverse(node: AbstractExpression, cotangent: AbstractExpression) -> AbstractExpression:
         if not active_external(node):
             return _pair(
-                cotangent, apply_derivatives(directional_derivative(node, variable, direction))
+                cotangent,
+                apply_derivatives(directional_derivative(node, variable, point, direction)),
             )
         match node:
             case ExternalOperator(law, operands):
                 pullback = law.vjp_operator()
+                primals = tuple(map(at, operands))
                 contributions: list[AbstractExpression] = []
                 for i, operand in enumerate(operands):
                     if not occurs_in_values(variable, operand):
                         continue
                     if operand.scalar_type != "real" or node.scalar_type != "real":
                         raise ValueError("external VJP requires real operands and results")
-                    bar = external_operator(pullback[i], (*operands, cotangent))
+                    bar = external_operator(pullback[i], (*primals, cotangent))
                     contributions.append(reverse(operand, bar))
                 return reduce(add, contributions)
             case Integral(body, domain) if cotangent.domain is None:
@@ -381,6 +414,7 @@ def _pullback(
         terms: list[AbstractExpression] = []
         for value, factor in (factors, factors[::-1]):
             if occurs_in_values(variable, value):
+                factor = at(factor)
                 weight = (
                     _pair(cotangent, factor)
                     if value.value_shape == () and factor.value_shape != ()
@@ -392,15 +426,42 @@ def _pullback(
     return reverse(expression, seed)
 
 
-def vjp(residual: AbstractExpression, wrt: Function, seed: AbstractExpression) -> Form:
+@overload
+def vjp(residual: AbstractExpression, wrt: Function, seed: AbstractExpression) -> Form: ...
+
+
+@overload
+def vjp(
+    residual: AbstractExpression, wrt: Function, point: AbstractExpression, seed: AbstractExpression
+) -> Form: ...
+
+
+def vjp(
+    residual: AbstractExpression,
+    wrt: Function,
+    *values: AbstractExpression,
+    **keywords: AbstractExpression,
+) -> Form:
     """Pull a seed through a real scalar objective or a real one-slot residual.
 
     For a scalar objective J, vjp(J, u, num(1)) returns its first variation
     as a linear form on u's space. For a residual, supply the test-slot value.
-    In both cases the seed is held fixed, even when it depends on u.
+    Pass (point, seed) to evaluate at an explicit point. The seed stays fixed.
     """
+    if len(values) + len(keywords) == 1 and "point" not in keywords:
+        values = (wrt, *values)
+    return _vjp_at(residual, wrt, *values, **keywords)
+
+
+def _vjp_at(
+    residual: AbstractExpression, wrt: Function, point: AbstractExpression, seed: AbstractExpression
+) -> Form:
     if isinstance(residual, Form) and residual.argument_spaces != ():
-        bilinear = freshen(_linearize(residual, wrt), (seed,))
+        bilinear = freshen(_linearize(residual, wrt), (point, seed))
+        if point != wrt:
+            at_point = substitute_values(bilinear, {wrt: point})
+            assert isinstance(at_point, Form)
+            bilinear = at_point
         applied = partial(bilinear, {bilinear.arguments[1]: seed})
         result = apply_external_derivatives(applied)
         assert isinstance(result, Form)
@@ -417,5 +478,5 @@ def vjp(residual: AbstractExpression, wrt: Function, seed: AbstractExpression) -
         raise ValueError("expected a scalar seed compatible with the objective domain")
     if any(x.scalar_type != "real" for x in (objective, wrt, seed)):
         raise ValueError("external adjoint action requires real values")
-    direction = function(wrt.space, ("uflx.extensions.vjp", objective, wrt, seed))
-    return form(_pullback(objective, wrt, direction, seed), (direction,))
+    direction = function(wrt.space, ("uflx.extensions.vjp", objective, wrt, point, seed))
+    return form(_pullback(objective, wrt, point, direction, seed), (direction,))

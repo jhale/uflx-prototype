@@ -37,12 +37,12 @@ def square_type(operands):
 
 square = operation("example.square", 1, square_type)
 V = real_scalar_space()
-u, v, h, z = (function(V, name) for name in ("u", "v", "h", "z"))
+u, v, p, h, z = (function(V, name) for name in ("u", "v", "p", "h", "z"))
 square_u = external_operator(square, (u,))
 R = form(square_u * v, (v,))
 
-Jh = jvp(R, u, h)  # Supply a perturbation; the test slot stays open.
-JTz = vjp(R, u, z)  # Supply a test value; the perturbation slot stays open.
+Jh = jvp(R, u, p, h)  # Supply a perturbation; the test slot stays open.
+JTz = vjp(R, u, p, z)  # Supply a test value; the perturbation slot stays open.
 
 pushforward = square.jvp_operator()
 pullback = square.vjp_operator()
@@ -65,13 +65,13 @@ def square_vjp(x, seed):
 forward_pairing = apply(Jh, (z,))
 reverse_pairing = apply(JTz, (h,))
 
-evaluate_forward = trace(forward_pairing, square, pushforward, u, h, z)
-evaluate_reverse = trace(reverse_pairing, pullback, u, h, z)
+evaluate_forward = trace(forward_pairing, square, pushforward, p, h, z)
+evaluate_reverse = trace(reverse_pairing, pullback, p, h, z)
 bound_forward = partial(evaluate_forward, jnp.square, square_jvp)
 bound_reverse = partial(evaluate_reverse, square_vjp)
 
 tangent = jax.jit(bound_forward)
-inputs = (3.0, 2.0, 4.0)  # u, h, z
+inputs = (3.0, 2.0, 4.0)  # p, h, z
 value = tangent(*inputs)
 assert value == bound_reverse(*inputs) == 48.0
 print(value)
@@ -82,6 +82,6 @@ print(value)
 # %%
 scalar = jax.ShapeDtypeStruct((), jnp.float32)
 export_tangent = export.export(tangent)
-exported = export_tangent(scalar, scalar, scalar)  # u, h, z
+exported = export_tangent(scalar, scalar, scalar)  # p, h, z
 tangent_c = emit_c(exported, "square_tangent")
 print(tangent_c)

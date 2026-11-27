@@ -75,7 +75,8 @@ def test_external_adjoint_assembles_transpose_without_a_tangent_rule():
     jac = jax.jacfwd(R)(values)
     assert not np.allclose(jac @ seed, jac.T @ seed)
     np.testing.assert_allclose(JT(values, seed), jac.T @ seed, rtol=1e-6)
-    np.testing.assert_allclose(compile(transpose, law.vjp_operator(), response_vjp, u)(values), jac.T)
+    transpose_kernel = compile(transpose, law.vjp_operator(), response_vjp, u)
+    np.testing.assert_allclose(transpose_kernel(values), jac.T)
 
 
 def test_chain_rule_sums_vjps_for_repeated_inputs_and_holds_seed_fixed():
@@ -231,3 +232,23 @@ def test_one_pullback_serves_scalar_and_vector_operands():
     assert dx(pullback, 4.0, values, jnp.array([0.0, 1.0])) == 24.0
     with pytest.raises(ValueError, match="tuple of 2 cotangents"):
         da(lambda a, x, seed: (x @ x * seed,), 4.0, values, 1.0)
+
+
+def test_actions_at_explicit_point_keep_direction_and_seed_fixed():
+    V = real_scalar_space()
+    u, v = (function(V, name) for name in ("u", "v"))
+    square = operation("test.square_at_point", 1, vector_type)
+    objective = u * external_operator(square, (u,))
+    residual = form(objective * v, (v,))
+    point = u + num(1)
+
+    # At u=2, D(u³) at point=3 is 27. Both the direction and seed are u=2.
+    for expression in (objective, residual):
+        forward = jvp(expression, u, point, direction=u)
+        reverse = vjp(expression, u, point=point, seed=u)
+        if expression is residual:
+            forward = apply(forward, (num(1),))
+        evaluate_forward = trace(forward, u, square, square.jvp_operator())
+        evaluate_reverse = trace(reverse, u, square, square.vjp_operator())
+        assert evaluate_forward(2.0, jnp.square, lambda x, h: 2 * x * h) == 54.0
+        assert evaluate_reverse(2.0, jnp.square, lambda x, z: (2 * x * z,), 1.0) == 54.0
