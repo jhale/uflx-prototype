@@ -306,8 +306,10 @@ def _basix_contraction(groups, arguments, cell, points, weights, dtype):
 def _contraction(body, arguments, inputs, ordinary):
     expr, cell, point_operand, weight_operand = _sampled(body, inputs)
     basis_size = prod(basix_space(arg.space).num_dofs for arg in arguments)
+    # Basis products have one axis per argument and one per quadrature point.
+    # The coordinate dimension of each point is not an axis of that table.
     if not all(isinstance(n, int) for n in point_operand.value_shape) or (
-        basis_size * prod(point_operand.value_shape) > _MAX_ENTRIES
+        basis_size * point_operand.value_shape[0] > _MAX_ENTRIES
     ):
         raise _UseQuadrature
     reference, coefficients, runtime = _factors(expr, frozenset(arguments), inputs)

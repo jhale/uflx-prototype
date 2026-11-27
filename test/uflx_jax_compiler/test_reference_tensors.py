@@ -174,7 +174,7 @@ def test_explicit_point_measure_in_a_sampled_form():
     np.testing.assert_allclose(actual, 0.5 * uflx_jax_compiler.trace(L)(), atol=1e-14)
 
 
-def test_affine_rt_divergence_reference_matrix():
+def test_affine_rt_divergence_reference_matrix(monkeypatch):
     triangle = basix.CellType.triangle
     T = create_topology(triangle)
     p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
@@ -185,6 +185,8 @@ def test_affine_rt_divergence_reference_matrix():
     u, v = (function(V, label) for label in ("u", "v"))
     du, dv = (divergence(push_forward(f, mesh, V.law), mesh) for f in (u, v))
     points, weights = basix.make_quadrature(triangle, 2)
+    # The table fits exactly: one square basis matrix per quadrature point.
+    monkeypatch.setattr(_reference, "_MAX_ENTRIES", len(weights) * rt.dim**2)
     sampled = apply_quadrature(lower(integral(du * dv, mesh)), points, weights)
     kernel = uflx_jax_compiler.trace(form(sampled, (v, u)), x)
 

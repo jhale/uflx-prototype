@@ -25,6 +25,9 @@ DEFAULT_LOOP_PASSES = (
     "linalg-inline-scalar-operands",
     "canonicalize",
     "cse",
+    "func.func(linalg-fold-unit-extent-dims,linalg-fuse-elementwise-ops)",
+    "canonicalize",
+    "cse",
     (
         "one-shot-bufferize{bufferize-function-boundaries "
         "function-boundary-type-conversion=identity-layout-map buffer-alignment=0}"
@@ -39,6 +42,7 @@ DEFAULT_EMITC_PASSES = (
     "fold-memref-alias-ops",
     "canonicalize",
     "buffer-results-to-out-params{modify-public-functions hoist-static-allocs}",
+    "buffer-deallocation-pipeline",
     "mem2reg",
     "canonicalize",
     "arith-expand",
@@ -116,7 +120,7 @@ def lowering_stages(
     c = subprocess.run(command, input=emitc, text=True, stdout=subprocess.PIPE, check=True).stdout
     source = (
         "#include <stdint.h>\n#include <stddef.h>\n#include <stdbool.h>\n#include <math.h>\n"
-        "#include <string.h>\n\n" + c
+        "#include <stdlib.h>\n#include <string.h>\n\n" + c
     )
 
     filename = f"{name}.c"

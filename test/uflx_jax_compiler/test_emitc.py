@@ -79,6 +79,20 @@ def test_scalar_reduction(tmp_path):
     np.testing.assert_allclose(result, kernel(values))
 
 
+def test_heap_temporary_cleanup(tmp_path):
+    # The matrix product exceeds the default 32 KiB stack promotion limit.
+    values = np.arange(65 * 65, dtype=np.float64).reshape(65, 65) / 1000
+    kernel = jax.jit(lambda x: (x @ x).sum(axis=1))
+    source = uflx_jax_compiler.emit_c(jax.export.export(kernel)(values), "row_sums")
+    assert source.count("malloc(") == source.count("free(")
+    row_sums = compile_kernel(source, "row_sums", tmp_path)
+    row_sums.argtypes = [np.ctypeslib.ndpointer(dtype=np.float64)] * 2
+    row_sums.restype = None
+    result = np.empty(len(values))
+    row_sums(values, result)
+    np.testing.assert_allclose(result, kernel(values))
+
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_ufcx_tabulate_tensor(tmp_path, dtype):
     def cell(x, w, c):

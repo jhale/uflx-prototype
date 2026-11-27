@@ -74,6 +74,7 @@ def emit_ufcx_tabulate_tensor(exported: export.Exported, name):
     The kernel takes three statically sized flat arrays (coordinate_dofs, w, c)
     and returns one cell tensor, all with the same float32 or float64 dtype.
     The generated tabulate_tensor function accumulates the cell tensor into A.
+    A is the read-write output buffer. The callback accepts a null custom_data pointer.
     """
     if len(exported.in_avals) != 3 or len(exported.out_avals) != 1:
         raise ValueError("expected three packed inputs and one cell tensor")
