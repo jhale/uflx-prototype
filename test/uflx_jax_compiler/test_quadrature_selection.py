@@ -20,7 +20,7 @@ from uflx.passes import expand_pull_backs, lower
 from uflx.tensors import index, tensor
 from uflx_basix.cells import cell, topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 
 from ..testutil import contains
 from ..uflx.spaces import space
@@ -143,8 +143,8 @@ def test_coefficient_gradient_uses_only_its_dependent_axes(degree):
     P = basix.ElementFamily.P
     element = basix.create_element(P, K.cell_type, degree)
     linear = basix.create_element(P, K.cell_type, 1)
-    u = function(local_space(K, element), "u")
-    v = function(local_space(K, linear), "v")
+    u = function(function_space(K, element), "u")
+    v = function(function_space(K, linear), "v")
     points, weights = basix.make_quadrature(K.cell_type, 4)
     moment = integral(v * logarithm(gradient(u, K)[0]), K)
     kernel = uflx_jax_compiler.trace(form(apply_quadrature(moment, points, weights), (v,)), u)
@@ -179,9 +179,9 @@ def test_poisson_stiffness_on_a_curved_triangle():
     P = basix.ElementFamily.P
     p1 = basix.create_element(P, triangle, 1)
     p2 = basix.create_element(P, triangle, 2)
-    x = function(local_space(T, p2, shape=(2,)), "x")
+    x = function(function_space(T, p2, shape=(2,)), "x")
     mesh = Mesh(x, EuclideanSpace(2))
-    V = local_space(T, p1)
+    V = function_space(T, p1)
     u, v = function(V, "u"), function(V, "v")
     gu, gv = (gradient(push_forward(f, mesh, V.law), mesh) for f in (u, v))
     points, weights = basix.make_quadrature(triangle, 4)

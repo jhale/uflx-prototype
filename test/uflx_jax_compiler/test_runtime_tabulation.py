@@ -20,7 +20,7 @@ from uflx.passes import lower
 from uflx_basix.cells import cell, topology
 from uflx_basix.nodes import BasixBasis
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.external_operators import external_operator
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 from uflx_jax_compiler import basis_tables
@@ -32,7 +32,7 @@ from .reference import reference_trace
 def test_mass_matrix_and_action_use_native_arrays(monkeypatch):
     interval = cell(basix.CellType.interval)
     p2 = basix.create_element(basix.ElementFamily.P, interval.cell_type, 2)
-    space = local_space(interval, p2)
+    space = function_space(interval, p2)
     trial, test = (function(space, name) for name in ("u", "v"))
     mass = integral(trial * test, interval)
     matrix, action = form(mass, (test, trial)), form(mass, (test,))
@@ -66,9 +66,9 @@ def test_curved_poisson_uses_one_table_for_fields_and_geometry():
     triangle = basix.CellType.triangle
     topology_ = topology(triangle)
     p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-    coords = function(local_space(topology_, p2, shape=(2,)), "x")
+    coords = function(function_space(topology_, p2, shape=(2,)), "x")
     mesh = Mesh(coords, EuclideanSpace(2))
-    space = local_space(topology_, p2)
+    space = function_space(topology_, p2)
     trial, test = (function(space, name) for name in ("u", "v"))
     gu, gv = (gradient(push_forward(f, mesh, space.law), mesh) for f in (trial, test))
     stiffness = lower(integral(gu @ gv, mesh))
@@ -97,7 +97,7 @@ def test_curved_poisson_uses_one_table_for_fields_and_geometry():
 def test_independent_integrals_can_start_with_identical_rules():
     triangle = cell(basix.CellType.triangle)
     element = basix.create_element(basix.ElementFamily.P, triangle.cell_type, 2)
-    v = function(local_space(triangle, element), "v")
+    v = function(function_space(triangle, element), "v")
     load = integral(v, triangle)
     mixed = integral(v + gradient(gradient(v, triangle), triangle)[0, 1], triangle)
     linear = form(load + mixed, (v,))
@@ -129,7 +129,7 @@ def test_independent_integrals_can_start_with_identical_rules():
 def test_whole_field_operator_and_callable_keep_their_sampling_semantics():
     interval = cell(basix.CellType.interval)
     p1 = basix.create_element(basix.ElementFamily.P, interval.cell_type, 1)
-    u = function(local_space(interval, p1), "u")
+    u = function(function_space(interval, p1), "u")
     energy = external_operator(Energy(), (u, num(1)))
     assert basis_tables(integral(energy, interval)) == ()
     total = integral(u + energy, interval)
@@ -152,7 +152,7 @@ def test_tabulations_are_local_to_slot_and_sampling_coordinate():
         basix.create_element(basix.ElementFamily.P, triangle.cell_type, 1, discontinuous=flag)
         for flag in (False, True)
     )
-    space = local_space(topology_, (first, second))
+    space = function_space(topology_, (first, second))
     v = function(space, "v")
     load = integral(pull_back(v, topology_[0]) + pull_back(v, topology_[1]), triangle)
     linear = form(load, (v,))
@@ -167,7 +167,7 @@ def test_tabulations_are_local_to_slot_and_sampling_coordinate():
     np.testing.assert_allclose(actual, expected, atol=1e-14)
 
     rt = basix.create_element(basix.ElementFamily.RT, triangle.cell_type, 1)
-    f = function(local_space(triangle, rt), "f")
+    f = function(function_space(triangle, rt), "f")
     mapped = pull_back(f, domain_map(triangle, coordinate(triangle) * num(0.5), triangle))
     total = integral(f + mapped, triangle)
     (operand,) = basis_tables(total)
@@ -186,7 +186,7 @@ def test_tabulations_are_local_to_slot_and_sampling_coordinate():
 def test_explicit_basis_and_fixed_tables(monkeypatch):
     interval = cell(basix.CellType.interval)
     element = basix.create_element(basix.ElementFamily.Hermite, interval.cell_type, 3)
-    ref = integral(gradient(BasixBasis(local_space(interval, element), 0), interval), interval)
+    ref = integral(gradient(BasixBasis(function_space(interval, element), 0), interval), interval)
     (operand,) = basis_tables(ref)
     points, weights = basix.make_quadrature(interval.cell_type, 4)
     tabulate = type(element).tabulate
@@ -210,7 +210,7 @@ def test_explicit_basis_and_fixed_tables(monkeypatch):
 def test_table_for_a_point_integral_uses_its_declared_rule():
     point = cell(basix.CellType.point)
     element = basix.create_element(basix.ElementFamily.P, point.cell_type, 0)
-    expr = integral(BasixBasis(local_space(point, element), 0), point)
+    expr = integral(BasixBasis(function_space(point, element), 0), point)
     (table,) = basis_tables(expr)
     with pytest.raises(ValueError, match="explicit quadrature rule"):
         uflx_jax_compiler.trace(expr, table)
@@ -224,7 +224,7 @@ def test_table_for_a_point_integral_uses_its_declared_rule():
 def test_symbolic_rule_uses_caller_arrays_and_infers_point_count():
     triangle = cell(basix.CellType.triangle)
     element = basix.create_element(basix.ElementFamily.P, triangle.cell_type, 2)
-    space = local_space(triangle, element)
+    space = function_space(triangle, element)
     u, v = (function(space, label) for label in ("u", "v"))
     reference = integral(gradient(u, triangle) @ gradient(v, triangle), triangle)
     count = runtime_extent("n")
@@ -253,7 +253,7 @@ def test_symbolic_rule_uses_caller_arrays_and_infers_point_count():
 def test_symbolic_quadrature_mixed_fixed_operands_and_vector_integrands():
     interval = cell(basix.CellType.interval)
     element = basix.create_element(basix.ElementFamily.P, interval.cell_type, 1)
-    vec = BasixBasis(local_space(interval, element), 0)
+    vec = BasixBasis(function_space(interval, element), 0)
     expr = integral(vec, interval)
     points, weights = basix.make_quadrature(interval.cell_type, 2)
     p = runtime_array("p", points.shape)

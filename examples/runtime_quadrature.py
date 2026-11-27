@@ -24,7 +24,7 @@ from uflx.passes import lower
 from uflx.tensors import index
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature, sample_form, weighted_sum
-from uflx_basix.spaces import function_space, local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 
 triangle = basix.CellType.triangle
@@ -33,7 +33,7 @@ vertices = np.array([(1.0, 1.0), (4.0, 2.0), (2.0, 5.0)])
 ambient = euclidean_space(vertices.shape[1])
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-x = function(local_space(T, p1, shape=(ambient.dimension,)), "x")
+x = function(function_space(T, p1, shape=(ambient.dimension,)), "x")
 mesh = create_mesh(x, ambient)
 V = function_space(mesh, p2)
 u, v = function(V, "u"), function(V, "v")

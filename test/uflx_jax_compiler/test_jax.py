@@ -93,11 +93,11 @@ def test_local_form_axes_and_applied_coefficients():
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import local_space
+    from uflx_basix.spaces import function_space
 
     K = cell(basix.CellType.interval)
-    V = local_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 1))
-    W = local_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
+    V = function_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 1))
+    W = function_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
     v, u = function(V, "v"), function(W, "u")
     rule = basix.make_quadrature(K.cell_type, degree=3)
     L = form(apply_quadrature(integral(u, K), *rule), (u,))
@@ -131,12 +131,12 @@ def test_product_basis_with_blocked_and_conjugate_fields():
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import local_space
+    from uflx_basix.spaces import function_space
 
     K = cell(basix.CellType.interval)
     p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    W = local_space(K, p1, shape=(2,), scalar_type="complex")
-    V = local_space(K, p1, scalar_type="complex")
+    W = function_space(K, p1, shape=(2,), scalar_type="complex")
+    V = function_space(K, p1, scalar_type="complex")
     v, q = function(W, "v"), function(conjugate_space(V), "q")
     c = function(field_space("scalar", None, scalar_type="real"), "c")
     field = conjugate(v[0]) + num(2) * conjugate(v[1]) + num(3) * q
@@ -168,10 +168,10 @@ def test_basix_tabulation_at_traced_points_and_coefficients():
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import local_space
+    from uflx_basix.spaces import function_space
 
     K = cell(basix.CellType.interval)
-    V = local_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
+    V = function_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
     u = function(V, "u")
     dofs = V.element(0).points[:, 0] ** 2
     slope = gradient(u, K)[0]
@@ -188,12 +188,12 @@ def test_pullback_selects_the_cell_of_a_discontinuous_field():
     import basix
 
     from uflx_basix.cells import topology
-    from uflx_basix.spaces import local_space
+    from uflx_basix.spaces import function_space
 
     triangle = basix.CellType.triangle
     T = topology(triangle, triangle)
     p0 = basix.create_element(basix.ElementFamily.P, triangle, 0, discontinuous=True)
-    u = function(local_space(T, p0), "u")
+    u = function(function_space(T, p0), "u")
     dofs = jnp.array([2.0, 7.0])
     point = jnp.array([0.0, 0.0])
 
@@ -209,10 +209,10 @@ def test_batched_basix_mixed_derivatives_on_a_tetrahedron():
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import local_space
+    from uflx_basix.spaces import function_space
 
     K = cell(basix.CellType.tetrahedron)
-    V = local_space(
+    V = function_space(
         K,
         basix.create_element(
             basix.ElementFamily.P, K.cell_type, 3, basix.LagrangeVariant.equispaced
@@ -297,13 +297,13 @@ def test_native_basis_values_and_derivatives(cell_name, family, degree):
 
     from uflx_basix.cells import cell
     from uflx_basix.nodes import BasixBasis
-    from uflx_basix.spaces import local_space
+    from uflx_basix.spaces import function_space
 
     K = cell(basix.CellType[cell_name])
     element = basix.create_element(
         basix.ElementFamily[family], K.cell_type, degree, basix.LagrangeVariant.equispaced
     )
-    basis = uflx_jax_compiler.trace(BasixBasis(local_space(K, element), 0), K)
+    basis = uflx_jax_compiler.trace(BasixBasis(function_space(K, element), 0), K)
     points, _ = basix.make_quadrature(K.cell_type, 4)
     points = np.vstack((points, basix.geometry(K.cell_type)))
     sample = jax.vmap(lambda p: (basis(p), jax.jacfwd(basis)(p)))
@@ -323,13 +323,13 @@ def test_macroedge_uses_the_polynomial_on_the_selected_half(cell_name):
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import local_space
+    from uflx_basix.spaces import function_space
 
     K = cell(basix.CellType[cell_name])
     element = basix.create_element(
         basix.ElementFamily.iso, K.cell_type, 1, basix.LagrangeVariant.equispaced
     )
-    u = function(local_space(K, element), "u")
+    u = function(function_space(K, element), "u")
     # This continuous piecewise linear field has a kink at the midpoint.
     dofs = np.maximum(element.points[:, 0] - 0.5, 0.0)
     kernel = partial(uflx_jax_compiler.trace(u, u, K), dofs)

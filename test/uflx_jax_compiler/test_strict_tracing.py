@@ -21,7 +21,7 @@ from uflx.passes import lower
 from uflx.tensors import index
 from uflx_basix.cells import cell, topology
 from uflx_basix.evaluation import evaluate_at_points
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 from uflx_jax_compiler import _finite_elements
 
@@ -65,7 +65,7 @@ def test_fused_geometry_and_assembly_use_fixed_basix_tables(monkeypatch):
 def test_standalone_samples_read_supplied_basix_partials(build):
     K = cell(basix.CellType.triangle)
     p2 = basix.create_element(basix.ElementFamily.P, K.cell_type, 2)
-    u = function(local_space(K, p2, shape=(2,)), "u")
+    u = function(function_space(K, p2, shape=(2,)), "u")
     points = runtime_array("points", (runtime_extent("n"), 2))
     samples = evaluate_at_points(gradient(gradient(u, K), K), points, index("q"))
     (table,) = uflx_jax_compiler.basis_tables(samples)
@@ -95,7 +95,7 @@ def test_standalone_samples_read_supplied_basix_partials(build):
 def test_trace_requires_lowering_and_reference_trace_accepts_unlowered_forms():
     T = topology(basix.CellType.interval)
     p1 = basix.create_element(basix.ElementFamily.P, basix.CellType.interval, 1)
-    x = function(local_space(T, p1, shape=(1,)), "x")
+    x = function(function_space(T, p1, shape=(1,)), "x")
     mesh = create_mesh(x, euclidean_space(1))
     volume = integral(num(1), mesh)
     rule = basix.make_quadrature(basix.CellType.interval, 2)

@@ -21,7 +21,7 @@ from uflx_basix.cells import cell, topology
 from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.nodes import table
 from uflx_basix.quadrature import apply_quadrature, weighted_sum
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 
 from .reference import reference_trace
@@ -54,7 +54,7 @@ def test_sample_once_and_reduce_with_independent_weights():
 def test_affine_jacobian_from_vertices_and_explicit_derivative_rows():
     triangle = basix.CellType.triangle
     p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-    x = function(local_space(topology(triangle, triangle), p1, shape=(3,)), "x")
+    x = function(function_space(topology(triangle, triangle), p1, shape=(3,)), "x")
     mesh = create_mesh(x, euclidean_space(3))
     points, _ = basix.make_quadrature(triangle, 2)
     sample = evaluate_at_points(jacobian(mesh[1]), table(points), index("q"))
@@ -77,9 +77,9 @@ def test_mass_and_stiffness_extract_and_share_curved_geometry():
     triangle = basix.CellType.triangle
     T = topology(triangle)
     p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-    V = local_space(T, p2)
+    V = function_space(T, p2)
     u, v, k = (function(V, name) for name in ("u", "v", "conductivity"))
-    x = function(local_space(T, p2, shape=(2,)), "x")
+    x = function(function_space(T, p2, shape=(2,)), "x")
     mesh = create_mesh(x, euclidean_space(2))
     trial, test, conductivity = (push_forward(f, mesh, V.law) for f in (u, v, k))
     stiffness = conductivity * (gradient(test, mesh) @ gradient(trial, mesh))
@@ -138,10 +138,10 @@ def test_mixed_gradient_keeps_its_geometry_and_other_fields():
     interval = basix.CellType.interval
     T = topology(interval)
     p2 = basix.create_element(basix.ElementFamily.P, interval, 2)
-    x = function(local_space(T, p2, shape=(1,)), "x")
+    x = function(function_space(T, p2, shape=(1,)), "x")
     cell_map = create_mesh(x, euclidean_space(1))[0]
     cell = cell_map.reference_cell
-    u = function(local_space(cell, p2), "u")
+    u = function(function_space(cell, p2), "u")
     stretch = jacobian(cell_map)[0, 0]
     points, weights = basix.make_quadrature(interval, 4)
     mixed = gradient(stretch * u, cell)[0]

@@ -18,7 +18,7 @@ from uflx.forms import form, function
 from uflx.nodes import ScalarType
 from uflx.passes import apply_derivatives
 from uflx_basix.cells import cell
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.complex_differentiation import complex_derivative_parts
 
 from ..testutil import ill_typed, keeps_static_type
@@ -108,8 +108,8 @@ def test_mixed_scalar_variables_are_valid_but_a_mixed_product_slot_is_not():
 def test_nested_velocity_pressure_control_residual_and_jacobian():
     triangle = cell(basix.CellType.triangle)
     p1 = basix.create_element(basix.ElementFamily.P, triangle.cell_type, 1)
-    velocity = local_space(triangle, p1, shape=(2,))
-    scalar = local_space(triangle, p1)
+    velocity = function_space(triangle, p1, shape=(2,))
+    scalar = function_space(triangle, p1)
 
     def fields(labels):
         return tuple(

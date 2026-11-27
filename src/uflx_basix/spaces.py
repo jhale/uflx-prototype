@@ -4,9 +4,11 @@
 #
 # SPDX-License-Identifier:    MIT
 
+from typing import overload
+
 from basix.finite_element import FiniteElement
 
-from uflx.nodes import AbstractTopology, CellMap, MappedSpace, Mesh, ScalarType
+from uflx.nodes import AbstractTopology, MappedSpace, Mesh, ScalarType
 
 from ._elements import element_data
 from .nodes import BasixCell, BasixSpace, RealScalarSpace
@@ -17,44 +19,54 @@ def real_scalar_space() -> RealScalarSpace:
     return RealScalarSpace()
 
 
-def local_space(
-    domain: BasixCell | AbstractTopology | CellMap,
+@overload
+def function_space(
+    domain: BasixCell | AbstractTopology,
     element: FiniteElement | tuple[FiniteElement, ...],
     *,
     shape: tuple[int, ...] = (),
     scalar_type=ScalarType.real,
-) -> BasixSpace:
-    """Construct a cell-local finite element space from native Basix elements.
+) -> BasixSpace: ...
 
-    A physical cell map binds the space to that piece in reference coordinates.
-    A Basix reference cell supplies its shape alone. On a topology, one
-    element applies to every slot, or supply a tuple with one element per slot.
-    Each cell has its own coefficients. An assembler can identify shared DOFs
-    across cells. A block shape interleaves copies of a scalar element at each DOF.
+
+@overload
+def function_space(
+    domain: Mesh,
+    element: FiniteElement | tuple[FiniteElement, ...],
+    *,
+    shape: tuple[int, ...] = (),
+    scalar_type=ScalarType.real,
+) -> MappedSpace: ...
+
+
+def function_space(
+    domain: BasixCell | AbstractTopology | Mesh,
+    element: FiniteElement | tuple[FiniteElement, ...],
+    *,
+    shape: tuple[int, ...] = (),
+    scalar_type=ScalarType.real,
+) -> BasixSpace | MappedSpace:
+    """Declare a space on a reference cell, a topology, or a physical mesh.
+
+    A single element applies to every topology slot, or supply one per slot.
+    A block shape interleaves copies of a scalar element at each DOF.
+    On a mesh the space uses the element's value mapping and reference DOF
+    layout. To bind a reference space to a mesh cell, use V.on_cell(mesh[i]).
     """
+    support = domain.topology if isinstance(domain, Mesh) else domain
+    if not isinstance(support, (BasixCell, AbstractTopology)):
+        raise TypeError(
+            "expected a reference cell, topology, or mesh; use V.on_cell for a cell map"
+        )
     if isinstance(element, tuple):
         data = tuple(element_data(e) for e in element)
     else:
         data = (element_data(element),)
-        if isinstance(domain, AbstractTopology):
-            data *= len(domain.cell_types)
-    return BasixSpace(domain, data, scalar_type, tuple(shape))
-
-
-def function_space(
-    mesh: Mesh,
-    element: FiniteElement | tuple[FiniteElement, ...],
-    *,
-    shape: tuple[int, ...] = (),
-    scalar_type=ScalarType.real,
-) -> MappedSpace:
-    """Declare a physical field space using the Basix element's value mapping.
-
-    The solver supplies coefficients in the local element's DOF order.
-    This constructor supports value DOFs. Geometry-dependent reconstruction
-    for physical derivative DOFs is currently unsupported.
-    """
-    reference = local_space(mesh.topology, element, shape=shape, scalar_type=scalar_type)
-    if any(e.interpolation_nderivs for e in reference.elements):
-        raise NotImplementedError("physical spaces with derivative DOFs are not implemented")
-    return MappedSpace(reference, mesh, reference.law)
+        if isinstance(support, AbstractTopology):
+            data *= len(support.cell_types)
+    reference = BasixSpace(support, data, scalar_type, tuple(shape))
+    if isinstance(domain, Mesh):
+        if any(e.interpolation_nderivs for e in reference.elements):
+            raise NotImplementedError("physical spaces with derivative DOFs are not implemented")
+        return MappedSpace(reference, domain, reference.law)
+    return reference

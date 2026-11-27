@@ -20,7 +20,7 @@ from uflx.forms import apply, form, function
 from uflx.forms import partial as partial_form
 from uflx_basix.cells import cell
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space, real_scalar_space
+from uflx_basix.spaces import function_space, real_scalar_space
 from uflx_extensions.external_operators import (
     AbstractOperation,
     apply_external_derivatives,
@@ -49,7 +49,7 @@ class Response(AbstractOperation):
 def test_external_adjoint_assembles_transpose_without_a_tangent_rule():
     K = cell(basix.CellType.interval)
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    V = local_space(K, P1, shape=(2,))
+    V = function_space(K, P1, shape=(2,))
     u, v, z, h = (function(V, label) for label in ("u", "v", "z", "h"))
     law = Response()
     residual = form(integral(external_operator(law, (u,)) @ v, K), (v,))
@@ -117,7 +117,7 @@ def test_jvp_direction_remains_free_when_it_is_also_the_test_function():
 def test_unsupported_external_component_selection_is_explicit():
     K = cell(basix.CellType.interval)
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    V = local_space(K, P1, shape=(2,))
+    V = function_space(K, P1, shape=(2,))
     u, v, h = (function(V, n) for n in ("u", "v", "h"))
     residual = form(integral(external_operator(Response(), (u,))[0] * v[0], K), (v,))
     with pytest.raises(TypeError, match="unsupported external adjoint through Indexed"):
@@ -127,7 +127,7 @@ def test_unsupported_external_component_selection_is_explicit():
 def test_public_jvp_vjp_pairing_for_automatically_derived_actions():
     K = cell(basix.CellType.interval)
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    V = local_space(K, P1, shape=(2,))
+    V = function_space(K, P1, shape=(2,))
     u, v, h, z = (function(V, name) for name in ("u", "v", "h", "z"))
     law = operation("test.linear_map", 1, vector_type)
     residual = form(integral(external_operator(law, (u,)) @ v, K), (v,))
@@ -187,7 +187,7 @@ def test_partial_linearization_dispatches_only_the_requested_external_rule(monke
 def test_scalar_objective_vjp_matches_seeded_residual_and_analytic_gradient():
     K = cell(basix.CellType.interval)
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    u = function(local_space(K, P1), "u")
+    u = function(function_space(K, P1), "u")
     test = function(real_scalar_space(), "test")
     law = operation("test.energy_density", 1, vector_type)
     density = external_operator(law, (u,))
@@ -274,7 +274,7 @@ def test_residual_vjp_keeps_point_free_when_it_is_also_the_test_function():
 def test_field_jvp_at_constant_point():
     K = cell(basix.CellType.interval)
     p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    V = local_space(K, p1)
+    V = function_space(K, p1)
     u, h = (function(V, label) for label in ("u", "h"))
     square = operation("test.square_constant_point", 1, vector_type)
     tangent = jvp(external_operator(square, (u,)), u, num(2), h)

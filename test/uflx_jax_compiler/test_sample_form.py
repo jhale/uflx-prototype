@@ -17,14 +17,14 @@ from uflx.geometry import domain_map, pull_back
 from uflx.tensors import index, index_sum, tensor
 from uflx_basix.cells import cell, topology
 from uflx_basix.quadrature import sample_form, weighted_sum
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import RuntimeArray, runtime_array, runtime_extent
 
 
 def test_local_samples_share_native_values_and_mixed_partials():
     K = cell(basix.CellType.triangle)
     p2 = basix.create_element(basix.ElementFamily.P, K.cell_type, 2)
-    V = local_space(K, p2)
+    V = function_space(K, p2)
     u, v = (function(V, name) for name in ("u", "v"))
     hessian = gradient(gradient(u, K), K)
     a = form(integral(v * (u + hessian[0, 1]) * coordinate(K)[0], K), (v, u))
@@ -58,8 +58,8 @@ def test_product_slot_packs_block_and_vector_elements_and_preserves_value_axes()
     K = cell(basix.CellType.triangle)
     p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
     rt = basix.create_element(basix.ElementFamily.RT, K.cell_type, 1)
-    v = function(local_space(K, p1, shape=(2,), scalar_type="complex"), "v")
-    w = function(local_space(K, rt, scalar_type="complex"), "w")
+    v = function(function_space(K, p1, shape=(2,), scalar_type="complex"), "v")
+    w = function(function_space(K, rt, scalar_type="complex"), "w")
     a = form(integral(num(1j) * (v + w), K), ((conjugate(v), w),))
     q = index("q")
     points, _ = basix.make_quadrature(K.cell_type, 2)
@@ -76,8 +76,8 @@ def test_sample_topology_slot_and_unused_argument():
     T = topology(basix.CellType.interval, basix.CellType.interval)
     K = T.cell_types[1]
     p1, p2 = (basix.create_element(basix.ElementFamily.P, K.cell_type, d) for d in (1, 2))
-    v = function(local_space(T, (p1, p2)), "v")
-    unused = function(local_space(K, p1), "unused")
+    v = function(function_space(T, (p1, p2)), "v")
+    unused = function(function_space(K, p1), "unused")
     a = form(integral(pull_back(v, T[1]), K), (unused, v))
     pts = np.array([[0.2], [0.6]])
     samples, tables = sample_form(a, pts, index("q"))
@@ -92,7 +92,7 @@ def test_sample_topology_slot_and_unused_argument():
 def test_sampling_boundary_and_distinct_point_operands():
     K = cell(basix.CellType.interval)
     p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    u = function(local_space(K, p1), "u")
+    u = function(function_space(K, p1), "u")
     q, n = index("q"), runtime_extent("n")
     pts = runtime_array("points", (n, 1))
     load = integral(u, K)
@@ -110,7 +110,7 @@ def test_sampling_boundary_and_distinct_point_operands():
 def test_sampling_index_is_free_across_an_integrand_binder():
     K = cell(basix.CellType.interval)
     p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    v = function(local_space(K, p1), "v")
+    v = function(function_space(K, p1), "v")
     q = index("q")
     a = form(integral(index_sum(tensor((v, v))[q], (q,)), K), (v,))
     points = np.array([[0.1], [0.4], [0.7]])
@@ -125,7 +125,7 @@ def test_sampling_index_is_free_across_an_integrand_binder():
 def test_empty_reference_gradient_uses_no_table():
     K = cell(basix.CellType.point)
     p0 = basix.create_element(basix.ElementFamily.P, K.cell_type, 0)
-    v = function(local_space(K, p0), "v")
+    v = function(function_space(K, p0), "v")
     samples, tables = sample_form(
         form(integral(gradient(v, K), K), (v,)), np.empty((3, 0)), index("q")
     )

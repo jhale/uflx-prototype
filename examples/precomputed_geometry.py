@@ -27,7 +27,7 @@ from uflx.tensors import index
 from uflx_basix.cells import topology
 from uflx_basix.evaluation import evaluate_at_points
 from uflx_basix.quadrature import weighted_sum
-from uflx_basix.spaces import function_space, local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array
 
 triangle = basix.CellType.triangle
@@ -35,7 +35,7 @@ cell_topology = topology(triangle)
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 
 ambient = euclidean_space(cell_topology.dimension)
-x = function(local_space(cell_topology, p2, shape=(ambient.dimension,)), "x")
+x = function(function_space(cell_topology, p2, shape=(ambient.dimension,)), "x")
 mesh = create_mesh(x, ambient)
 
 V = function_space(mesh, p2)

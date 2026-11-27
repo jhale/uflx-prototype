@@ -30,7 +30,7 @@ from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.interpolation import interpolate
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import function_space, local_space
+from uflx_basix.spaces import function_space
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
@@ -38,7 +38,7 @@ P1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
 P2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
 N1E = basix.create_element(basix.ElementFamily.N1E, triangle, 1)
 
-x_ref = function(local_space(T, P1, shape=(2,)), "x")
+x_ref = function(function_space(T, P1, shape=(2,)), "x")
 mesh = create_mesh(x_ref, euclidean_space(2))
 W = function_space(mesh, P1)
 R = function_space(mesh, P2, shape=(2,))

@@ -24,7 +24,7 @@ from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import function_space, local_space, real_scalar_space
+from uflx_basix.spaces import function_space, real_scalar_space
 
 jax.config.update("jax_enable_x64", True)
 
@@ -33,7 +33,7 @@ jax.config.update("jax_enable_x64", True)
 triangle = basix.CellType.triangle
 T = topology(triangle)
 p2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-x = function(local_space(T, p2, shape=(2,)), "x")
+x = function(function_space(T, p2, shape=(2,)), "x")
 domain = create_mesh(x, euclidean_space(2))
 
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)

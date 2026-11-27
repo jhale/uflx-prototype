@@ -29,11 +29,10 @@ def interpolate(
     Mesh and ambient expressions, and values restricted to the reference
     cell, supply physical components directly.
 
-    A target bound with local_space(mesh[i], element) or V.on_cell(mesh[i]),
-    or a source restricted to a physical cell, supplies the piece. A field on
-    a single-cell mesh also supplies the cell. Otherwise pass cell=.
-    The result lives on V.domain. For
-    a topology-wide target it is zero on other slots and can be mapped to
+    A target bound with V.on_cell(mesh[i]) or a source restricted to a physical
+    cell supplies the piece. A field on a single-cell mesh also supplies the
+    cell. Otherwise pass cell=. The result lives on V.domain. For a
+    topology-wide target it is zero on other slots and can be mapped to
     the physical mesh with push_forward(result, mesh, V.law).
     """
     if isinstance(V, MappedSpace):

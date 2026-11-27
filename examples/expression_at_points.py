@@ -16,13 +16,13 @@ from uflx.forms import function
 from uflx.tensors import index
 from uflx_basix.cells import cell
 from uflx_basix.evaluation import evaluate_at_points
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array, runtime_extent
 from uflx_jax_compiler import trace
 
 K = cell(basix.CellType.interval)
 p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-u = function(local_space(K, p1), "u")
+u = function(function_space(K, p1), "u")
 q = index("q")
 dofs = np.array([2.0, 4.0])  # u(x) = 2 + 2x
 

@@ -25,12 +25,12 @@ from uflx.passes import lower
 from uflx.tensors import broadcast_to
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import function_space, local_space, real_scalar_space
+from uflx_basix.spaces import function_space, real_scalar_space
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
 P2 = basix.create_element(basix.ElementFamily.P, triangle, 2)
-x = function(local_space(T, P2, shape=(2,)), "x")
+x = function(function_space(T, P2, shape=(2,)), "x")
 mesh = create_mesh(x, euclidean_space(2))
 
 # %% [markdown]

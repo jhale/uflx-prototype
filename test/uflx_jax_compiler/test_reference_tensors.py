@@ -19,7 +19,7 @@ from uflx.nodes import EuclideanSpace, Mesh
 from uflx.passes import lower
 from uflx_basix.cells import cell, topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_jax_compiler import _finite_elements, _reference
 
 from .reference import reference_trace
@@ -32,7 +32,7 @@ def _constant_shapes(kernel, *data):
 def test_shared_reference_form_is_computed_once():
     K = cell(basix.CellType.interval)
     p1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    u = function(local_space(K, p1), "u")
+    u = function(function_space(K, p1), "u")
     sampled = apply_quadrature(integral(u, K), *basix.make_quadrature(K.cell_type, 2))
     load = form(sampled, (u,))
     expr = load
@@ -53,9 +53,9 @@ def test_affine_reference_matrices(cell_type, symmetric, degree):
     dim = T.dimension
     p1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
     element = basix.create_element(basix.ElementFamily.P, cell_type, degree)
-    x = function(local_space(T, p1, shape=(dim,)), "x")
+    x = function(function_space(T, p1, shape=(dim,)), "x")
     mesh = Mesh(x, EuclideanSpace(dim))
-    V = local_space(T, element)
+    V = function_space(T, element)
     v, u = function(V, "v"), function(V, "u")
     gv, gu = (gradient(push_forward(f, mesh, V.law), mesh) for f in (v, u))
     a = lower(integral(gv @ gu if symmetric else gv[0] * gu[1], mesh))
@@ -86,8 +86,8 @@ def test_nonlinear_coefficient_with_two_rules(degree):
     P = basix.ElementFamily.P
     E = basix.create_element(P, K.cell_type, degree, discontinuous=degree == 0)
     p2 = basix.create_element(P, K.cell_type, 2)
-    c = function(local_space(K, E), "c")
-    v, u = [function(local_space(K, p2), name) for name in ("v", "u")]
+    c = function(function_space(K, E), "c")
+    v, u = [function(function_space(K, p2), name) for name in ("v", "u")]
     mass = integral(v * u * logarithm(num(1) + c * c), K)
     weight = integral(v * u, K)
     rule = (np.array([[0.12, 0.23], [0.41, 0.17]]), np.array([0.31, 0.29]))
@@ -118,10 +118,10 @@ def test_nonlinear_coefficient_with_two_rules(degree):
 def test_repeated_common_coefficient_in_different_monomials():
     K = cell(basix.CellType.interval)
     element = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    V = local_space(K, element)
+    V = function_space(K, element)
     v, u = function(V, "v"), function(V, "u")
     p0 = basix.create_element(basix.ElementFamily.P, K.cell_type, 0, discontinuous=True)
-    c = function(local_space(K, p0), "c")
+    c = function(function_space(K, p0), "c")
     body = integral(c * c * v * u + c * c * c * gradient(v, K)[0] * u, K)
     rule = basix.make_quadrature(K.cell_type, 2)
     evaluate = jax.jit(uflx_jax_compiler.trace(form(apply_quadrature(body, *rule), (v, u)), c))
@@ -136,7 +136,7 @@ def test_repeated_common_coefficient_in_different_monomials():
 def test_reference_table_budget_and_precision(monkeypatch):
     K = cell(basix.CellType.triangle)
     p2 = basix.create_element(basix.ElementFamily.P, K.cell_type, 2)
-    v = function(local_space(K, p2), "v")
+    v = function(function_space(K, p2), "v")
     rule = basix.make_quadrature(K.cell_type, 2)
     integral_v = integral(v, K)
     L = form(apply_quadrature(integral_v, *rule), (v,))
@@ -164,7 +164,7 @@ def test_reference_table_budget_and_precision(monkeypatch):
 def test_explicit_point_measure_in_a_sampled_form():
     K = cell(basix.CellType.triangle)
     p2 = basix.create_element(basix.ElementFamily.P, K.cell_type, 2)
-    v = function(local_space(K, p2), "v")
+    v = function(function_space(K, p2), "v")
     rule = basix.make_quadrature(K.cell_type, 2)
     sampled = apply_quadrature(integral(v, K), *rule)
     point_integral = sampled.expression.second
@@ -178,10 +178,10 @@ def test_affine_rt_divergence_reference_matrix():
     triangle = basix.CellType.triangle
     T = topology(triangle)
     p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-    x = function(local_space(T, p1, shape=(2,)), "x")
+    x = function(function_space(T, p1, shape=(2,)), "x")
     mesh = Mesh(x, EuclideanSpace(2))
     rt = basix.create_element(basix.ElementFamily.RT, triangle, 2)
-    V = local_space(T, rt)
+    V = function_space(T, rt)
     u, v = (function(V, label) for label in ("u", "v"))
     du, dv = (divergence(push_forward(f, mesh, V.law), mesh) for f in (u, v))
     points, weights = basix.make_quadrature(triangle, 2)

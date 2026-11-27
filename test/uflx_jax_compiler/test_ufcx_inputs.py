@@ -12,7 +12,7 @@ from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.runtime_arrays import runtime_array
 
 
@@ -21,8 +21,8 @@ def test_ufcx_cell_coefficients_and_constants(dtype):
     cell = basix.CellType.triangle
     T = topology(cell)
     p1 = basix.create_element(basix.ElementFamily.P, cell, 1)
-    V = local_space(T, p1)
-    vector_space = local_space(T, p1, shape=(2,))
+    V = function_space(T, p1)
+    vector_space = function_space(T, p1, shape=(2,))
     coordinates = function(vector_space, "x")
     u = function(V, "u")
     v = function(vector_space, "v")

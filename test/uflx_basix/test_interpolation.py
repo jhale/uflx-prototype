@@ -12,7 +12,7 @@ from uflx.arithmetic import num
 from uflx.calculus import coordinate
 from uflx.tensors import tensor
 from uflx_basix.interpolation import interpolate
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 
 from .meshes import single_cell_mesh
 
@@ -21,17 +21,17 @@ def test_incompatible_inputs_are_rejected():
     mesh = single_cell_mesh(basix.CellType.triangle)
     K = mesh[0].reference_cell
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    V = local_space(mesh.topology, P1)
+    V = function_space(mesh.topology, P1)
     with pytest.raises(ValueError, match="physical mesh cell"):
         interpolate(num(1), V)
     with pytest.raises(ValueError, match="target space"):
-        interpolate(num(1), local_space(K, P1), cell=mesh[0])
+        interpolate(num(1), function_space(K, P1), cell=mesh[0])
     with pytest.raises(ValueError, match="value shape"):
         interpolate(coordinate(mesh), V)
     with pytest.raises(ValueError, match="domain"):
         interpolate(coordinate(K)[0], V, cell=mesh[0])
     with pytest.raises(NotImplementedError, match="derivative DOFs"):
-        H = local_space(
+        H = function_space(
             mesh.topology, basix.create_element(basix.ElementFamily.Hermite, K.cell_type, 3)
         )
         interpolate(num(1), H, cell=mesh[0])
@@ -55,7 +55,7 @@ interpolation_cases = pytest.mark.parametrize(
 
 def interpolation_case(cell_type, family, degree, shape):
     mesh = single_cell_mesh(cell_type)
-    V = local_space(mesh.topology, basix.create_element(family, cell_type, degree), shape=shape)
+    V = function_space(mesh.topology, basix.create_element(family, cell_type, degree), shape=shape)
     x = coordinate(mesh)
 
     def expression(shape, offset=1):

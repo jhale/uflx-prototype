@@ -160,10 +160,10 @@ def test_basix_second_derivatives_come_from_basis_tabulation():
     import basix
 
     from uflx_basix.cells import cell
-    from uflx_basix.spaces import local_space
+    from uflx_basix.spaces import function_space
 
     K = cell(basix.CellType.triangle)
-    V = local_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
+    V = function_space(K, basix.create_element(basix.ElementFamily.P, K.cell_type, 2))
     u = function(V, "u")
     x, y = V.element(0).points.T
     dofs = x * x + 3 * x * y + 2 * y * y

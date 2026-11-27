@@ -15,7 +15,7 @@ from uflx.geometry import create_mesh, euclidean_space, pull_back, push_forward
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import function_space, local_space
+from uflx_basix.spaces import function_space
 from uflx_jax_compiler import trace
 
 
@@ -24,10 +24,10 @@ def test_embedded_piola_field_holds_dofs_fixed_under_shape_differentiation():
     T = topology(triangle)
     P1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
     N1E = basix.create_element(basix.ElementFamily.N1E, triangle, 1)
-    X = local_space(T, P1, shape=(3,))
+    X = function_space(T, P1, shape=(3,))
     x, h = function(X, "x"), function(X, "h")
     mesh = create_mesh(x, euclidean_space(3))
-    U = local_space(T, N1E)
+    U = function_space(T, N1E)
     V = function_space(mesh, N1E)
     u = function(V, "u")
     assert u.domain == mesh and u.value_shape == (3,)
@@ -50,7 +50,7 @@ def test_substituting_a_physical_expression_after_cell_lowering():
     T = topology(triangle)
     P1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
     RT = basix.create_element(basix.ElementFamily.RT, triangle, 1)
-    x = function(local_space(T, P1, shape=(2,)), "x")
+    x = function(function_space(T, P1, shape=(2,)), "x")
     mesh = create_mesh(x, euclidean_space(2))
     u = function(function_space(mesh, RT), "u")
     slot = form(lower(pull_back(u, mesh[0])), (u,))

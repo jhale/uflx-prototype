@@ -16,7 +16,7 @@ from uflx.geometry import create_mesh, euclidean_space, push_forward
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 from uflx_jax_compiler.emitc import _require_mlir_tools
 
 
@@ -45,8 +45,8 @@ def test_p1_tetrahedron(tmp_path):
     cell = basix.CellType.tetrahedron
     T = topology(cell)
     p1 = basix.create_element(basix.ElementFamily.P, cell, 1)
-    V = local_space(T, p1)
-    x = function(local_space(T, p1, shape=(3,)), "x")
+    V = function_space(T, p1)
+    x = function(function_space(T, p1, shape=(3,)), "x")
     mesh = create_mesh(x, euclidean_space(3))
     u, v = function(V, "u"), function(V, "v")
     gu, gv = (gradient(push_forward(f, mesh, V.law), mesh) for f in (u, v))

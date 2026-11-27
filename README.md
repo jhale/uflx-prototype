@@ -151,14 +151,14 @@ from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import function_space, local_space
+from uflx_basix.spaces import function_space
 
 # A linear (P1) coordinate map places the reference triangle in the physical plane.
 triangle = basix.CellType.triangle
 T = topology(triangle)
 
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-X = local_space(T, p1, shape=(T.dimension,))
+X = function_space(T, p1, shape=(T.dimension,))
 x = function(X, "x")
 mesh = create_mesh(x, euclidean_space(T.dimension))
 

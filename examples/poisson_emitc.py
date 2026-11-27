@@ -17,14 +17,14 @@ from uflx.geometry import create_mesh, euclidean_space
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import function_space, local_space
+from uflx_basix.spaces import function_space
 
 jax.config.update("jax_enable_x64", True)
 
 triangle = basix.CellType.triangle
 T = topology(triangle)
 p1 = basix.create_element(basix.ElementFamily.P, triangle, 1)
-x = function(local_space(T, p1, shape=(T.dimension,)), "x")
+x = function(function_space(T, p1, shape=(T.dimension,)), "x")
 mesh = create_mesh(x, euclidean_space(T.dimension))
 
 V = function_space(mesh, p1)

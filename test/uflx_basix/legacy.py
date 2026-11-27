@@ -15,7 +15,7 @@ from uflx.forms import form, function
 from uflx.geometry import pull_back
 from uflx.nodes import ScalarType
 from uflx.tensors import index, index_sum, tensor
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 
 from ..uflx.sides import outward_conormal
 from ..uflx.spaces import space as field_space
@@ -37,7 +37,7 @@ class FunctionSpace:
             basix.create_element(basix.ElementFamily.P, K.cell_type, degree)
             for K in topology.cell_types
         )
-        self.space = local_space(topology, elements)
+        self.space = function_space(topology, elements)
 
     def function(self, label):
         # The toy has no blocked spaces, so a vector function is a tensor of its components.

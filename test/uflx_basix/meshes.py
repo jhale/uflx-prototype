@@ -14,7 +14,7 @@ from uflx.geometry import create_mesh
 from uflx.nodes import EuclideanSpace, Mesh
 from uflx_basix.cells import cell, topology
 from uflx_basix.nodes import BasixCell
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 
 from ..uflx.spaces import space as field_space
 from .cells import reference_simplex
@@ -23,7 +23,7 @@ from .cells import reference_simplex
 def single_cell_mesh(cell_type):
     T = topology(cell_type)
     P1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
-    x = function(local_space(T, P1, shape=(T.dimension,)), "x")
+    x = function(function_space(T, P1, shape=(T.dimension,)), "x")
     return create_mesh(x, EuclideanSpace(T.dimension))
 
 
@@ -35,7 +35,7 @@ def vertex_mesh(T, vertices, *, label="x"):
         elements = tuple(
             basix.create_element(basix.ElementFamily.P, K.cell_type, 1) for K in T.cell_types
         )
-        X = local_space(T, elements, shape=shape)
+        X = function_space(T, elements, shape=shape)
         x = function(X, label)
         values = np.empty(X.num_dofs)
         for j, row in enumerate(T.cells):

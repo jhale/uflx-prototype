@@ -20,7 +20,7 @@ from uflx.passes import lower
 from uflx.tensors import tensor
 from uflx_basix.cells import topology
 from uflx_basix.interpolation import interpolate
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 
 from .reference import reference_trace
 
@@ -39,10 +39,10 @@ def test_curved_reversed_triangle_matches_basix(family):
     (K,) = T.cell_types
     P2 = basix.create_element(basix.ElementFamily.P, K.cell_type, 2)
     E = basix.create_element(family, K.cell_type, 1)
-    x = function(local_space(T, P2, shape=(2,)), "x")
+    x = function(function_space(T, P2, shape=(2,)), "x")
     mesh = Mesh(x, EuclideanSpace(2))
-    V = local_space(T, E)
-    U = local_space(T, P2, shape=V.value_shape)
+    V = function_space(T, E)
+    U = function_space(T, P2, shape=V.value_shape)
     u = function(U, "u")
     interpolant = interpolate(u, V, cell=mesh[0])
     assert interpolant == interpolate(push_forward(u, mesh, U.law), V)
@@ -74,11 +74,11 @@ def test_reference_nedelec_function_uses_its_source_law():
     (K,) = T.cell_types
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
     N1E = basix.create_element(basix.ElementFamily.N1E, K.cell_type, 1)
-    x = function(local_space(T, P1, shape=(3,)), "x")
+    x = function(function_space(T, P1, shape=(3,)), "x")
     mesh = Mesh(x, EuclideanSpace(3))
-    U = local_space(T, N1E)
+    U = function_space(T, N1E)
     u = function(U, "u")
-    V = local_space(T, P1, shape=(3,))
+    V = function_space(T, P1, shape=(3,))
     result = interpolate(u, V, cell=mesh[0])
     assert result == interpolate(push_forward(u, mesh, U.law), V)
 
@@ -87,10 +87,10 @@ def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
     T = topology(basix.CellType.interval, basix.CellType.interval)
     K = T.cell_types[0]
     P1, P2 = (basix.create_element(basix.ElementFamily.P, K.cell_type, p) for p in (1, 2))
-    x = function(local_space(T, P1, shape=(1,)), "x")
+    x = function(function_space(T, P1, shape=(1,)), "x")
     mesh = Mesh(x, EuclideanSpace(1))
     X = coordinate(mesh.ambient_domain)[0]
-    V = local_space(T, (P1, P2))
+    V = function_space(T, (P1, P2))
     with pytest.raises(ValueError, match="select a cell"):
         interpolate(coordinate(mesh)[0] ** num(2), V)
 
@@ -100,14 +100,16 @@ def test_ambient_field_on_two_mesh_cells_uses_each_targets_points_and_basis():
         value = lower(pull_back(result, T[slot]))
         np.testing.assert_allclose(uflx_jax_compiler.trace(value, x, K)(coords, [0.5]), expected)
         cell = mesh[slot]
+        with pytest.raises(TypeError, match="on_cell"):
+            function_space(cell, V.element(slot))
         on_cell = V.on_cell(cell)
-        assert on_cell is local_space(cell, V.element(slot))
+        assert on_cell is function_space(K, V.element(slot)).on_cell(cell)
         field = coordinate(mesh)[0] ** num(2)
         restricted = pull_back(field, cell)
         for local in (
             interpolate(field, on_cell),
             pull_back(interpolate(restricted, V), T[slot]),
-            interpolate(restricted, local_space(K, V.element(slot))),
+            interpolate(restricted, function_space(K, V.element(slot))),
         ):
             assert local.domain is K
             np.testing.assert_allclose(
@@ -124,11 +126,11 @@ def test_cell_bound_rotation_supplies_the_piece_on_a_two_triangle_mesh():
     P1 = basix.create_element(basix.ElementFamily.P, cell_type, 1)
     P2 = basix.create_element(basix.ElementFamily.P, cell_type, 2)
     N1E = basix.create_element(basix.ElementFamily.N1E, cell_type, 1)
-    x = function(local_space(T, P1, shape=(2,)), "x")
+    x = function(function_space(T, P1, shape=(2,)), "x")
     mesh = Mesh(x, EuclideanSpace(2))
     cell = mesh[1]
-    theta = function(local_space(cell, P2, shape=(2,)), "theta")
-    V = local_space(T, N1E)
+    theta = function(function_space(T, P2, shape=(2,)).on_cell(cell), "theta")
+    V = function_space(T, N1E)
     result = interpolate(theta, V)
     assert result.domain is T
     result = pull_back(result, T[cell.cell_slot])
@@ -149,9 +151,9 @@ def test_interpolation_only_samples_the_selected_cell():
     T = topology(basix.CellType.interval, basix.CellType.interval)
     K = T.cell_types[0]
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
-    x = function(local_space(T, P1, shape=(1,)), "x")
+    x = function(function_space(T, P1, shape=(1,)), "x")
     mesh = Mesh(x, EuclideanSpace(1))
-    V = local_space(T, P1)
+    V = function_space(T, P1)
     X = coordinate(mesh.ambient_domain)[0]
     coords = np.array([[1.0], [2.0], [-2.0], [-1.0]])
 
@@ -168,10 +170,10 @@ def test_constant_ambient_vector_interpolated_into_surface_nedelec():
     (K,) = T.cell_types
     P1 = basix.create_element(basix.ElementFamily.P, K.cell_type, 1)
     N1E = basix.create_element(basix.ElementFamily.N1E, K.cell_type, 1)
-    x = function(local_space(T, P1, shape=(3,)), "x")
+    x = function(function_space(T, P1, shape=(3,)), "x")
     mesh = Mesh(x, EuclideanSpace(3))
     f = tensor((num(1), num(2), num(4)))
-    V = local_space(T, N1E)
+    V = function_space(T, N1E)
     result = interpolate(f, V, cell=mesh[0])
     assert result.domain == T and result.value_shape == (2,)
 
@@ -202,11 +204,11 @@ def test_blocked_density_dofs_on_a_curved_interval():
         P1.polyset_type,
     )
     P2 = basix.create_element(basix.ElementFamily.P, K.cell_type, 2)
-    x = function(local_space(T, P2, shape=(1,)), "x")
+    x = function(function_space(T, P2, shape=(1,)), "x")
     mesh = Mesh(x, EuclideanSpace(1))
     X = coordinate(mesh)[0]
     field = tensor((X, X * X))
-    V = local_space(T, E, shape=(2,))
+    V = function_space(T, E, shape=(2,))
     interpolant = interpolate(field, V, cell=mesh[0])
     result = lower(pull_back(push_forward(interpolant, mesh, V.law), mesh[0]))
 

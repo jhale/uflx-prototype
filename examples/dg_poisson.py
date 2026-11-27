@@ -40,7 +40,7 @@ from uflx.geometry import create_mesh, euclidean_space, pull_back
 from uflx.passes import lower
 from uflx_basix.cells import topology
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import function_space, local_space
+from uflx_basix.spaces import function_space
 from uflx_extensions.index_tables import index_table
 
 # Topological cells of the patch
@@ -75,7 +75,7 @@ for cell_key in cell_keys:
     cell_type = coordinate_element.cell_type
     
     T = topology(cell_type)
-    X = local_space(T, coordinate_element, shape=(2,))
+    X = function_space(T, coordinate_element, shape=(2,))
     x = function(X, "x")
     mesh = create_mesh(x, plane)
     
@@ -115,7 +115,7 @@ for plus_key, minus_key in combinations_with_replacement(cell_keys, 2):
     minus_type = minus_geometry.cell_type
     
     T = topology(plus_type, minus_type)
-    X = local_space(T, (plus_geometry, minus_geometry), shape=(2,))
+    X = function_space(T, (plus_geometry, minus_geometry), shape=(2,))
     
     x = function(X, "x")
     mesh = create_mesh(x, plane)

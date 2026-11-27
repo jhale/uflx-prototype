@@ -21,7 +21,7 @@ from uflx.geometry import domain_map, pull_back, push_forward
 from uflx.passes import expand_arithmetic
 from uflx_basix.cells import cell
 from uflx_basix.interpolation import interpolate
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 
 from ..testutil import table
 from ..uflx.inclusions import affine_map, reference_normal
@@ -48,7 +48,7 @@ def value(e, P=None, X=()):
 def test_interpolation_uses_the_element_sampling_points():
     mesh = single_cell_mesh(basix.CellType.triangle)
     P1 = basix.create_element(basix.ElementFamily.P, basix.CellType.triangle, 1)
-    V = local_space(mesh.topology, P1)
+    V = function_space(mesh.topology, P1)
     x = coordinate(mesh)[0]
     interpolant = interpolate(x * x, V, cell=mesh[0])
     at = reference_trace(push_forward(interpolant, mesh, V.law), mesh.coordinate_function, mesh)
@@ -193,8 +193,8 @@ def test_custom_element_supplies_its_own_interpolation_functional():
     from ..uflx_basix.test_spaces import interval_element
 
     mesh = single_cell_mesh(basix.CellType.interval)
-    left = local_space(mesh.topology, interval_element(0.25))
-    right = local_space(mesh.topology, interval_element(0.75))
+    left = function_space(mesh.topology, interval_element(0.25))
+    right = function_space(mesh.topology, interval_element(0.75))
     assert left is not right
     x = coordinate(mesh)[0]
     for V, expected in ((left, 1.5), (right, 2.5)):
@@ -209,7 +209,7 @@ def test_oracle_tabulates_each_custom_elements_own_basis():
     point = np.array([[0.22]])
     for first_dof in (0.22, 0.22 + 1e-12):
         element = interval_element(first_dof, 0.7)
-        V = local_space(cell(element.cell_type), element)
+        V = function_space(cell(element.cell_type), element)
         u = function(V, "u")
         weights = np.array([0.0, 1.0])
         expected = element.tabulate(0, point)[0, 0, :, 0] @ weights

@@ -35,15 +35,15 @@ from uflx.nodes import Integral
 from uflx.passes import lower
 from uflx_basix.cells import cell
 from uflx_basix.quadrature import apply_quadrature
-from uflx_basix.spaces import local_space
+from uflx_basix.spaces import function_space
 
 interval = cell(basix.CellType.interval)
 
 P2 = basix.create_element(basix.ElementFamily.P, interval.cell_type, 2)
 P1 = basix.create_element(basix.ElementFamily.P, interval.cell_type, 1)
 
-state_space = local_space(interval, P2)
-control_space = local_space(interval, P1)
+state_space = function_space(interval, P2)
+control_space = function_space(interval, P1)
 
 m = function(control_space, "m")  # Reaction coefficient (control)
 v = function(state_space, "v")  # Test function (state)
