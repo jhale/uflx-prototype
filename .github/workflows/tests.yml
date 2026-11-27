@@ -27,7 +27,10 @@ jobs:
           curl -fsSLo /tmp/llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key
           sudo install -m 644 /tmp/llvm.asc /etc/apt/keyrings/llvm.asc
           echo 'deb [signed-by=/etc/apt/keyrings/llvm.asc] https://apt.llvm.org/noble/ llvm-toolchain-noble-23 main' | sudo tee /etc/apt/sources.list.d/llvm-23.list
-          sudo apt-get update
+          # Refresh the Ubuntu and LLVM indexes needed for these packages.
+          mkdir -p "$RUNNER_TEMP/llvm-sources"
+          cp /etc/apt/sources.list.d/{ubuntu.sources,llvm-23.list} "$RUNNER_TEMP/llvm-sources/"
+          sudo apt-get -o Dir::Etc::sourceparts="$RUNNER_TEMP/llvm-sources" update
           sudo apt-get install -y --no-install-recommends mlir-23-tools clang-format-23
           echo /usr/lib/llvm-23/bin >> "$GITHUB_PATH"
       - run: python -m pip install -e '.[test]'

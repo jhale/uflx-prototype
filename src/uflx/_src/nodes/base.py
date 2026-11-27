@@ -11,6 +11,7 @@ import hashlib
 import math
 import weakref
 from abc import ABCMeta
+from collections.abc import Callable
 from dataclasses import Field, dataclass, fields
 from typing import TYPE_CHECKING, ClassVar, TypeVar, cast, dataclass_transform
 
@@ -96,7 +97,7 @@ class Base(metaclass=_Interned):
     def __hash__(self) -> int:
         return self.digest
 
-    def __reduce__(self) -> tuple[type[Base], tuple[Construction, ...]]:
+    def __reduce__(self) -> tuple[Callable[..., Base], tuple[object, ...]]:
         """Unpickle through the interning constructor, omitting derived caches."""
         return type(self), self.construction_arguments
 

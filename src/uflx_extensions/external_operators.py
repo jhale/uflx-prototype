@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from functools import cache, cached_property, reduce
 from operator import add
-from typing import NamedTuple, final, overload
+from typing import NamedTuple, cast, final, overload
 
 from typing_extensions import override
 
@@ -67,6 +67,9 @@ class OutputType(NamedTuple):
     value_shape: tuple[int | AbstractExtent, ...]
     scalar_type: ExpressionScalarType
     domain: AbstractDomain | AbstractTopology | None
+
+
+_OutputRule = Callable[[tuple[AbstractExpression, ...]], OutputType]
 
 
 def output_type(
@@ -169,16 +172,17 @@ class _NamedOperation(AbstractOperation):
         return self._output_rule(operands)
 
     @property
-    def _output_rule(self) -> Callable[[tuple[AbstractExpression, ...]], OutputType]:
-        return vars(self)["_rule"]
+    def _output_rule(self) -> _OutputRule:
+        return cast(_OutputRule, vars(self)["_rule"])
 
-    def __reduce__(self):
+    @override
+    def __reduce__(
+        self,
+    ) -> tuple[Callable[[str, int, _OutputRule], AbstractOperation], tuple[str, int, _OutputRule]]:
         return operation, (self.name, self.arity, self._output_rule)
 
 
-def operation(
-    name: str, arity: int, output_type: Callable[[tuple[AbstractExpression, ...]], OutputType]
-) -> AbstractOperation:
+def operation(name: str, arity: int, output_type: _OutputRule) -> AbstractOperation:
     """Declare an external operation. Its rule validates operands and returns their result type.
 
     The name and arity identify the symbolic operation. Reuse the same rule when
@@ -433,7 +437,7 @@ def vjp(
         return result
 
     objective = residual.expression if isinstance(residual, Form) else residual
-    if objective.free_indices or objective.argument_spaces:
+    if len(objective.free_indices) > 0 or len(objective.argument_spaces) > 0:
         raise ValueError("expected an expression without free indices or argument slots")
     if (
         seed.value_shape != objective.value_shape
