@@ -16,7 +16,7 @@ o-----o-----o           ########     ####          ###########   ####   ####
 o------------------------- An experimental proposal -------------------------o
 ```
 
-UFLx core is a minimal language writing for (finite element) variational forms.
+UFLx core is a minimal language for writing (finite element) variational forms.
 It is a potential successor to UFL, the language used by FEniCSx and Firedrake.
 
 [UFLx core specification](https://fenics.github.io/uflx/language/) ·
