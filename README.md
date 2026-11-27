@@ -135,6 +135,8 @@ python -m sphinx -W -b html -c docs -d build/doctrees . build/docs
   actions. The example emits the complete tangent kernel as C.
 - [Poisson with DOLFINx](examples/poisson_dolfinx.py) compiles the emitted C
   stiffness and load kernels with CFFI and assembles them with DOLFINx.
+  It uses `uflx_dolfinx.Function(P1, name="kappa")` to interpolate a live
+  coefficient and use it directly in the stiffness form.
 
 ### Hello world - Poisson on a triangle
 

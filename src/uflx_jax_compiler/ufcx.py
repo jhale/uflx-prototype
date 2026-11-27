@@ -4,7 +4,7 @@ from math import prod
 from string import Template
 
 import numpy as np
-from jax import export
+from jax import ShapeDtypeStruct, export
 
 from ._finite_elements import basix_space
 from .emitc import emit_c
@@ -64,6 +64,7 @@ def with_ufcx_cell_inputs(kernel, *, dtype):
             raise TypeError("expected a real floating-point cell tensor")
         return result.astype(dtype)
 
+    evaluate_from_buffers.input_specs = tuple(ShapeDtypeStruct((n,), dtype) for n in sizes.values())
     return evaluate_from_buffers
 
 

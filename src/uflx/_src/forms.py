@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, cast
+from functools import singledispatch
+from typing import cast
 
 from .algorithms.rewriting import complete_family, promote
 from .algorithms.substitution import occurs, substitute
@@ -20,16 +21,22 @@ from .nodes import (
 )
 from .nodes.arguments import argument_leaves, argument_pairs
 from .nodes.forms import entry_function
+from .nodes.spaces import AbstractFunctionSpace
 from .nodes.validation import admissible, merge_indices
 from .typing import Argument
 from .typing.nodes import Construction, FormEntry
 
-if TYPE_CHECKING:
-    from .nodes.spaces import AbstractFunctionSpace
+
+@singledispatch
+def as_function_space(space: object) -> AbstractFunctionSpace:
+    """Convert a library space for use in a symbolic function declaration."""
+    if isinstance(space, AbstractFunctionSpace):
+        return space
+    raise TypeError(f"unsupported function space: {type(space).__name__}")
 
 
-def function(space: AbstractFunctionSpace, label: str | tuple[Construction, ...]) -> Function:
-    return Function(space, label)
+def function(space: object, label: str | tuple[Construction, ...]) -> Function:
+    return Function(as_function_space(space), label)
 
 
 def form(

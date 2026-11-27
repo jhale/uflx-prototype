@@ -87,7 +87,6 @@ class RealScalarSpace(AbstractFunctionSpace):
     scalar_type = ScalarType.real
 
 
-@final
 class BasixSpace(AbstractFunctionSpace):
     """A Basix finite element on a reference cell, a mesh cell, or a topology."""
 

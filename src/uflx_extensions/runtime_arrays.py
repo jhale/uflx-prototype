@@ -11,7 +11,7 @@ from typing import Literal, final
 from typing_extensions import override
 
 from uflx.nodes import AbstractExpression, AbstractExtent, ScalarType
-from uflx.typing import Extent
+from uflx.typing import Construction, Extent
 
 __all__ = ["RuntimeArray", "RuntimeExtent", "runtime_array", "runtime_extent"]
 
@@ -30,7 +30,7 @@ class RuntimeArray(AbstractExpression):
 
     identifier = "uflx_extensions.RuntimeArray"
     is_terminal = True
-    label: str
+    label: str | tuple[Construction, ...]
     _value_shape: tuple[Extent, ...]
 
     @property
@@ -69,6 +69,6 @@ def runtime_extent(label: str) -> RuntimeExtent:
     return RuntimeExtent(label)
 
 
-def runtime_array(label: str, shape: Sequence[Extent]) -> RuntimeArray:
+def runtime_array(label: str | tuple[Construction, ...], shape: Sequence[Extent]) -> RuntimeArray:
     """Declare a real array input with the given shape."""
     return RuntimeArray(label, tuple(shape))
