@@ -54,6 +54,8 @@ __all__ = [
     "AbstractOperation",
     "ExternalOperator",
     "OutputType",
+    "Pullback",
+    "PullbackComponent",
     "apply_external_derivatives",
     "external_operator",
     "jvp",
@@ -78,9 +80,9 @@ class AbstractOperation(Base, ABC):
         """Identify the operation taking all point values followed by all directions."""
         return _JVPAction(self)
 
-    def vjp_action(self, operand: int) -> AbstractOperation:
-        """Return the operation taking primal operands and an output cotangent for this operand."""
-        return _VJPAction(self, operand)
+    def vjp_action(self) -> Pullback:
+        """Identify the pullback returning one cotangent per primal operand, in order."""
+        return Pullback(self)
 
 
 @final
@@ -100,15 +102,28 @@ class _JVPAction(AbstractOperation):
 
 
 @final
-class _VJPAction(AbstractOperation):
-    identifier = "uflx.extensions.VJPAction"
+class Pullback(Base):
+    """Binding for a callable taking the primal values followed by the output seed."""
+
+    identifier = "uflx.extensions.Pullback"
     primal: AbstractOperation
+
+    def component(self, operand: int) -> PullbackComponent:
+        return PullbackComponent(self, operand)
+
+
+@final
+class PullbackComponent(AbstractOperation):
+    """Symbolic selection of one input cotangent from a pullback."""
+
+    identifier = "uflx.extensions.PullbackComponent"
+    pullback: Pullback
     operand: int
 
     @override
     def output_type(self, operands: tuple[AbstractExpression, ...]) -> OutputType:
         *points, seed = operands
-        result = self.primal.output_type(tuple(points))
+        result = self.pullback.primal.output_type(tuple(points))
         if seed.value_shape != result.value_shape:
             raise ValueError("external VJP seed must match the output shape")
         if not 0 <= self.operand < len(points):
@@ -356,7 +371,9 @@ def _pullback(
                     if occurs_in_values(variable, operand):
                         if operand.scalar_type != "real" or node.scalar_type != "real":
                             raise ValueError("external VJP requires real operands and results")
-                        bar = external_operator(law.vjp_action(i), (*operands, cotangent))
+                        bar = external_operator(
+                            law.vjp_action().component(i), (*operands, cotangent)
+                        )
                         if bar.scalar_type != "real" or bar.domain not in (
                             None,
                             operand.domain,

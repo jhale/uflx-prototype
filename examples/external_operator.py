@@ -18,7 +18,6 @@ import jax
 import jax.numpy as jnp
 from jax import export
 
-from uflx.algorithms import occurs
 from uflx.forms import apply, form, function
 from uflx_basix.spaces import real_scalar_space
 from uflx_extensions.external_operators import (
@@ -39,16 +38,17 @@ def square_type(operands):
 square = operation("example.square", 1, square_type)
 V = real_scalar_space()
 u, v, h, z = (function(V, name) for name in ("u", "v", "h", "z"))
-R = form(external_operator(square, (u,)) * v, (v,))
+square_u = external_operator(square, (u,))
+R = form(square_u * v, (v,))
 
 Jh = jvp(R, u, h)  # Supply a perturbation; the test slot stays open.
 JTz = vjp(R, u, z)  # Supply a test value; the perturbation slot stays open.
 
-assert occurs(square.derivative_action(), Jh)
-assert occurs(square.vjp_action(0), JTz)
+pushforward = square.derivative_action()
+pullback = square.vjp_action()
 
 # %% [markdown]
-# ## Evaluate the tangent with JAX
+# ## Bind both derivative actions to the same numerical square
 
 
 # %%
@@ -57,11 +57,23 @@ def square_jvp(x, dx):
     return tangent
 
 
-# Bind the primal and its JAX-derived tangent, then evaluate the form at z.
-evaluate = trace(apply(Jh, (z,)), square, square.derivative_action(), u, h, z)
-tangent = jax.jit(partial(evaluate, jnp.square, square_jvp))
-value = tangent(3.0, 2.0, 4.0)
-assert value == 48.0  # D square(3)[2] * 4
+def square_vjp(x, seed):
+    _, back = jax.vjp(jnp.square, x)
+    return back(seed)  # One cotangent per operand, in order.
+
+
+forward_pairing = apply(Jh, (z,))
+reverse_pairing = apply(JTz, (h,))
+
+evaluate_forward = trace(forward_pairing, square, pushforward, u, h, z)
+evaluate_reverse = trace(reverse_pairing, pullback, u, h, z)
+bound_forward = partial(evaluate_forward, jnp.square, square_jvp)
+bound_reverse = partial(evaluate_reverse, square_vjp)
+
+tangent = jax.jit(bound_forward)
+inputs = (3.0, 2.0, 4.0)  # u, h, z
+value = tangent(*inputs)
+assert value == bound_reverse(*inputs) == 48.0
 print(value)
 
 # %% [markdown]
@@ -69,6 +81,7 @@ print(value)
 
 # %%
 scalar = jax.ShapeDtypeStruct((), jnp.float32)
-exported = export.export(tangent)(scalar, scalar, scalar)  # u, h, z
+export_tangent = export.export(tangent)
+exported = export_tangent(scalar, scalar, scalar)  # u, h, z
 tangent_c = emit_c(exported, "square_tangent")
 print(tangent_c)

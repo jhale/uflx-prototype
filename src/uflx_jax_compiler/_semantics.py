@@ -273,7 +273,7 @@ def _evaluate(node, bindings, site, arguments, memo):
         case ExternalOperator():
             if order:
                 return pointwise()
-            return evaluate_external(node, bindings[node.operation], site, scoped_value)
+            return evaluate_external(node, bindings, site, scoped_value, memo)
         case DirectionalDerivative():
             reference = site.require_reference("DirectionalDerivative")
             if order:

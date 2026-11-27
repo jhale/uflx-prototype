@@ -10,6 +10,8 @@ from dataclasses import dataclass
 
 import jax.numpy as jnp
 
+from uflx_extensions.external_operators import PullbackComponent
+
 from ._context import as_argument
 from ._forms import supplied
 
@@ -21,12 +23,27 @@ class Pointwise:
     function: Callable
 
 
-def evaluate_external(node, binding, site, value):
+def _call_external(node, binding, site, value):
     if isinstance(binding, Pointwise):
-        return jnp.asarray(binding.function(*(value(x) for x in node.operands)))
+        return binding.function(*(value(x) for x in node.operands))
 
     operands = (supplied(x, x, site, value) for x in node.operands)
-    result = binding(*(as_argument(x, site) for x in operands))
+    return binding(*(as_argument(x, site) for x in operands))
+
+
+def evaluate_external(node, bindings, site, value, memo):
+    op = node.operation
+    if isinstance(op, PullbackComponent):
+        key = (op.pullback, node.operands)
+        if key not in memo:
+            result = _call_external(node, bindings[op.pullback], site, value)
+            count = len(node.operands) - 1  # The final operand is the output seed.
+            if not isinstance(result, tuple) or len(result) != count:
+                raise ValueError(f"external pullback must return a tuple of {count} cotangents")
+            memo[key] = result
+        result = memo[key][op.operand]
+    else:
+        result = _call_external(node, bindings[op], site, value)
     if callable(result) and node.domain is not None:
         result = result(site.points[node.domain])
     return jnp.asarray(result)
