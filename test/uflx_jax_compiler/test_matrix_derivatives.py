@@ -14,8 +14,9 @@ from uflx._src.nodes import Inverse
 from uflx.arithmetic import num
 from uflx.calculus import directional_derivative
 from uflx.forms import function
-from uflx.passes import apply_derivatives
+from uflx.passes import apply_derivatives, lower
 from uflx.tensors import component_tensor, determinant, index, inverse, tensor
+from uflx_jax_compiler.passes import lower as compiler_lower
 
 from ..testutil import contains
 from ..uflx.spaces import space
@@ -155,3 +156,26 @@ def test_small_inverse_at_extreme_scales(n):
     matrix = (np.eye(n) + np.triu(np.ones((n, n))))[::-1]
     result = kernel(scales * matrix) * scales
     np.testing.assert_allclose(result, np.broadcast_to(np.linalg.inv(matrix), result.shape))
+
+
+@pytest.mark.parametrize("n", [2, 3])
+def test_lower_differentiates_small_determinant_at_singular_point(n):
+    from uflx.nodes import Determinant
+
+    V = space("small-det", None, (n, n), scalar_type="real")
+    A, H, K = (function(V, name) for name in ("A", "H", "K"))
+    det = determinant(A)
+    first = directional_derivative(det, A, H)
+    tangent = directional_derivative(first, A, K)
+    assert contains(lower(tangent), lambda node: isinstance(node, Determinant))
+    lowered = compiler_lower(tangent)
+    assert not contains(lowered, lambda node: isinstance(node, Determinant))
+    assert compiler_lower(det) == det
+    # Perturb the final 2x2 block in dense directions at a singular point.
+    point = np.eye(n)
+    point[-2:, -2:] = 0
+    h, k = np.zeros_like(point), np.zeros_like(point)
+    h[-2:, -2:] = [[1, 2], [3, 4]]
+    k[-2:, -2:] = [[5, 6], [7, 8]]
+    value = uflx_jax_compiler.trace(lowered, A, H, K)(point, h, k)
+    np.testing.assert_allclose(value, 1 * 8 + 4 * 5 - 2 * 7 - 3 * 6)

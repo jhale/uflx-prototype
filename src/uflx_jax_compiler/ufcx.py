@@ -3,11 +3,14 @@
 from math import prod
 from string import Template
 
+import jax
 import numpy as np
 from jax import ShapeDtypeStruct, export
 
 from ._finite_elements import basix_space
+from ._gradient_tensor import gradient_tensor_kernel
 from .emitc import emit_c
+from .interpreter import trace
 
 
 def with_ufcx_cell_inputs(kernel, *, dtype):
@@ -66,6 +69,14 @@ def with_ufcx_cell_inputs(kernel, *, dtype):
 
     evaluate_from_buffers.input_specs = tuple(ShapeDtypeStruct((n,), dtype) for n in sizes.values())
     return evaluate_from_buffers
+
+
+def compile_ufcx_cell(expression, *inputs, dtype, name="tabulate_tensor"):
+    """Compile a quadrature-discretised form to a UFCx C99 cell callback."""
+    kernel = gradient_tensor_kernel(expression, inputs) if np.dtype(dtype) == np.float64 else None
+    packed = with_ufcx_cell_inputs(kernel or trace(expression, *inputs), dtype=dtype)
+    exported = export.export(jax.jit(packed))(*packed.input_specs)
+    return emit_ufcx_tabulate_tensor(exported, name)
 
 
 def emit_ufcx_tabulate_tensor(exported: export.Exported, name):

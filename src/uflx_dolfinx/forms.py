@@ -23,22 +23,6 @@ from uflx_extensions.runtime_arrays import RuntimeArray
 from .functions import Constant, Function, _ReferenceSpace, functionspace
 
 
-def _emit_tabulate_tensor(
-    expression: Form,
-    coordinates: AbstractExpression,
-    dtype: np.dtype,
-    *,
-    coefficients: Collection[AbstractExpression] = (),
-    constants: Collection[RuntimeArray] = (),
-) -> str:
-    evaluate = uflx_jax_compiler.trace(expression, coordinates, *coefficients, *constants)
-    tabulate = uflx_jax_compiler.with_ufcx_cell_inputs(evaluate, dtype=dtype)
-    # with_ufcx_cell_inputs attaches the buffer specifications to its callable.
-    specs = tabulate.input_specs  # pyrefly: ignore[missing-attribute]
-    exported = jax.export.export(jax.jit(tabulate))(*specs)
-    return uflx_jax_compiler.emit_ufcx_tabulate_tensor(exported, "tabulate_tensor")
-
-
 def _compile_kernel(source: str, dtype: np.dtype) -> ModuleType:
     module_name = "_uflx_" + sha256(source.encode()).hexdigest()
     ffi = FFI()
@@ -152,8 +136,8 @@ def form(
     if not isinstance(space, MappedSpace):
         raise ValueError("expected a mapped DOLFINx argument space")
     coordinates = space.mesh.coordinate_function
-    source = _emit_tabulate_tensor(
-        discrete, coordinates, dtype, coefficients=coefficients, constants=constants
+    source = uflx_jax_compiler.compile_ufcx_cell(
+        discrete, coordinates, *coefficients, *constants, dtype=dtype
     )
     module = _compile_kernel(source, dtype)
     return _create_form(

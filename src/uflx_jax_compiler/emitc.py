@@ -47,6 +47,7 @@ DEFAULT_EMITC_PASSES = (
     "canonicalize",
     "arith-expand",
     "convert-math-to-emitc{language-target=c99}",
+    "convert-math-to-libm",
     "convert-to-emitc",
 )
 

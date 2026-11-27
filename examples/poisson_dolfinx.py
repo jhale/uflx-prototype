@@ -15,8 +15,8 @@ from mpi4py import MPI
 import uflx_dolfinx
 from uflx.calculus import gradient, integral
 from uflx.forms import form, function
-from uflx.passes import lower
 from uflx_basix.quadrature import apply_quadrature
+from uflx_jax_compiler.passes import lower
 
 jax.config.update("jax_enable_x64", True)
 
