@@ -23,6 +23,7 @@ DEPENDENCIES = {
     "uflx_basix": {"uflx", "uflx_extensions.runtime_arrays"},
     "uflx_extensions": {"uflx"},
     "uflx_jax_compiler": {"uflx", "uflx_basix", "uflx_extensions"},
+    "uflx_dolfinx": {"uflx", "uflx_basix", "uflx_extensions.runtime_arrays", "uflx_jax_compiler"},
 }
 
 
